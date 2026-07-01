@@ -13,10 +13,8 @@ const { version } = require('../../package.json');
 const program = new Command();
 
 program
-  .name('polaris-flow')
-  .description(
-    'All-in-one Polaris workflow platform: install, schema, skills, and dashboard',
-  )
+  .name('polaris')
+  .description('All-in-one Polaris workflow platform: install, schema, skills, and dashboard')
   .version(version);
 
 program.hook('preAction', async (_thisCommand, actionCommand) => {
@@ -38,14 +36,22 @@ program
   .option('--lang <lang>', 'skill language: zh or en')
   .option('--json', 'output JSON')
   .action(async (path: string, options) => {
-    await initCommand(path, {
-      yes: options.yes,
-      scope: options.scope,
-      overwrite: options.overwrite,
-      skipExisting: options.skipExisting,
-      lang: options.lang,
-      json: options.json,
-    });
+    try {
+      await initCommand(path, {
+        yes: options.yes,
+        scope: options.scope,
+        overwrite: options.overwrite,
+        skipExisting: options.skipExisting,
+        lang: options.lang,
+        json: options.json,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'ExitPromptError') {
+        console.log('\n  Cancelled.\n');
+        process.exit(0);
+      }
+      throw error;
+    }
   });
 
 program

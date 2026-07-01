@@ -16,6 +16,7 @@
     "access": "public"
   },
   "bin": {
+    "polaris": "./bin/polaris.js",
     "polaris-flow": "./bin/polaris-flow.js"
   },
   "files": [
@@ -28,6 +29,7 @@
   ],
   "scripts": {
     "build": "node build.js",
+    "build:sh": "bash scripts/build.sh",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

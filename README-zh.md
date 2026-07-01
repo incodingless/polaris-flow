@@ -23,17 +23,19 @@ Polaris Flow 是面向 AI 编码环境的一站式工作流平台，覆盖**安�
 pnpm install
 pnpm run build
 pnpm test
-node bin/polaris-flow.js --version
+node bin/polaris.js --version
 ```
+
+一键构建（install + build，可选 lint/test）见 [docs/build.sh.md](docs/build.sh.md)。
 
 ## 计划命令
 
-- `polaris-flow init` — 为项目初始化工作流，安装工作流、Harness环境
-- `polaris-flow status` — 展示当前change与工作流状态
-- `polaris-flow dashboard` — 启动本地Dashboard
-- `polaris-flow doctor` — 诊断环境、schema 与 skill 安装状态
-- `polaris-flow update` — 更新 schema、skills 与依赖
-- `polaris-flow uninstall` — 卸载已安装组件
+- `polaris init` — 为项目初始化工作流，安装工作流、Harness环境
+- `polaris status` — 展示当前change与工作流状态
+- `polaris dashboard` — 启动本地Dashboard
+- `polaris doctor` — 诊断环境、schema 与 skill 安装状态
+- `polaris update` — 更新 schema、skills 与依赖
+- `polaris uninstall` — 卸载已安装组件
 
 ## 许可证
 

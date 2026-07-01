@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * 安装后提示用户运行 polaris-flow init。
+ * 安装后提示用户运行 polaris init。
  *
  * 以下情况跳过提示：
  * - CI=true 环境变量已设置
@@ -35,7 +35,7 @@ async function main() {
   try {
     if (shouldSkip()) return;
     if (!(await distExists())) return;
-    console.log(`\nTip: Run 'polaris-flow init' to set up Polaris Flow workflow in your project`);
+    console.log(`\nTip: Run 'polaris init' to set up Polaris Flow workflow in your project`);
   } catch {
     // 安装流程不应因提示失败而中断
   }

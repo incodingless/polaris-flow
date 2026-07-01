@@ -1,9 +1,11 @@
 import { execFileSync } from 'child_process';
 import fs from 'fs';
+import { rm } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { PLATFORMS } from './platforms.js';
 import { printCommandErrorDetails } from './command-error.js';
+import { fileExists, readJson } from '../utils/file-system.js';
 
 import type { InstallScope } from './types.js';
 
@@ -155,24 +157,62 @@ function isCommandAvailable(command: string): boolean {
   }
 }
 
-async function ensureOpenSpecCli(
-  scope: InstallScope,
-  projectPath: string,
-  shouldInstall = true,
-): Promise<'ready' | 'missing' | 'failed'> {
+function buildOpenSpecCliInstallArgs(): string[] {
+  // CLI 工具始终全局安装，避免在目标项目目录产生 node_modules
+  return ['install', '-g', '@fission-ai/openspec@latest'];
+}
+
+/** 清理旧版 init 在目标项目误装的本地 OpenSpec CLI 产物 */
+async function cleanupLegacyLocalOpenSpecInstall(projectPath: string): Promise<void> {
+  const openspecModulePath = path.join(projectPath, 'node_modules', '@fission-ai', 'openspec');
+  if (!(await fileExists(openspecModulePath))) {
+    return;
+  }
+
+  const packageJsonPath = path.join(projectPath, 'package.json');
+  let shouldCleanup = false;
+
+  if (!(await fileExists(packageJsonPath))) {
+    shouldCleanup = true;
+  } else {
+    try {
+      const pkg = await readJson<{ dependencies?: Record<string, string> }>(packageJsonPath);
+      const deps = Object.keys(pkg.dependencies ?? {});
+      shouldCleanup = deps.length === 1 && deps[0] === '@fission-ai/openspec';
+    } catch {
+      return;
+    }
+  }
+
+  if (!shouldCleanup) {
+    return;
+  }
+
+  const pathsToRemove = [
+    path.join(projectPath, 'node_modules'),
+    path.join(projectPath, 'package-lock.json'),
+    packageJsonPath,
+  ];
+
+  for (const target of pathsToRemove) {
+    if (!(await fileExists(target))) continue;
+    try {
+      await rm(target, { recursive: true, force: true });
+    } catch {
+      // 尽力清理，失败不阻断 init
+    }
+  }
+}
+
+async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missing' | 'failed'> {
   const alreadyInstalled = isCommandAvailable('openspec');
   if (!shouldInstall) {
     return alreadyInstalled ? 'ready' : 'missing';
   }
   const label = alreadyInstalled ? 'Upgrading' : 'Installing';
-  console.warn(`    ${label} OpenSpec CLI...`);
+  console.warn(`    ${label} OpenSpec CLI (global)...`);
   try {
-    const npmArgs =
-      scope === 'global'
-        ? ['install', '-g', '@fission-ai/openspec@latest']
-        : ['install', '@fission-ai/openspec@latest'];
-    execFileSync(getNpmExecutable(), npmArgs, {
-      cwd: projectPath,
+    execFileSync(getNpmExecutable(), buildOpenSpecCliInstallArgs(), {
       stdio: 'inherit',
       timeout: 120_000,
       shell: process.platform === 'win32',
@@ -246,7 +286,9 @@ async function installOpenSpec(
   scope: InstallScope,
   shouldInstallCli = true,
 ): Promise<'installed' | 'failed' | 'skipped'> {
-  const cliStatus = await ensureOpenSpecCli(scope, projectPath, shouldInstallCli);
+  await cleanupLegacyLocalOpenSpecInstall(projectPath);
+
+  const cliStatus = await ensureOpenSpecCli(shouldInstallCli);
   if (cliStatus === 'failed') {
     console.error(
       `    OpenSpec CLI not available. Install manually: npm install -g @fission-ai/openspec@latest`,
@@ -323,6 +365,7 @@ export {
   installOpenSpec,
   isCommandAvailable,
   buildOpenSpecInitInvocation,
+  buildOpenSpecCliInstallArgs,
   getNpmExecutable,
   migrateOpenCodeOpenSpecPaths,
 };

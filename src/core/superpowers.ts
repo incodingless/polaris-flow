@@ -3,9 +3,20 @@ import os from 'os';
 import path from 'path';
 import { cp, mkdir, mkdtemp, readdir, rm } from 'fs/promises';
 
-import { printCommandErrorDetails } from './command-error.js';
+import { cleanupTemp, fetchRepo, resolveVersion } from './github.js';
+import { installSource } from './install.js';
+import { getSuperpowersSource, SUPERPOWERS_REPO, SUPERPOWERS_MIN_VERSION } from './sources.js';
+import { getBaseDir } from './detect.js';
 import { getPlatformSkillsDir, PLATFORMS } from './platforms.js';
+import { printCommandErrorDetails } from './command-error.js';
 import type { InstallScope } from './types.js';
+
+export type SuperpowersInstallResult = {
+  status: 'installed' | 'failed' | 'skipped';
+  version: string;
+  /** 实际使用的安装通道 */
+  method?: 'github' | 'npx';
+};
 
 const SKILLS_AGENT_MAP: Record<string, string | null> = {
   claude: 'claude-code',
@@ -44,16 +55,14 @@ const SUPERPOWERS_INSTALL_TIMEOUT_MS = 300_000;
 const LINGMA_PLATFORM_ID = 'lingma';
 const LINGMA_STAGE_AGENT = 'claude-code';
 
+function getNpxExecutable(platform: NodeJS.Platform = process.platform): string {
+  return platform === 'win32' ? 'npx.cmd' : 'npx';
+}
+
 function buildSuperpowersInstallCommand(
-  _projectPath: string,
   scope: InstallScope,
   platformIds: string[],
 ): { command: string; args: string[] } {
-  const unknownIds = platformIds.filter((id) => !VALID_PLATFORM_IDS.has(id));
-  if (unknownIds.length > 0) {
-    throw new Error(`Unknown platform IDs: ${unknownIds.join(', ')}`);
-  }
-
   const agentNames = [
     ...new Set(
       platformIds.map((id) => SKILLS_AGENT_MAP[id]).filter((name): name is string => Boolean(name)),
@@ -81,10 +90,6 @@ function buildLingmaSuperpowersStageCommand(): { command: string; args: string[]
   };
 }
 
-function getNpxExecutable(platform: NodeJS.Platform = process.platform): string {
-  return platform === 'win32' ? 'npx.cmd' : 'npx';
-}
-
 async function copyDirectoryContents(srcDir: string, destDir: string): Promise<void> {
   await mkdir(destDir, { recursive: true });
   const entries = await readdir(srcDir, { withFileTypes: true });
@@ -97,7 +102,7 @@ async function copyDirectoryContents(srcDir: string, destDir: string): Promise<v
   }
 }
 
-async function installSuperpowersForLingma(
+async function installSuperpowersForLingmaViaNpx(
   projectPath: string,
   scope: InstallScope,
 ): Promise<'installed' | 'failed'> {
@@ -118,7 +123,7 @@ async function installSuperpowersForLingma(
     });
 
     const stagedSkillsDir = path.join(tempDir, '.claude', 'skills');
-    const baseDir = scope === 'global' ? os.homedir() : projectPath;
+    const baseDir = getBaseDir(scope, projectPath);
     const lingmaSkillsDir = path.join(
       baseDir,
       getPlatformSkillsDir(lingmaPlatform, scope),
@@ -135,28 +140,65 @@ async function installSuperpowersForLingma(
   }
 }
 
-async function installSuperpowersForPlatforms(
+/** 优先通道：GitHub shallow clone */
+async function installSuperpowersViaGitHub(
+  baseDir: string,
+  platforms: (typeof PLATFORMS)[number][],
+  scope: InstallScope,
+): Promise<SuperpowersInstallResult | null> {
+  const source = getSuperpowersSource();
+  let localPath: string | undefined;
+
+  try {
+    const resolved = resolveVersion(SUPERPOWERS_REPO, SUPERPOWERS_MIN_VERSION);
+    const version = resolved.version;
+
+    if (version) {
+      console.warn(`    ↳ v${version}`);
+    } else if (resolved.reason === 'network-error') {
+      console.warn(`    ↳ 无法访问 GitHub 获取版本 tag，将 clone 默认分支...`);
+    } else {
+      console.warn(`    ↳ 无可用 tag，将 clone 默认分支...`);
+    }
+
+    console.warn(`    ↳ git clone ${SUPERPOWERS_REPO} ...`);
+
+    const fetched = await fetchRepo(SUPERPOWERS_REPO, version);
+    localPath = fetched.localPath;
+
+    for (const platform of platforms) {
+      await installSource(source, fetched.localPath, baseDir, platform, scope);
+    }
+
+    return {
+      status: 'installed',
+      version: fetched.version,
+      method: 'github',
+    };
+  } catch (error) {
+    console.warn(`    ↳ GitHub 拉取失败: ${(error as Error).message}`);
+    return null;
+  } finally {
+    if (localPath) {
+      await cleanupTemp(localPath);
+    }
+  }
+}
+
+/** 回退通道：npx skills add（国内网络或 git HTTP/2 问题时更稳定） */
+async function installSuperpowersViaNpx(
   projectPath: string,
   scope: InstallScope,
   platformIds: string[],
-  shouldInstall = true,
-): Promise<'installed' | 'failed' | 'skipped'> {
-  if (!shouldInstall) {
-    return 'skipped';
-  }
-
-  const unknownIds = platformIds.filter((id) => !VALID_PLATFORM_IDS.has(id));
-  if (unknownIds.length > 0) {
-    throw new Error(`Unknown platform IDs: ${unknownIds.join(', ')}`);
-  }
+): Promise<SuperpowersInstallResult> {
+  console.warn('    ↳ 回退: npx skills add obra/superpowers ...');
 
   const skillsCliPlatformIds = platformIds.filter((id) => SKILLS_AGENT_MAP[id]);
   const shouldInstallLingma = platformIds.includes(LINGMA_PLATFORM_ID);
   let failed = false;
 
   if (skillsCliPlatformIds.length > 0) {
-    const command = buildSuperpowersInstallCommand(projectPath, scope, skillsCliPlatformIds);
-
+    const command = buildSuperpowersInstallCommand(scope, skillsCliPlatformIds);
     try {
       execFileSync(command.command, command.args, {
         cwd: projectPath,
@@ -165,23 +207,58 @@ async function installSuperpowersForPlatforms(
         shell: process.platform === 'win32',
       });
     } catch (error) {
-      console.error(`    Superpowers install failed: ${(error as Error).message}`);
+      console.error(`    Superpowers (npx) install failed: ${(error as Error).message}`);
       printCommandErrorDetails(error);
       failed = true;
     }
   }
 
   if (shouldInstallLingma) {
-    const lingmaStatus = await installSuperpowersForLingma(projectPath, scope);
+    const lingmaStatus = await installSuperpowersForLingmaViaNpx(projectPath, scope);
     if (lingmaStatus === 'failed') failed = true;
   }
 
-  return failed ? 'failed' : 'installed';
+  if (skillsCliPlatformIds.length === 0 && !shouldInstallLingma) {
+    return { status: 'failed', version: 'failed', method: 'npx' };
+  }
+
+  return failed
+    ? { status: 'failed', version: 'failed', method: 'npx' }
+    : { status: 'installed', version: 'npx-latest', method: 'npx' };
+}
+
+/**
+ * 安装 Superpowers：优先 GitHub clone，失败时回退 npx skills add。
+ */
+export async function installSuperpowersForPlatforms(
+  projectPath: string,
+  scope: InstallScope,
+  platformIds: string[],
+  shouldInstall = true,
+): Promise<SuperpowersInstallResult> {
+  if (!shouldInstall || platformIds.length === 0) {
+    return { status: 'skipped', version: 'skipped' };
+  }
+
+  const unknownIds = platformIds.filter((id) => !VALID_PLATFORM_IDS.has(id));
+  if (unknownIds.length > 0) {
+    throw new Error(`Unknown platform IDs: ${unknownIds.join(', ')}`);
+  }
+
+  const baseDir = getBaseDir(scope, projectPath);
+  const platforms = PLATFORMS.filter((p) => platformIds.includes(p.id));
+
+  const githubResult = await installSuperpowersViaGitHub(baseDir, platforms, scope);
+  if (githubResult?.status === 'installed') {
+    return githubResult;
+  }
+
+  return installSuperpowersViaNpx(projectPath, scope, platformIds);
 }
 
 export {
-  installSuperpowersForPlatforms,
-  buildSuperpowersInstallCommand,
-  buildLingmaSuperpowersStageCommand,
+  SUPERPOWERS_MIN_VERSION,
+  SUPERPOWERS_REPO,
   SKILLS_AGENT_MAP,
+  buildSuperpowersInstallCommand,
 };

@@ -11,6 +11,8 @@ import {
   type AssetManifest,
   type HookConfig,
 } from './manifest.js';
+import { installPolarisCommands } from './install.js';
+import { getPolarisSource } from './sources.js';
 import { getPlatformSkillsDir, type Platform } from './platforms.js';
 import type { InstallScope } from './types.js';
 
@@ -28,11 +30,6 @@ type Manifest = AssetManifest & {
   rules?: string[];
   hooks?: Record<string, HookConfig>;
 };
-
-const OPENCODE_COMMAND_HEADER = `---
-description: Run the {skillName} Polaris workflow
----
-`;
 
 const PI_COMMAND_EXTENSION_FILE = 'polaris-commands.ts';
 
@@ -86,18 +83,17 @@ async function copyPolarisSkillsForPlatform(
     .map((p) => (p.startsWith('skills/') ? p.slice('skills/'.length) : p))
     .filter((p) => p.endsWith('/SKILL.md') || p === 'SKILL.md' || p.endsWith('SKILL.md'));
 
-  if (platform.id === 'opencode') {
-    const result = await createOpenCodeCommands(
-      baseDir,
-      platform,
-      manifestSkills,
-      overwrite,
-      scope,
-      languageSkillsDir,
-    );
-    copied += result.copied;
-    skippedCount += result.skipped;
-  }
+  const commands = await installPolarisCommands(
+    getAssetsDir(),
+    baseDir,
+    platform,
+    scope,
+    lang,
+    overwrite,
+    getPolarisSource(),
+  );
+  copied += commands.copied;
+  skippedCount += commands.skipped;
 
   if (platform.id === 'pi') {
     const result = await createPiCommandExtension(
@@ -187,68 +183,6 @@ async function createPiCommandExtension(
     'utf-8',
   );
   copied++;
-
-  return { copied, skipped };
-}
-
-function stripFrontmatter(content: string): string {
-  if (!content.startsWith('---\n') && !content.startsWith('---\r\n')) {
-    return content.trimStart();
-  }
-
-  const normalized = content.replace(/\r\n/g, '\n');
-  const end = normalized.indexOf('\n---\n', 4);
-  if (end === -1) return content.trimStart();
-
-  return normalized.slice(end + '\n---\n'.length).trimStart();
-}
-
-async function createOpenCodeCommands(
-  baseDir: string,
-  platform: Platform,
-  skillPaths: string[],
-  overwrite: boolean,
-  scope: InstallScope,
-  languageSkillsDir: string,
-): Promise<{ copied: number; skipped: number }> {
-  let copied = 0;
-  let skipped = 0;
-  const assetsDir = getAssetsDir();
-  const commandsDir = path.join(baseDir, getPlatformSkillsDir(platform, scope), 'commands');
-
-  for (const skillPath of skillPaths) {
-    const parts = skillPath.split('/');
-    if (parts.length !== 2 || parts[1] !== 'SKILL.md') continue;
-
-    const skillName = parts[0];
-    const dest = path.join(commandsDir, `${skillName}.md`);
-
-    if (!overwrite && (await fileExists(dest))) {
-      skipped++;
-      continue;
-    }
-
-    await ensureDir(path.dirname(dest));
-    let skillSourcePath = path.join(assetsDir, languageSkillsDir, skillPath);
-    if (!(await fileExists(skillSourcePath))) {
-      skillSourcePath = path.join(assetsDir, 'skills', skillPath);
-    }
-    const skillBody = stripFrontmatter(await readFile(skillSourcePath, 'utf-8'));
-    const content = `${OPENCODE_COMMAND_HEADER.replace('{skillName}', skillName)}
-Equivalent Polaris skill: \`${skillName}\`
-Command name: \`/${skillName}\`
-
-Use the invocation arguments below as the user input for this workflow:
-
-\`\`\`text
-$ARGUMENTS
-\`\`\`
-
-${skillBody}
-`;
-    await writeFile(dest, content, 'utf-8');
-    copied++;
-  }
 
   return { copied, skipped };
 }

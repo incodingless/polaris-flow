@@ -2,7 +2,12 @@ import path from 'path';
 import os from 'os';
 
 import { fileExists, readDir, readJson } from '../utils/file-system.js';
-import { PLATFORMS, getPlatformSkillsDirs, type Platform } from './platforms.js';
+import {
+  PLATFORMS,
+  getPlatformSkillsDir,
+  getPlatformSkillsDirs,
+  type Platform,
+} from './platforms.js';
 
 import type { InstallScope } from './types.js';
 
@@ -13,6 +18,10 @@ const SUPERPOWERS_SKILLS = [
   'test-driven-development',
   'subagent-driven-development',
 ];
+
+function getBaseDir(scope: InstallScope, projectPath: string): string {
+  return scope === 'global' ? os.homedir() : projectPath;
+}
 
 async function hasSuperpowersInPluginCache(pluginsCacheDir: string): Promise<boolean> {
   const marketplaceEntries = await readDir(pluginsCacheDir);
@@ -33,13 +42,9 @@ async function hasSuperpowersInPluginCache(pluginsCacheDir: string): Promise<boo
   return false;
 }
 
-function getBaseDir(scope: InstallScope, projectPath: string): string {
-  return scope === 'global' ? os.homedir() : projectPath;
-}
-
 /**
- * Check if superpowers are installed via Claude Code plugin system.
- * Looks in ~/.claude/plugins/cache/{marketplace}/superpowers/{version}/skills/
+ * 检查 Claude Code 插件缓存中是否已有 Superpowers。
+ * 仅用于 doctor 等诊断，不参与 init 的「是否已安装」判定。
  */
 async function hasPluginSuperpowers(): Promise<boolean> {
   const claudeDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
@@ -48,10 +53,6 @@ async function hasPluginSuperpowers(): Promise<boolean> {
   return hasSuperpowersInPluginCache(pluginsCacheDir);
 }
 
-/**
- * Check if superpowers are installed via Codex plugin system.
- * Looks in ~/.codex/plugins/cache/{marketplace}/superpowers/{version}/skills/
- */
 async function hasCodexPluginSuperpowers(): Promise<boolean> {
   const codexDir =
     process.env.CODEX_HOME || process.env.CODEX_CONFIG_DIR || path.join(os.homedir(), '.codex');
@@ -60,17 +61,10 @@ async function hasCodexPluginSuperpowers(): Promise<boolean> {
   return hasSuperpowersInPluginCache(pluginsCacheDir);
 }
 
-/**
- * Check if superpowers are installed via OpenCode plugin system.
- * Checks multiple locations:
- * 1. ~/.config/opencode/superpowers/skills/ — plugin source directory
- * 2. ~/.config/opencode/opencode.json — plugin config with superpowers entry
- */
 async function hasOpenCodePluginSuperpowers(): Promise<boolean> {
   const opencodeDir =
     process.env.OPENCODE_CONFIG_DIR || path.join(os.homedir(), '.config', 'opencode');
 
-  // Check plugin source directory: ~/.config/opencode/superpowers/skills/
   const pluginSkillsDir = path.join(opencodeDir, 'superpowers', 'skills');
   if (await fileExists(pluginSkillsDir)) {
     const skills = await readDir(pluginSkillsDir);
@@ -79,7 +73,6 @@ async function hasOpenCodePluginSuperpowers(): Promise<boolean> {
     }
   }
 
-  // Check opencode.json config for superpowers plugin entry
   const configPath = path.join(opencodeDir, 'opencode.json');
   if (await fileExists(configPath)) {
     try {
@@ -91,7 +84,7 @@ async function hasOpenCodePluginSuperpowers(): Promise<boolean> {
         }
       }
     } catch {
-      // Invalid JSON or unreadable — skip
+      // 无效 JSON — 跳过
     }
   }
 
@@ -103,6 +96,8 @@ async function hasOpenCodePolarisCommands(baseDir: string, skillsDir: string, en
   if (polarisEntries.length === 0) return false;
 
   const commandsDir = path.join(baseDir, skillsDir, 'commands');
+  if (!(await fileExists(commandsDir))) return false;
+
   const commandEntries = await readDir(commandsDir);
   return polarisEntries.every((entry) => commandEntries.includes(`${entry}.md`));
 }
@@ -132,6 +127,10 @@ async function detectPlatforms(projectPath: string): Promise<Set<string>> {
   return detected;
 }
 
+/**
+ * 检查指定 scope 的 baseDir 下，某平台组件是否已安装。
+ * 只检查当前安装目标目录（project 或 global），不跨 scope 查主目录，避免误报。
+ */
 async function hasSkills(
   baseDir: string,
   platform: Platform,
@@ -166,54 +165,6 @@ async function hasSkills(
       }
       if (entries.some((e) => e.startsWith('polaris'))) return true;
       break;
-  }
-
-  if (scope === 'project' && baseDir !== os.homedir()) {
-    const globalSkillDirEntries = await Promise.all(
-      getPlatformSkillsDirs(platform, 'global').map(async (skillsDir) => {
-        const fullPath = path.join(os.homedir(), skillsDir, 'skills');
-        return {
-          skillsDir,
-          entries: (await fileExists(fullPath)) ? await readDir(fullPath) : [],
-        };
-      }),
-    );
-    const globalEntries = globalSkillDirEntries.flatMap((dir) => dir.entries);
-
-    switch (component) {
-      case 'openspec':
-        if (globalEntries.some((e) => e.startsWith('openspec-'))) return true;
-        break;
-      case 'superpowers':
-        if (SUPERPOWERS_SKILLS.some((name) => globalEntries.includes(name))) return true;
-        break;
-      case 'polaris':
-        if (platform.id === 'opencode') {
-          for (const dir of globalSkillDirEntries) {
-            if (await hasOpenCodePolarisCommands(os.homedir(), dir.skillsDir, dir.entries)) {
-              return true;
-            }
-          }
-          break;
-        }
-        if (globalEntries.some((e) => e.startsWith('polaris'))) return true;
-        break;
-    }
-  }
-
-  // Check Claude Code plugin cache for plugin-installed superpowers
-  if (component === 'superpowers' && platform.id === 'claude') {
-    if (await hasPluginSuperpowers()) return true;
-  }
-
-  // Check Codex plugin cache for plugin-installed superpowers
-  if (component === 'superpowers' && platform.id === 'codex') {
-    if (await hasCodexPluginSuperpowers()) return true;
-  }
-
-  // Check OpenCode plugin system for plugin-installed superpowers
-  if (component === 'superpowers' && platform.id === 'opencode') {
-    if (await hasOpenCodePluginSuperpowers()) return true;
   }
 
   return false;

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
-const cliPath = path.join(projectRoot, 'bin/polaris-flow.js');
+const cliPath = path.join(projectRoot, 'bin/polaris.js');
 
 describe('CLI smoke', () => {
   it('prints version output', () => {

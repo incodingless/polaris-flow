@@ -1,10 +1,26 @@
-import { checkbox, confirm, select } from '@inquirer/prompts';
+import { checkbox, select } from '@inquirer/prompts';
 
 import { t } from './i18n/index.js';
 import type { InstallScope, SkillLanguage } from '../core/types.js';
 import { PLATFORMS, type Platform } from '../core/platforms.js';
 
-export type OverwriteMode = boolean | 'ask' | 'bulk';
+export type ComponentAction = 'install' | 'overwrite' | 'skip';
+export type BulkOverwriteChoice = 'overwrite-all' | 'skip-all' | 'choose';
+
+export type InitPromptOptions = {
+  yes?: boolean;
+  overwrite?: boolean;
+  skipExisting?: boolean;
+};
+
+/** 根据已有安装与 CLI 选项决定组件动作（与 easyflow resolveAction 一致） */
+export function resolveAction(hasExisting: boolean, options: InitPromptOptions): ComponentAction {
+  if (!hasExisting) return 'install';
+  if (options.overwrite) return 'overwrite';
+  if (options.skipExisting) return 'skip';
+  if (options.yes) return 'skip';
+  return 'install';
+}
 
 export async function promptInstallScope(lang?: string): Promise<InstallScope> {
   return select({
@@ -26,10 +42,7 @@ export async function promptSkillLanguage(lang?: string): Promise<SkillLanguage>
   });
 }
 
-export async function promptPlatforms(
-  detected: Set<string>,
-  lang?: string,
-): Promise<Platform[]> {
+export async function promptPlatforms(detected: Set<string>, lang?: string): Promise<Platform[]> {
   const choices = PLATFORMS.map((platform) => ({
     name: `${platform.name}${detected.has(platform.id) ? ` (${t(lang, 'detected')})` : ''}`,
     value: platform,
@@ -45,38 +58,31 @@ export async function promptPlatforms(
   return selected;
 }
 
-export async function promptBulkOverwrite(lang?: string): Promise<OverwriteMode> {
-  const choice = await select({
-    message: t(lang, 'bulkOverwrite'),
+export async function promptBulkOverwriteChoice(
+  platformName: string,
+  components: string[],
+  lang?: string,
+): Promise<BulkOverwriteChoice> {
+  return select({
+    message: `${platformName} ${t(lang, 'bulkOverwrite')} ${components.join(', ')}. ${t(lang, 'overwriteChoice')}`,
     choices: [
-      { name: t(lang, 'overwriteAll'), value: 'overwrite-all' },
-      { name: t(lang, 'skipAll'), value: 'skip-all' },
-      { name: t(lang, 'choosePer'), value: 'choose-per' },
+      { name: t(lang, 'overwriteAll'), value: 'overwrite-all' as const },
+      { name: t(lang, 'skipAll'), value: 'skip-all' as const },
+      { name: t(lang, 'choosePer'), value: 'choose' as const },
     ],
   });
-
-  if (choice === 'overwrite-all') return true;
-  if (choice === 'skip-all') return false;
-  return 'bulk';
 }
 
-export async function promptOverwriteExisting(lang?: string): Promise<boolean> {
-  return confirm({
-    message: `${t(lang, 'overwriteChoice')} ${t(lang, 'overwrite')}?`,
-    default: false,
-  });
-}
-
-export async function promptInstallOpenSpec(lang?: string): Promise<boolean> {
-  return confirm({
-    message: t(lang, 'npmDepOpenSpec'),
-    default: true,
-  });
-}
-
-export async function promptInstallSuperpowers(lang?: string): Promise<boolean> {
-  return confirm({
-    message: t(lang, 'npmDepSuperpowers'),
-    default: true,
+export async function promptOverwriteChoice(
+  componentName: string,
+  platformName: string,
+  lang?: string,
+): Promise<'overwrite' | 'skip'> {
+  return select({
+    message: `${componentName} ${t(lang, 'alreadyExists')} on ${platformName}. ${t(lang, 'overwriteChoice')}`,
+    choices: [
+      { name: t(lang, 'overwrite'), value: 'overwrite' as const },
+      { name: t(lang, 'skip'), value: 'skip' as const },
+    ],
   });
 }
