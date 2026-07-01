@@ -1,0 +1,223 @@
+version: 1
+settingUp:
+  en: Setting up Comet in
+  zh: 正在设置 Comet：
+installScope:
+  en: "Install scope:"
+  zh: 安装范围：
+scopeProject:
+  en: Project (current directory)
+  zh: 项目（当前目录）
+scopeGlobal:
+  en: Global (home directory)
+  zh: 全局（主目录）
+languagePrompt:
+  en: "Language for Comet skills:"
+  zh: Comet 技能语言：
+selectPlatforms:
+  en: "Select platforms to set up:"
+  zh: 选择要配置的平台：
+selectedPlatforms:
+  en: "Selected:"
+  zh: 已选择：
+noneSelected:
+  en: none
+  zh: 无
+selectPlatformsRequired:
+  en: Select at least one platform.
+  zh: 请至少选择一个平台。
+detected:
+  en: detected
+  zh: 已检测到
+noPlatforms:
+  en: No platforms selected. Exiting.
+  zh: 未选择任何平台，退出。
+overwriteChoice:
+  en: What to do?
+  zh: 如何处理？
+overwrite:
+  en: Overwrite
+  zh: 覆盖
+skip:
+  en: Skip
+  zh: 跳过
+bulkOverwrite:
+  en: already has
+  zh: 已安装
+overwriteAll:
+  en: Overwrite all existing components
+  zh: 覆盖所有已有组件
+skipAll:
+  en: Skip all existing components
+  zh: 跳过所有已有组件
+choosePer:
+  en: Choose per component
+  zh: 逐个选择
+installingOS:
+  en: "Installing OpenSpec for:"
+  zh: 正在安装 OpenSpec：
+osSkippedNoCli:
+  en: OpenSpec CLI not installed, skipping OpenSpec setup
+  zh: 未安装 OpenSpec CLI，跳过 OpenSpec 配置
+allSkipped:
+  en: all skipped
+  zh: 全部跳过
+installingSP:
+  en: "Installing Superpowers for:"
+  zh: 正在安装 Superpowers：
+spSkippedByUser:
+  en: Superpowers install skipped by user
+  zh: 用户跳过 Superpowers 安装
+alreadyExists:
+  en: already exists
+  zh: 已存在
+rulesInstalled:
+  en: rule(s) installed
+  zh: 个规则已安装
+hooksInstalled:
+  en: phase guard hook installed
+  zh: 阶段守卫钩子已安装
+hooksSkipped:
+  en: skipped
+  zh: 已跳过
+installCodegraph:
+  en: Install CodeGraph for semantic code intelligence?
+  zh: 是否安装 CodeGraph（语义代码智能）？
+codegraphYes:
+  en: Yes (recommended — saves ~16% cost · cuts ~58% tool calls)
+  zh: 是（推荐 — 节省约 16% 成本，减少约 58% 工具调用）
+codegraphNo:
+  en: No
+  zh: 否
+installingCG:
+  en: Installing CodeGraph...
+  zh: 正在安装 CodeGraph...
+cgSkippedByUser:
+  en: CodeGraph install skipped by user
+  zh: 用户跳过 CodeGraph 安装
+setupComplete:
+  en: Comet setup complete!
+  zh: Comet 设置完成！
+installed:
+  en: "Installed:"
+  zh: 已安装：
+skippedLabel:
+  en: "Skipped:"
+  zh: 已跳过：
+failedLabel:
+  en: "Failed:"
+  zh: 失败：
+failedStatus:
+  en: failed
+  zh: 失败
+workingDirs:
+  en: "Working directories: docs/superpowers/specs/, docs/superpowers/plans/"
+  zh: 工作目录：docs/superpowers/specs/, docs/superpowers/plans/
+getStarted:
+  en: "Get started:"
+  zh: 开始使用：
+getStartedComet:
+  en: /comet "your idea"  — Start a new change with full workflow
+  zh: /comet "你的想法"  — 启动完整工作流
+getStartedHotfix:
+  en: /comet-hotfix       — Quick bug fix (skip brainstorming)
+  zh: /comet-hotfix       — 快速修复（跳过 brainstorming）
+getStartedTweak:
+  en: /comet-tweak        — Small change (skip brainstorming and plan)
+  zh: /comet-tweak        — 小改动（跳过 brainstorming 和完整 plan）
+selectNpmDeps:
+  en: "Select npm dependencies to install/upgrade:"
+  zh: 选择要安装/升级的 npm 依赖：
+npmDepOpenSpec:
+  en: OpenSpec CLI (@fission-ai/openspec@latest)
+  zh: OpenSpec CLI (@fission-ai/openspec@latest)
+npmDepOpenSpecInstalled:
+  en: OpenSpec CLI (already installed — upgrade to latest)
+  zh: OpenSpec CLI（已安装 — 升级到最新版本）
+npmDepSuperpowers:
+  en: Superpowers (npx skills add obra/superpowers)
+  zh: Superpowers (npx skills add obra/superpowers)
+npmDepSuperpowersInstalled:
+  en: Superpowers (already installed — re-run install)
+  zh: Superpowers（已安装 — 重新运行安装）
+npmDepSuperpowersHint:
+  en: v6.0.0+ recommended — ~2× faster, ~50% fewer tokens
+  zh: 推荐 v6.0.0+ — 速度快约 2 倍，节省约 50% token
+npmDepCodegraph:
+  en: CodeGraph CLI (@colbymchenry/codegraph)
+  zh: CodeGraph CLI (@colbymchenry/codegraph)
+npmDepCodegraphInstalled:
+  en: CodeGraph CLI (already installed — upgrade to latest)
+  zh: CodeGraph CLI（已安装 — 升级到最新版本）
+npmDepNotInstalled:
+  en: not installed
+  zh: 未安装
+updateTitle:
+  en: Comet Update
+  zh: Comet 更新
+updatingNpmPackage:
+  en: Updating npm package
+  zh: 正在更新 npm 包
+npmLaunchFailed:
+  en: "npm package: failed to launch npm"
+  zh: npm 包：启动 npm 失败
+npmUpdateFailed:
+  en: "npm package: update failed (exit code"
+  zh: npm 包：更新失败（退出码
+npmNetworkHint:
+  en: Check your network connection or firewall settings and try again.
+  zh: 请检查网络连接或防火墙设置后重试。
+npmPackageUpdated:
+  en: "npm package: updated to latest"
+  zh: npm 包：已更新到最新版本
+npmPackageFailed:
+  en: "npm package: update failed, continuing with bundled skills"
+  zh: npm 包：更新失败，继续使用已打包的 skills
+noInstallsFound:
+  en: No platforms with comet skills installed. Run `comet init` first.
+  zh: 未检测到已安装 comet skills 的平台。请先运行 `comet init`。
+updatingSkillsOnTargets:
+  en: Updating comet skills on
+  zh: 正在更新 comet skills，覆盖
+copyingSkillsFiles:
+  en: Copying
+  zh: 正在复制
+skillsCopiedSkipped:
+  en: copied,
+  zh: 已复制，
+rulesUpdated:
+  en: rule(s) updated
+  zh: 个规则已更新
+rulesFailed:
+  en: failed
+  zh: 失败
+hooksUpdated:
+  en: phase guard hook updated
+  zh: 阶段守卫钩子已更新
+hooksFailed:
+  en: failed
+  zh: 失败
+summary:
+  en: "Summary:"
+  zh: 摘要：
+summaryNpm:
+  en: "npm:"
+  zh: npm：
+summarySkills:
+  en: "skills:"
+  zh: skills：
+summaryCodegraph:
+  en: "codegraph:"
+  zh: codegraph：
+summaryScope:
+  en: "scope:"
+  zh: 范围：
+summaryLanguage:
+  en: "language:"
+  zh: 语言：
+updateComplete:
+  en: Update complete.
+  zh: 更新完成。
+cancelled:
+  en: Cancelled.
+  zh: 已取消。

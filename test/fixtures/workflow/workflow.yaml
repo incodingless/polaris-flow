@@ -1,0 +1,6 @@
+version: 1
+changes:
+  - id: add-feature-x
+    title: Demo change
+    status: active
+    worktree: /tmp/demo-worktree

@@ -1,0 +1,9 @@
+version: 1
+
+settingUp:
+  en: 'Setting up Comet in'
+  zh: '正在设置 Comet：'
+
+badEntry:
+  en: 123
+  zh: '错误'

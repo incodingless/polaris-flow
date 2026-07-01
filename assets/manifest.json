@@ -1,0 +1,10 @@
+{
+  "version": "0.1.0",
+  "languages": [
+    { "id": "zh", "name": "中文" },
+    { "id": "en", "name": "English" }
+  ],
+  "langContentDirs": ["skills", "commands", "templates", "adapters", "policies"],
+  "langFiles": ["hard-stops.md"],
+  "sharedDirs": ["hooks", "scorers", "templates"]
+}

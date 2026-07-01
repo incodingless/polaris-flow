@@ -1,0 +1,67 @@
+{
+  "name": "@polaris/polaris-flow",
+  "version": "0.1.0",
+  "description": "All-in-one Polaris workflow platform: install, OpenSpec schema, skills, and dashboard for AI coding environments",
+  "keywords": [
+    "polaris-flow",
+    "openspec",
+    "skills",
+    "workflow",
+    "dashboard",
+    "schema"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "polaris-flow": "./bin/polaris-flow.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "assets",
+    "scripts/postinstall.js",
+    "!dist/**/*.test.js",
+    "!dist/**/__tests__"
+  ],
+  "scripts": {
+    "build": "node build.js",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/",
+    "prepare": "husky && pnpm run build",
+    "prepublishOnly": "node scripts/prepublish-check.js && pnpm run build",
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx,js,mjs,cjs,json,md,yaml,yml}": "prettier --write"
+  },
+  "packageManager": "pnpm@10.18.3",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.2.0",
+    "@vitest/coverage-v8": "^4.1.6",
+    "eslint": "^10.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "prettier": "^3.8.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.3",
+    "vitest": "^4.1.6"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.5.1",
+    "commander": "^14.0.0",
+    "yaml": "^2.9.0"
+  }
+}
