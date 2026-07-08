@@ -37,6 +37,25 @@ node bin/polaris.js --version
 - `polaris update` — 更新 schema、skills 与依赖
 - `polaris uninstall` — 卸载已安装组件
 
+## 阶段工作流
+
+### 1. SDD工作流(/sdd)
+```
+ /psfl:clarify → /ezfl:propose → /ezfl:lock → /ezfl:build → /ezfl:verify → /ezfl:delivery → /ezfl:retro
+ (澄清)           (四件套)         (评审并定稿)   (实施)         (验收)        (交付)        (回顾， 可选)
+```
+
+### 2. 小改动工作流(/tweak)
+```
+ /ptfl:design → /ezfl:propose → /ezfl:lock → /ezfl:build → /ezfl:audit → /ezfl:ship → /ezfl:reflect
+ (探索)          (四件套)        (评审)        (实施)        (审计)        (交付)        (回顾)
+```
+### 3. 问题修复工作流(/debug)
+```
+ /ptfl:design → /ezfl:propose → /ezfl:lock → /ezfl:build → /ezfl:audit → /ezfl:ship → /ezfl:reflect
+ (探索)          (四件套)        (评审)        (实施)        (审计)        (交付)        (回顾)
+```
+
 ## 许可证
 
 MIT
