@@ -1,0 +1,45 @@
+# plan-review configuration
+#
+# Copy this file to `config.yaml` in your project root (not committed; add to .gitignore).
+# Any field omitted will use the default shown here.
+#
+# If `config.yaml` does not exist at all, the skill uses these defaults and
+# records "使用默认配置" at the top of the review report.
+
+challenger:
+  # 是否启用 Outside Voice（跨模型交叉评审）。
+  # true:  四节评审完成后，按 prompt_mode 决定是否启动 challenger。
+  # false: 跳过整个 Outside Voice 节。
+  enabled: true
+
+  # subagent 使用的模型。留空 = 使用宿主默认模型。
+  #
+  # 常见取值（请使用你的宿主实际支持的名称）：
+  #   "gpt-5"               (CodeBuddy / OpenAI 兼容宿主)
+  #   "gpt-5.3-Codex"       (CodeBuddy)
+  #   "claude-opus-4"       (Claude Code)
+  #   "claude-sonnet-4"     (Claude Code，更快)
+  #   "gemini-2.5-pro"      (Gemini 接入)
+  #   ""                    (留空 = inherit：复用主 agent 模型)
+  #
+  # session-start 复制 cross-review-agent.md 到 .claude/agents/ 时把本值注入其 model frontmatter；留空注入 inherit。
+  model: ""
+
+  # 主评审完成后启动 challenger 的策略。
+  # always_ask: 通过 ask_followup_question 询问用户（推荐；默认值）
+  # auto_run:   不询问，直接启动 challenger
+  # never:      永不启动（等价 enabled: false）
+  prompt_mode: always_ask
+
+  # 是否把"用户对主评审 findings 的 A/B/C 决策"也喂给 challenger。
+  # false: 只给 findings 清单，不给决策（推荐；最大化 challenger 独立性）
+  # true:  附带用户决策（challenger 会被用户偏好 anchored，独立性下降）
+  #        若开启，评审报告中将标注"已牺牲 challenger 独立性"。
+  share_user_decisions: false
+
+scope_challenge:
+  # Step 0.3 复杂度检查的阈值。超过任一阈值即触发 scope reduction 询问。
+  # 触及文件数上限
+  max_files: 8
+  # 引入的新类/新服务上限
+  max_new_services: 2

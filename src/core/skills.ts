@@ -684,6 +684,7 @@ async function installKiroHooks(
   return { installed: true };
 }
 
+/** 创建 init 所需的工作目录（不含 config.yaml，由 polaris-config 模块写入） */
 async function createWorkingDirs(projectPath: string): Promise<void> {
   const dirs = [
     path.join(projectPath, 'docs', 'superpowers', 'specs'),
@@ -693,23 +694,6 @@ async function createWorkingDirs(projectPath: string): Promise<void> {
 
   for (const dir of dirs) {
     await ensureDir(dir);
-  }
-
-  const configPath = path.join(projectPath, '.polaris', 'config.yaml');
-  if (!(await fileExists(configPath))) {
-    await writeFile(
-      configPath,
-      [
-        '# context_compression: off | beta',
-        'context_compression: off',
-        '# review_mode: off | standard | thorough',
-        'review_mode: off',
-        '# auto_transition: true | false',
-        'auto_transition: true',
-        '',
-      ].join('\n'),
-      'utf-8',
-    );
   }
 }
 

@@ -12,8 +12,13 @@
 - **Core**: 补全 file-system、manifest 加载、workflow/doctor 模块
 - **Changed**: 项目配置目录统一为 `.polaris/`
 
+### Added
+
+- **init**: project scope 初始化时写入 `.polaris/config.yaml`，记录 lang、created_at、workflow、phase、auto_transition 及现有功能开关
+
 ### Changed
 
+- **plugin-check**: 增加必填 `--plugin`（openspec / superpowers），每次调用只检测单个插件；`--platform` 必填，按「先全局、后项目」回落
 - **init**: 对齐 easyflow 安装流程——Plan/Install 两阶段、按平台/组件冲突策略、进度符号与汇总输出，并写入 `.polaris/skills-lock.json`
 - **命令适配器**: 新增 `src/core/command-adapters/` 注册表（default/claude/codex/windsurf/gemini/pi），init 经 adapter 安装 `assets/{zh,en}/commands/`
 - **Superpowers**: 改为 GitHub shallow clone + `installSource` 复制（替代 `npx skills add`）

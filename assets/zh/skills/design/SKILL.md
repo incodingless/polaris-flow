@@ -1,164 +1,347 @@
 ---
 name: design
-description: "用户触发 /polaris-flow:design 或要求进入设计阶段时必须使用本 skill。仅负责设计讨论、Reframe、Premise Challenge，并产出 pre_design.md。"
+description: "用户触发 /polaris-flow:design 或要求进入设计阶段时必须使用本 skill。负责深化设计"
 ---
 
-# design
+# 深度设计(design)
 
 <HARD-GATE>
-本 skill **仅**负责把用户需求经过强制结构化讨论后落地为 `pre_design.md`。
-
-- **禁止**跳过 brainstorming 强制交互（≥3 个探索性问题 + 等待用户回答 + 覆盖 ≥3 类）
-- **禁止**跳过 Reframe Check（./policies/reframe-check.md）
-- **禁止**跳过 Premise Challenge（./policies/premise-challenge.md）
-- **禁止**未拿到用户对**完整设计方案**的整体确认就标记本阶段完成
-- **禁止**未 `read_file templates/pre-design-template.md` 就生成 `pre_design.md`（Step 4.1 强制前置）
-- **禁止**使用未基于 brainstorming 摘要生成的随机 slug——`change_id` 的 slug 部分必须由 AI 从用户回答的探索性问题摘要中提炼（取核心 2-3 个名词关键词），保证可解释性
+本 skill **仅**负责把propose阶段的design.md深化设计形成详细实现方案。
 </HARD-GATE>
 
-**启动时必须先输出**：`[easy-flow] 进入阶段: design — 使用 easy-flow:design skill。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: design — 使用 polaris-flow:design skill。`
 
-## 状态布局
+## 前置条件
 
-- 起草期间：`.harness/changes/draft-<session_suffix>-<unix_ts>/state.yaml`
-- Step 4.4 敲定后：`mv` 到 `.harness/changes/<change_id>/state.yaml`
-- 同步维护 `.harness/workflow.yaml: active_changes` 游标 entry（写入一律走 `hooks/workflow-entry.sh`，见 `./policies/workflow-lock.md`，HARD STOP H12）。
+- 活跃 change 已存在（proposal.md、design.md、tasks.md）
+- 无 Design Doc（`docs/superpowers/specs/` 下无对应文件）
+
+> 职责边界：propose 阶段的 `design.md` 给出**高层方案框架**（架构决策方向、方案选型、数据流）；design 阶段的 Design Doc 是对它的**深度技术细化**（详细实现设计、技术风险、测试策略、边界条件），是深化而非替代或重写。
 
 ---
 
 ## 流程（按顺序执行，每一步未完成不得进入下一步）
 
-### Step 1：准备 draft 目录 + workflow entry
+### Step 0: 入口状态验证（Entry Check）
 
-**单次 Bash 调用**（封装了 draft 创建 / state.yaml 写入 / workflow entry 追加）：
 
-```bash
-PLUGIN_ROOT="$(cat <repo_root>/.harness/.cache/.plugin_root)"
-INIT_RESULT=$(bash "$PLUGIN_ROOT/hooks/design-init.sh" "<repo_root>")
-INIT_EXIT=$?
-echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
-```
+### Step 1: 读取Openspec文档
+读取当前Change的 OpenSpec 阶段产物：
+- `proposal.md`：目标、动机、范围、非目标
+- `design.md`：高层架构决策、方案约束
+- `tasks.md`：初始任务边界
+- `specs/*/spec.md`：delta 能力规格：
 
-**输出解读**（读 `INIT_RESULT` JSON）：
+### Step 2: 执行 Brainstorming（带上下文）
 
-| `INIT_EXIT` | `status` 字段 | 含义 | 后续动作 |
-|------------|--------------|------|---------|
-| 0 | `"ok"` | 成功 | 从 `draft_name` 取值，进入 Step 1.5 |
-| 1 | `"existing"` | 已有未完成 draft | 用 `ask_followup_question` 询问 A/B/C（见下） |
-| 2 | —（stderr） | 参数/环境错误 | 按 H12 阻断 |
-| 3 | —（stderr） | workflow 写入失败 | 按 H12 阻断 |
+#### 2.1 brainstorming深入设计
 
-`status="existing"` 时 `existing` 字段含已有 draft 目录列表，**必须**用 `ask_followup_question` 询问：
-- **A. 续写最新一个**：`draft_name` 为列表最后一项，跳到 Step 2
-- **B. 丢弃所有**：对每个 dir 执行以下操作后重新调用 `design-init.sh`：
-  ```bash
-  for d in <existing 列表>; do
-    rm -rf "<repo_root>/.harness/changes/$d"
-    bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" delete-active --skill design \
-      --repo-root "<repo_root>" --where-change-id "$d"
-  done
-  ```
-- **C. 取消退出**：退出
-
-#### 1.5 状态行输出（H8）
-
-输出 `[easy-flow] design draft: .harness/changes/<draft_name>/ ; workflow: appended entry phase=design`。
-
-### Step 2：加载宪法（注入点 A）
-
-读取 `openspec/memory/constitution.md`（若存在且无占位符）。
-
-### Step 3：brainstorming 强制交互（核心步骤）
-
-#### 3.1 设计讨论（强制硬门）
-
-| 维度 | 下限 |
-|------|------|
-| 提问数量 | **≥ 3 个**探索性问题 |
-| 覆盖类型数 | **≥ 3 类**（不能连提同类问题刷数） |
-| 提问范式来源 | `./policies/response-posture.md` 第四节 **Exploratory Question Patterns**（E1-E5） |
-| 等待行为 | 必须等待用户回答**全部** ≥3 个问题后才能进入 3.2 |
-| 模糊回答处理 | 按 response-posture.md 第二节 **Pushback Patterns** 推回，**不**计入提问数量达成 |
-
-整个子流程必须先 `read_file ./policies/response-posture.md` 并按照其行为对照表、Pushback Patterns、6 条回复前自检执行。
-
-**3.1 自检**（呈现方案前必须通过）：是否已向用户提出 ≥3 个问题、覆盖 ≥3 类、且收到具体回答？未达成 → 继续提问。
-
-#### 3.2 Reframe Check
-
-`read_file ./policies/reframe-check.md` 并按其 **第 1 节**执行：满足 3 个跳过条件则跳过；否则输出 1 个 Reframe 候选，等用户在 ✅ / ✏️ / ❌ 间选择（✅ 进入 3.3；✏️ 最多 2 轮迭代；❌ 保留原始 framing）。
-
-#### 3.3 设计决策方案 Options
-
-`read_file ./policies/reframe-check.md` 并按其 **第 2 节**执行：每个实现层决策点给出 2-3 个方案 + 优劣权衡，等用户在 A/B/C 中选；未选方案 + 拒绝理由记录待写入 `## Alternatives` 节。
-
-#### 3.4 Premise Challenge
-
-`read_file ./policies/premise-challenge.md` 并按其执行：基于 3.1~3.3 提炼 3-5 条前提（覆盖 ≥3 类）→ 输出清单等用户对每条 agree / disagree / unsure（disagree 重生成清单最多 3 轮；unsure 具体追问）→ 全部 agree 进入 Step 4。
-
-### Step 4：产出 `pre_design.md` + 敲定 change_id + 用户整体确认
-
-#### 4.1 写入 `pre_design.md` 到 draft 目录
-
-落盘路径：`<repo_root>/<draft_dir>/pre_design.md`（即 `.harness/changes/<draft_name>/pre_design.md`）。
-
-**强制前置**：写入前必须 `read_file templates/pre-design-template.md`，并输出 `[easy-flow design] 已 read_file templates/pre-design-template.md`。**禁止**未读模板就生成内容。
-
-内容严格按模板的 9 个固定节生成（Reframe 历程 / Constitution Alignment / Premises / Premise History / Decisions / Alternatives / 任务范围 / Open Questions / 下游约束）。各节内容来源（3.2 / Step 2 / 3.4 / 3.3）由本阶段对应步骤的产物填充；首行 `# Pre-Design: <change_id>` 暂用占位 `<TBD>`，4.4 敲定后回填。
-
-#### 4.2 用户整体确认 pre_design.md
-
-向用户输出预览并询问：
-
-> 以上是完整的设计方案（包括架构、技术选型、任务范围），请 review 并确认是否可以进入下一阶段？
->
-> （请回复"确认 / ok / 同意"等明确的整体确认；若仅对某个条目有意见，请直接指出该条目以便修改）
-
-判定规则：
-
-| 用户回复 | 判定 | 后续动作 |
-|---------|------|---------|
-| 明确整体确认（"确认/ok/同意"等） | 完成 | 进入 4.3 |
-| 仅对某条/某节给出反馈 | **不算确认** | 修改对应内容后**重新执行 4.2** |
-| 模糊回复（"差不多"、"可以吧"） | **不算确认** | **必须明确再问一次**："以上是完整的设计方案，请确认是否可以进入下一阶段？" |
-| 沉默 / 无回复 | **不算确认** | 同上 |
-
-**禁止**把 3.1~3.4 中任何一处用户的局部"同意"当作整体确认。
-
-#### 4.3 生成 change_id（AI 自动）
-
-整体确认后，AI 自动从 brainstorming 的"核心问题陈述"（用户答完 ≥3 个问题后浮出的核心动作 + 对象，**不**是字面摘录）提炼 2-3 个核心名词/动词关键词，kebab-case 拼接得 slug（正则 `^[a-z][a-z0-9-]+$`，10-25 字符），再拼 `change_id = "<slug>-<session_suffix>"`（终态正则 `^[a-z][a-z0-9-]+-[0-9a-f]{6}$`）。校验失败重试，3 次后阻断要求人工介入。
-
-可审计输出：
-
-```
-[easy-flow] AI 已生成 change_id：<change_id>
-  slug 来源：<提炼时引用的 brainstorming 关键词，如 "refactor / sdk / api">
-  session 后缀：<session_suffix>
-该标识将作为 worktree 目录 / git 分支 / OpenSpec change 目录 / 本 change state.yaml 的统一名字。
-如需覆盖，请在 /ezfl:propose 触发前回复："改为 <新 slug>"，否则进入下一阶段后无法修改。
-```
-
-不阻塞流程，直接进入 4.4。若 4.5 后用户回复"改为 X" → 用 X 替换 slug 重做 4.4。
-
-#### 4.4 重命名 draft → 正式目录 + 同步 workflow.yaml
-
-**单次 Bash 调用**（封装了目录 mv / state.yaml 更新 / pre_design.md 首行回填 / workflow rename）：
+**立即执行：** 使用 Skill 工具加载 Superpowers `brainstorming` 技能。禁止跳过此步骤。
 
 ```bash
-PLUGIN_ROOT="$(cat <repo_root>/.harness/.cache/.plugin_root)"
-FINAL_RESULT=$(bash "$PLUGIN_ROOT/hooks/design-finalize.sh" "<repo_root>" "<draft_name>" "<change_id>")
-FINAL_EXIT=$?
-echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
+CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
+LANGUAGE="$(cat "$CONFIG_FILE" | grep "language" | awk -F'"' '{print $2}')"
+
+技能加载时，ARGUMENTS 必须包含：
+
+```text
+Language: $LANGUAGE
 ```
 
-| `FINAL_EXIT` | 含义 | 后续动作 |
-|---|---|---|
-| 0 | 成功 | 进入 4.5 |
-| 1 | 目标目录已存在 | 按 H12 阻断 |
-| 2 | 参数/环境错误 | 按 H12 阻断 |
-| 3 | workflow rename 失败 | 按 H12 阻断 |
+技能加载后，按其指引使用以下上下文：
 
-#### 4.5 输出完成状态行
+```text
+Change: <change-name>
+OpenSpec Context : openspec/changes/<name>/*.md
 
-输出 `[easy-flow] design 阶段完成：.harness/changes/<change_id>/pre_design.md 已锁定；workflow entry change_id 由 <draft_name> 改为 <change_id>。` 并提示下一步 `/ezfl:propose`。
+OpenSpec 产物是上游事实源，但不得用“跳过重复上下文探索”削弱 Superpowers `brainstorming` 的澄清流程。
+你的任务是基于 OpenSpec 文档做深度技术设计：实现方案、技术风险、测试策略、边界条件。
+如发现目标、范围、非目标、验收场景或关键约束仍不清楚，必须先继续提问并形成设计方案，不得只进行一轮问答就创建 Design Doc。
+不要重写 proposal/spec；如发现 OpenSpec delta spec 缺少验收场景，只能提出 Spec Patch，并回写 OpenSpec delta spec；不要在 Design Doc 中创建第二份需求 spec。
+Spec Patch 仅限于补充验收场景、修正歧义描述或添加边界条件，不得大幅重写 delta spec 的结构或范围——如需大幅修改，应标记为设计发现并回到 brainstorming 确认。
+
+Design Doc frontmatter 必须最小化，只包含：
+---
+change: <change-name>
+role: technical-design
+canonical_spec: openspec
+---
+
+按 Superpowers `brainstorming` 技能原流程推进：澄清问题、2-3 个方案、分段确认设计。不得提前写入 Design Doc。
+```
+
+禁止在未加载该技能的情况下继续。
+
+如 Superpowers `brainstorming` 技能不可用，停止流程并提示安装或启用 Superpowers 技能，不要用普通对话替代该步骤。
+
+技能加载后，按其指引产出设计方案（以对话形式呈现）：
+- 技术方案：架构、数据流、关键技术选型与风险
+- 测试策略
+- 需求/范围缺口与需回写的 Spec Patch
+- 如需补充验收场景，标明将回写的 delta spec 变更
+
+brainstorming 阶段不写入 Design Doc 文件，仅产出设计方案供 Step 1c 用户确认。确认后才创建 `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` 并回写 delta spec。
+
+但为了上下文压缩恢复，brainstorming 过程中必须增量更新 `brainstorm-summary.md`。每轮澄清或方案迭代后，只要产生新的已确认事实、关键约束、候选方案、取舍/风险、测试策略或 Spec Patch 候选，就更新该文件；未确认内容必须标注为“待确认”或“候选”。该文件是恢复检查点，不是 Design Doc，也不得替代 Step 1c 的用户确认。
+
+#### 2.2 用户确认设计方案（阻塞点）
+
+brainstorming 产出设计方案后，**必须按 `/reference/decision-point.md` 的协议暂停并等待用户明确确认设计方案**。不得在用户确认前创建最终 Design Doc、写入 `design_doc`、运行 design guard，或进入 `/polaris-build`。
+
+暂停时只展示必要摘要：
+- 采用的技术方案
+- 关键取舍与风险
+- 测试策略
+- 如有 Spec Patch，列出将回写的 delta spec 变更
+
+用户明确确认后，才继续 Step 3。若用户要求调整，继续 brainstorming 迭代，直到用户确认。
+
+### Step 3: 创建 Design Doc
+#### 3.1 落盘设计文档
+
+基于 brainstorming 对话的完整上下文（仍在主 session 中），创建 Design Doc。
+
+Design Doc frontmatter 必须最小化：
+
+```yaml
+---
+comet_change: <change-name>
+role: technical-design
+canonical_spec: openspec
+---
+```
+
+将 Design Doc 写入 `opensepc/changes/$CHANGE_ID`， 命名为`detailed-design.md`。
+如需回写 delta spec（Spec Patch），同时编辑对应的 `specs/*/spec.md`。
+
+#### 3.2 落盘专项设计文档（阻塞点）
+
+询问用户是否还需要生成专项设计文档，如果用户选择“是”，则提供给用户以下选项供用户选择，选项包括：
+- 「领域」 - 设计领域模型、领域服务
+- 「仓储服务」 - 设计仓储服务(数据持久化无关的仓储服务)
+- 「数据模型」 - 设计ER关系图、数据表、数据库迁移脚本（包括回滚脚本）
+- 「Rest API」 - 设计Web 交互API接口
+- 「其他」
+
+以上选项可以多选：
+1. 除「其他」外，上述列举选项均是可选项，根据实际情况哪项不涉及就不显示给用户选择。
+2. 「其他」选项是由用户手工填写需要的专项设计文档。
+
+用户选择后，根据选择的类别来生成专项设计文档（过程中尝试加载匹配的技能）。
+
+#### 3.3 主动式上下文压缩
+
+完成 Step 3.2 并确认设计文档已写入后，进入主动式上下文压缩。此时 brainstorming 文档已落盘，应主动释放前面读取 Spec 和 brainstorming 消耗的上下文，为 Step 4 及后续 Build 阶段保留窗口。
+
+执行规则：
+- 如果当前平台提供原生上下文压缩/清理机制（例如宿主 Agent 的 compact/compaction 命令、工具或 UI 操作），必须在这里触发一次主动压缩；不要尝试用 shell 脚本伪造压缩命令。
+- 压缩恢复提示必须包含 change 名称、当前步骤（Design Step 2）、以及上方三类需重新加载的 handoff 文件。
+- 如果当前平台无法由 agent 程序化触发压缩，必须暂停并提示用户在宿主平台执行手动压缩；用户确认无法压缩或要求继续时，才继续 Step 2。
+
+### Step 4: 评审
+
+<HARD-GATE>
+禁止修改提案材料（proposal.md / design.md / specs/ / tasks.md）——本 skill 仅做评审，结论写入 review-report.md。当存在未消化的 Critical / Important 问题时禁止把 STATUS 标记为 DONE。critical-tier 变更禁止跳过 Outside Voice（cross-review-agent）。
+</HARD-GATE>
+
+#### 4.0 Overview
+
+工程经理模式的计划/提案评审 skill。在写代码之前，锁定架构、数据流、测试覆盖、性能。以"找漏洞而非走流程"为目标，以"一问一议"的方式与用户交互逐项落实。**宿主中立**（subagent 启动方式由 `./references/host-adapters.md` 按宿主分发）；**模型可配置**（跨模型交叉评审用的 subagent 模型在 `config.yaml: challenger.model` 由用户声明，不在 agent 文件 frontmatter 中硬编码）；**业务工作流解耦**——本 skill 只接受"提案材料路径 + 输出路径"作为输入，业务概念由调用方（如 easy-flow lock 链）按 `./references/caller-contract.md` 履约。
+
+**流程总览**
+
+```
+读 config → Step 0 范围挑战 → Section 1-4 顺序评审 → Outside Voice → 必需输出 → 写 review-report.md
+```
+
+每个阶段的"做什么"在对应 policy 文件，本 SKILL.md 仅承载入口、HARD-GATE 锚点与跨阶段衔接。
+
+#### 4.1 配置加载
+
+进入 skill 后首先读项目根 `config.yaml`（缺失则全部走 `config.example.yaml` 给出的默认值，跳过加载并在评审报告开头记一行"使用默认配置"）。可配置项摘要：`challenger.{enabled, model, prompt_mode, share_user_decisions}` / `scope_challenge.{max_files, max_new_services}`。配置缺失**不阻断**。
+
+#### 4.2 范围挑战（Scope Challenge）
+
+`read_file ./policies/scope-challenge.md` 并按其执行：6 个子节（已有代码盘点 / 最小改动集 / 复杂度检查 / 搜索检查 / TODOS 交叉引用 / 完整性检查）。复杂度命中阈值（默认 8+ 文件 或 2+ 新服务）→ 主动 `ask_followup_question` 提议 scope reduction，等待用户答复后继续；未命中 → 直接进 Section 1。
+
+**关键铁律**：一旦用户接受/拒绝 scope reduction，**完全 commit**——后续评审节绝不再重提缩减建议。
+
+#### 4.3 Section 1-4：四节评审
+
+`read_file ./policies/four-section-review.md` 并按其执行四节顺序评审：架构 → 代码质量 → 测试 → 性能。
+
+**STOP 规则**：每节内"一问一议"——每个发现单独发起一次 `ask_followup_question`，**不打包**（详见 `./references/output-format.md` 第 3 节）。只有当本节所有问题都已被用户决策（A/B/C 之一，或显式跳过）后，才进入下一节。
+
+测试评审完整方法论（7 步法、E2E vs Unit 决策矩阵、回归测试铁律、ASCII 覆盖率图）见 `./references/test-review-methodology.md`，是本 skill 最重的一节。
+
+#### 4.4 Outside Voice — 独立交叉评审
+
+四节评审完成后,**必须先询问用户是否进入交叉评审**,并基于本次变更的实际复杂度给出建议:
+
+```
+通过 ask_followup_question 询问:
+
+🔍 主评审已完成。是否启动 Outside Voice 独立交叉评审?
+
+建议: <根据 openspec 四件套中的改动范围与任务复杂度判断>
+  - 涉及多模块/跨层架构/高风险接口变更/任务数≥5 → "强烈建议(变更范围大、复杂度高)"
+  - 单模块变更/中等任务量 → "建议(有一定复杂度,交叉评审有助于发现盲区)"
+  - 纯配置/文档/单文件小改动 → "可跳过(变更简单,交叉评审收益有限)"
+
+A. 启动交叉评审
+B. 跳过,直接完成 lock
+```
+
+用户选 B → 在 review-report.md Completion Summary 标注 `Outside Voice: skipped (user decision)`，跳到"必需输出"节。
+用户选 A → 继续下方启动流程。
+
+通过宿主原生 subagent 机制启动一个独立的 challenger，用与主评审**不同的模型**对提案材料做第二次评审。详细启动方式、输入构造、可信度门禁：先 `read_file ./policies/outside-voice.md` 并按其中规定执行。
+
+challenger 先 `read_file ./references/host-adapters.md` 并按其中规定通过宿主原生 subagent 机制直接派发 `cross-review-agent`（由 session-start 注册到宿主 agent 目录，无需经 selector 选择）。
+
+##### 宿主不支持 subagent 时的行为
+
+直接跳过 Outside Voice 节，在 review-report.md 的 Completion Summary 标注 `Outside Voice: not run (host lacks subagent capability)`。**不再支持 inline 降级**——同 context 注入 challenger prompt 的独立性已被实证不可靠，效果优先原则下宁可不跑也不假跑。
+
+#### 4.5 必需输出
+
+**强制前置**：写 review-report.md 前必须 `read_file templates/review-report-template.md`，并输出 `[easy-flow lock] 已 read_file templates/review-report-template.md`。**禁止**未读模板就写报告。
+
+先 `read_file ./references/output-format.md`。评审完成后，以下章节缺一不可（详细格式见其中规定）：
+
+1. **NOT in scope** — 显式推迟的工作清单
+2. **What already exists** — 现有代码盘点
+3. **Failure modes** — 失败模式表 + critical gap 清单
+4. **Worktree 并行化策略** — 仅在多条独立工作流时产出，否则一句话"顺序实施，无并行机会"
+5. **Completion Summary** — 评审完成摘要表
+6. **STATUS** — 四选一（DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT）
+
+**Unresolved Decisions**：用户跳过/打断/未答某 `ask_followup_question` 时**绝不静默默认某选项**，在 Completion Summary 末尾单列「未解决的决策」章节（详见 `./references/output-format.md` 第 7 节）。
+
+**Escalation**：任务尝试 3 次失败 / 安全敏感不确定 / 范围超出可验证能力 → STOP 并升级，使用 STATUS: BLOCKED 或 NEEDS_CONTEXT 格式。**烂工作比没工作糟。** 详见 `./references/output-format.md` 第 8 节。
+
+#### Step 5：值
+
+#### 2.1 细化任务计划（Subagent Offload）
+
+通过 subagent 创建实施计划，避免 planning skill 占用主 session 上下文。计划文件和执行反馈必须使用 `"$COMET_BASH" "$COMET_STATE" get <name> language` 读取到的 Comet 配置产物语言。
+
+**Subagent 指令**：
+
+你是实施计划专家。基于以下输入创建实施计划：
+
+1. **立即执行：** 使用 Skill 工具加载 Superpowers `writing-plans` 技能。禁止跳过此步骤。技能加载后，ARGUMENTS 必须包含：`Language: 使用 "$COMET_BASH" "$COMET_STATE" get <name> language 读取到的 Comet 配置产物语言输出`
+2. 读取 Design Doc（`docs/superpowers/specs/` 下的技术设计文档）
+3. 读取 `openspec/changes/<name>/tasks.md`（任务边界）
+4. 按技能指引创建计划
+
+计划要求：
+- 保存至 `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`
+- 引用设计文档，拆分为可执行任务
+- **Plan 文件头必须包含关联元数据**：
+
+```yaml
+---
+change: <openspec-change-name>
+design-doc: docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md
+base-ref: <git rev-parse HEAD before implementation>
+---
+```
+
+`base-ref` 用于验证阶段跨提交统计改动规模。创建计划时先记录当前提交：
+
+```bash
+git rev-parse HEAD
+```
+
+将计划写入文件后，返回文件路径。
+
+**执行 subagent**：使用当前平台的 subagent 调度机制派发上述任务。
+
+Subagent 完成后：
+- 若返回有效文件路径且文件存在，记录为 plan
+- 若 subagent 失败或返回路径无效，在主 session 内联加载 Superpowers `writing-plans` 技能创建计划（降级回退）
+
+#### 2.2 更新计划状态并提供 plan-ready 暂停点
+先记录 plan 路径：
+
+```bash
+node "$COMET_STATE" set <name> plan docs/superpowers/plans/YYYY-MM-DD-feature.md
+```
+
+无需手动更新 phase，阶段守卫（guard `--apply`）会在退出条件满足后推进 `phase` 字段。
+
+计划写入后，立即提供一个新的用户决策点：
+
+| 选项 | 行为 | 说明 |
+|------|------|------|
+| A | 继续执行 | 保持在当前模型中，进入 Step 3 选择工作区隔离、执行方式、TDD 模式和代码审查模式 |
+| B | 暂停切换模型 | 记录 `build_pause: plan-ready`，本次 `/comet-build` 停止，用户稍后可从 `/comet` 或 `/comet-build` 恢复 |
+
+这是用户决策点。**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确选择**，不得自动继续，也不得把暂停写入 `build_mode`。
+
+用户选择继续时：
+
+```bash
+node "$COMET_STATE" set <name> build_pause null
+```
+
+用户选择暂停时：
+
+```bash
+node "$COMET_STATE" set <name> build_pause plan-ready
+```
+
+设置 `build_pause: plan-ready` 后，当前调用停止。不要选择 `isolation` 或 `build_mode`，不要加载执行技能。
+
+#### 2.3 评审计划
+
+>>>>>>>>>>>
+
+
+### Step 5: 完成深度设计阶段
+
+#### 5.1 更新状态
+
+先记录 design_doc 路径。如果 Spec Patch 回写了 delta spec（新增或修改了 `specs/*/spec.md`），必须重新生成 handoff 以更新 hash：
+
+```bash
+# 记录 design_doc 路径
+node "$COMET_STATE" set <name> design_doc docs/superpowers/specs/YYYY-MM-DD-topic-design.md
+
+# 如有 delta spec 变更，重新生成 handoff（更新 hash）
+node "$COMET_HANDOFF" <change-name> design --write
+
+# 阶段守卫推进 phase 到下一阶段
+node "$COMET_GUARD" <change-name> design --apply
+```
+
+如果没有 delta spec 变更，跳过 handoff 重新生成步骤。状态文件自动更新，无需手动编辑其他字段。
+
+#### 5.2 输出完成状态行
+
+输出 `[polaris-flow] design 阶段完成：.polaris/changes/<change_id>/detailed-design.md 已锁定。` 并提示下一步 `/poflo:build`。
+
+## 退出条件
+
+- Design Doc 已创建并保存
+- Design Doc frontmatter 包含 `comet_change`、`role: technical-design`、`canonical_spec: openspec`
+- `handoff_context` 和 `handoff_hash` 已写入 `.comet.yaml`（由 guard 强制校验）
+- `handoff_hash` 与当前 OpenSpec open 阶段产物一致（由 guard 强制校验）
+- `design-context.md` 或 beta `spec-context.md` 必须是脚本生成，且包含 source path、mode、sha256 等可追溯标记（由 guard 强制校验）
+- beta 模式下，`spec-context.json` 必须结构合法且引用当前源文件（由 guard 强制校验）
+- 如有新能力或补充验收场景，OpenSpec delta spec 已创建/更新
+- `design_doc` 已写入 `.comet.yaml`
+- **阶段守卫**：运行 `node "$COMET_GUARD" <change-name> design --apply`，全部 PASS 后由守卫推进到 `phase: build`（此步骤更新 `phase` 字段，与 `auto_transition` 无关）
+
+退出前必须使用 `--apply`：
+
+```bash
+node "$COMET_GUARD" <change-name> design --apply
+```
+
+## 上下文压缩恢复
+
+按 `comet/reference/context-recovery.md` 执行，phase 参数为 `design`。
+
+

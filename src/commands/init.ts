@@ -24,6 +24,7 @@ import {
   createWorkingDirs,
   getAssetsDir,
 } from '../core/skills.js';
+import { writePolarisConfigIfMissing } from '../core/polaris-config.js';
 import {
   getPlatformSkillsDir,
   getSettingsFilePath,
@@ -82,14 +83,14 @@ const OPENSPEC_PACKAGE = '@fission-ai/openspec';
 
 const POLARIS_BANNER = [
   ``,
-  `${cyan('▄▄▄▄▄▄  ')}                                            ██                ${cyan('▄▄▄▄▄▄▄▄')} ▄▄▄▄                         `,
-  `${cyan('██▀▀▀▀█▄')}                                            ▀▀                ${cyan('██▀▀▀▀▀▀')} ▀▀██                         `,
-  `${cyan('██    ██')}  ▄████▄     ██       ▄█████▄   ██▄████   ████     ▄▄█████▄   ${cyan('██      ')}   ██       ▄████▄  ██      ██`,
-  `${cyan('██████▀ ')} ██▀  ▀██    ██       ▀ ▄▄▄██   ██▀         ██     ██▄▄▄▄ ▀   ${cyan('███████ ')}   ██      ██▀  ▀██ ▀█  ██  █▀`,
-  `${cyan('██      ')} ██    ██    ██      ▄██▀▀▀██   ██          ██      ▀▀▀▀██▄   ${cyan('██      ')}   ██      ██    ██  ██▄██▄██ `,
-  `${cyan('██      ')} ▀██▄▄██▀    ██▄▄▄   ██▄▄▄███   ██       ▄▄▄██▄▄▄  █▄▄▄▄▄██   ${cyan('██      ')}   ██▄▄▄   ▀██▄▄██▀  ▀██  ██▀ `,
-  `${cyan('▀▀      ')}   ▀▀▀▀       ▀▀▀▀    ▀▀▀▀ ▀▀   ▀▀       ▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀    ${cyan('██')}          ▀▀▀▀     ▀▀▀▀     ▀▀  ▀▀  `,
-  `${green(':'.repeat(106))}`,
+  `${green('▄▄▄▄▄▄  ')}                                    ${red('██')}              ${green('▄▄▄▄▄▄▄▄')} ▄▄▄▄                         `,
+  `${green('██▀▀▀▀█▄')}                                    ${red('▀▀')}              ${green('██▀▀▀▀▀▀')} ▀▀██                         `,
+  `${green('██    ██')}  ▄████▄     ██       ▄█████▄   ██▄████   ████     ▄▄█████▄   ${green('██      ')}   ██       ▄████▄  ██      ██`,
+  `${green('██████▀ ')} ██▀  ▀██    ██       ▀ ▄▄▄██   ██▀         ██     ██▄▄▄▄ ▀   ${green('███████ ')}   ██      ██▀  ▀██ ▀█  ██  █▀`,
+  `${green('██      ')} ██    ██    ██      ▄██▀▀▀██   ██          ██      ▀▀▀▀██▄   ${green('██      ')}   ██      ██    ██  ██▄██▄██ `,
+  `${green('██      ')} ▀██▄▄██▀    ██▄▄▄   ██▄▄▄███   ██       ▄▄▄██▄▄▄  █▄▄▄▄▄██   ${green('██      ')}   ██▄▄▄   ▀██▄▄██▀  ▀██  ██▀ `,
+  `${green('▀▀      ')}   ▀▀▀▀       ▀▀▀▀    ▀▀▀▀ ▀▀   ▀▀       ▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀    ${green('██')}          ▀▀▀▀     ▀▀▀▀     ▀▀  ▀▀  `,
+  `${green('='.repeat(106))}`,
   `  ${bold('OpenSpec')} + ${bold('Superpowers')} + ${bold('Polaris')} Workflow`,
   ``,
 ].join('\n');
@@ -432,6 +433,7 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
 
   if (scope === 'project') {
     await createWorkingDirs(projectPath);
+    await writePolarisConfigIfMissing(projectPath, language);
   }
 
   if (lockSources.length > 0) {

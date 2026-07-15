@@ -1,0 +1,8 @@
+---
+name: openspec-review-agent
+description: 对openspec产物文档进行评审，并给出评审意见
+model: DeepSeek-V4-Flash
+tools: Read, Write, Search, WebSearch, WebFetch
+---
+
+{systemPrompt}

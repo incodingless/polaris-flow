@@ -39,22 +39,25 @@ node bin/polaris.js --version
 
 ## 阶段工作流
 
-### 1. SDD工作流(/sdd)
+### 1. SDD工作流(/polfo-sdd)
 ```
- /psfl:clarify → /ezfl:propose → /ezfl:lock → /ezfl:build → /ezfl:verify → /ezfl:delivery → /ezfl:retro
- (澄清)           (四件套)         (评审并定稿)   (实施)         (验收)        (交付)        (回顾， 可选)
+ /polfo:clarify → /polfo:propose → /polfo:review → /polfo:build → /polfo:verify → /polfo:delivery → /polfo:retro
+ (澄清)           (四件套)         (评审并定稿)            (实施)         (验收)             (交付)           (回顾， 可选)
 ```
 
-### 2. 小改动工作流(/tweak)
+### 2. 小改动工作流(/polfo-tweak)
 ```
  /ptfl:design → /ezfl:propose → /ezfl:lock → /ezfl:build → /ezfl:audit → /ezfl:ship → /ezfl:reflect
  (探索)          (四件套)        (评审)        (实施)        (审计)        (交付)        (回顾)
 ```
-### 3. 问题修复工作流(/debug)
+### 3. 问题修复工作流(/polfo-debug)
 ```
  /ptfl:design → /ezfl:propose → /ezfl:lock → /ezfl:build → /ezfl:audit → /ezfl:ship → /ezfl:reflect
  (探索)          (四件套)        (评审)        (实施)        (审计)        (交付)        (回顾)
 ```
+
+### 4. 代码重构工作流(/polfo-refactor)
+
 
 ## 许可证
 
