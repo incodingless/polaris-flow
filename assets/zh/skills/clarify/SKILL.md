@@ -1,5 +1,5 @@
 ---
-name: clarify
+name: polaris-flow-clarify
 description: "用户触发 /polaris-flow-clarify 或要求进入需求澄清阶段时必须使用本 skill。仅负责澄清、讨论需求，并产出 intention.md。"
 ---
 # Polaris工作-阶段1：（澄清）
@@ -16,7 +16,7 @@ description: "用户触发 /polaris-flow-clarify 或要求进入需求澄清阶�
 
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: clarify — 使用 polaris-flow:clarify skill。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: clarify — 使用 polaris-flow-clarify 技能。`
 
 //TODO
 
