@@ -7,6 +7,9 @@ import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
 
+import { compareVersions } from './version.js';
+
+/** clone 后的本地路径与解析版本 */
 export interface FetchResult {
   localPath: string;
   version: string;
@@ -20,7 +23,8 @@ const GIT_ENV: NodeJS.ProcessEnv = {
 const LS_REMOTE_TIMEOUT_MS = 60_000;
 const CLONE_TIMEOUT_MS = 180_000;
 
-function runGit(command: string, timeoutMs: number): string {
+/** 执行 git shell 命令；超时或失败时抛错 */
+function runGitShell(command: string, timeoutMs: number): string {
   return execSync(command, {
     encoding: 'utf-8',
     timeout: timeoutMs,
@@ -29,6 +33,7 @@ function runGit(command: string, timeoutMs: number): string {
   });
 }
 
+/** resolveVersion 的结果；version 为 null 表示退回 HEAD 或失败 */
 export type ResolveVersionResult = {
   version: string | null;
   /** tag 解析失败时的原因，供日志展示 */
@@ -39,8 +44,8 @@ export type ResolveVersionResult = {
 export function resolveVersion(repo: string, minVersion: string): ResolveVersionResult {
   let output: string;
   try {
-    output = runGit(`git ls-remote --tags --sort=-v:refname ${repo}`, LS_REMOTE_TIMEOUT_MS);
-  } catch (error) {
+    output = runGitShell(`git ls-remote --tags --sort=-v:refname ${repo}`, LS_REMOTE_TIMEOUT_MS);
+  } catch {
     return {
       version: null,
       reason: 'network-error',
@@ -59,15 +64,7 @@ export function resolveVersion(repo: string, minVersion: string): ResolveVersion
     return { version: null, reason: 'no-tags' };
   }
 
-  const minParts = minVersion.split('.').map(Number);
-  const valid = tags.filter((tag) => {
-    const parts = tag.split('.').map(Number);
-    for (let i = 0; i < 3; i++) {
-      if (parts[i] > minParts[i]) return true;
-      if (parts[i] < minParts[i]) return false;
-    }
-    return true;
-  });
+  const valid = tags.filter((tag) => compareVersions(tag, minVersion) >= 0);
 
   if (valid.length === 0) {
     return { version: null, reason: 'below-min' };
@@ -86,16 +83,16 @@ export async function fetchRepo(repo: string, version: string | null): Promise<F
 
   try {
     if (version === null) {
-      runGit(`git clone --depth 1 ${repo} ${tmpDir}`, CLONE_TIMEOUT_MS);
+      runGitShell(`git clone --depth 1 ${repo} ${tmpDir}`, CLONE_TIMEOUT_MS);
       return { localPath: tmpDir, version: 'HEAD' };
     }
 
     const tagRef = `v${version}`;
 
     try {
-      runGit(`git clone --depth 1 --branch ${tagRef} ${repo} ${tmpDir}`, CLONE_TIMEOUT_MS);
+      runGitShell(`git clone --depth 1 --branch ${tagRef} ${repo} ${tmpDir}`, CLONE_TIMEOUT_MS);
     } catch {
-      runGit(`git clone --depth 1 --branch ${version} ${repo} ${tmpDir}`, CLONE_TIMEOUT_MS);
+      runGitShell(`git clone --depth 1 --branch ${version} ${repo} ${tmpDir}`, CLONE_TIMEOUT_MS);
     }
 
     return { localPath: tmpDir, version };
@@ -105,12 +102,14 @@ export async function fetchRepo(repo: string, version: string | null): Promise<F
     if (message.includes('ETIMEDOUT') || message.includes('timed out')) {
       throw new Error(
         `git clone timed out after ${CLONE_TIMEOUT_MS / 1000}s — check GitHub network access to ${repo}`,
+        { cause: error },
       );
     }
     throw error;
   }
 }
 
+/** 清理 fetchRepo 产生的临时目录 */
 export async function cleanupTemp(tmpDir: string): Promise<void> {
   await fs.rm(tmpDir, { recursive: true, force: true });
 }

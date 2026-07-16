@@ -8,8 +8,9 @@
 import path from 'path';
 
 import type { CommandAdapter, CommandContent } from './types.js';
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../../types.js';
 
+/** Pi prompts 适配器（init 默认跳过，另走 TS extension） */
 export const piAdapter: CommandAdapter = {
   platformIds: ['pi'],
 

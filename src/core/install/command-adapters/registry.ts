@@ -6,7 +6,6 @@ import type { CommandAdapter } from './types.js';
 import { claudeAdapter } from './claude.js';
 import { codexAdapter } from './codex.js';
 import { windsurfAdapter } from './windsurf.js';
-import { geminiAdapter } from './gemini.js';
 import { piAdapter } from './pi.js';
 import { defaultAdapter } from './default.js';
 
@@ -14,7 +13,6 @@ const ALL_ADAPTERS: CommandAdapter[] = [
   claudeAdapter,
   codexAdapter,
   windsurfAdapter,
-  geminiAdapter,
   piAdapter,
   defaultAdapter,
 ];

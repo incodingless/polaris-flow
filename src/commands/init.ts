@@ -11,35 +11,33 @@ import {
   resolveAction,
   type ComponentAction,
 } from './prompts.js';
-import { detectPlatforms, getBaseDir, hasSkills } from '../core/detect.js';
-import { installOpenSpec } from '../core/openspec.js';
-import { installSuperpowersForPlatforms, SUPERPOWERS_MIN_VERSION } from '../core/superpowers.js';
-import { getLanguageSkillsDir, readAssetManifest } from '../core/manifest.js';
-import { writeLockFile, type LockSourceEntry } from '../core/install.js';
-import { getNpmPackageVersion } from '../core/npm.js';
+import { detectPlatforms, getBaseDir, hasSkills } from '../core/platform/detect.js';
+import { installOpenSpec } from '../core/deps/openspec.js';
 import {
-  copyPolarisRulesForPlatform,
-  installPolarisHooksForPlatform,
-  copyPolarisSkillsForPlatform,
-  createWorkingDirs,
-  getAssetsDir,
-} from '../core/skills.js';
-import { writePolarisConfigIfMissing } from '../core/polaris-config.js';
+  installSuperpowersForPlatforms,
+  SUPERPOWERS_MIN_VERSION,
+} from '../core/deps/superpowers.js';
+import { readAssetManifest } from '../core/assets/manifest.js';
+import { writeLockFile, type LockSourceEntry } from '../core/install.js';
+import { getNpmPackageVersion } from '../core/deps/npm.js';
+import { createWorkingDirs, getAssetsDir, installPolarisForPlatform } from '../core/install.js';
+import { writePolarisConfigIfMissing } from '../core/config/polaris-config.js';
+import { getPluginRootRel } from '../core/platform/layout.js';
 import {
   getPlatformSkillsDir,
   getSettingsFilePath,
   PLATFORMS,
   type Platform,
-} from '../core/platforms.js';
+} from '../core/platform/platforms.js';
 import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../core/color.js';
-import type { InstallScope, SkillLanguage } from '../core/types.js';
+import type { InstallScope, Language } from '../core/types.js';
 
 export type InitOptions = {
   yes?: boolean;
   scope?: InstallScope;
   overwrite?: boolean;
   skipExisting?: boolean;
-  lang?: SkillLanguage;
+  lang?: Language;
   json?: boolean;
 };
 
@@ -52,6 +50,8 @@ export type InitPlatformResult = {
   superpowers: InstallStatus;
   polaris: InstallStatus;
   skills: { copied: number; skipped: number };
+  commands: { copied: number; skipped: number };
+  agents: { copied: number; skipped: number };
   rules: { copied: number; skipped: number };
   hooks: { installed: boolean; reason?: string };
 };
@@ -59,7 +59,7 @@ export type InitPlatformResult = {
 export type InitResult = {
   projectPath: string;
   scope: InstallScope;
-  language: SkillLanguage;
+  language: Language;
   platforms: string[];
   results: InitPlatformResult[];
 };
@@ -105,7 +105,7 @@ function statusSymbol(status: InstallStatus): string {
   return red('✗');
 }
 
-function statusLabel(status: InstallStatus, lang: SkillLanguage): string {
+function statusLabel(status: InstallStatus, lang: Language): string {
   if (status === 'installed') return green('installed');
   if (status === 'skipped') return dim(t(lang, 'skip'));
   return red(t(lang, 'failedStatus'));
@@ -124,7 +124,7 @@ async function selectScope(options: InitOptions, lang?: string): Promise<Install
   return promptInstallScope(lang);
 }
 
-async function selectLanguage(options: InitOptions, langHint?: string): Promise<SkillLanguage> {
+async function selectLanguage(options: InitOptions, langHint?: string): Promise<Language> {
   if (options.lang === 'zh' || options.lang === 'en') {
     return options.lang;
   }
@@ -150,7 +150,7 @@ async function buildInstallPlans(
   platforms: Platform[],
   scope: InstallScope,
   options: InitOptions,
-  lang: SkillLanguage,
+  lang: Language,
 ): Promise<PlatformPlan[]> {
   const plans: PlatformPlan[] = [];
 
@@ -197,11 +197,7 @@ async function buildInstallPlans(
   return plans;
 }
 
-function displaySummary(
-  results: InitPlatformResult[],
-  scope: InstallScope,
-  lang: SkillLanguage,
-): void {
+function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang: Language): void {
   const scopeLabel = scope === 'global' ? os.homedir() : 'project';
 
   console.log(
@@ -283,7 +279,6 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
   }
 
   const baseDir = getBaseDir(scope, projectPath);
-  const languageSkillsDir = getLanguageSkillsDir(language);
   const plans = await buildInstallPlans(baseDir, platforms, scope, options, lang);
   const lockSources: LockSourceEntry[] = [];
   const platformResults: InitPlatformResult[] = [];
@@ -330,7 +325,7 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
     log(`\n  ${dim('○')}  Superpowers ${dim(t(lang, 'skip'))}`);
   }
 
-  // --- 3. Polaris bundled skills ---
+  // --- 3. Polaris bundled（skills → commands → agents → rules → hooks）---
   const polarisNeeded = plans.some((p) => p.polarisAction !== 'skip');
   let polarisGlobalStatus: InstallStatus = 'skipped';
 
@@ -344,19 +339,12 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
           plan.polarisAction === 'overwrite' ||
           (plan.polarisAction === 'install' && !plan.hasPolaris);
 
-        const skills = await copyPolarisSkillsForPlatform(
+        const installed = await installPolarisForPlatform(
           baseDir,
           plan.platform,
           overwrite,
-          languageSkillsDir,
+          language,
           scope,
-        );
-        const rules = await copyPolarisRulesForPlatform(
-          baseDir,
-          plan.platform,
-          overwrite,
-          scope,
-          languageSkillsDir,
         );
 
         platformResults.push({
@@ -366,13 +354,15 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
             plan.osAction !== 'skip' && plan.platform.openspecToolId ? osGlobalStatus : 'skipped',
           superpowers: plan.spAction !== 'skip' ? spGlobalStatus : 'skipped',
           polaris: 'installed',
-          skills,
-          rules,
-          hooks: { installed: false },
+          skills: installed.skills,
+          commands: installed.commands,
+          agents: installed.agents,
+          rules: installed.rules,
+          hooks: installed.hooks,
         });
 
         log(
-          `  ${green('✓')}  Polaris ${dim('→')} ${plan.platform.name} ${dim(`(${skills.copied} ${t(lang, 'skillsCopiedSkipped')} ${skills.skipped} ${t(lang, 'hooksSkipped')})`)}`,
+          `  ${green('✓')}  Polaris ${dim('→')} ${plan.platform.name} ${dim(`(${installed.skills.copied} ${t(lang, 'skillsCopiedSkipped')} ${installed.skills.skipped} ${t(lang, 'hooksSkipped')})`)}`,
         );
       }
       polarisGlobalStatus = 'installed';
@@ -388,17 +378,14 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
     log(`\n  ${dim('○')}  Polaris ${dim(t(lang, 'skip'))}`);
   }
 
-  // --- 4. Hooks（Polaris 安装成功时注册）---
+  // --- 4. Hooks 安装结果汇报（已由 installPolarisForPlatform 注册）---
   if (polarisGlobalStatus === 'installed') {
     log(`\n  ${blue('⏳')} ${bold('Hooks')}...`);
     for (const plan of plans) {
       if (plan.polarisAction === 'skip') continue;
 
       const result = platformResults.find((r) => r.platformId === plan.platform.id);
-      const hooks = await installPolarisHooksForPlatform(baseDir, plan.platform, scope);
-      if (result) {
-        result.hooks = hooks;
-      }
+      const hooks = result?.hooks ?? { installed: false };
 
       if (hooks.installed) {
         const hooksLocation = getSettingsFilePath(plan.platform, scope);
@@ -426,6 +413,8 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
       superpowers: plan.spAction !== 'skip' ? spGlobalStatus : 'skipped',
       polaris: plan.polarisAction === 'skip' ? 'skipped' : polarisGlobalStatus,
       skills: { copied: 0, skipped: 0 },
+      commands: { copied: 0, skipped: 0 },
+      agents: { copied: 0, skipped: 0 },
       rules: { copied: 0, skipped: 0 },
       hooks: { installed: false },
     });
@@ -433,7 +422,11 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
 
   if (scope === 'project') {
     await createWorkingDirs(projectPath);
-    await writePolarisConfigIfMissing(projectPath, language);
+    const primaryPlatform = plans.find((p) => p.polarisAction !== 'skip')?.platform ?? platforms[0];
+    await writePolarisConfigIfMissing(projectPath, language, {
+      platform: primaryPlatform?.id,
+      plugin_root: primaryPlatform ? getPluginRootRel(primaryPlatform, scope) : undefined,
+    });
   }
 
   if (lockSources.length > 0) {

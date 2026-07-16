@@ -1,8 +1,8 @@
 import { checkbox, select } from '@inquirer/prompts';
 
 import { t } from './i18n/index.js';
-import type { InstallScope, SkillLanguage } from '../core/types.js';
-import { PLATFORMS, type Platform } from '../core/platforms.js';
+import type { InstallScope, Language } from '../core/types.js';
+import { PLATFORMS, type Platform } from '../core/platform/platforms.js';
 
 export type ComponentAction = 'install' | 'overwrite' | 'skip';
 export type BulkOverwriteChoice = 'overwrite-all' | 'skip-all' | 'choose';
@@ -32,7 +32,7 @@ export async function promptInstallScope(lang?: string): Promise<InstallScope> {
   });
 }
 
-export async function promptSkillLanguage(lang?: string): Promise<SkillLanguage> {
+export async function promptSkillLanguage(lang?: string): Promise<Language> {
   return select({
     message: t(lang, 'languagePrompt'),
     choices: [

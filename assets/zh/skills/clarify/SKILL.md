@@ -18,8 +18,6 @@ description: "用户触发 /polaris-flow-clarify 或要求进入需求澄清阶�
 
 **启动时必须先输出**：`[polaris-flow] 进入阶段: clarify — 使用 polaris-flow-clarify 技能。`
 
-//TODO
-
 ## 状态布局
 
 - 起草期间：`.polaris/tasks/draft-<session_suffix>-<unix_ts>/state.yaml`

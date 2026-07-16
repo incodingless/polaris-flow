@@ -1,15 +1,14 @@
+/**
+ * 平台探测与组件是否已安装判定（openspec / superpowers / polaris）。
+ * 路径探测依赖 platform/platforms 定义，不负责实际拷贝。
+ */
 import path from 'path';
 import os from 'os';
 
-import { fileExists, readDir, readJson } from '../utils/file-system.js';
-import {
-  PLATFORMS,
-  getPlatformSkillsDir,
-  getPlatformSkillsDirs,
-  type Platform,
-} from './platforms.js';
+import { fileExists, readDir, readJson } from '../../utils/file-system.js';
+import { PLATFORMS, getPlatformSkillsDirs, type Platform } from './platforms.js';
 
-import type { InstallScope } from './types.js';
+import type { InstallScope } from '../types.js';
 
 const SUPERPOWERS_SKILLS = [
   'brainstorming',
@@ -19,6 +18,7 @@ const SUPERPOWERS_SKILLS = [
   'subagent-driven-development',
 ];
 
+/** 返回安装目标根目录：project 用项目路径，global 用用户主目录 */
 function getBaseDir(scope: InstallScope, projectPath: string): string {
   return scope === 'global' ? os.homedir() : projectPath;
 }
@@ -102,6 +102,7 @@ async function hasOpenCodePolarisCommands(baseDir: string, skillsDir: string, en
   return polarisEntries.every((entry) => commandEntries.includes(`${entry}.md`));
 }
 
+/** 根据 detectionPaths / skillsDir 是否存在，探测项目可能使用的平台集合 */
 async function detectPlatforms(projectPath: string): Promise<Set<string>> {
   const detected = new Set<string>();
 
@@ -163,7 +164,14 @@ async function hasSkills(
         }
         break;
       }
-      if (entries.some((e) => e.startsWith('polaris'))) return true;
+      // polaris-flow（嵌套包根）或 polaris-flow-*（Trae 扁平子 skill）或旧版 polaris*
+      if (
+        entries.some(
+          (e) => e === 'polaris-flow' || e.startsWith('polaris-flow-') || e.startsWith('polaris'),
+        )
+      ) {
+        return true;
+      }
       break;
   }
 
@@ -178,4 +186,3 @@ export {
   hasOpenCodePluginSuperpowers,
   getBaseDir,
 };
-export type { InstallScope };

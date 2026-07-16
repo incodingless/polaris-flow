@@ -1,13 +1,18 @@
+/**
+ * OpenSpec CLI 安装与 init 调用封装。
+ * 负责全局 npm 安装、旧本地安装清理及按平台执行 openspec init。
+ */
 import { execFileSync } from 'child_process';
 import fs from 'fs';
 import { rm } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { PLATFORMS } from './platforms.js';
-import { printCommandErrorDetails } from './command-error.js';
-import { fileExists, readJson } from '../utils/file-system.js';
+import { PLATFORMS } from '../platform/platforms.js';
+import { printCommandErrorDetails } from '../command-error.js';
+import { fileExists, readJson } from '../../utils/file-system.js';
+import { getNodeToolExecutable } from './npm.js';
 
-import type { InstallScope } from './types.js';
+import type { InstallScope } from '../types.js';
 
 const VALID_TOOL_IDS = new Set(PLATFORMS.map((p) => p.openspecToolId));
 const ALL_OPENSPEC_WORKFLOWS = [
@@ -25,7 +30,7 @@ const ALL_OPENSPEC_WORKFLOWS = [
 ] as const;
 
 function getNpmExecutable(platform: NodeJS.Platform = process.platform): string {
-  return platform === 'win32' ? 'npm.cmd' : 'npm';
+  return getNodeToolExecutable('npm', platform);
 }
 
 function buildOpenSpecInitInvocation(

@@ -6,8 +6,9 @@
 import path from 'path';
 
 import type { CommandAdapter, CommandContent } from './types.js';
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../../types.js';
 
+/** Windsurf：{skillsDir}/workflows/{prefix}-{id}.md */
 export const windsurfAdapter: CommandAdapter = {
   platformIds: ['windsurf'],
 

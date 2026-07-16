@@ -6,8 +6,9 @@
 import path from 'path';
 
 import type { CommandAdapter, CommandContent } from './types.js';
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../../types.js';
 
+/** 默认扁平适配器：{skillsDir}/commands/{prefix}-{id}.md */
 export const defaultAdapter: CommandAdapter = {
   platformIds: [
     'cursor',

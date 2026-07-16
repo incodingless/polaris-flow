@@ -47,3 +47,24 @@ export async function copyFile(src: string, dest: string): Promise<void> {
   await ensureDir(path.dirname(dest));
   await fsCopyFile(src, dest);
 }
+
+/**
+ * 递归将源目录内容拷贝到目标目录（目标不存在则创建）。
+ * 源目录不存在时静默返回。
+ */
+export async function copyDirContents(srcDir: string, destDir: string): Promise<void> {
+  if (!(await fileExists(srcDir))) {
+    return;
+  }
+  await ensureDir(destDir);
+  const entries = await readdir(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      await copyDirContents(srcPath, destPath);
+    } else {
+      await copyFile(srcPath, destPath);
+    }
+  }
+}

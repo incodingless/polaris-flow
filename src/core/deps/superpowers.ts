@@ -1,16 +1,26 @@
+/**
+ * Superpowers 技能包安装（GitHub clone 优先，失败回退 npx skills add）。
+ * 按平台映射 skills CLI agent 名并写入宿主 skills 目录。
+ */
+import { getNodeToolExecutable } from './npm.js';
+import { cleanupTemp, fetchRepo, resolveVersion } from './github.js';
+import { installSource } from '../install/commands.js';
+import {
+  getSuperpowersSource,
+  SUPERPOWERS_REPO,
+  SUPERPOWERS_MIN_VERSION,
+} from '../assets/sources.js';
+import { getBaseDir } from '../platform/detect.js';
+import { getPlatformSkillsDir, PLATFORMS } from '../platform/platforms.js';
+import { printCommandErrorDetails } from '../command-error.js';
+import { copyDirContents } from '../../utils/file-system.js';
+import type { InstallScope } from '../types.js';
+import { mkdtemp, readdir, rm } from 'fs/promises';
 import { execFileSync } from 'child_process';
 import os from 'os';
 import path from 'path';
-import { cp, mkdir, mkdtemp, readdir, rm } from 'fs/promises';
 
-import { cleanupTemp, fetchRepo, resolveVersion } from './github.js';
-import { installSource } from './install.js';
-import { getSuperpowersSource, SUPERPOWERS_REPO, SUPERPOWERS_MIN_VERSION } from './sources.js';
-import { getBaseDir } from './detect.js';
-import { getPlatformSkillsDir, PLATFORMS } from './platforms.js';
-import { printCommandErrorDetails } from './command-error.js';
-import type { InstallScope } from './types.js';
-
+/** Superpowers 安装结果 */
 export type SuperpowersInstallResult = {
   status: 'installed' | 'failed' | 'skipped';
   version: string;
@@ -55,10 +65,6 @@ const SUPERPOWERS_INSTALL_TIMEOUT_MS = 300_000;
 const LINGMA_PLATFORM_ID = 'lingma';
 const LINGMA_STAGE_AGENT = 'claude-code';
 
-function getNpxExecutable(platform: NodeJS.Platform = process.platform): string {
-  return platform === 'win32' ? 'npx.cmd' : 'npx';
-}
-
 function buildSuperpowersInstallCommand(
   scope: InstallScope,
   platformIds: string[],
@@ -80,26 +86,14 @@ function buildSuperpowersInstallCommand(
   for (const name of agentNames) {
     args.push('--agent', name);
   }
-  return { command: getNpxExecutable(), args };
+  return { command: getNodeToolExecutable('npx'), args };
 }
 
 function buildLingmaSuperpowersStageCommand(): { command: string; args: string[] } {
   return {
-    command: getNpxExecutable(),
+    command: getNodeToolExecutable('npx'),
     args: ['skills', 'add', 'obra/superpowers', '-y', '--agent', LINGMA_STAGE_AGENT],
   };
-}
-
-async function copyDirectoryContents(srcDir: string, destDir: string): Promise<void> {
-  await mkdir(destDir, { recursive: true });
-  const entries = await readdir(srcDir, { withFileTypes: true });
-  for (const entry of entries) {
-    await cp(path.join(srcDir, entry.name), path.join(destDir, entry.name), {
-      recursive: true,
-      force: true,
-      dereference: true,
-    });
-  }
 }
 
 async function installSuperpowersForLingmaViaNpx(
@@ -129,7 +123,7 @@ async function installSuperpowersForLingmaViaNpx(
       getPlatformSkillsDir(lingmaPlatform, scope),
       'skills',
     );
-    await copyDirectoryContents(stagedSkillsDir, lingmaSkillsDir);
+    await copyDirContents(stagedSkillsDir, lingmaSkillsDir);
     return 'installed';
   } catch (error) {
     console.error(`    Lingma Superpowers install failed: ${(error as Error).message}`);

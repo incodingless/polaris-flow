@@ -1,18 +1,9 @@
 /**
  * 上游技能来源 — GitHub 拉取、bundled 资产或 npm CLI。
+ * assets 目录路径请用 assets/paths.getAssetsDir，本文件不重复实现。
  */
 
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-/** npm 包内 bundled assets/ 绝对路径 */
-export function getBundledAssetsPath(): string {
-  return path.resolve(__dirname, '..', '..', 'assets');
-}
-
+/** 上游技能来源描述（bundled / github / npm） */
 export interface SkillSource {
   id: string;
   name: string;
@@ -28,11 +19,15 @@ export interface SkillSource {
   commandsDirName?: string;
 }
 
+/** Polaris 命令目录名前缀 */
 export const POLARIS_COMMAND_PREFIX = 'polaris';
 
+/** Superpowers 仓库地址 */
 export const SUPERPOWERS_REPO = 'https://github.com/obra/superpowers';
+/** Superpowers 最低支持版本 */
 export const SUPERPOWERS_MIN_VERSION = '4.0.0';
 
+/** 已注册的技能来源表 */
 export const SOURCES: SkillSource[] = [
   {
     id: 'polaris',
@@ -63,6 +58,7 @@ export const SOURCES: SkillSource[] = [
   },
 ];
 
+/** 返回 polaris bundled 来源；未配置则抛错 */
 export function getPolarisSource(): SkillSource {
   const source = SOURCES.find((s) => s.id === 'polaris');
   if (!source) {
@@ -71,6 +67,7 @@ export function getPolarisSource(): SkillSource {
   return source;
 }
 
+/** 返回 superpowers github 来源；未配置则抛错 */
 export function getSuperpowersSource(): SkillSource {
   const source = SOURCES.find((s) => s.id === 'superpowers');
   if (!source) {

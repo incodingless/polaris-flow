@@ -6,10 +6,12 @@ import path from 'path';
 import { writeFile, readFile } from 'fs/promises';
 import { parse as parseYaml } from 'yaml';
 
-import { fileExists, ensureDir } from '../utils/file-system.js';
-import type { Language } from './types.js';
+import { fileExists, ensureDir } from '../../utils/file-system.js';
+import type { Language } from '../types.js';
 
+/** 上下文压缩开关 */
 export type ContextCompression = 'off' | 'beta';
+/** 审查模式 */
 export type ReviewMode = 'off' | 'standard' | 'thorough';
 
 /** init 写入 config 时的可选平台字段 */

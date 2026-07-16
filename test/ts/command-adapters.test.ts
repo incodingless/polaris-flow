@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { defaultAdapter } from '../../src/core/command-adapters/default.js';
-import { claudeAdapter } from '../../src/core/command-adapters/claude.js';
-import { getCommandAdapter } from '../../src/core/command-adapters/index.js';
+import { defaultAdapter } from '../../src/core/install/command-adapters/default.js';
+import { claudeAdapter } from '../../src/core/install/command-adapters/claude.js';
+import { getCommandAdapter } from '../../src/core/install/command-adapters/index.js';
 import { parseFrontmatter } from '../../src/core/install.js';
 
 describe('command-adapters', () => {
@@ -10,8 +10,9 @@ describe('command-adapters', () => {
     expect(getCommandAdapter('unknown-platform')).toBe(defaultAdapter);
   });
 
-  it('getCommandAdapter returns claude adapter for claude', () => {
+  it('getCommandAdapter returns claude adapter for claude and gemini', () => {
     expect(getCommandAdapter('claude')).toBe(claudeAdapter);
+    expect(getCommandAdapter('gemini')).toBe(claudeAdapter);
   });
 
   it('defaultAdapter converts colon triggers to dash in body', () => {

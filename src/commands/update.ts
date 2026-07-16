@@ -2,22 +2,17 @@ import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
 
 import { t } from './i18n/index.js';
-import { detectPlatforms, getBaseDir, hasSkills } from '../core/detect.js';
-import { getLanguageSkillsDir, readAssetManifest } from '../core/manifest.js';
-import {
-  copyPolarisRulesForPlatform,
-  copyPolarisSkillsForPlatform,
-  getAssetsDir,
-  installPolarisHooksForPlatform,
-} from '../core/skills.js';
-import { PLATFORMS } from '../core/platforms.js';
-import { printVersionInfo, PACKAGE_NAME } from '../core/version.js';
+import { detectPlatforms, getBaseDir, hasSkills } from '../core/platform/detect.js';
+import { readAssetManifest } from '../core/assets/manifest.js';
+import { getAssetsDir, installPolarisForPlatform } from '../core/install.js';
+import { PLATFORMS } from '../core/platform/platforms.js';
+import { printVersionInfo, PACKAGE_NAME } from '../core/deps/version.js';
 import { fileExists } from '../utils/file-system.js';
-import type { InstallScope, SkillLanguage } from '../core/types.js';
+import type { InstallScope, Language } from '../core/types.js';
 
 export type UpdateOptions = {
   force?: boolean;
-  lang?: SkillLanguage;
+  lang?: Language;
   scope?: InstallScope;
   json?: boolean;
 };
@@ -111,30 +106,27 @@ export async function runUpdate(
   log(`${t(lang, 'updatingSkillsOnTargets')} ${platforms.map((p) => p.name).join(', ')}`);
 
   const baseDir = getBaseDir(scope, projectPath);
-  const languageSkillsDir = getLanguageSkillsDir(language);
   let skillsUpdated = 0;
 
   for (const platform of platforms) {
     log(`${t(lang, 'copyingSkillsFiles')} ${platform.name}...`);
-    const skills = await copyPolarisSkillsForPlatform(
+    const installed = await installPolarisForPlatform(
       baseDir,
       platform,
       Boolean(options.force),
-      languageSkillsDir,
+      language,
       scope,
     );
-    const rules = await copyPolarisRulesForPlatform(
-      baseDir,
-      platform,
-      Boolean(options.force),
-      scope,
-      languageSkillsDir,
-    );
-    await installPolarisHooksForPlatform(baseDir, platform, scope);
-    skillsUpdated += skills.copied + rules.copied;
+    skillsUpdated +=
+      installed.skills.copied +
+      installed.commands.copied +
+      installed.agents.copied +
+      installed.rules.copied;
 
     if (!options.json) {
-      log(`  ${platform.name}: ${skills.copied} skills, ${rules.copied} rules`);
+      log(
+        `  ${platform.name}: ${installed.skills.copied} skills, ${installed.commands.copied} commands, ${installed.agents.copied} agents, ${installed.rules.copied} rules`,
+      );
     }
   }
 
@@ -150,9 +142,8 @@ export async function runUpdate(
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));
   } else {
-    log('');
     log(t(lang, 'updateComplete'));
-    log(`${t(lang, 'summary')} ${PACKAGE_NAME} ${manifest.version}`);
+    log(`  ${PACKAGE_NAME}@${manifest.version}`);
   }
 
   return result;

@@ -1,0 +1,70 @@
+# 单 change 业务档案模板
+# 路径：.polaris/changes/<change_id>/state.yaml
+# （design Step 1 起草临时 draft-<session_suffix>-<unix_ts>/state.yaml；
+#  Step 4.4 用户整体确认后 mv 到正式 changes/<change_id>/state.yaml）
+#
+# 由各阶段 skill 各自维护对应字段块。worktree 阶段拷贝整个 changes/<change_id>/
+# 目录到 worktree 内同名路径，主仓副本被重命名为 changes/<change_id>.snapshot/ 作只读快照。
+
+change_id: ""        # 与父目录名一致；draft-* 阶段为占位，Step 4.4 回填
+current_verb: idle   # idle | clarify | propose | design | review | build | verify | delivery
+current_tier: ""     # trivial | standard | critical（triage 写入）
+
+triage:
+  tier: ""
+  t1_result: ""
+  t2_result: ""
+  timestamp: ""
+
+worktree:
+  created_by_polaris_flow: false
+  path: ""             # propose Step 1.3.A 写入
+  branch: ""
+  origin_repo: ""
+  created_at: ""
+  status: ""           # active | merged | abandoned
+
+propose:
+  status: ""           # in_progress | completed | skipped（trivial 直跳过）
+  worktree_decision: ""  # created | reused | declined（用户在 propose Step 1.0 选 A/B/C）
+  opsx_propose_status: ""  # ok | failed | n/a（Step 2 调 /opsx:propose 的结果）
+  finished_at: ""
+
+design:
+  status: ""           # in_progress | completed
+  path: ""             # 完成后的最终 pre_design.md 路径
+                       # 例：.polaris/changes/<change_id>/pre_design.md
+                       # （worktree 内则是 worktree/.polaris/changes/<change_id>/pre_design.md）
+  draft_dir: ""        # design 进行中的临时目录名，例：draft-0701c0-1748060068；Step 4.4 后清空
+
+review:
+  status: ""
+  plan_review_status: ""
+  constitution_compliance: ""
+
+build:
+  status: ""
+  current_task: ""
+  total_tasks: 0
+  completed_tasks: 0
+
+verify:
+  constitution_valid: false
+  scorer_results: {}
+  overall_score: 0
+  blocked: false
+
+delivery:
+  status: ""
+  merge_strategy: ""
+  finished_at: ""
+  harness_sync: ""   # synced | partial_failure | skipped_no_source | skipped_worktree_retained | deferred_archive_conflict | n/a
+  archive_dir: ""    # 例：.polaris/archive/<change_id>
+  archive: ""        # archived | deferred | skipped | failed
+  archive_path: ""
+  archive_error: ""
+
+deepread:
+  last_triggered: ""
+  pending_file: ""
+  action: halt_and_wait

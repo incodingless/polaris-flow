@@ -1,5 +1,30 @@
 # Changelog
 
+## What's Changed [0.1.1] - 2026-07-15
+
+### Added
+
+- **平台安装布局**: 按平台 `skillsLayout`（nested / flat）将 polaris 资产装到正确目标目录；Trae 子 skill 扁平为 `polaris-flow-*`，其余平台嵌套进 `skills/polaris-flow/`
+- **包内公共内容安装**: init/update 同步安装 adapters、policies、templates、hooks 脚本到插件根
+- **agents 安装**: 将 `cross-review-agent` 等写入 `.<platform>/agents/`
+- **config.yaml**: 写入 `platform` 与 `plugin_root` 字段
+
+### Changed
+
+- **安装编排显式化**: `installPolarisForPlatform` 按 skills → commands → agents → rules → hooks 显式调用；`copyPolarisSkillsForPlatform` 不再顺带安装 commands/agents；init/update 统一走编排入口
+- **core 目录重组**: 按安装域拆分 `src/core`——`install.ts` 为编排入口，`install/` 承载 skills/commands/hooks/rules/agents；`platform/`、`assets/`、`config/`、`deps/` 分域；`workflow.ts` 重命名为 `config/workflow-state.ts`
+- **core 去重**: 合并 claude/gemini adapter；统一 `copyDirContents` / hooks JSON IO / `runCopyJobs`；`getNodeToolExecutable` 与 `compareVersions` 共用；删除死导出与孤儿注释
+- **core 注释**: 补齐 `src/core` 模块文件头与关键导出 API 的中文说明
+
+### Fixed
+
+- **hooks**: 从 `assets/shared/hooks` 扫描并拷贝脚本；settings 中命令指向 `skills/polaris-flow/hooks/`
+- **rules**: 正确解析 `skills/hard-stops.md` 源路径
+
+### Tests
+
+- **install-layout / skills-install**: 覆盖 nested/flat 落盘、hooks 命令路径、agents 与 config 字段；skills 步骤不再隐式安装 agents
+
 ## 0.1.0
 
 - Initial project scaffold

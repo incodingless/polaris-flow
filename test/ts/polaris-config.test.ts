@@ -9,7 +9,7 @@ import {
   getPolarisConfigPath,
   loadPolarisConfig,
   writePolarisConfigIfMissing,
-} from '../../src/core/polaris-config.js';
+} from '../../src/core/config/polaris-config.js';
 
 describe('polaris-config', () => {
   it('createDefaultPolarisConfig 返回预期默认值', () => {
@@ -24,9 +24,21 @@ describe('polaris-config', () => {
     expect(config.review_mode).toBe('off');
   });
 
+  it('createDefaultPolarisConfig 可写入 platform 与 plugin_root', () => {
+    const config = createDefaultPolarisConfig('zh', {
+      platform: 'claude',
+      plugin_root: '.claude/skills/polaris-flow',
+    });
+    expect(config.platform).toBe('claude');
+    expect(config.plugin_root).toBe('.claude/skills/polaris-flow');
+  });
+
   it('writePolarisConfigIfMissing 首次写入后文件可解析', async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-config-'));
-    const written = await writePolarisConfigIfMissing(tmpDir, 'en');
+    const written = await writePolarisConfigIfMissing(tmpDir, 'en', {
+      platform: 'trae',
+      plugin_root: '.trae/skills/polaris-flow',
+    });
 
     expect(written).toBe(true);
 
@@ -40,6 +52,8 @@ describe('polaris-config', () => {
       auto_transition: boolean;
       context_compression: string;
       review_mode: string;
+      platform: string;
+      plugin_root: string;
     };
 
     expect(parsed.lang).toBe('en');
@@ -49,6 +63,8 @@ describe('polaris-config', () => {
     expect(parsed.auto_transition).toBe(true);
     expect(parsed.context_compression).toBe('off');
     expect(parsed.review_mode).toBe('off');
+    expect(parsed.platform).toBe('trae');
+    expect(parsed.plugin_root).toBe('.trae/skills/polaris-flow');
     expect(raw).toContain('# 基础');
     expect(raw).toContain('# 工作流状态');
     expect(raw).toContain('# 功能开关');

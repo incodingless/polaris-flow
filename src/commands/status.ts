@@ -1,6 +1,6 @@
 import path from 'path';
 
-import { loadWorkflowFromCwd } from '../core/workflow.js';
+import { loadWorkflowFromCwd } from '../core/config/workflow-state.js';
 
 export type StatusOptions = {
   json?: boolean;

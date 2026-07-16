@@ -1,17 +1,22 @@
+/**
+ * doctor 诊断：Node/命令可用性、skills-lock 与平台 polaris 安装状态。
+ */
 import path from 'path';
 import { createRequire } from 'module';
 
 import { fileExists, readJson } from '../utils/file-system.js';
-import { isCommandAvailable } from './openspec.js';
-import { detectPlatforms, getBaseDir, hasSkills } from './detect.js';
-import { PLATFORMS } from './platforms.js';
+import { isCommandAvailable } from './deps/openspec.js';
+import { detectPlatforms, getBaseDir, hasSkills } from './platform/detect.js';
+import { PLATFORMS } from './platform/platforms.js';
 import type { InstallScope } from './types.js';
 
 const require = createRequire(import.meta.url);
 const { engines } = require('../../package.json') as { engines?: { node?: string } };
 
+/** 单项诊断级别 */
 export type DiagnosticStatus = 'ok' | 'warn' | 'fail';
 
+/** 单项诊断结果 */
 export type DiagnosticItem = {
   name: string;
   status: DiagnosticStatus;
@@ -134,6 +139,7 @@ export async function runDiagnostics(
   return checks;
 }
 
+/** 是否存在 fail 级别诊断项 */
 export function hasDiagnosticFailure(checks: DiagnosticItem[]): boolean {
   return checks.some((item) => item.status === 'fail');
 }

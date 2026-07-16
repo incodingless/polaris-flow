@@ -1,4 +1,7 @@
-import type { InstallScope } from '../types.js';
+/**
+ * 命令适配器接口与中间内容结构。
+ */
+import type { InstallScope } from '../../types.js';
 
 /** 从 assets 命令 .md 解析后的中间结构 */
 export interface CommandContent {

@@ -7,13 +7,14 @@ import path from 'path';
 import os from 'os';
 
 import type { CommandAdapter, CommandContent } from './types.js';
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../../types.js';
 
 function getCodexHome(): string {
   const envHome = process.env.CODEX_HOME?.trim();
   return envHome ? path.resolve(envHome) : path.join(os.homedir(), '.codex');
 }
 
+/** Codex：~/.codex/prompts/{prefix}-{id}.md（始终全局） */
 export const codexAdapter: CommandAdapter = {
   platformIds: ['codex'],
 

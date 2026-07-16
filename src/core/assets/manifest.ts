@@ -1,8 +1,13 @@
+/**
+ * assets/manifest.json 解析与语言资产路径解析。
+ * 负责扫描 skills/commands/hooks 等可分发文件，供安装管线消费。
+ */
 import path from 'path';
 
-import { fileExists, readDir, readJson } from '../utils/file-system.js';
-import type { Language } from './types.js';
+import { fileExists, readDir, readJson } from '../../utils/file-system.js';
+import type { Language } from '../types.js';
 
+/** Manifest 中单个 hook 条目 */
 export type HookConfig = {
   matcher: string;
   description: string;
@@ -21,6 +26,7 @@ export type AssetManifest = {
   hooks?: Record<string, HookConfig>;
 };
 
+/** 解析后的可安装资产列表（skills/rules/hooks） */
 export type ResolvedManifestAssets = {
   version: string;
   skills: string[];
@@ -31,7 +37,7 @@ export type ResolvedManifestAssets = {
 const DEFAULT_LANG_CONTENT_DIRS = ['skills', 'commands', 'templates', 'adapters', 'policies'];
 
 /** 语言内容在 assets 下的目录名（兼容 en/zh 子目录与 skills-zh 平铺） */
-function getLanguageRoots(lang: Language): string[] {
+export function getLanguageContentRoots(lang: Language): string[] {
   if (lang === 'zh') {
     return ['zh', 'skills-zh'];
   }
@@ -68,7 +74,7 @@ async function collectLangContentPaths(
 ): Promise<string[]> {
   const paths = new Set<string>();
 
-  for (const langRoot of getLanguageRoots(lang)) {
+  for (const langRoot of getLanguageContentRoots(lang)) {
     for (const contentDir of contentDirs) {
       const scanRoot = path.join(assetsDir, langRoot, contentDir);
       const files = await walkFilesSafe(scanRoot, scanRoot);
@@ -88,7 +94,7 @@ async function collectSharedRules(
 ): Promise<string[]> {
   const rules = new Set<string>();
 
-  for (const langRoot of getLanguageRoots(lang)) {
+  for (const langRoot of getLanguageContentRoots(lang)) {
     for (const fileName of langFiles) {
       const candidates = [
         path.join(assetsDir, langRoot, fileName),
@@ -120,10 +126,7 @@ async function isDirectory(dirPath: string): Promise<boolean> {
   }
 }
 
-async function collectHooks(
-  assetsDir: string,
-  sharedDirs: string[],
-): Promise<Record<string, HookConfig>> {
+async function collectHooks(assetsDir: string, sharedDirs: string[]): Promise<Record<string, HookConfig>> {
   if (!sharedDirs.includes('hooks')) {
     return {};
   }
@@ -150,7 +153,10 @@ async function collectHooks(
 /**
  * 收集 assets/shared/<dirName> 下文件，返回形如 `<dirName>/rel` 的路径列表。
  */
-export async function collectSharedDirFiles(assetsDir: string, dirName: string): Promise<string[]> {
+export async function collectSharedDirFiles(
+  assetsDir: string,
+  dirName: string,
+): Promise<string[]> {
   const sharedDir = path.join(assetsDir, 'shared', dirName);
   const files = await walkFilesSafe(sharedDir, sharedDir);
   return files.map((file) => `${dirName}/${file}`);
@@ -211,7 +217,7 @@ export async function resolveAssetSourcePath(
     candidates.push(path.join(assetsDir, 'shared', normalized));
   }
 
-  for (const langRoot of getLanguageRoots(lang)) {
+  for (const langRoot of getLanguageContentRoots(lang)) {
     candidates.push(path.join(assetsDir, langRoot, assetRelPath));
   }
 
@@ -220,7 +226,7 @@ export async function resolveAssetSourcePath(
   if (parts.length > 1) {
     const [, ...rest] = parts;
     const flatPath = rest.join('/');
-    for (const langRoot of getLanguageRoots(lang)) {
+    for (const langRoot of getLanguageContentRoots(lang)) {
       candidates.push(path.join(assetsDir, langRoot, flatPath));
     }
     if (lang === 'zh') {
@@ -239,6 +245,7 @@ export async function resolveAssetSourcePath(
   return null;
 }
 
+/** 将 languageSkillsDir（skills / skills-zh）映射为 SkillLanguage */
 export function languageSkillsDirToLang(languageSkillsDir: string): Language {
   return languageSkillsDir === 'skills-zh' ? 'zh' : 'en';
 }

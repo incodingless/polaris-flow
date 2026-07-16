@@ -1,12 +1,18 @@
+/**
+ * 工作流运行时状态读写（.harness/workflow.yaml）。
+ * 与 polaris-config（项目静态配置）分离：本文件描述 active changes 列表。
+ */
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { execFileSync } from 'child_process';
 
-import { fileExists } from '../utils/file-system.js';
+import { fileExists } from '../../utils/file-system.js';
 import { parse as parseYaml } from 'yaml';
 
+/** change 状态；未知字符串按透传保留 */
 export type WorkflowChangeStatus = 'active' | 'paused' | 'done' | string;
 
+/** 单条工作流 change */
 export type WorkflowChange = {
   id: string;
   title?: string;
@@ -14,12 +20,14 @@ export type WorkflowChange = {
   worktree?: string;
 };
 
+/** `.harness/workflow.yaml` 根结构 */
 export type WorkflowState = {
   version: number;
   changes: WorkflowChange[];
 };
 
-function runGit(args: string[], cwd: string): string | null {
+/** 失败时返回 null 的 git argv 调用（与 github.runGitShell 安全模型不同，勿合并） */
+function tryGitArgs(args: string[], cwd: string): string | null {
   try {
     return execFileSync('git', args, { cwd, encoding: 'utf-8' }).trim();
   } catch {
@@ -29,7 +37,7 @@ function runGit(args: string[], cwd: string): string | null {
 
 /** 解析当前目录所属 git 仓库根路径 */
 export function resolveGitRoot(cwd: string): string | null {
-  const root = runGit(['rev-parse', '--show-toplevel'], cwd);
+  const root = tryGitArgs(['rev-parse', '--show-toplevel'], cwd);
   return root || null;
 }
 
@@ -42,7 +50,7 @@ export function resolveMainRepo(cwd: string): string | null {
     return null;
   }
 
-  const worktreeList = runGit(['worktree', 'list', '--porcelain'], gitRoot);
+  const worktreeList = tryGitArgs(['worktree', 'list', '--porcelain'], gitRoot);
   if (!worktreeList) {
     return gitRoot;
   }

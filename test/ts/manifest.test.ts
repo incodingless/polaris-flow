@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { readFile } from 'fs/promises';
 
-import { readAssetManifest, resolveManifestAssets } from '../../src/core/manifest.js';
+import { readAssetManifest, resolveManifestAssets } from '../../src/core/assets/manifest.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
@@ -21,6 +21,17 @@ describe('manifest', () => {
     const resolved = await resolveManifestAssets(assetsDir, 'en');
     expect(Array.isArray(resolved.skills)).toBe(true);
     expect(resolved.version).toBe('0.1.0');
+  });
+
+  it('从 shared/hooks 收集 hook 脚本', async () => {
+    const resolved = await resolveManifestAssets(assetsDir, 'zh');
+    expect(Object.keys(resolved.hooks).length).toBeGreaterThan(0);
+    expect(resolved.hooks['hooks/session-start.sh']).toBeDefined();
+  });
+
+  it('rules 能解析到 skills/hard-stops.md', async () => {
+    const resolved = await resolveManifestAssets(assetsDir, 'zh');
+    expect(resolved.rules).toContain('skills/hard-stops.md');
   });
 });
 

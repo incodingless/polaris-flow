@@ -1,15 +1,16 @@
 /**
- * Gemini 适配器 — 与 Claude 相同的子目录风格。
+ * Claude / CodeBuddy / Gemini 适配器 — 子目录风格。
  * 输出：{skillsDir}/commands/{prefix}/{id}.md
  */
 
 import path from 'path';
 
 import type { CommandAdapter, CommandContent } from './types.js';
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../../types.js';
 
-export const geminiAdapter: CommandAdapter = {
-  platformIds: ['gemini'],
+/** Claude / CodeBuddy / Gemini：commands/{prefix}/{id}.md */
+export const claudeAdapter: CommandAdapter = {
+  platformIds: ['claude', 'codebuddy', 'gemini'],
 
   getCommandPath(
     commandId: string,

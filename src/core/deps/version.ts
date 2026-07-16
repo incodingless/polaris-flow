@@ -1,12 +1,16 @@
+/**
+ * Polaris 包版本读取与 npm registry 更新检查。
+ */
 import { createRequire } from 'module';
 import https from 'https';
 
 const require = createRequire(import.meta.url);
-const { version: CURRENT_VERSION } = require('../../package.json');
+const { version: CURRENT_VERSION } = require('../../../package.json');
 
 const PACKAGE_NAME = '@polaris/polaris-flow';
 const REGISTRY_URL = `https://registry.npmjs.org/${PACKAGE_NAME}/latest`;
 
+/** npm 更新检查结果；checked=false 表示网络未成功 */
 export interface VersionCheckResult {
   currentVersion: string;
   latestVersion: string | null;

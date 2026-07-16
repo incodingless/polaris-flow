@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildSuperpowersInstallCommand } from '../../src/core/superpowers.js';
+import { buildSuperpowersInstallCommand } from '../../src/core/deps/superpowers.js';
 
 describe('superpowers npx fallback', () => {
   it('buildSuperpowersInstallCommand includes trae agent for project scope', () => {
