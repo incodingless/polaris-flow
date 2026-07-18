@@ -42,11 +42,6 @@ export function getPlatformSkillsDir(platform: Platform, scope: InstallScope): s
   return platform.skillsDir;
 }
 
-/** 与 getPlatformSkillsDir 相同，包成单元素数组以兼容旧调用 */
-export function getPlatformSkillsDirs(platform: Platform, scope: InstallScope): string[] {
-  return [getPlatformSkillsDir(platform, scope)];
-}
-
 /** 返回平台 settings 相对路径（project→settings.local.json，global→settings.json） */
 export function getSettingsFilePath(platform: Platform, scope: InstallScope): string {
   // Project scope → settings.local.json (not committed)

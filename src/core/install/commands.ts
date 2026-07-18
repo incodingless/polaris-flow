@@ -1,28 +1,19 @@
 /**
  * 平台 slash command 安装：经 command-adapters 写入各宿主命令路径。
- * 亦提供 installSource（给 Superpowers 等外部源复用）；Pi 走 TS extension。
+ * installSource（外部源复用）在 source-installer.ts；Pi 走 pi-extension.ts。
  */
 import path from 'path';
 import fs from 'fs/promises';
 
-import { copyDirContents, copyFile, ensureDir, fileExists } from '../../utils/file-system.js';
-import { getCommandAdapter } from './command-adapters/index.js';
+import { ensureDir, fileExists } from '../../utils/file-system.js';
+import { getCommandAdapter } from './command-adapters/adapters.js';
 import type { SkillSource } from '../assets/sources.js';
 import { POLARIS_COMMAND_PREFIX } from '../assets/sources.js';
 import { getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
 import type { InstallScope, Language } from '../types.js';
 import { runCopyJobs, type CopyJob } from './copy-jobs.js';
-import { getLanguageContentRoots } from '../assets/manifest.js';
-import { getManifestSkills } from './manifest-reader.js';
-import { readJsonObjectOrEmpty, writeJsonPretty } from './hooks/json-io.js';
-
-const PI_COMMAND_EXTENSION_FILE = 'polaris-commands.ts';
-
-/** 将 assets 内语言路径 zh/ → en/（与 getLanguageContentRoots 策略一致） */
-function resolveLangPath(assetPath: string, lang: Language): string {
-  if (lang === 'zh') return assetPath;
-  return assetPath.replace(/^zh\//, 'en/').replace(/^skills-zh\//, 'skills/');
-}
+import { getLanguageContentRoots, getManifestSkills } from '../assets/manifest.js';
+import { createPiCommandExtension } from './pi-extension.js';
 
 /** 解析命令 markdown frontmatter */
 export function parseFrontmatter(content: string): { meta: Record<string, string>; body: string } {
@@ -55,56 +46,6 @@ export async function resolveCommandsDir(
     }
   }
   return null;
-}
-
-/**
- * 从 GitHub clone 或 bundled 仓库复制 skills 到平台目录。
- */
-export async function installSource(
-  source: SkillSource,
-  repoPath: string,
-  baseDir: string,
-  platform: Platform,
-  scope: InstallScope,
-  lang?: Language,
-): Promise<void> {
-  const skillsDir = getPlatformSkillsDir(platform, scope);
-  const platformSkillsRoot = path.join(baseDir, skillsDir, 'skills');
-  await ensureDir(platformSkillsRoot);
-
-  const l = lang ?? 'zh';
-
-  if (source.skillsPath) {
-    const resolvedPath = resolveLangPath(source.skillsPath, l);
-    const srcSkills = path.join(repoPath, resolvedPath);
-    const destSkills = path.join(platformSkillsRoot, source.targetDir ?? '');
-    await copyDirContents(srcSkills, destSkills);
-  }
-
-  if (source.extraPaths) {
-    for (const ep of source.extraPaths) {
-      const langEp = resolveLangPath(ep, l);
-      const srcExtra = path.join(repoPath, langEp);
-      let srcActual = srcExtra;
-      let stat = await fs.stat(srcExtra).catch(() => null);
-
-      if (!stat && langEp !== ep) {
-        srcActual = path.join(repoPath, ep);
-        stat = await fs.stat(srcActual).catch(() => null);
-      }
-
-      if (!stat) continue;
-
-      const destRel = ep.replace(/^assets\/(zh|en|shared)\//, '').replace(/^zh\//, '');
-      const destPath = path.join(platformSkillsRoot, source.targetDir ?? '', destRel);
-
-      if (stat.isDirectory()) {
-        await copyDirContents(srcActual, destPath);
-      } else {
-        await copyFile(srcActual, destPath);
-      }
-    }
-  }
 }
 
 /**
@@ -187,87 +128,4 @@ export async function installPolarisCommands(
   }
 
   return installCommands(source, commandsDir, baseDir, platform, scope, overwrite, lang);
-}
-
-/** 从 `skillName/SKILL.md` 路径取出顶层 skill 名 */
-function getTopLevelSkillNames(skillPaths: string[]): string[] {
-  return skillPaths.flatMap((skillPath) => {
-    const parts = skillPath.split('/');
-    return parts.length === 2 && parts[1] === 'SKILL.md' ? [parts[0]] : [];
-  });
-}
-
-/** 渲染 Pi 平台的命令 extension 源码 */
-function renderPiCommandExtension(skillNames: string[]): string {
-  return `import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
-const commands = ${JSON.stringify(skillNames, null, 2)} as const;
-
-export default function registerPolarisCommands(pi: ExtensionAPI) {
-  for (const name of commands) {
-    pi.registerCommand(name, {
-      description: \`Polaris: /\${name}\`,
-      handler: async (args) => {
-        pi.sendUserMessage(args ? \`/skill:\${name} \${args}\` : \`/skill:\${name}\`);
-      },
-    });
-  }
-}
-`;
-}
-
-/**
- * 为 Pi 平台写入 polaris-commands extension，并开启 enableSkillCommands。
- */
-async function createPiCommandExtension(
-  baseDir: string,
-  platform: Platform,
-  skillPaths: string[],
-  overwrite: boolean,
-  scope: InstallScope,
-): Promise<{ copied: number; skipped: number }> {
-  const platformBase = path.join(baseDir, getPlatformSkillsDir(platform, scope));
-  const settingsPath = path.join(platformBase, 'settings.json');
-  const extensionPath = path.join(platformBase, 'extensions', PI_COMMAND_EXTENSION_FILE);
-
-  let copied = 0;
-  let skipped = 0;
-
-  let settings: Record<string, unknown>;
-  if (await fileExists(settingsPath)) {
-    try {
-      const parsed = JSON.parse(await fs.readFile(settingsPath, 'utf-8')) as unknown;
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw new Error('expected a JSON object');
-      }
-      settings = parsed as Record<string, unknown>;
-    } catch (err) {
-      throw new Error(`Invalid Pi settings at ${settingsPath}: ${(err as Error).message}`, {
-        cause: err,
-      });
-    }
-  } else {
-    settings = await readJsonObjectOrEmpty(settingsPath);
-  }
-
-  if (settings.enableSkillCommands !== true) {
-    settings.enableSkillCommands = true;
-    await writeJsonPretty(settingsPath, settings);
-    copied++;
-  }
-
-  if (!overwrite && (await fileExists(extensionPath))) {
-    skipped++;
-    return { copied, skipped };
-  }
-
-  await ensureDir(path.dirname(extensionPath));
-  await fs.writeFile(
-    extensionPath,
-    renderPiCommandExtension(getTopLevelSkillNames(skillPaths)),
-    'utf-8',
-  );
-  copied++;
-
-  return { copied, skipped };
 }

@@ -1,10 +1,11 @@
 /**
- * JSON settings 读写小工具，供 hooks / Pi extension 共用。
+ * JSON 文件读写小工具：读对象、美化写入、读改写回。
+ * 供 hooks 安装、Pi extension 等多处复用。
  */
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 
-import { ensureDir, fileExists } from '../../../utils/file-system.js';
+import { ensureDir, fileExists } from './file-system.js';
 
 /** 读取 JSON 对象；文件缺失或解析失败时返回空对象 */
 export async function readJsonObjectOrEmpty(filePath: string): Promise<Record<string, unknown>> {

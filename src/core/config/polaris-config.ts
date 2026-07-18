@@ -124,3 +124,16 @@ export async function loadPolarisConfig(projectPath: string): Promise<PolarisCon
     return null;
   }
 }
+
+/** 创建 init 所需工作目录（docs/superpowers 子目录与 .polaris） */
+export async function createWorkingDirs(projectPath: string): Promise<void> {
+  const dirs = [
+    path.join(projectPath, 'docs', 'superpowers', 'specs'),
+    path.join(projectPath, 'docs', 'superpowers', 'plans'),
+    path.join(projectPath, '.polaris'),
+  ];
+
+  for (const dir of dirs) {
+    await ensureDir(dir);
+  }
+}

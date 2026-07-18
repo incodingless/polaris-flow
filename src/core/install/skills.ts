@@ -7,13 +7,15 @@ import path from 'path';
 import { copyFile } from '../../utils/file-system.js';
 import {
   collectSharedDirFiles,
+  getManifestSkills,
+  readManifest,
   resolveAssetSourcePath,
   resolveManifestAssets,
+  type Manifest,
 } from '../assets/manifest.js';
 import { getAssetsDir } from '../assets/paths.js';
 import { resolveInstallDest } from '../platform/layout.js';
 import type { Platform } from '../platform/platforms.js';
-import { getManifestSkills, readManifest, type Manifest } from './manifest-reader.js';
 import { runCopyJobs, type CopyJob } from './copy-jobs.js';
 import type { InstallScope, Language } from '../types.js';
 

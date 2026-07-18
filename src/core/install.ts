@@ -11,7 +11,7 @@ import { getAssetsDir } from './assets/paths.js';
 import { getPolarisSource } from './assets/sources.js';
 import { copyPolarisAgentsForPlatform } from './install/agents.js';
 import { installPolarisCommands } from './install/commands.js';
-import { installPolarisHooksForPlatform } from './install/hooks/index.js';
+import { installPolarisHooksForPlatform } from './install/hooks.js';
 import { copyPolarisRulesForPlatform } from './install/rules.js';
 import { copyPolarisSkillsForPlatform } from './install/skills.js';
 
@@ -21,10 +21,10 @@ export { writeLockFile } from './install/lock.js';
 export {
   installCommands,
   installPolarisCommands,
-  installSource,
   parseFrontmatter,
   resolveCommandsDir,
 } from './install/commands.js';
+export { installSource } from './install/source-installer.js';
 
 export { copyPolarisSkillsForPlatform, getManifestSkills, readManifest } from './install/skills.js';
 export type { Manifest } from './install/skills.js';
@@ -35,8 +35,8 @@ export {
   buildHookCommand,
   installPolarisHooksForPlatform,
   isManagedHookCommand,
-} from './install/hooks/index.js';
-export { createWorkingDirs } from './install/working-dirs.js';
+} from './install/hooks.js';
+export { createWorkingDirs } from './config/polaris-config.js';
 export { getAssetsDir } from './assets/paths.js';
 
 /** 单类文件拷贝结果 */

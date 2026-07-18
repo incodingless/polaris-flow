@@ -5,10 +5,9 @@ import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
 
 import { fileExists, ensureDir } from '../../utils/file-system.js';
-import { resolveAssetSourcePath } from '../assets/manifest.js';
+import { readManifest, resolveAssetSourcePath } from '../assets/manifest.js';
 import { getAssetsDir } from '../assets/paths.js';
 import { getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
-import { readManifest } from './manifest-reader.js';
 import type { InstallScope, Language } from '../types.js';
 import { runCopyJobs, type CopyJob } from './copy-jobs.js';
 

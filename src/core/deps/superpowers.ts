@@ -4,7 +4,7 @@
  */
 import { getNodeToolExecutable } from './npm.js';
 import { cleanupTemp, fetchRepo, resolveVersion } from './github.js';
-import { installSource } from '../install/commands.js';
+import { installSource } from '../install/source-installer.js';
 import {
   getSuperpowersSource,
   SUPERPOWERS_REPO,

@@ -6,7 +6,7 @@ import path from 'path';
 import os from 'os';
 
 import { fileExists, readDir, readJson } from '../../utils/file-system.js';
-import { PLATFORMS, getPlatformSkillsDirs, type Platform } from './platforms.js';
+import { PLATFORMS, getPlatformSkillsDir, type Platform } from './platforms.js';
 
 import type { InstallScope } from '../types.js';
 
@@ -115,12 +115,9 @@ async function detectPlatforms(projectPath: string): Promise<Set<string>> {
         }
       }
     } else {
-      for (const skillsDir of getPlatformSkillsDirs(platform, 'project')) {
-        const dirPath = path.join(projectPath, skillsDir);
-        if (await fileExists(dirPath)) {
-          detected.add(platform.id);
-          break;
-        }
+      const skillsDir = getPlatformSkillsDir(platform, 'project');
+      if (await fileExists(path.join(projectPath, skillsDir))) {
+        detected.add(platform.id);
       }
     }
   }
@@ -139,16 +136,10 @@ async function hasSkills(
   _selectedPlatforms: Platform[] = [],
   scope: InstallScope = 'project',
 ): Promise<boolean> {
-  const skillDirEntries = await Promise.all(
-    getPlatformSkillsDirs(platform, scope).map(async (skillsDir) => {
-      const fullPath = path.join(baseDir, skillsDir, 'skills');
-      return {
-        skillsDir,
-        entries: (await fileExists(fullPath)) ? await readDir(fullPath) : [],
-      };
-    }),
-  );
-  const entries = skillDirEntries.flatMap((dir) => dir.entries);
+  const skillsDir = getPlatformSkillsDir(platform, scope);
+  const fullPath = path.join(baseDir, skillsDir, 'skills');
+  const entries = (await fileExists(fullPath)) ? await readDir(fullPath) : [];
+  const skillDirEntries = [{ skillsDir, entries }];
 
   switch (component) {
     case 'openspec':

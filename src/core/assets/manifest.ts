@@ -5,6 +5,7 @@
 import path from 'path';
 
 import { fileExists, readDir, readJson } from '../../utils/file-system.js';
+import { getAssetsDir } from './paths.js';
 import type { Language } from '../types.js';
 
 /** Manifest 中单个 hook 条目 */
@@ -32,6 +33,13 @@ export type ResolvedManifestAssets = {
   skills: string[];
   rules: string[];
   hooks: Record<string, HookConfig>;
+};
+
+/** 安装管线使用的完整 Manifest（基座 + 已解析列表） */
+export type Manifest = AssetManifest & {
+  skills: string[];
+  rules?: string[];
+  hooks?: Record<string, HookConfig>;
 };
 
 const DEFAULT_LANG_CONTENT_DIRS = ['skills', 'commands', 'templates', 'adapters', 'policies'];
@@ -169,6 +177,25 @@ export async function readAssetManifest(assetsDir: string): Promise<AssetManifes
     throw new Error(`Manifest not found at ${manifestPath}`);
   }
   return readJson<AssetManifest>(manifestPath);
+}
+
+/** 按语言读取完整 manifest（基座 + 已解析 skills/rules/hooks 列表） */
+export async function readManifest(lang: Language = 'en'): Promise<Manifest> {
+  const assetsDir = getAssetsDir();
+  const base = await readAssetManifest(assetsDir);
+  const resolved = await resolveManifestAssets(assetsDir, lang, base);
+  return {
+    ...base,
+    skills: resolved.skills,
+    rules: resolved.rules,
+    hooks: resolved.hooks,
+  };
+}
+
+/** 仅返回 skills 路径列表 */
+export async function getManifestSkills(lang: Language = 'en'): Promise<string[]> {
+  const manifest = await readManifest(lang);
+  return manifest.skills;
 }
 
 /** 按语言解析可分发资产路径 */
