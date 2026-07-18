@@ -19,14 +19,14 @@ export interface Platform {
   skillsLayout?: SkillsLayout;
   /** 规则子目录，相对 rulesBaseDir；不支持则省略 */
   rulesDir?: string;
-  /** 规则根目录覆盖（如 Cline 的 .clinerules 在项目根而非 skills 下） */
+  /** 规则根目录覆盖（默认基于 skillsDir） */
   rulesBaseDir?: string;
   /** 规则文件格式 */
-  rulesFormat?: 'md' | 'mdc' | 'copilot';
+  rulesFormat?: 'md' | 'mdc';
   /** 是否支持 PreToolUse hooks */
   supportsHooks?: boolean;
   /** Hook 配置写入格式 */
-  hookFormat?: 'claude-code' | 'gemini' | 'windsurf' | 'copilot' | 'qwen' | 'kiro' | 'qoder';
+  hookFormat?: 'claude-code';
 }
 
 /** 返回平台技能布局，缺省为 nested */
@@ -73,37 +73,6 @@ export const PLATFORMS: Platform[] = [
     skillsLayout: 'nested',
     rulesDir: 'rules',
     rulesFormat: 'mdc',
-  },
-  {
-    id: 'codex',
-    name: 'Codex',
-    skillsDir: '.codex',
-    globalSkillsDir: '.codex',
-    openspecToolId: 'codex',
-    skillsLayout: 'nested',
-    rulesDir: 'rules',
-    rulesFormat: 'md',
-    supportsHooks: true,
-    hookFormat: 'claude-code',
-  },
-  {
-    id: 'codebuddy',
-    name: 'CodeBuddy Code',
-    skillsDir: '.codebuddy',
-    openspecToolId: 'codebuddy',
-    skillsLayout: 'nested',
-  },
-  {
-    id: 'qoder',
-    name: 'Qoder',
-    skillsDir: '.qoder',
-    globalSkillsDir: '.qoder',
-    openspecToolId: 'qoder',
-    skillsLayout: 'nested',
-    rulesDir: 'rules',
-    rulesFormat: 'md',
-    supportsHooks: true,
-    hookFormat: 'qoder',
   },
   {
     id: 'trae',

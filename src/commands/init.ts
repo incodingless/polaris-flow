@@ -29,7 +29,7 @@ import {
   PLATFORMS,
   type Platform,
 } from '../core/platform/platforms.js';
-import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../core/color.js';
+import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
 import type { InstallScope, Language } from '../core/types.js';
 
 export type InitOptions = {

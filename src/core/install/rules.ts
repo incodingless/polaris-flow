@@ -65,7 +65,7 @@ export async function copyPolarisRulesForPlatform(
   return runCopyJobs(jobs, overwrite);
 }
 
-/** 按规则格式计算目标文件名（mdc / instructions.md / 原名） */
+/** 按规则格式计算目标文件名（mdc / 原名） */
 export function computeRuleDestPath(
   rulesDestDir: string,
   ruleFileName: string,
@@ -73,9 +73,6 @@ export function computeRuleDestPath(
 ): string {
   if (rulesFormat === 'mdc') {
     return path.join(rulesDestDir, ruleFileName.replace(/\.md$/, '.mdc'));
-  }
-  if (rulesFormat === 'copilot') {
-    return path.join(rulesDestDir, ruleFileName.replace(/\.md$/, '.instructions.md'));
   }
   return path.join(rulesDestDir, ruleFileName);
 }
@@ -86,13 +83,6 @@ function formatRuleContent(content: string, ruleFileName: string, rulesFormat: s
 description: ${ruleFileName.replace(/\.md$/, '').replace(/-/g, ' ')}
 globs:
 alwaysApply: true
----
-
-${content}`;
-  }
-  if (rulesFormat === 'copilot') {
-    return `---
-applyTo: "**"
 ---
 
 ${content}`;

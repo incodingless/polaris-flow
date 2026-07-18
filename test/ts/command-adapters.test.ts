@@ -4,7 +4,7 @@ import {
   claudeAdapter,
   defaultAdapter,
   getCommandAdapter,
-} from '../../src/core/install/command-adapters/adapters.js';
+} from '../../src/core/install/command-adapters/command-adapters.js';
 import { parseFrontmatter } from '../../src/core/install.js';
 
 describe('command-adapters', () => {
@@ -12,9 +12,8 @@ describe('command-adapters', () => {
     expect(getCommandAdapter('unknown-platform')).toBe(defaultAdapter);
   });
 
-  it('getCommandAdapter returns claude adapter for claude and gemini', () => {
+  it('getCommandAdapter returns claude adapter for claude', () => {
     expect(getCommandAdapter('claude')).toBe(claudeAdapter);
-    expect(getCommandAdapter('gemini')).toBe(claudeAdapter);
   });
 
   it('defaultAdapter converts colon triggers to dash in body', () => {

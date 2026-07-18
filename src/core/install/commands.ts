@@ -1,19 +1,18 @@
 /**
  * 平台 slash command 安装：经 command-adapters 写入各宿主命令路径。
- * installSource（外部源复用）在 source-installer.ts；Pi 走 pi-extension.ts。
+ * installSource（外部源复用）在 source-installer.ts。
  */
 import path from 'path';
 import fs from 'fs/promises';
 
 import { ensureDir, fileExists } from '../../utils/file-system.js';
-import { getCommandAdapter } from './command-adapters/adapters.js';
+import { getCommandAdapter } from './command-adapters.js';
 import type { SkillSource } from '../assets/sources.js';
 import { POLARIS_COMMAND_PREFIX } from '../assets/sources.js';
 import { getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
 import type { InstallScope, Language } from '../types.js';
 import { runCopyJobs, type CopyJob } from './copy-jobs.js';
-import { getLanguageContentRoots, getManifestSkills } from '../assets/manifest.js';
-import { createPiCommandExtension } from './pi-extension.js';
+import { getLanguageContentRoots } from '../assets/manifest.js';
 
 /** 解析命令 markdown frontmatter */
 export function parseFrontmatter(content: string): { meta: Record<string, string>; body: string } {
@@ -48,10 +47,7 @@ export async function resolveCommandsDir(
   return null;
 }
 
-/**
- * 经平台 adapter 安装 bundled 命令文件。
- * Pi 平台由 installPolarisCommands 内的 TS extension 处理，此处跳过。
- */
+/** 经平台 adapter 安装 bundled 命令文件 */
 export async function installCommands(
   source: SkillSource,
   commandsDir: string,
@@ -61,7 +57,7 @@ export async function installCommands(
   overwrite: boolean,
   _lang?: Language,
 ): Promise<{ copied: number; skipped: number }> {
-  if (!source.commandsPath || platform.id === 'pi') {
+  if (!source.commandsPath) {
     return { copied: 0, skipped: 0 };
   }
 
@@ -104,7 +100,7 @@ export async function installCommands(
   return runCopyJobs(jobs, overwrite);
 }
 
-/** 安装 Polaris bundled 命令（读取 assets 内 commands/；Pi 写 extension） */
+/** 安装 Polaris bundled 命令（读取 assets 内 commands/） */
 export async function installPolarisCommands(
   assetsDir: string,
   baseDir: string,
@@ -114,14 +110,6 @@ export async function installPolarisCommands(
   overwrite: boolean,
   source: SkillSource,
 ): Promise<{ copied: number; skipped: number }> {
-  if (platform.id === 'pi') {
-    const skillMdPaths = (await getManifestSkills(lang)).filter(
-      (p) => p.startsWith('skills/') && (p.endsWith('/SKILL.md') || p.endsWith('SKILL.md')),
-    );
-    const manifestSkills = skillMdPaths.map((p) => p.slice('skills/'.length));
-    return createPiCommandExtension(baseDir, platform, manifestSkills, overwrite, scope);
-  }
-
   const commandsDir = await resolveCommandsDir(assetsDir, lang);
   if (!commandsDir) {
     return { copied: 0, skipped: 0 };
