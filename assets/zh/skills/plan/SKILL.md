@@ -1,19 +1,19 @@
 <!--
   简要说明：
-  - 职责：以四件套 + detailed-design 覆写可执行 tasks.md，询问 TDD 策略，并经 plan-review 独立放行。
-  - 主产物：`openspec/changes/<change_id>/tasks.md`（覆写）+ `reviews/plan-review-report.md`。
+  - 职责：以四件套 + detailed-design 覆写可执行 tasks.md，询问 TDD 策略，经 plan-review-agent 主审，并按 outside-voice 可选派 openspec-review-agent。
+  - 主产物：`openspec/changes/<change_id>/tasks.md`（覆写）+ `reviews/plan-review-report.md`（+ 可选 openspec-review-report.md）。
   - 上游 / 下游：design → 本阶段 → build。
 -->
 
 ---
 name: polaris-flow-plan
-description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完成后写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划必须基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md 全文推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并调用 plan-review 做独立评审。不要用于：clarify/propose 阶段、尚未完成 design、或已进入 build 要求直接写代码。"
+description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完成后写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划必须基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md 全文推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并派发 plan-review-agent 做独立主审（可选 Outside Voice）。不要用于：clarify/propose 阶段、尚未完成 design、或已进入 build 要求直接写代码。"
 ---
 
 # Polaris 工作流 - 阶段：任务规划（plan）
 
 <HARD-GATE>
-本 skill **仅**负责：以 **OpenSpec 四件套 + `detailed-design.md`** 为唯一规划依据，覆写可执行的 `openspec/changes/<change_id>/tasks.md`，并经 `plan-review` 独立评审通过后才放行 build。
+本 skill **仅**负责：以 **OpenSpec 四件套 + `detailed-design.md`** 为唯一规划依据，覆写可执行的 `openspec/changes/<change_id>/tasks.md`，并经 `plan-review-agent` 独立主审通过后才放行 build。
 
 - **禁止**未完整阅读规划依据就开始写计划（见下方「规划依据」；禁止凭对话记忆 / 口头一句话 / 只看粗骨架 tasks 拆任务）
 - **禁止**未确认 `detailed-design.md` 存在且 `design.status=completed`（或用户明示接受续跑）就开始写计划
@@ -21,7 +21,8 @@ description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完�
 - **禁止**主代理在覆写 `tasks.md` 前未 `read_file templates/tasks-template.md`
 - **禁止**另写 `docs/superpowers/plans/*.md` 或 `.polaris/tasks/*/implementation-plan.md` 作为主产物——**唯一**实施计划是 `openspec/changes/<change_id>/tasks.md`（覆写，不是并列第二份）
 - **禁止**跳过 `tasks-lint.sh` 或脑补核对
-- **禁止**跳过 Step 6：必须加载并执行 `plan-review`（独立评审；禁止主代理自审冒充）
+- **禁止**跳过 Step 6 主审：必须派发 `plan-review-agent`，并注入本 skill 的 `StandardsRoot`（agent 须读完 `policies/` + `references/` 标准文档；禁止主代理自审冒充；**主审不可跳过**）
+- **禁止**跳过 Step 6 Outside Voice **询问**（按 `.polaris/reference/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
 - **禁止**在本阶段编写业务实现代码 / 调用 `/opsx:apply`（那是 build）
 - **禁止**借机重写 `proposal.md` / 高层 `design.md` 的范围与架构结论；缺口只进 review 消化或回 design，不在 plan 静默改 Scope
 - **禁止**写出规划依据中不存在的需求 / 模块 / 验收场景（YAGNI；多出来的任务 = 失败）
@@ -49,12 +50,13 @@ description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完�
 - **`change_id`**：与 clarify / propose / design 同值
 - 设计评审（只读，若有）：`openspec/changes/<change_id>/reviews/design-review-report.md`
 - **主产物（覆写）**：`openspec/changes/<change_id>/tasks.md`
-- 计划评审报告：`openspec/changes/<change_id>/reviews/plan-review-report.md`（由 `plan-review` 写入）
+- 计划主审报告：`openspec/changes/<change_id>/reviews/plan-review-report.md`（由 Step 6 落盘）
+- Outside Voice 报告（若运行）：`openspec/changes/<change_id>/reviews/openspec-review-report.md`
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `hooks/workflow-entry.sh`）
 - 运行态：`.polaris/tasks/<change_id>/state.yaml`
 
 > **链路**：`clarify → propose → design → **plan** → build`。  
-> 细计划 = f(四件套, detailed-design)；propose 的 tasks 只是输入粗骨架。独立审查走 `plan-review`。
+> 细计划 = f(四件套, detailed-design)；propose 的 tasks 只是输入粗骨架。主审走 `plan-review-agent`；可选 Outside Voice 走 `openspec-review-agent`。
 
 ## 有效 vs 无效（写计划前默念）
 
@@ -64,7 +66,7 @@ description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完�
 | 任务边界 = 可独立验收的交付物 | 按层拆（先全写 model 再全写 API） | 中间态不可测、难回滚 |
 | 先问清 TDD 策略，再按策略给每条任务标 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->` | 不询问就一律 TDD / 一律非 TDD / 到 build 再选 | 计划形态与执行节奏脱节；配置伪 TDD 或逻辑跳 RED |
 | 禁止 TBD / TODO /「类似 Task N」 | 占位符计划 | 执行会话零上下文会瞎编 |
-| **换 skill 上下文**跑 `plan-review` | 主代理写完自夸「看起来完整」 | 写计划的人看不见自己的洞 |
+| **派 `plan-review-agent`** 独立主审 | 主代理写完自夸「看起来完整」 | 写计划的人看不见自己的洞 |
 | 脚手架/文档折进消费它的任务 | 单独「搭脚手架」无验收 | 无独立可测交付 |
 | **Interfaces** 写清 Consumes/Produces | 后任务引用未定义符号 | 跨任务类型漂移 |
 
@@ -164,7 +166,7 @@ plan:
 | 每步贴完整实现代码 | **禁止**大段实现代码；子步骤只写「改哪些路径 / 测什么行为 / 跑什么命令」 |
 | 每任务 `git commit` | **禁止**（commit 交给 ship） |
 | 存 `docs/superpowers/plans/...` | **禁止**；只覆写 `openspec/.../tasks.md` |
-| 自审后直接给执行选项 | 自审后必须先经 `plan-review`，再提示进入 build |
+| 自审后直接给执行选项 | 自审后必须先经 `plan-review-agent`（及 OV 询问），再提示进入 build |
 | 假设执行者零上下文 | **保留**：路径、命令、期望输出、Interfaces 必须自洽 |
 | TDD 五步节奏 | **保留**（当 `tdd_policy` 允许该任务为 TDD 时），映射为 `<!-- TDD 任务 -->` 的 1.x.1–1.x.5 |
 | 配置/文档类 | 映射为 `<!-- 非 TDD 任务 -->` 三步，勿伪造成 RED/GREEN |
@@ -265,37 +267,50 @@ LINT_EXIT=$?
 - exit 0 → 通过
 - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑本步
 
-### Step 6：独立评审 — 加载 `plan-review`（阻塞点）
+### Step 6：独立主审 — `plan-review-agent`（阻塞点）
 
-本步**换评审上下文**：加载并执行 `plan-review` skill（即既有 lock / 工程评审技能），**禁止**主代理用一段「自检清单」代替。
+本步**只负责派发**主审 subagent；评审标准在 `plan-review-agent` 内。**禁止**主代理用「自检清单」冒充。**主审不可跳过。**
 
-按 `plan-review/references/caller-contract.md` 履约：
+#### 6.1 主审
 
-| 契约项 | 本 skill 取值 |
-|--------|----------------|
-| 提案材料 | `openspec/changes/<change_id>/` 四件套（proposal / design / specs / **刚覆写的 tasks.md**） |
-| 报告路径 | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
-| 修改约束 | 评审期间 **plan-review 不改** tasks；消化与改写由**本 skill**在 Step 7 做 |
-| STATUS 门禁 | 见 Step 7 |
-
-启动时向 `plan-review` 注入：
+1. **`subagent-probe`**：加载 `polaris-flow:subagent-probe`（传入 `platform`）。`inline` / `unsupported` → **阻断**（计划无独立主审不得进 build；与 design 可跳过主审不同）。不得 inline 假评审。
+2. **解析 StandardsRoot**：本 skill 安装根目录（含 `policies/`、`references/`、`prompts/`）。例：`$PLUGIN_ROOT/plan`（nested）或项目 skills 下的 `polaris-flow-plan`（flat）。目录缺失 → 阻断，提示 `polaris-flow init/update`。
+3. **派发**：注册名 / `subagent_type` = `plan-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断。启动 prompt：
 
 ```text
 Change: <change_id>
-Caller: polaris-flow-plan
 tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
+StandardsRoot: <本 skill 安装绝对或仓库相对根路径>
+```
+
+agent **必须**先读 `{StandardsRoot}/policies/scope-challenge.md`、`four-section-review.md` 与 `{StandardsRoot}/references/engineering-mindset.md`、`test-review-methodology.md` 再评审。
+
+4. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；将完整 **Plan Review Report** 写入 `openspec/changes/<change_id>/reviews/plan-review-report.md`。
+
+输出：`[polaris-flow] plan: plan-review-agent 已完成，报告已落盘`
+
+#### 6.2 Outside Voice（询问后可选）
+
+1. `read_file` `.polaris/reference/outside-voice.md`（或插件 `policies/outside-voice.md`）并按其执行。
+2. 按复杂度给出建议，decision-point：**A 启动** / **B 跳过**（AI 不得代决）。
+3. 用户选 A → 填充本 skill 的 `prompts/main-review-summary.tmpl.md`，派发 `openspec-review-agent`：
+
+```text
+Change: <change_id>
+Stage: plan
+PrimaryReport: openspec/changes/<change_id>/reviews/plan-review-report.md
 Materials:
   - openspec/changes/<change_id>/proposal.md
   - openspec/changes/<change_id>/design.md
   - openspec/changes/<change_id>/specs/
   - openspec/changes/<change_id>/tasks.md
-Report: openspec/changes/<change_id>/reviews/plan-review-report.md
-Focus: 任务是否由 OpenSpec 四件套 + detailed-design 覆盖推导；粒度、依赖序、TDD/非TDD（是否符合 tdd_policy）、可执行性、测试缺口、有无超出 Scope 的臆造任务
+  - openspec/changes/<change_id>/detailed-design.md
 ```
 
-输出：`[polaris-flow] plan: plan-review 已启动，等待 STATUS`
+（模板内 findings 摘录从刚落盘的 `plan-review-report.md` 填充；**不要**附带用户对 findings 的采纳决策。）
 
-若宿主无法加载 `plan-review` → **阻断**（与 design 跳过 design-review 不同：计划无独立评审不得进 build）。
+4. 通过可信度门禁后写入 `openspec/changes/<change_id>/reviews/openspec-review-report.md`。
+5. 宿主无 subagent 时主审已在 6.1 阻断，不会到达本步的「无 subagent 自动跳过 OV」。
 
 ### Step 7：消化评审结论
 
@@ -303,11 +318,13 @@ Focus: 任务是否由 OpenSpec 四件套 + detailed-design 覆盖推导；粒�
 
 | STATUS | 处理 |
 |--------|------|
-| `DONE` | 进入 Step 8 |
-| `DONE_WITH_CONCERNS` | 按 decision-point 让用户逐条决策；需改 tasks 的 → 改写 → 5.2 lint →（若改动触及测试/依赖）可选择重跑 Step 6 |
-| `BLOCKED` / `NEEDS_CONTEXT` | **禁止**进 Step 8。根据 Failure modes / 测试缺口改 `tasks.md` → 5.2 → **必须重跑 Step 6**（最多 3 轮；第 3 轮仍 BLOCKED → 升级用户：回 design 或缩 Scope） |
+| `DONE` | 处理 OV（若有）后进 Step 8 |
+| `DONE_WITH_CONCERNS` | decision-point 逐条决策；需改 tasks → 改写 → 5.2 lint →（触及测试/依赖）重跑 Step 6.1，再询 OV |
+| `BLOCKED` / `NEEDS_CONTEXT` | **禁止**进 Step 8。按 Failure modes / 测试缺口改 `tasks.md` → 5.2 → **必须重跑 6.1**（最多 3 轮；第 3 轮仍 BLOCKED → 升级用户：回 design 或缩 Scope） |
 
-`plan-review` 列在报告中、建议加入 tasks 的测试缺口：**由本 skill 写入 tasks.md**（这正是 caller-contract 要求的「调用方统一更新」），然后再 lint。测试缺口任务的 TDD/非 TDD 标注仍服从 `tdd_policy`。
+报告中「建议加入 tasks 的测试缺口」：**由本 skill 写入 `tasks.md`**，再 lint；TDD/非 TDD 仍服从 `tdd_policy`。
+
+若有 OV：与主审 tension / P0/P1 按 outside-voice 用户主权逐条决策；**禁止**自动改 tasks。
 
 未消化的 Critical / Important → 不得标记 plan 完成。
 
@@ -321,6 +338,8 @@ plan:
   tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
   tasks_path: openspec/changes/<change_id>/tasks.md
   review_report: openspec/changes/<change_id>/reviews/plan-review-report.md
+  outside_voice: ran | skipped:<reason>
+  outside_voice_report: openspec/changes/<change_id>/reviews/openspec-review-report.md  # 若 ran
   finished_at: "<ISO>"
 current_verb: idle
 ```
@@ -338,6 +357,7 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
   tdd_policy    : <prefer_tdd|require_tdd|prefer_direct>
   tasks.md      : openspec/changes/<change_id>/tasks.md（已覆写）
   review-report : openspec/changes/<change_id>/reviews/plan-review-report.md
+  outside-voice : <ran | skipped:...>
   STATUS        : <DONE | DONE_WITH_CONCERNS>
 
 下一步建议 /polaris-flow-build（按 tasks.md 由 implementer 执行 /opsx:apply）。
@@ -348,11 +368,12 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
 - 用户已明确选择 `plan.tdd_policy`（Step 2）
 - `tasks.md` 已按模板覆写，含与 `tdd_policy` 一致的 TDD/非TDD 标注、Files、Interfaces、可复制验证命令
 - `tasks-lint.sh` exit 0
-- `plan-review` 已跑完且 STATUS 为 `DONE` 或用户已消化完的 `DONE_WITH_CONCERNS`
+- `plan-review-agent` 已跑完且 STATUS 为 `DONE` 或用户已消化完的 `DONE_WITH_CONCERNS`
+- Outside Voice 已询问并完成（ran / 用户跳过）
 - `phase=build`
 
 ## 上下文压缩恢复
 
-重载：`change_id`、`plan.tdd_policy`、`detailed-design.md`、当前 `tasks.md`、`reviews/plan-review-report.md`（若有）、本 skill 停在哪一步。
+重载：`change_id`、`plan.tdd_policy`、`detailed-design.md`、当前 `tasks.md`、`reviews/plan-review-report.md`、`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
 若停在 Step 2 未选定 → 先完成 TDD 策略再写 tasks。  
 若停在 `plan.status=in_progress` 且 tasks 已写未评审 → 从 Step 5.2 / Step 6 续，勿无故重写全部任务（除非用户要求改 `tdd_policy`，则须重跑 Step 2→4）。

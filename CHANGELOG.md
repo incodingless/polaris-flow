@@ -1,16 +1,21 @@
 # Changelog
 
-## What's Changed [0.1.1] - 2026-07-15
+## What's Changed [0.1.1] - 2026-07-20
 
 ### Added
 
 - **平台安装布局**: 按平台 `skillsLayout`（nested / flat）将 polaris 资产装到正确目标目录；Trae 子 skill 扁平为 `polaris-flow-*`，其余平台嵌套进 `skills/polaris-flow/`
 - **包内公共内容安装**: init/update 同步安装 adapters、policies、templates、hooks 脚本到插件根
-- **agents 安装**: 将 `cross-review-agent`、`design-review-agent` 等写入 `.<platform>/agents/`；session-start 同步二者
+- **agents 安装**: 将 `assets/<lang>/agents/` 下评审 agent（含 `propose-review-agent`、`design-review-agent`、`plan-review-agent`、`openspec-review-agent`）写入 `.<platform>/agents/`；session-start 注入 `challenger.model`
 - **config.yaml**: 写入 `platform` 与 `plugin_root` 字段
+- **outside-voice 协议与模板**: `policies/outside-voice.md`、`templates/outside-voice-prompt.tmpl.md`
+- **propose 主审**: 新增 `propose-review-agent`；`polaris-flow-propose` Step 4.6 派发主审 + 询问 Outside Voice
 
 ### Changed
 
+- **plan 主审 agent 化**: 退役独立 `plan-review` skill；新建 `plan-review-agent`，由 `polaris-flow-plan` 派发一次性主审并落盘 `plan-review-report.md`（主审不可跳过）
+- **Outside Voice 统一**: `openspec-review-agent` 专责挑战主审结论；design/plan 主审后均按 outside-voice 协议询问用户再派发
+- **plan 评审标准归位**: 将 `scope-challenge` / `four-section-review` / `engineering-mindset` / `test-review-methodology` / `main-review-summary` 恢复到 `skills/plan/`；`plan-review-agent` 经 `StandardsRoot` 强制 `read_file` 后再评审
 - **安装编排显式化**: `installPolarisForPlatform` 按 skills → commands → agents → rules → hooks 显式调用；`copyPolarisSkillsForPlatform` 不再顺带安装 commands/agents；init/update 统一走编排入口
 - **core 目录重组**: 按安装域拆分 `src/core`——`install.ts` 为编排入口，`install/` 承载 skills/commands/hooks/rules/agents；`platform/`、`assets/`、`config/`、`deps/` 分域；`workflow.ts` 重命名为 `config/workflow-state.ts`
 - **core 去重**: 合并 claude/gemini adapter；统一 `copyDirContents` / hooks JSON IO / `runCopyJobs`；`getNodeToolExecutable` 与 `compareVersions` 共用；删除死导出与孤儿注释
@@ -31,10 +36,11 @@
 
 ### Tests
 
-- **install-layout / skills-install**: 覆盖 nested/flat 落盘、hooks 命令路径、agents 与 config 字段；skills 步骤不再隐式安装 agents
+- **install-layout / skills-install**: 覆盖 nested/flat 落盘、hooks 命令路径、agents 与 config 字段；skills 步骤不再隐式安装 agents；断言 `plan-review-agent` / `openspec-review-agent` 落盘
 
 ### Removed
 
+- **plan-review skill**: 整目录（含 policies/references/prompts/`cross-review-agent`）移除，职责下沉到 agents + 父 skill
 - **平台支持收窄**: 仅保留 claude / cursor / trae 三个目标平台，删除其余平台（codex / opencode / windsurf / qwen / qoder / gemini / copilot / kiro / cline / pi / lingma 等）的元数据、命令适配器、hook installer、规则格式、Superpowers agent 映射、OpenSpec 迁移与探测逻辑；`hookFormat` 类型从 7 值收窄到 `'claude-code'`，`rulesFormat` 从 `'md' | 'mdc' | 'copilot'` 收窄到 `'md' | 'mdc'`
 - **Pi extension**: 删除 `install/pi-extension.ts` 与 `installCommands` 内 Pi 分流，Pi 平台不再走 TS extension 生成
 - **死代码**: 删除无外部 import 的 `hasCodexPluginSuperpowers` / `hasOpenCodePluginSuperpowers` / `hasPluginSuperpowers` 及其辅助函数（`hasSuperpowersInPluginCache` / `hasOpenCodePolarisCommands`）

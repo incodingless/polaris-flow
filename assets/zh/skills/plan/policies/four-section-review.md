@@ -1,6 +1,7 @@
 # Section 1-4：四节评审
 
-> 由 `plan-review` SKILL.md 在 Step 0 完成后顺序调用。每节内"一问一议"——本节每个发现都单独发起一次 `ask_followup_question`，**不打包**（详见 `../references/output-format.md` 第 3 节）。只有当本节所有问题都被用户决策（A/B/C 之一，或显式跳过）后，才进入下一节。
+> 归属：`polaris-flow-plan` 技能（`skills/plan/policies/`）。由 **`plan-review-agent`** 在范围挑战之后顺序执行。  
+> **一次性报告模式**：每节发现写入 Plan Review Report 对应章节与 Findings，**禁止** `ask_followup_question` / 一问一议；用户决策由 plan skill 消化 STATUS 时处理。
 
 ## Section 1：架构评审
 
@@ -40,17 +41,17 @@
 4. **Step 4**：对照现有测试逐分支检查（★/★★/★★★ 评分）
 5. **Step 5**：应用 E2E vs Unit 决策矩阵
 6. **Step 6**：产出 ASCII 覆盖率图（代码路径 + 用户流合并展示）
-7. **Step 7**：把缺失的测试加入计划
+7. **Step 7**：把缺失的测试写入报告「建议加入 tasks」清单（**不改** tasks.md；由 plan skill 消化）
 
 ### 回归测试铁律
 
-**当覆盖率审计识别出"回归"——之前能工作但本次 diff 弄坏的代码——必须把回归测试作为关键需求加入计划。不发起 `ask_followup_question`。不跳过。**
+**当覆盖率审计识别出"回归"——之前能工作但本次 diff 弄坏的代码——必须把回归测试作为关键需求列入报告建议。不跳过。**
 
-判断不确定时，默认写回归测试。详见 `../references/test-review-methodology.md`「回归测试铁律」节。
+判断不确定时，默认要求回归测试。详见 `../references/test-review-methodology.md`「回归测试铁律」节。
 
 ### 测试评审产物（单一产物原则）
 
-测试评审产物**直接写入**评审报告的「测试评审」章节，**不另产出 test-plan.md 文件**。在 polaris-flow / OpenSpec 场景下写入 `openspec/changes/<name>/reviews/plan-review-report.md`；在独立调用场景下亦避免散件管理。
+测试评审产物**直接写入** `openspec/changes/<change_id>/reviews/plan-review-report.md` 的「测试评审」章节，**不另产出 test-plan.md**。
 
 ## Section 4：性能评审
 

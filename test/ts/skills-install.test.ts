@@ -29,8 +29,10 @@ describe('installPolarisForPlatform layout', () => {
     await access(path.join(tmpDir, '.claude/skills/polaris-flow/adapters'));
     await access(path.join(tmpDir, '.claude/skills/polaris-flow/hooks/session-start.sh'));
     await access(path.join(tmpDir, '.claude/skills/polaris-flow/hard-stops.md'));
-    await access(path.join(tmpDir, '.claude/agents/cross-review-agent.md'));
+    await access(path.join(tmpDir, '.claude/agents/propose-review-agent.md'));
     await access(path.join(tmpDir, '.claude/agents/design-review-agent.md'));
+    await access(path.join(tmpDir, '.claude/agents/plan-review-agent.md'));
+    await access(path.join(tmpDir, '.claude/agents/openspec-review-agent.md'));
   });
 
   it('trae flat：子 skill 为 polaris-flow-*，公共内容在 polaris-flow', async () => {
@@ -42,8 +44,10 @@ describe('installPolarisForPlatform layout', () => {
 
     await access(path.join(tmpDir, '.trae/skills/polaris-flow-clarify/SKILL.md'));
     await access(path.join(tmpDir, '.trae/skills/polaris-flow/hooks/session-start.sh'));
-    await access(path.join(tmpDir, '.trae/agents/cross-review-agent.md'));
+    await access(path.join(tmpDir, '.trae/agents/propose-review-agent.md'));
     await access(path.join(tmpDir, '.trae/agents/design-review-agent.md'));
+    await access(path.join(tmpDir, '.trae/agents/plan-review-agent.md'));
+    await access(path.join(tmpDir, '.trae/agents/openspec-review-agent.md'));
   });
 });
 
@@ -54,7 +58,7 @@ describe('copyPolarisSkillsForPlatform', () => {
 
     await access(path.join(tmpDir, '.claude/skills/polaris-flow/clarify/SKILL.md'));
     await expect(
-      access(path.join(tmpDir, '.claude/agents/cross-review-agent.md')),
+      access(path.join(tmpDir, '.claude/agents/plan-review-agent.md')),
     ).rejects.toThrow();
   });
 });

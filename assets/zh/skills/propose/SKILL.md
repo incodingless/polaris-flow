@@ -1,12 +1,12 @@
 <!--
   简要说明：
-  - 职责：基于已锁定的 intention.md 生成 OpenSpec 四件套；可提示创建 worktree（非阻断）；四件套成功后将 intention 迁入 openspec（不留备份）。
-  - 主产物：`openspec/changes/<change_id>/` 下 proposal / specs / design / tasks（粗骨架）+ intention.md。
+  - 职责：基于已锁定的 intention.md 生成 OpenSpec 四件套；可提示创建 worktree（非阻断）；四件套成功后将 intention 迁入 openspec；经 propose-review-agent 主审（可选 Outside Voice）后放行 design。
+  - 主产物：`openspec/changes/<change_id>/` 下 proposal / specs / design / tasks（粗骨架）+ intention.md + `reviews/propose-review-report.md`。
   - 上游 / 下游：clarify → 本阶段 → design。
 -->
 ---
 name: polaris-flow-propose
-description: "用户触发 /polaris-flow-propose、/propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。"
+description: "用户触发 /polaris-flow-propose、/propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 propose-review-agent 独立主审（可选 Outside Voice）后方可进入 design。"
 ---
 
 # Polaris 工作流 - 阶段：提案（propose）
@@ -18,6 +18,8 @@ description: "用户触发 /polaris-flow-propose、/propose，或要求基于 in
 - **禁止**跳过 worktree 提示直接进入 propose 主流程（提示非阻断：用户可选不创建并继续，但**不能不问**）
 - **禁止**主代理在调用 `/opsx:propose` / 生成 `tasks.md` 之前未 `read_file templates/tasks-template.md`
 - **禁止**通过 `superpowers:using-git-worktrees` 创建 worktree——必须由本 skill Step 1.3.A 直接执行 git / hooks 完成
+- **禁止**跳过 Step 4.6 主审询问路径：必须派发 `propose-review-agent`（或 subagent 不可用时经 decision-point 接受跳过）；禁止主代理自审冒充
+- **禁止**跳过 Step 4.6 Outside Voice **询问**（按 `.polaris/reference/outside-voice.md`；用户可选跳过 OV，AI 不得代决）
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow] 进入提案阶段: 使用 polaris-flow-propose 技能。`
@@ -29,6 +31,8 @@ description: "用户触发 /polaris-flow-propose、/propose，或要求基于 in
 - 意图文档（入口暂存）：`.polaris/tasks/<change_id>/intention.md`（propose **开始时**读取）
 - 意图文档（迁入后唯一真相）：`openspec/changes/<change_id>/intention.md`（Step 4.5 `mv`，`.polaris` **不留备份**）
 - OpenSpec 四件套：`openspec/changes/<change_id>/`
+- 提案主审报告：`openspec/changes/<change_id>/reviews/propose-review-report.md`（Step 4.6）
+- Outside Voice 报告（若运行）：`openspec/changes/<change_id>/reviews/openspec-review-report.md`
 - workflow 游标：`.polaris/workflow.yaml` → `active_changes[].change_id`（写入一律走 `hooks/workflow-entry.sh`）
 
 > **续跑**：若 `openspec/changes/<change_id>/intention.md` 已存在且 `.polaris/tasks/<change_id>/intention.md` 已不存在，视为 Step 4.5 已完成，不得再从 `.polaris` 读 intention。
@@ -250,13 +254,86 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" \
 
 输出：`[polaris-flow] intention: moved to openspec/changes/<change_id>/intention.md（.polaris 无备份）`
 
+### Step 4.6：提案评审（阻塞点）
+
+本步派发主审 subagent，再按 Outside Voice 协议询问是否交叉评审。评审对象是**四件套 + intention**（粗 tasks）；禁止内联重写评审标准。
+
+#### 4.6.1 主审 — `propose-review-agent`
+
+1. **`subagent-probe`**：加载 `polaris-flow:subagent-probe`（传入 `platform`）。`inline` / `unsupported` → 标注并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。
+2. **派发**：`propose-review-agent`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。启动 prompt：
+
+```text
+Change: <change_id>
+```
+
+3. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；写入 `openspec/changes/<change_id>/reviews/propose-review-report.md`。
+
+#### 4.6.2 Outside Voice（询问后可选）
+
+主审已落盘（未整步跳过）后：
+
+1. `read_file` `.polaris/reference/outside-voice.md`（或插件 `policies/outside-voice.md`）并执行。
+2. 复杂度建议 + decision-point：**A 启动** / **B 跳过**。
+3. 选 A → 填充 `templates/outside-voice-prompt.tmpl.md`，派发 `openspec-review-agent`：
+
+```text
+Change: <change_id>
+Stage: propose
+PrimaryReport: openspec/changes/<change_id>/reviews/propose-review-report.md
+Materials:
+  - openspec/changes/<change_id>/proposal.md
+  - openspec/changes/<change_id>/design.md
+  - openspec/changes/<change_id>/specs/
+  - openspec/changes/<change_id>/tasks.md
+  - openspec/changes/<change_id>/intention.md（若有）
+```
+
+4. 通过可信度门禁后写入 `openspec/changes/<change_id>/reviews/openspec-review-report.md`。
+5. 宿主无 subagent → 按协议跳过 OV 并标注。
+
+#### 4.6.3 消化
+
+1. 主审 `Verdict`：`BLOCK` / 未消化 Critical → **禁止**进 Step 5；修订四件套（必要时回 Step 3）→ 重跑 4.6.1（最多 3 轮）。
+2. `APPROVE_WITH_CONCERNS` → decision-point 确认或修订。
+3. OV tension / P0/P1 → 按 outside-voice 用户主权逐条决策；**禁止**自动改四件套。
+4. 主审重跑后再询 OV。
+
 ### Step 5：完成 propose 阶段
 
-校验通过且 Step 4.5 完成 → 输出：
+校验通过、Step 4.5 完成、且 Step 4.6 已派发主审（或用户接受 SKIPPED）且无未消化 Critical → 更新 `state.yaml`：
 
-`[polaris-flow] propose 完成：四件套已落盘到 openspec/changes/<change_id>/；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris-flow-plan 覆写）。下一步建议 /polaris-flow-design。`
+```yaml
+propose:
+  status: completed
+  review_report: openspec/changes/<change_id>/reviews/propose-review-report.md  # 或 skipped:<reason>
+  outside_voice: ran | skipped:<reason> | not_run:<reason>
+  outside_voice_report: openspec/changes/<change_id>/reviews/openspec-review-report.md  # 若 ran
+  finished_at: "<ISO>"
+```
+
+```bash
+bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill propose \
+  --where-change-id "$change_id" --set phase=design
+```
+
+输出：
+
+`[polaris-flow] propose 完成：四件套已落盘；propose-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris-flow-plan 覆写）。下一步建议 /polaris-flow-design。`
 
 任一项不满足 → 阻断并输出失败原因。
+
+## 退出条件
+
+- 四件套存在且 Step 4 出口校验通过（含 `tasks-lint`）
+- Step 4.5 intention 已迁入或合法跳过
+- Step 4.6 主审已派发（或用户接受 SKIPPED）且无未消化 Critical
+- Outside Voice 已询问并完成（ran / 用户跳过 / 宿主无法运行已标注）
+- `phase=design`
+
+## 上下文压缩恢复
+
+重载：`change_id`、四件套路径、`reviews/propose-review-report.md`、`reviews/openspec-review-report.md`（若有）、停在哪一步。若停在 4.6 未消化 → 先完成评审消化，勿无故重跑 `/opsx:propose`。
 
 ## 自动衔接下一阶段
 

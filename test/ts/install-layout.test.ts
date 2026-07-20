@@ -38,9 +38,7 @@ describe('install-layout', () => {
 
   it('getTopLevelSkillName 解析子 skill 名', () => {
     expect(getTopLevelSkillName('skills/clarify/SKILL.md')).toBe('clarify');
-    expect(getTopLevelSkillName('skills/plan-review/agents/cross-review-agent.md')).toBe(
-      'plan-review',
-    );
+    expect(getTopLevelSkillName('skills/plan/SKILL.md')).toBe('plan');
     expect(getTopLevelSkillName('skills/hard-stops.md')).toBeNull();
     expect(getTopLevelSkillName('skills/polaris/references/x.md')).toBeNull();
   });
@@ -80,8 +78,8 @@ describe('install-layout', () => {
   });
 
   it('resolveAgentInstallDest 落到平台 agents 目录', () => {
-    expect(resolveAgentInstallDest('cross-review-agent.md', claude)).toBe(
-      '.claude/agents/cross-review-agent.md',
+    expect(resolveAgentInstallDest('plan-review-agent.md', claude)).toBe(
+      '.claude/agents/plan-review-agent.md',
     );
     expect(resolveAgentInstallDest('openspec-review-agent', trae)).toBe(
       '.trae/agents/openspec-review-agent.md',

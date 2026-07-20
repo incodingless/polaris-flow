@@ -1,0 +1,18 @@
+# polaris-flow 全局工作流游标
+# 路径：.polaris/workflow.yaml（由 SessionStart 物化空模板，由各 skill 维护）
+#
+# 职责：
+#   - 列出所有"未 ship 完结"的 change（active_changes）
+#   - 仅承载"游标"语义（哪个 change 在哪个阶段），不承载单 change 的业务档案
+#   - 单 change 的业务档案（triage/design/lock/build/audit/ship 状态）写入
+#     .harness/changes/<change_id>/state.yaml
+#
+# 并发安全：每个 change 在 active_changes 中各占一项，多个 design 同时进行时
+# 各自只 append 自己的 entry，再各自维护 changes/<change_id>/state.yaml，互不覆盖。
+
+active_changes: []
+# 每项结构（共 4 个字段）：
+#   - change_id: refactor-sdk-api-0701c0
+#     phase: design                      # clarify | propose | design | plan | build | verify | deliver
+#     worktree_path: ""                  # 空表示该 change 仍在主仓；propose 后填 worktree 绝对路径
+#     started_at: 2026-05-25T14:30:00Z   # entry 创建时间（clarify Step 1）

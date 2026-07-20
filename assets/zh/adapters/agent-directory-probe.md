@@ -58,7 +58,7 @@ main_repo_root="$(git rev-parse --show-toplevel)"
 <main_repo_root>/.trae/agents/
 ```
 
-session-start 可能向 `.trae/agents/` 同步 `cross-review-agent.md`；probe 按普通目录型文件收录（需有 `description:`）。
+session-start 可能向 `.trae/agents/` 注入 `propose-review-agent` / `design-review-agent` / `plan-review-agent` / `openspec-review-agent` 的 model；probe 按普通目录型文件收录（需有 `description:`）。
 
 ### Cursor（`platform=cursor`）
 

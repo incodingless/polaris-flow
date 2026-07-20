@@ -35,7 +35,7 @@ description: "用户触发 /polaris-flow-build、/build，或要求按已评审�
 |----|-----------|
 | `change_id` | 与 clarify / propose / design / plan 同值 |
 | 实施计划（唯一） | `openspec/changes/<change_id>/tasks.md` |
-| 评审报告（plan-review 写入） | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
+| 评审报告（`plan-review-agent` 写入） | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
 | 深度设计（只读） | `openspec/changes/<change_id>/detailed-design.md` |
 | 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `hooks/workflow-entry.sh`） |

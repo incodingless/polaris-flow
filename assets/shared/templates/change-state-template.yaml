@@ -36,6 +36,10 @@ propose:
   status: ""           # in_progress | completed | skipped（trivial 直跳过）
   worktree_decision: ""  # created | reused | declined
   opsx_propose_status: ""  # ok | failed | n/a
+  review_report: ""    # openspec/changes/<change_id>/reviews/propose-review-report.md
+                       # 或 skipped:<reason>
+  outside_voice: ""    # ran | skipped:<reason> | not_run:<reason>
+  outside_voice_report: ""  # openspec/changes/<change_id>/reviews/openspec-review-report.md
   finished_at: ""
 
 design:
@@ -43,6 +47,8 @@ design:
   path: ""             # 完成后：openspec/changes/<change_id>/detailed-design.md
   review_report: ""    # openspec/changes/<change_id>/reviews/design-review-report.md
                        # 或 skipped:<reason>
+  outside_voice: ""    # ran | skipped:<reason> | not_run:<reason>
+  outside_voice_report: ""  # openspec/changes/<change_id>/reviews/openspec-review-report.md
   draft_dir: ""        # 历史字段；目标态 design 不再用 .polaris draft 目录写设计文档
 
 plan:
@@ -50,6 +56,8 @@ plan:
   tdd_policy: ""       # prefer_tdd | require_tdd | prefer_direct
   tasks_path: ""       # openspec/changes/<change_id>/tasks.md
   review_report: ""    # openspec/changes/<change_id>/reviews/plan-review-report.md
+  outside_voice: ""    # ran | skipped:<reason>
+  outside_voice_report: ""  # openspec/changes/<change_id>/reviews/openspec-review-report.md
 
 review:
   status: ""

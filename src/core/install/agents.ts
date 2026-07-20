@@ -4,13 +4,15 @@
 import path from 'path';
 
 import { fileExists, copyFile, readDir } from '../../utils/file-system.js';
-import { resolveAssetSourcePath } from '../assets/manifest.js';
 import { resolveAgentInstallDest } from '../platform/layout.js';
 import type { Platform } from '../platform/platforms.js';
 import type { InstallScope, Language } from '../types.js';
 import { runCopyJobs, type CopyJob } from './copy-jobs.js';
 
-/** 拷贝 cross-review-agent 等定义到 .<platform>/agents/ */
+/**
+ * 拷贝 assets/<lang>/agents/*.md 到 .<platform>/agents/。
+ * 含 design-review-agent、plan-review-agent、openspec-review-agent 等。
+ */
 export async function copyPolarisAgentsForPlatform(
   assetsDir: string,
   baseDir: string,
@@ -19,21 +21,19 @@ export async function copyPolarisAgentsForPlatform(
   overwrite: boolean,
   scope: InstallScope,
 ): Promise<{ copied: number; skipped: number }> {
-  const agentSources: Array<{ srcRel: string; destName: string }> = [
-    {
-      srcRel: 'skills/plan-review/agents/cross-review-agent.md',
-      destName: 'cross-review-agent.md',
-    },
-  ];
+  const agentSources: Array<{ srcRel: string; destName: string }> = [];
 
   const langAgentsDir = path.join(assetsDir, lang === 'zh' ? 'zh' : 'en', 'agents');
   if (await fileExists(langAgentsDir)) {
     try {
       const entries = await readDir(langAgentsDir);
       for (const entry of entries) {
+        if (!entry.endsWith('.md')) {
+          continue;
+        }
         agentSources.push({
           srcRel: `agents/${entry}`,
-          destName: entry.endsWith('.md') ? entry : `${entry}.md`,
+          destName: entry,
         });
       }
     } catch {
@@ -43,10 +43,8 @@ export async function copyPolarisAgentsForPlatform(
 
   const jobs: CopyJob[] = [];
   for (const { srcRel, destName } of agentSources) {
-    const src = srcRel.startsWith('agents/')
-      ? path.join(assetsDir, lang === 'zh' ? 'zh' : 'en', srcRel)
-      : await resolveAssetSourcePath(assetsDir, lang, srcRel);
-    if (!src || !(await fileExists(src))) {
+    const src = path.join(assetsDir, lang === 'zh' ? 'zh' : 'en', srcRel);
+    if (!(await fileExists(src))) {
       continue;
     }
 

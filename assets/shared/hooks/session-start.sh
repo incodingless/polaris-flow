@@ -213,45 +213,8 @@ init_session_id() {
 #    让宿主能按注册名 Task(subagent_type=…) 直派；
 #    模型取 config.yaml: challenger.model，留空 = inherit（复用主 agent 模型）。
 #    支持 Claude Code、Trae；其它宿主静默跳过。
-sync_one_review_agent() {
-  local name="$1"   # 例：cross-review-agent
-  local src_rel="$2" # 相对 PLUGIN_ROOT，例：skills/plan-review/agents/cross-review-agent.md
-  local src="$PLUGIN_ROOT/$src_rel"
-
-  if [ ! -f "$src" ]; then
-    _warn "$name 源文件缺失: $src"
-    return 1
-  fi
-
-  local dst_dir=".${PLATFORM_ID}/agents"
-  if ! mkdir -p "$dst_dir" 2>/dev/null; then
-    _warn "无法创建 $dst_dir（$name 同步失败）"
-    return 1
-  fi
-
-  local model="inherit"
-  if [ -f "config.yaml" ]; then
-    local cfg
-    cfg="$(sed -n -E 's/^[[:space:]]+model:[[:space:]]*"?([^"#]*)"?.*/\1/p' config.yaml 2>/dev/null | head -n1 | sed -E 's/[[:space:]]+$//')"
-    [ -n "$cfg" ] && model="$cfg"
-  fi
-
-  local dst="$dst_dir/${name}.md"
-  if sed "s/^model:.*/model: $model/" "$src" > "$dst" 2>/dev/null; then
-    _ok "$name synced → $dst (model: $model)"
-  else
-    _warn "写入 $dst 失败（$name 不可用）"
-    return 1
-  fi
-
-  local ca_gi="$dst_dir/.gitignore"
-  if [ ! -f "$ca_gi" ] || ! grep -qxF "${name}.md" "$ca_gi" 2>/dev/null; then
-    echo "${name}.md" >> "$ca_gi" 2>/dev/null || true
-  fi
-}
-
-# design-review-agent 由 init 从 assets/<lang>/agents/ 装到 .${PLATFORM}/agents/；
-# session-start 仅在已存在时注入 challenger.model（无 PLUGIN_ROOT 内技能副本）。
+#    源文件由 init 从 assets/<lang>/agents/ 装到 .${PLATFORM}/agents/；
+#    session-start 仅在已存在时注入 challenger.model。
 inject_review_agent_model() {
   local name="$1"
   local dst_dir=".${PLATFORM_ID}/agents"
@@ -286,9 +249,10 @@ sync_review_agent() {
   esac
 
   local rc=0
-  sync_one_review_agent "cross-review-agent" \
-    "skills/plan-review/agents/cross-review-agent.md" || rc=1
+  inject_review_agent_model "propose-review-agent" || rc=1
   inject_review_agent_model "design-review-agent" || rc=1
+  inject_review_agent_model "plan-review-agent" || rc=1
+  inject_review_agent_model "openspec-review-agent" || rc=1
   return "$rc"
 }
 # Execute checks

@@ -1,7 +1,7 @@
 <!--
   简要说明：
-  - 职责：把 propose 的高层 design.md 深化为可实施的详细技术设计，并经 design-review-agent 评审。
-  - 主产物：`openspec/changes/<change_id>/detailed-design.md`（及可选 `*-design.md`）+ `reviews/design-review-report.md`。
+  - 职责：把 propose 的高层 design.md 深化为可实施的详细技术设计，经 design-review-agent 主审，并按 outside-voice 协议可选派 openspec-review-agent。
+  - 主产物：`openspec/changes/<change_id>/detailed-design.md`（及可选 `*-design.md`）+ `reviews/design-review-report.md`（+ 可选 openspec-review-report.md）。
   - 上游 / 下游：propose → 本阶段 → plan。
 -->
 
@@ -19,9 +19,10 @@ description: "用户触发 /polaris-flow-design、/design，或要求把 OpenSpe
 - **禁止**未按 `.polaris/reference/decision-point.md` 获得用户对设计方案的明确确认，就落盘 `detailed-design.md`
 - **禁止**重写 OpenSpec `proposal.md` / 高层 `design.md` / `tasks.md` 的结构或范围（深化 ≠ 替代）
 - **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<change_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
-- **禁止**跳过 Step 4：必须派发 `design-review-agent` 完成设计评审（评审逻辑在 agent 内，禁止在本 skill 内联重写）
+- **禁止**跳过 Step 4 主审：必须派发 `design-review-agent`（评审逻辑在 agent 内，禁止在本 skill 内联重写或主代理自审冒充）
+- **禁止**跳过 Step 4 Outside Voice **询问**（按 `.polaris/reference/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
 - **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `/polaris-flow-plan`；写代码是 build）
-- **禁止**把本 skill 当成 plan-review / lock：不审 OpenSpec 四件套、不写 plan-review 的报告
+- **禁止**把本 skill 当成 plan 主审：不派 `plan-review-agent`、不写 `plan-review-report.md`
 - **禁止**将专项设计写成 `design.md` 或放入任何子目录；专项必须为变更根目录下的 `<slug>-design.md`
 - **禁止**把设计/评审产物写回 `.polaris/tasks/`（运行态 `state.yaml` 除外）
 </HARD-GATE>
@@ -35,7 +36,8 @@ description: "用户触发 /polaris-flow-design、/design，或要求把 OpenSpe
 - 意图（只读）：`openspec/changes/<change_id>/intention.md`（propose 已迁入）
 - 深度设计产物：`openspec/changes/<change_id>/detailed-design.md`
 - 专项设计（可选，扁平）：`openspec/changes/<change_id>/<slug>-design.md`
-- 设计评审报告：`openspec/changes/<change_id>/reviews/design-review-report.md`（由 Step 4 落盘）
+- 设计主审报告：`openspec/changes/<change_id>/reviews/design-review-report.md`（由 Step 4 落盘）
+- Outside Voice 报告（若运行）：`openspec/changes/<change_id>/reviews/openspec-review-report.md`
 - 澄清检查点：`openspec/changes/<change_id>/brainstorm-summary.md`
 - OpenSpec 四件套：`openspec/changes/<change_id>/`
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `hooks/workflow-entry.sh`）
@@ -60,6 +62,7 @@ description: "用户触发 /polaris-flow-design、/design，或要求把 OpenSpe
 | 检查 | 条件 |
 | ---- | ---- |
 | 四件套存在 | `openspec/changes/<change_id>/` 下 `proposal.md`、`design.md`、`tasks.md` 非空，且 `specs/` 含至少一个非空文件 |
+| 提案评审 | 若存在 `reviews/propose-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 propose |
 | 尚未锁定 | 若 `design.status=completed` 且 `detailed-design.md` 已存在 → 询问 A 续写修订 / B 退出（禁止静默覆盖） |
 
 通过后：
@@ -154,21 +157,61 @@ canonical_spec: openspec
 
 ### Step 4：设计评审（阻塞点）
 
-本步**只负责派发**专用评审 subagent；评审标准与结果格式以已安装的 `design-review-agent` 为准（源文件 `assets/<lang>/agents/design-review-agent.md`），禁止在本 skill 内再包装一套评审流程。
+本步派发主审 subagent，再按 Outside Voice 协议询问是否交叉评审；禁止在本 skill 内联重写评审标准。
+
+#### 4.1 主审 — `design-review-agent`
 
 1. **`subagent-probe`**：加载 `polaris-flow:subagent-probe`（传入 `platform`）。`inline` / `unsupported` → 标注跳过并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。
-2. **派发**：优先注册名 / `subagent_type` = `design-review-agent`（init 已装到 `.<platform>/agents/design-review-agent.md`）。文件缺失 → 阻断，提示先 `polaris-flow init/update`。启动 prompt 仅：
+2. **派发**：注册名 / `subagent_type` = `design-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断，提示先 `polaris-flow init/update`。启动 prompt：
 
 ```text
 Change: <change_id>
 ```
 
-3. **落盘**：确保目录 `openspec/changes/<change_id>/reviews/` 存在；将 agent 返回的完整 **Design Review Report** 写入 `openspec/changes/<change_id>/reviews/design-review-report.md`。
-4. **消化**：按报告 `Verdict` 与 Findings——`BLOCK` / 未消化 Critical 不得完成；`APPROVE_WITH_CONCERNS` 需用户确认；修订后重跑本 Step（最多 3 轮）。
+3. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；将完整 **Design Review Report** 写入 `openspec/changes/<change_id>/reviews/design-review-report.md`。
+
+#### 4.2 Outside Voice（询问后可选）
+
+主审已落盘（未因无 subagent 整步跳过）后：
+
+1. `read_file` `.polaris/reference/outside-voice.md`（或插件 `policies/outside-voice.md`）并按其执行。
+2. 按复杂度给出建议，decision-point：**A 启动** / **B 跳过**（AI 不得代决）。
+3. 用户选 A → 填充 `templates/outside-voice-prompt.tmpl.md`，派发 `openspec-review-agent`：
+
+```text
+Change: <change_id>
+Stage: design
+PrimaryReport: openspec/changes/<change_id>/reviews/design-review-report.md
+Materials:
+  - openspec/changes/<change_id>/detailed-design.md
+  - openspec/changes/<change_id>/*-design.md（有则列）
+  - openspec/changes/<change_id>/proposal.md
+  - openspec/changes/<change_id>/design.md
+  - openspec/changes/<change_id>/specs/
+  - openspec/changes/<change_id>/tasks.md
+```
+
+4. 通过可信度门禁后写入 `openspec/changes/<change_id>/reviews/openspec-review-report.md`；失败则标注 OV 作废并告知用户。
+5. 宿主无 subagent → 按协议自动跳过 OV 并标注（主审已在 4.1 处理）。
+
+#### 4.3 消化
+
+1. 主审 `Verdict`：`BLOCK` / 未消化 Critical → 不得完成；`APPROVE_WITH_CONCERNS` → decision-point 确认或修订。
+2. 若有 OV：与主审 tension / P0/P1 按 outside-voice 用户主权逐条决策；**禁止**自动改设计。
+3. 修订 `detailed-design.md` / 专项后 → 重跑 4.1（最多 3 轮）；主审重跑后再询 OV。
 
 ### Step 5：完成 design 阶段
 
-更新 `state.yaml`：`design.status: completed`，`design.path` → `openspec/changes/<change_id>/detailed-design.md`，`design.review_report` → 报告路径或 `skipped:<reason>`。
+更新 `state.yaml`：
+
+```yaml
+design:
+  status: completed
+  path: openspec/changes/<change_id>/detailed-design.md
+  review_report: openspec/changes/<change_id>/reviews/design-review-report.md  # 或 skipped:<reason>
+  outside_voice: ran | skipped:<reason> | not_run:<reason>
+  outside_voice_report: openspec/changes/<change_id>/reviews/openspec-review-report.md  # 若 ran
+```
 
 ```bash
 bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill design \
@@ -181,9 +224,10 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill design \
 
 - `detailed-design.md` 已落盘且 frontmatter 合法
 - Step 2.3 用户已确认方案
-- Step 4 已派发评审（或用户接受 SKIPPED）且无未消化 Critical
+- Step 4 主审已派发（或用户接受主审 SKIPPED）且无未消化 Critical
+- Outside Voice 已询问并完成（ran / 用户跳过 / 宿主无法运行已标注）
 - `phase=plan`
 
 ## 上下文压缩恢复
 
-重载 Step 3.3 handoff + `reviews/design-review-report.md`（若有）。
+重载 Step 3.3 handoff + `reviews/design-review-report.md` + `reviews/openspec-review-report.md`（若有）。

@@ -9,7 +9,7 @@
 
   相对 git 现稿 / 早期粘贴稿的主要修正：
   1. 产物统一 `.polaris/tasks/<change_id>/detailed-design.md`；对齐 polaris 标识。
-  2. 切除 plan-review / writing-plans 异物；本 skill 只做深度设计。
+  2. 切除独立 plan-review skill / writing-plans 异物；本 skill 只做深度设计。
   3. Step 4 仅「派发 design-review-agent」——评审标准与结果在 `assets/<lang>/agents/design-review-agent.md`，
      禁止在 SKILL 内包装成评审技能。
   4. 步骤连续 0→5；decision-point / workflow-entry 与 clarify/propose 一致。
@@ -33,7 +33,7 @@ description: "用户触发 /polaris-flow-design、/design，或要求把 OpenSpe
 - **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<change_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
 - **禁止**跳过 Step 4：必须派发 `design-review-agent` 完成设计评审（评审逻辑在 agent 内，禁止在本 skill 内联重写）
 - **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `/polaris-flow-plan`；写代码是 build）
-- **禁止**把本 skill 当成 plan-review / lock：不审 OpenSpec 四件套、不写 lock 的 `review-report.md`
+- **禁止**把本 skill 当成 plan 主审：不派 `plan-review-agent`、不写 `plan-review-report.md`
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow] 进入阶段: design — 使用 polaris-flow-design 技能。`
