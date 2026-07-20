@@ -38,7 +38,8 @@ description: "用户触发 /polaris-flow-retro、/retro，或要求查看度量�
 | Overrides | `.polaris/overrides.log` |
 | workflow 游标（只读） | `.polaris/workflow.yaml`（`active_changes`） |
 | 进行中档案（可选追溯） | `.polaris/tasks/<change_id>/state.yaml` |
-| 已交付快照（可选追溯） | `.polaris/archive/<change_id>/`（state / detailed-design 等；**不含** metrics 副本） |
+| 已交付快照（可选追溯） | `.polaris/archive/<change_id>/`（state 等；叙事文档在 openspec archive；**不含** metrics 副本） |
+| OpenSpec 变更（可选叙事） | `openspec/changes/<change_id>/` 或 `openspec/changes/archive/*-<change_id>/` |
 | 配置 | `.polaris/config.yaml`（`mode` 等） |
 
 > **链路位置**：`clarify → … → verify → delivery` 之后的**旁路复盘**，不占用 phase 游标、不推进阶段。  
@@ -72,7 +73,7 @@ description: "用户触发 /polaris-flow-retro、/retro，或要求查看度量�
 ### Archive / tasks
 
 - 跨 change 趋势：**只**用顶层 metrics  
-- 单 change 叙事：用顶层 metrics 按 `change_id` 过滤；需要业务上下文时再读 `.polaris/tasks/<id>/state.yaml` 或 `.polaris/archive/<id>/`  
+- 单 change 叙事：用顶层 metrics 按 `change_id` 过滤；需要业务上下文时读 `.polaris/tasks/<id>/state.yaml` 或 `.polaris/archive/<id>/`；需要设计/规格上下文时读 `openspec/changes/<id>/`（或 archive 下对应目录）
 - **禁止**假设 archive 内仍有 `metrics/*` 或独立 `overrides.log` 切片（delivery 目标态不存副本）
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）

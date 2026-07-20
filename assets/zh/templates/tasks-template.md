@@ -130,7 +130,7 @@ tasks.md 支持两类任务：
 |------------|----------------------|
 | `/polaris-flow-propose` | 按本模板生成**粗骨架**（可过 lint）；细粒度留给 plan |
 | `/polaris-flow-plan` | **覆写**为可执行细计划（Files + Interfaces + TDD/非TDD + 可复制命令）；跑 `tasks-lint`；再调 `plan-review` |
-| `plan-review`（由 plan 调用） | 评审粒度、依赖排序、可执行性、测试缺口；建议写入 `review-report.md`，**评审期间不直接改 tasks**；消化与改写由 plan skill 完成 |
+| `plan-review`（由 plan 调用） | 评审粒度、依赖排序、可执行性、测试缺口；建议写入 `reviews/plan-review-report.md`，**评审期间不直接改 tasks**；消化与改写由 plan skill 完成 |
 | `/polaris-flow-build`（implementer 跑 `/opsx:apply`） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
 | verify / audit | 实施完成后对照产物；audit 可不读 tasks，只看代码改动与产出 |
 

@@ -1,7 +1,7 @@
 <!--
   简要说明：
   - 职责：以四件套 + detailed-design 覆写可执行 tasks.md，询问 TDD 策略，并经 plan-review 独立放行。
-  - 主产物：`openspec/changes/<change_id>/tasks.md`（覆写）+ `review-report.md`。
+  - 主产物：`openspec/changes/<change_id>/tasks.md`（覆写）+ `reviews/plan-review-report.md`。
   - 上游 / 下游：design → 本阶段 → build。
 -->
 
@@ -40,17 +40,18 @@ description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完�
 | | `openspec/changes/<change_id>/design.md` | 高层架构与选型 |
 | | `openspec/changes/<change_id>/specs/**/*.md` | 需求与验收场景（任务覆盖的主清单） |
 | | `openspec/changes/<change_id>/tasks.md` | propose **粗骨架**（结构参考；**不是**范围真理，将被覆写） |
-| 深度设计 | `.polaris/tasks/<change_id>/detailed-design.md` | 实现方案、风险、测试策略、边界、模块/接口细节 |
+| 深度设计 | `openspec/changes/<change_id>/detailed-design.md` | 实现方案、风险、测试策略、边界、模块/接口细节 |
 
 冲突裁决：**specs 定「做什么」；detailed-design 定「怎么拆怎么测」；高层 design.md / proposal 定边界。** 粗骨架 tasks 与三者冲突时，以三者为准并覆写 tasks。
 
 ### 其它
 
 - **`change_id`**：与 clarify / propose / design 同值
-- 设计评审（只读，若有）：`.polaris/tasks/<change_id>/design-review-report.md`
+- 设计评审（只读，若有）：`openspec/changes/<change_id>/reviews/design-review-report.md`
 - **主产物（覆写）**：`openspec/changes/<change_id>/tasks.md`
-- 计划评审报告：`openspec/changes/<change_id>/review-report.md`（由 `plan-review` 写入）
+- 计划评审报告：`openspec/changes/<change_id>/reviews/plan-review-report.md`（由 `plan-review` 写入）
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `hooks/workflow-entry.sh`）
+- 运行态：`.polaris/tasks/<change_id>/state.yaml`
 
 > **链路**：`clarify → propose → design → **plan** → build`。  
 > 细计划 = f(四件套, detailed-design)；propose 的 tasks 只是输入粗骨架。独立审查走 `plan-review`。
@@ -85,9 +86,9 @@ description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完�
 
 | 检查 | 条件 |
 |------|------|
-| 深度设计已落盘 | `.polaris/tasks/<change_id>/detailed-design.md` 非空，且 frontmatter 含 `role: technical-design` |
+| 深度设计已落盘 | `openspec/changes/<change_id>/detailed-design.md` 非空，且 frontmatter 含 `role: technical-design` |
 | 四件套存在 | `openspec/changes/<change_id>/` 下 `proposal.md`、`design.md`、`tasks.md` 非空，`specs/` 至少一非空文件 |
-| 设计评审 | 若存在 `design-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 design |
+| 设计评审 | 若存在 `reviews/design-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 design |
 | 已有细计划 | 若 `plan.status=completed` 且 `tasks.md` 已细计划 → 询问 A 修订覆写 / B 退出（禁止静默覆盖） |
 
 通过后：
@@ -110,17 +111,17 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
 2. `openspec/changes/<change_id>/design.md`
 3. `openspec/changes/<change_id>/specs/**/*.md`（目录下每个非空 spec）
 4. `openspec/changes/<change_id>/tasks.md`（粗骨架，仅作结构参考）
-5. `.polaris/tasks/<change_id>/detailed-design.md`
+5. `openspec/changes/<change_id>/detailed-design.md`
 
-读完后输出一行清单确认：
+**禁止**凭对话记忆或只读粗骨架 `tasks.md` 开写。读完输出：
 
 `[polaris-flow] plan: 规划依据已读 — proposal / design / specs(N=<文件数>) / tasks(粗) / detailed-design`
 
-有则读（辅助，不扩大 Scope）：
+若存在则一并只读：
 
-- `.polaris/tasks/<change_id>/design-review-report.md`
-- `.polaris/tasks/<change_id>/design/*.md`（专项设计）
-- `.polaris/tasks/<change_id>/intention.md`（冲突以四件套 + detailed-design 为准）
+- `openspec/changes/<change_id>/reviews/design-review-report.md`
+- `openspec/changes/<change_id>/*-design.md`（专项设计；排除四件套 `design.md`）
+- `openspec/changes/<change_id>/intention.md`（冲突以四件套 + detailed-design 为准）
 
 ### Step 2：TDD 策略（用户决策点）
 
@@ -273,7 +274,7 @@ LINT_EXIT=$?
 | 契约项 | 本 skill 取值 |
 |--------|----------------|
 | 提案材料 | `openspec/changes/<change_id>/` 四件套（proposal / design / specs / **刚覆写的 tasks.md**） |
-| 报告路径 | `openspec/changes/<change_id>/review-report.md` |
+| 报告路径 | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
 | 修改约束 | 评审期间 **plan-review 不改** tasks；消化与改写由**本 skill**在 Step 7 做 |
 | STATUS 门禁 | 见 Step 7 |
 
@@ -288,7 +289,7 @@ Materials:
   - openspec/changes/<change_id>/design.md
   - openspec/changes/<change_id>/specs/
   - openspec/changes/<change_id>/tasks.md
-Report: openspec/changes/<change_id>/review-report.md
+Report: openspec/changes/<change_id>/reviews/plan-review-report.md
 Focus: 任务是否由 OpenSpec 四件套 + detailed-design 覆盖推导；粒度、依赖序、TDD/非TDD（是否符合 tdd_policy）、可执行性、测试缺口、有无超出 Scope 的臆造任务
 ```
 
@@ -298,7 +299,7 @@ Focus: 任务是否由 OpenSpec 四件套 + detailed-design 覆盖推导；粒�
 
 ### Step 7：消化评审结论
 
-读取 `review-report.md` 的 **STATUS**：
+读取 `reviews/plan-review-report.md` 的 **STATUS**：
 
 | STATUS | 处理 |
 |--------|------|
@@ -319,7 +320,7 @@ plan:
   status: completed
   tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
   tasks_path: openspec/changes/<change_id>/tasks.md
-  review_report: openspec/changes/<change_id>/review-report.md
+  review_report: openspec/changes/<change_id>/reviews/plan-review-report.md
   finished_at: "<ISO>"
 current_verb: idle
 ```
@@ -336,7 +337,7 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
   change_id     : <change_id>
   tdd_policy    : <prefer_tdd|require_tdd|prefer_direct>
   tasks.md      : openspec/changes/<change_id>/tasks.md（已覆写）
-  review-report : openspec/changes/<change_id>/review-report.md
+  review-report : openspec/changes/<change_id>/reviews/plan-review-report.md
   STATUS        : <DONE | DONE_WITH_CONCERNS>
 
 下一步建议 /polaris-flow-build（按 tasks.md 由 implementer 执行 /opsx:apply）。
@@ -352,6 +353,6 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
 
 ## 上下文压缩恢复
 
-重载：`change_id`、`plan.tdd_policy`、`detailed-design.md`、当前 `tasks.md`、`review-report.md`（若有）、本 skill 停在哪一步。  
+重载：`change_id`、`plan.tdd_policy`、`detailed-design.md`、当前 `tasks.md`、`reviews/plan-review-report.md`（若有）、本 skill 停在哪一步。
 若停在 Step 2 未选定 → 先完成 TDD 策略再写 tasks。  
 若停在 `plan.status=in_progress` 且 tasks 已写未评审 → 从 Step 5.2 / Step 6 续，勿无故重写全部任务（除非用户要求改 `tdd_policy`，则须重跑 Step 2→4）。

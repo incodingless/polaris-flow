@@ -127,7 +127,7 @@ AI 辅助让"完整性"几乎免费。永远推荐**完整方案**而不是捷�
 
 ## 四、必需输出三件套
 
-评审结束后，必须产出以下三个章节，缺一不可。这些章节都写入 `review-report.md`（OpenSpec 场景下为 `openspec/changes/<name>/review-report.md`）。
+评审结束后，必须产出以下三个章节，缺一不可。这些章节都写入 `plan-review-report.md`（OpenSpec / polaris-flow 场景下为 `openspec/changes/<name>/reviews/plan-review-report.md`）。
 
 ### 1. NOT in scope（明确不在范围内）
 

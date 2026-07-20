@@ -1,7 +1,7 @@
 <!--
   简要说明：
   - 职责：对 build 产出做 Constitution 审计、scorer 评分与对照规格验证；不交付、不归档。
-  - 主产物：verify-report、state.verify.*、`.polaris/metrics/<timestamp>-metrics.json`。
+  - 主产物：`reviews/verify-report.md`、state.verify.*、`.polaris/metrics/<timestamp>-metrics.json`。
   - 上游 / 下游：build → 本阶段 → delivery。
 -->
 
@@ -32,9 +32,9 @@ description: "用户触发 /polaris-flow-verify、/verify，或在 build 完成�
 |----|-----------|
 | `change_id` | 与 clarify → build 同值 |
 | OpenSpec 四件套 | `openspec/changes/<change_id>/`（proposal / design / specs / tasks） |
-| 深度设计（只读） | `.polaris/tasks/<change_id>/detailed-design.md` |
+| 深度设计（只读） | `openspec/changes/<change_id>/detailed-design.md` |
 | 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
-| 验证报告 | `.polaris/tasks/<change_id>/verify-report.md` |
+| 验证报告 | `openspec/changes/<change_id>/reviews/verify-report.md` |
 | Metrics | `.polaris/metrics/<timestamp>-metrics.json` |
 | Constitution 规则 | `$PLUGIN_ROOT/skills/verify/policies/constitution-audit.md` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `hooks/workflow-entry.sh`） |
@@ -239,7 +239,7 @@ git diff --stat <base-ref>...HEAD
 **通过**：6 项全 OK，无 CRITICAL / IMPORTANT。  
 **不通过** → [验证失败决策](#验证失败决策阻塞点)。
 
-报告：简表 6 项 + PASS/FAIL，写入 `verify-report.md`。
+报告：简表 6 项 + PASS/FAIL，写入 `reviews/verify-report.md`（先确保 `openspec/changes/<change_id>/reviews/` 存在）。
 
 #### 4.2b 完整验证
 
@@ -249,7 +249,7 @@ git diff --stat <base-ref>...HEAD
 
 1. `tasks.md` 全部 `[x]`
 2. 实现符合高层 `openspec/changes/<change_id>/design.md`
-3. 实现符合 `.polaris/tasks/<change_id>/detailed-design.md`
+3. 实现符合 `openspec/changes/<change_id>/detailed-design.md`
 4. 能力规格场景可追溯通过（或明确记录未自动化项与手工结论）
 5. `proposal.md` 目标已满足
 6. specs / detailed-design 无未记录矛盾（Build 中改过 spec 的，detailed-design 须有对应记录）
@@ -269,7 +269,7 @@ git diff --stat <base-ref>...HEAD
 
 验证通过后：
 
-1. 确保 `.polaris/tasks/<change_id>/verify-report.md` 已写完整结论（含 Constitution 摘要、overall_score、light/full、各检查项）
+1. 确保 `openspec/changes/<change_id>/reviews/verify-report.md` 已写完整结论（含 Constitution 摘要、overall_score、light/full、各检查项）
 2. 更新 `state.yaml`：
 
 ```yaml
@@ -280,7 +280,7 @@ verify:
   score_level: <high|low>
   verify_mode: <light|full>
   blocked: false
-  verification_report: ".polaris/tasks/<change_id>/verify-report.md"
+  verification_report: "openspec/changes/<change_id>/reviews/verify-report.md"
   scorer_results: { ... }
   finished_at: "<ISO>"
 current_verb: idle
@@ -300,7 +300,7 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill verify \
   change_id : <change_id>
   mode      : <light|full>
   score     : <overall_score> (<score_level>)
-  report    : .polaris/tasks/<change_id>/verify-report.md
+  report    : openspec/changes/<change_id>/reviews/verify-report.md
 下一步建议 /polaris-flow-delivery。
 ```
 

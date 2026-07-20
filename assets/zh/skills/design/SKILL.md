@@ -1,7 +1,7 @@
 <!--
   简要说明：
   - 职责：把 propose 的高层 design.md 深化为可实施的详细技术设计，并经 design-review-agent 评审。
-  - 主产物：`.polaris/tasks/<change_id>/detailed-design.md`（及可选 design-review-report）。
+  - 主产物：`openspec/changes/<change_id>/detailed-design.md`（及可选 `*-design.md`）+ `reviews/design-review-report.md`。
   - 上游 / 下游：propose → 本阶段 → plan。
 -->
 
@@ -13,7 +13,7 @@ description: "用户触发 /polaris-flow-design、/design，或要求把 OpenSpe
 # Polaris 工作流 - 阶段：深度设计（design）
 
 <HARD-GATE>
-本 skill **仅**负责把 propose 阶段的高层 `design.md` **深化**为 `.polaris/tasks/<change_id>/detailed-design.md`。
+本 skill **仅**负责把 propose 阶段的高层 `design.md` **深化**为 `openspec/changes/<change_id>/detailed-design.md`。
 
 - **禁止**跳过 Superpowers `brainstorming`（不可用则阻断，禁止用普通对话替代）
 - **禁止**未按 `.polaris/reference/decision-point.md` 获得用户对设计方案的明确确认，就落盘 `detailed-design.md`
@@ -21,7 +21,9 @@ description: "用户触发 /polaris-flow-design、/design，或要求把 OpenSpe
 - **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<change_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
 - **禁止**跳过 Step 4：必须派发 `design-review-agent` 完成设计评审（评审逻辑在 agent 内，禁止在本 skill 内联重写）
 - **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `/polaris-flow-plan`；写代码是 build）
-- **禁止**把本 skill 当成 plan-review / lock：不审 OpenSpec 四件套、不写 lock 的 `review-report.md`
+- **禁止**把本 skill 当成 plan-review / lock：不审 OpenSpec 四件套、不写 plan-review 的报告
+- **禁止**将专项设计写成 `design.md` 或放入任何子目录；专项必须为变更根目录下的 `<slug>-design.md`
+- **禁止**把设计/评审产物写回 `.polaris/tasks/`（运行态 `state.yaml` 除外）
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow] 进入阶段: design — 使用 polaris-flow-design 技能。`
@@ -29,15 +31,17 @@ description: "用户触发 /polaris-flow-design、/design，或要求把 OpenSpe
 ## 标识约定
 
 - **`change_id`**：与 clarify finalize / propose 同值
-- 任务目录：`.polaris/tasks/<change_id>/`
-- 深度设计产物：`.polaris/tasks/<change_id>/detailed-design.md`
-- 专项设计（可选）：`.polaris/tasks/<change_id>/design/*.md`
-- 设计评审报告：`.polaris/tasks/<change_id>/design-review-report.md`（由 Step 4 落盘）
-- 澄清检查点：`.polaris/tasks/<change_id>/brainstorm-summary.md`
+- 任务目录（运行态）：`.polaris/tasks/<change_id>/state.yaml`
+- 意图（只读）：`openspec/changes/<change_id>/intention.md`（propose 已迁入）
+- 深度设计产物：`openspec/changes/<change_id>/detailed-design.md`
+- 专项设计（可选，扁平）：`openspec/changes/<change_id>/<slug>-design.md`
+- 设计评审报告：`openspec/changes/<change_id>/reviews/design-review-report.md`（由 Step 4 落盘）
+- 澄清检查点：`openspec/changes/<change_id>/brainstorm-summary.md`
 - OpenSpec 四件套：`openspec/changes/<change_id>/`
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `hooks/workflow-entry.sh`）
 
-> **职责边界**：propose 的 `design.md` = 高层方案框架；本阶段 `detailed-design.md` = 深度技术细化。深化，不替代。
+> **职责边界**：propose 的 `design.md` = 高层方案框架；本阶段 `detailed-design.md` = 深度技术细化。深化，不替代。  
+> **专项命名**：禁止叫 `design.md`；例：领域模型 → `domain-model-design.md`。不建 `design/` 子目录。
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
@@ -76,7 +80,7 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill design \
 - `openspec/changes/<change_id>/design.md`
 - `openspec/changes/<change_id>/tasks.md`
 - `openspec/changes/<change_id>/specs/*/spec.md`
-- 若存在：`.polaris/tasks/<change_id>/intention.md`（只读）
+- 若存在：`openspec/changes/<change_id>/intention.md`（只读）
 
 ### Step 2：Brainstorming（带上下文）
 
@@ -105,7 +109,7 @@ OpenSpec Context: openspec/changes/<change_id>/*.md
 
 #### 2.2 增量更新 `brainstorm-summary.md`
 
-路径：`.polaris/tasks/<change_id>/brainstorm-summary.md`  
+路径：`openspec/changes/<change_id>/brainstorm-summary.md`  
 未确认内容标「待确认」/「候选」。非 Design Doc，不替代 2.3。
 
 #### 2.3 用户确认设计方案（阻塞点）
@@ -116,7 +120,7 @@ OpenSpec Context: openspec/changes/<change_id>/*.md
 
 #### 3.1 写入 `detailed-design.md`
 
-路径：`.polaris/tasks/<change_id>/detailed-design.md`
+路径：`openspec/changes/<change_id>/detailed-design.md`
 
 ```yaml
 ---
@@ -128,16 +132,25 @@ canonical_spec: openspec
 
 正文至少含：实现方案、技术风险、测试策略、边界条件、Spec Patch 清单（无则写「无」）。  
 有 Spec Patch 则同时改 `specs/*/spec.md`。  
-输出：`[polaris-flow] design: wrote .polaris/tasks/<change_id>/detailed-design.md`
+输出：`[polaris-flow] design: wrote openspec/changes/<change_id>/detailed-design.md`
 
 #### 3.2 专项设计（可选）
 
-按 decision-point 询问是否需要专项文档（不涉及的类别不展示）：领域 / 仓储服务 / 数据模型 / Rest API / 其他。  
-选否 → 3.3；多选则写入 `.polaris/tasks/<change_id>/design/` 后进 3.3。
+按 decision-point 询问是否需要专项文档（不涉及的类别不展示）。选否 → 3.3；多选则按 slug 表写入变更**根目录**（扁平，禁止子目录）后进 3.3。
+
+| 用户选项 | 文件名 |
+|----------|--------|
+| 领域 / 领域模型 | `domain-model-design.md` |
+| 仓储服务 | `repository-design.md` |
+| 数据模型 | `data-model-design.md` |
+| Rest API | `rest-api-design.md` |
+| 其他 | 用户确认英文 kebab `slug` → `<slug>-design.md` |
+
+**禁止**：文件名 `design.md`（与四件套冲突）；写入 `design/` 或任何子目录。
 
 #### 3.3 主动式上下文压缩（可选）
 
-有原生 compact 则触发一次。恢复提示含 `change_id`、Step 3 完成、以及 `detailed-design.md` / `design/`（若有）/ `brainstorm-summary.md` / OpenSpec 四件套。然后进入 Step 4。
+有原生 compact 则触发一次。恢复提示含 `change_id`、Step 3 完成、以及 `detailed-design.md` / `*-design.md`（若有）/ `brainstorm-summary.md` / OpenSpec 四件套。然后进入 Step 4。
 
 ### Step 4：设计评审（阻塞点）
 
@@ -150,19 +163,19 @@ canonical_spec: openspec
 Change: <change_id>
 ```
 
-3. **落盘**：将 agent 返回的完整 **Design Review Report** 写入 `.polaris/tasks/<change_id>/design-review-report.md`。
+3. **落盘**：确保目录 `openspec/changes/<change_id>/reviews/` 存在；将 agent 返回的完整 **Design Review Report** 写入 `openspec/changes/<change_id>/reviews/design-review-report.md`。
 4. **消化**：按报告 `Verdict` 与 Findings——`BLOCK` / 未消化 Critical 不得完成；`APPROVE_WITH_CONCERNS` 需用户确认；修订后重跑本 Step（最多 3 轮）。
 
 ### Step 5：完成 design 阶段
 
-更新 `state.yaml`：`design.status: completed`，`design.path` → detailed-design，`design.review_report` → 报告路径或 `skipped:<reason>`。
+更新 `state.yaml`：`design.status: completed`，`design.path` → `openspec/changes/<change_id>/detailed-design.md`，`design.review_report` → 报告路径或 `skipped:<reason>`。
 
 ```bash
 bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill design \
   --where-change-id "$change_id" --set phase=plan
 ```
 
-输出：`[polaris-flow] design 阶段完成：.polaris/tasks/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris-flow-plan。`
+输出：`[polaris-flow] design 阶段完成：openspec/changes/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris-flow-plan。`
 
 ## 退出条件
 
@@ -173,4 +186,4 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill design \
 
 ## 上下文压缩恢复
 
-重载 Step 3.3 handoff + `design-review-report.md`（若有）。
+重载 Step 3.3 handoff + `reviews/design-review-report.md`（若有）。

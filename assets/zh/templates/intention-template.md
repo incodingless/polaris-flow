@@ -1,6 +1,6 @@
 # intent research 模板
 
-> **使用约定**：本模板由 `clarify` skill Step 4.1 引用。clarify 主代理读取本模板后，按节顺序填充 `<repo_root>/<task_dir>/intention.md`；各节内容来源标注见行内注释。
+> **使用约定**：本模板由 `clarify` skill Step 4.1 引用。clarify 主代理读取本模板后，按节顺序填充 `.polaris/tasks/<draft_or_id>/intention.md`（propose 成功后迁入 `openspec/changes/<change_id>/intention.md`，不留备份）；各节内容来源标注见行内注释。
 ---
 
 # 任务意图调研结果: <task_id>

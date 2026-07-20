@@ -186,8 +186,8 @@ LLM 集成: [GAP] [→EVAL] Prompt 模板变更——需要 eval 测试
 
 测试评审的产物**直接写入** review-report.md 的「测试评审」章节，**不另产出 test-plan.md 文件**。
 
-- **OpenSpec 场景**：写到 `openspec/changes/<name>/review-report.md` 的「测试评审」节，符合 OpenSpec 单一产物原则
-- **独立调用场景**：写到调用方指定的 review-report.md，路径由调用方决定
+- **OpenSpec 场景**：写到 `openspec/changes/<name>/reviews/plan-review-report.md` 的「测试评审」节
+- **独立调用场景**：写到调用方指定的 review-report 路径，路径由调用方决定
 
 结构如下：
 

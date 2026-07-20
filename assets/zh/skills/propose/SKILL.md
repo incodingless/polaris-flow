@@ -1,10 +1,9 @@
 <!--
   简要说明：
-  - 职责：基于已锁定的 intention.md 生成 OpenSpec 四件套；可提示创建 worktree（非阻断）。
-  - 主产物：`openspec/changes/<change_id>/` 下 proposal / specs / design / tasks（粗骨架）。
+  - 职责：基于已锁定的 intention.md 生成 OpenSpec 四件套；可提示创建 worktree（非阻断）；四件套成功后将 intention 迁入 openspec（不留备份）。
+  - 主产物：`openspec/changes/<change_id>/` 下 proposal / specs / design / tasks（粗骨架）+ intention.md。
   - 上游 / 下游：clarify → 本阶段 → design。
 -->
-
 ---
 name: polaris-flow-propose
 description: "用户触发 /polaris-flow-propose、/propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。"
@@ -26,10 +25,13 @@ description: "用户触发 /polaris-flow-propose、/propose，或要求基于 in
 ## 标识约定
 
 - **`change_id`**：本 skill 唯一主键。与 clarify finalize 后的目录名 / `task_id` **同值**。
-- 任务目录：`.polaris/tasks/<change_id>/`
-- 意图文档：`.polaris/tasks/<change_id>/intention.md`
+- 任务目录（运行态）：`.polaris/tasks/<change_id>/`（本阶段结束后通常仅留 `state.yaml`）
+- 意图文档（入口暂存）：`.polaris/tasks/<change_id>/intention.md`（propose **开始时**读取）
+- 意图文档（迁入后唯一真相）：`openspec/changes/<change_id>/intention.md`（Step 4.5 `mv`，`.polaris` **不留备份**）
+- OpenSpec 四件套：`openspec/changes/<change_id>/`
 - workflow 游标：`.polaris/workflow.yaml` → `active_changes[].change_id`（写入一律走 `hooks/workflow-entry.sh`）
 
+> **续跑**：若 `openspec/changes/<change_id>/intention.md` 已存在且 `.polaris/tasks/<change_id>/intention.md` 已不存在，视为 Step 4.5 已完成，不得再从 `.polaris` 读 intention。
 ## 流程（按顺序执行，每一步未完成不得进入下一步）
 
 ### Step 0：定位 change_id
@@ -108,17 +110,19 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill propose \
 
 ### Step 2：定位并校验 `intention.md`
 
-**2.1 定位**：
+**2.1 定位**（按优先级）：
 
-- worktree 模式（1.3.A）：`<target_path>/.polaris/tasks/<change_id>/intention.md`
-- 主仓模式（1.3.B）：`<main_repo_root>/.polaris/tasks/<change_id>/intention.md`
+1. 若 `openspec/changes/<change_id>/intention.md` 已存在 → 视为已迁入；本步仅确认可读，后续 `/opsx:propose` 若四件套已齐可从中断点续跑到 Step 4.5/5
+2. 否则读暂存：
+   - worktree 模式（1.3.A）：`<target_path>/.polaris/tasks/<change_id>/intention.md`
+   - 主仓模式（1.3.B）：`<main_repo_root>/.polaris/tasks/<change_id>/intention.md`
 
 **2.2 文件存在性 + 完整性**：
 
 | 情况 | 处理 |
 |---|---|
-| **文件不存在** | fallback：把用户调用 `/polaris-flow-propose`（或 `/propose`）时的原始消息作为 propose 输入；输出 `[polaris-flow] 未找到 intention.md，使用用户原始 prompt 作为 propose 输入。` 后跳到 Step 3.2 |
-| **文件存在** | 对照 `templates/intention-template.md` 检查下方**必含节**均存在且非空。缺节 → **阻断**，列出缺失节名，提示回到 clarify 补全 |
+| **`.polaris` 与 openspec 均无 intention** | fallback：把用户调用 `/polaris-flow-propose`（或 `/propose`）时的原始消息作为 propose 输入；输出 `[polaris-flow] 未找到 intention.md，使用用户原始 prompt 作为 propose 输入。` 后跳到 Step 3.2 |
+| **文件存在**（暂存或已迁入） | 对照 `templates/intention-template.md` 检查下方**必含节**均存在且非空。缺节 → **阻断**，列出缺失节名，提示回到 clarify 补全 |
 
 **必含节**（节名必须与模板一致，勿用英文别名）：
 
@@ -226,11 +230,31 @@ LINT_EXIT=$?
    - exit 1 → **阻断**，输出 `$LINT_RESULT`（JSON violations），要求修正 `tasks.md` 后重新跑本校验
 5. 本 skill 在调用前已显式输出「已 read_file `templates/tasks-template.md`」声明
 
+### Step 4.5：迁入 `intention.md`（唯一真相）
+
+四件套校验通过后执行。**禁止**在 `.polaris` 保留 intention 副本。
+
+1. 确认 `openspec/changes/<change_id>/` 目录存在。
+2. 若 `.polaris/tasks/<change_id>/intention.md` 存在：
+
+```bash
+# 工作树根：worktree 模式用 target_path，否则 main_repo_root
+mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" \
+   "$REPO_ROOT/openspec/changes/$change_id/intention.md"
+```
+
+   确认 `.polaris/tasks/<change_id>/intention.md` 已不存在；目标路径存在且非空。
+3. 更新 `.polaris/tasks/<change_id>/state.yaml`：将 intention 路径字段改为 `openspec/changes/<change_id>/intention.md`（若模板有 `intention.path` / 等价字段则写入；无则至少在摘要中记录）。
+4. 若本轮为 fallback（从未有过 intention 文件）→ **跳过**本步，不造空 `intention.md`。
+5. 若 openspec 侧已有 `intention.md` 且 `.polaris` 侧已无 → 视为已迁入，输出 `[polaris-flow] intention: 已在 openspec，跳过迁入。`
+
+输出：`[polaris-flow] intention: moved to openspec/changes/<change_id>/intention.md（.polaris 无备份）`
+
 ### Step 5：完成 propose 阶段
 
-校验通过 → 输出：
+校验通过且 Step 4.5 完成 → 输出：
 
-`[polaris-flow] propose 完成：四件套已落盘到 openspec/changes/<change_id>/（tasks.md 为粗骨架，细计划由 /polaris-flow-plan 覆写）。下一步建议 /polaris-flow-design。`
+`[polaris-flow] propose 完成：四件套已落盘到 openspec/changes/<change_id>/；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris-flow-plan 覆写）。下一步建议 /polaris-flow-design。`
 
 任一项不满足 → 阻断并输出失败原因。
 

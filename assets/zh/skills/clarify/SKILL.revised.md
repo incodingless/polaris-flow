@@ -1,4 +1,9 @@
 <!--
+  已过时：产物路径以同目录 SKILL.md 为准（叙事进 openspec/changes；评审进 reviews/；.polaris/tasks 仅运行态与 draft）。
+  本文件勿当作生效 skill；确认后删除或按 SKILL.md 重写。
+-->
+
+<!--
   对比修订稿（非正式发布）：与同目录 SKILL.md 对照阅读。
   勿直接当作已生效 skill；确认后可替换 SKILL.md。
 

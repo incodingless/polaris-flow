@@ -6,7 +6,7 @@ description: "用户触发 /ezfl:lock，或由 polaris-flow-plan 在覆写 tasks
 # Plan Eng Review
 
 <HARD-GATE>
-禁止修改提案材料（proposal.md / design.md / specs/ / tasks.md）——本 skill 仅做评审，结论写入 review-report.md。当存在未消化的 Critical / Important 问题时禁止把 STATUS 标记为 DONE。critical-tier 变更禁止跳过 Outside Voice（cross-review-agent）。
+禁止修改提案材料（proposal.md / design.md / specs/ / tasks.md）——本 skill 仅做评审，结论写入调用方指定的报告文件（polaris-flow-plan 场景为 `openspec/changes/<name>/reviews/plan-review-report.md`）。当存在未消化的 Critical / Important 问题时禁止把 STATUS 标记为 DONE。critical-tier 变更禁止跳过 Outside Voice（cross-review-agent）。
 </HARD-GATE>
 
 **启动时必须先输出**：`[easy-flow] 进入阶段: lock — 使用 easy-flow:plan-review skill。`
@@ -22,7 +22,7 @@ description: "用户触发 /ezfl:lock，或由 polaris-flow-plan 在覆写 tasks
 ## 流程总览
 
 ```
-读 config → Step 0 范围挑战 → Section 1-4 顺序评审 → Outside Voice → 必需输出 → 写 review-report.md
+读 config → Step 0 范围挑战 → Section 1-4 顺序评审 → Outside Voice → 必需输出 → 写 plan-review-report（路径由调用方指定）
 ```
 
 每个阶段的"做什么"在对应 policy 文件，本 SKILL.md 仅承载入口、HARD-GATE 锚点与跨阶段衔接。

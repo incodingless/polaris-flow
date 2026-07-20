@@ -7,7 +7,8 @@
 # 功能：
 #   1. 校验目标目录不存在
 #   2. mv draft 目录 → 正式 change_id 目录
-#   3. 更新 state.yaml（change_id / clarify.status / clarify.path / clarify.draft_dir）
+#   3. 更新 state.yaml（change_id / clarify.status / clarify.path → 暂存 intention 路径）
+#      注：intention 在 propose Step 4.5 迁入 openspec 后，须由 propose 更新路径字段；本脚本只写暂存路径
 #   4. 回填 intention.md 首行 "# intention: <TBD>" → "# intention: <change_id>"
 #   5. 执行 workflow-entry.sh rename-active
 #

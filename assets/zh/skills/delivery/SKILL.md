@@ -13,6 +13,7 @@
   3. 状态与游标对齐 verify/build：`.polaris/tasks/<change_id>/state.yaml`；
      字段块用模板已有的 `delivery.*`（不再写 `ship.*`）；入口读 `verify.blocked`。
   4. worktree 标记统一 `created_by_polaris_flow`；产物合回目标 `.polaris/archive/<change_id>/`
+     （主要合回 state / metrics / overrides；叙事文档在 openspec，随 /opsx:archive）
      与顶层 `.polaris/metrics/`（不再写 .harness/）。
   5. archive 策略：用户选 A 但命令失败 → **不做归档**（openspec 目录保持原位；
      `delivery.archive=failed`）；不回滚 0–4；不阻断 Step 6.1 清游标。
@@ -27,7 +28,7 @@
   【hooks — 仓内尚不存在，须新建】
   - assets/shared/hooks/polaris-sync.sh
       取代 harness-sync.sh；契约见 Step 3.5（exit 0/1/2/3；合回 metrics/overrides/
-      state/detailed-design → .polaris/）
+      state → .polaris/archive；叙事文档在 openspec，不由此脚本搬 detailed-design）
   - assets/shared/hooks/worktree-merge-status.sh
       脏检查 + 是否已合并；exit 0=已合并 / 1=未合并 / 2=脏
   - assets/shared/hooks/worktree-rebase-ff.sh
@@ -89,8 +90,8 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 |----|-----------|
 | `change_id` | 与 clarify → verify 同值 |
 | 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
-| OpenSpec 四件套 | `openspec/changes/<change_id>/`（归档后进 `openspec/changes/archive/`） |
-| 产物快照 | `.polaris/archive/<change_id>/`（state / detailed-design 等合回结果） |
+| OpenSpec 变更目录 | `openspec/changes/<change_id>/`（四件套 + intention / detailed-design / `*-design.md` / `reviews/`；归档后进 `openspec/changes/archive/`） |
+| 产物快照 | `.polaris/archive/<change_id>/`（合回的 **state** 等运行态；叙事文档随 openspec archive） |
 | Metrics（顶层） | `.polaris/metrics/*-metrics.json`（worktree 合回追加到主仓顶层） |
 | ship lock | 主仓 `.polaris/.locks/ship.lock` |
 | sync 脚本 | `$PLUGIN_ROOT/hooks/polaris-sync.sh`（仓内待建，见文首外部债） |
@@ -209,7 +210,8 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 
 - metrics → 主仓 `.polaris/metrics/`
 - overrides 追加 → 主仓 `.polaris/overrides.log`
-- `state.yaml` / `detailed-design.md`（及既有修订）→ `.polaris/archive/<change_id>/`
+- `state.yaml` → `.polaris/archive/<change_id>/`（运行态快照）
+- 叙事文档（intention / detailed-design / `*-design.md` / `reviews/*`）已在 `openspec/changes/<change_id>/`，随后续 `/opsx:archive` 一并归档；**本步不要求**再把 detailed-design 拷进 `.polaris/archive/`
 
 #### 3.6 选项 C：保留 worktree
 

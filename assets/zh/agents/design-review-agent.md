@@ -1,6 +1,6 @@
 ---
 name: design-review-agent
-description: 深度设计评审 subagent。对 detailed-design.md 与专项设计文档按固定标准做独立技术评审，输出可判定的评审结果（Verdict + 分维结论 + Findings）。不修改任何文件，不执行命令。
+description: 深度设计评审 subagent。对 detailed-design.md 与专项设计文档（*-design.md）按固定标准做独立技术评审，输出可判定的评审结果（Verdict + 分维结论 + Findings）。不修改任何文件，不执行命令。
 tools: read_file, codebase_search, search_content, list_dir, search_file
 model: DeepSeek-V4-Flash
 enabled: true
@@ -35,11 +35,12 @@ enabledAutoRun: false
 
 **必审：**
 
-- `.polaris/tasks/<change_id>/detailed-design.md`
+- `openspec/changes/<change_id>/detailed-design.md`
 
-**有则必审：**
+**有则必审（专项设计，扁平）：**
 
-- `.polaris/tasks/<change_id>/design/*.md`（目录存在且非空则**全部**读）
+- `openspec/changes/<change_id>/*-design.md`（匹配所有以 `-design.md` 结尾的文件，含 `detailed-design.md` 已在必审；专项如 `domain-model-design.md`）
+- **排除**四件套高层 `openspec/changes/<change_id>/design.md`（文件名恰好为 `design.md`，不含 `-design` 后缀前的 slug）
 
 **对照只读**（验证一致性；不得建议「去改 OpenSpec 高层结构/范围」——那是 propose/lock 职责）：
 
@@ -47,6 +48,7 @@ enabledAutoRun: false
 - `openspec/changes/<change_id>/proposal.md`
 - `openspec/changes/<change_id>/specs/**/*.md`
 - `openspec/changes/<change_id>/tasks.md`
+- 若存在：`openspec/changes/<change_id>/intention.md`
 
 **前置失败（直接出结果，勿臆造正文）：**
 
@@ -94,10 +96,10 @@ enabledAutoRun: false
 
 | # | 标准 | 判定 |
 |---|------|------|
-| S4.1 | 无 `design/` 专项文档 | 整维 **N/A**（不算失败） |
+| S4.1 | 无除 `detailed-design.md` 外的 `*-design.md` 专项 | 整维 **N/A**（不算失败） |
 | S4.2 | 有专项文档时：与 `detailed-design.md` 无矛盾结论 | 矛盾 → Critical |
 | S4.3 | 有专项文档时：主文档有交叉引用或明确归属，无重复两套真相 | 缺失引用 → Important；两套真相 → Critical |
-| S4.4 | 数据模型专项含迁移/回滚要点（若该专项存在） | 缺失 → Important |
+| S4.4 | 数据模型专项（`data-model-design.md` 等）含迁移/回滚要点（若该专项存在） | 缺失 → Important |
 
 ### S5 风险与可运营性（Risk）
 
@@ -136,8 +138,8 @@ enabledAutoRun: false
 ## Meta
 - change_id: <change_id>
 - reviewed:
-  - .polaris/tasks/<change_id>/detailed-design.md
-  - <每条实际审过的 design/*.md，无则写（无专项）>
+  - openspec/changes/<change_id>/detailed-design.md
+  - <每条实际审过的 *-design.md 专项，无则写（无专项）>
 - standards_version: 1
 
 ## Standards
@@ -181,7 +183,7 @@ APPROVE | APPROVE_WITH_CONCERNS | BLOCK
 
 | Verdict | 主代理应做 |
 |---------|------------|
-| `APPROVE` | 可进入 design 完成 / 推进 build |
+| `APPROVE` | 可进入 design 完成 / 推进 plan |
 | `APPROVE_WITH_CONCERNS` | 展示 Important 与 FAIL 维；用户确认接受或修订后再完成 |
 | `BLOCK` | **禁止**标记 design 完成；必须修订后重跑本 agent，或用户显式接受 Critical 风险（由 skill 决策点处理） |
 
@@ -196,3 +198,5 @@ APPROVE | APPROVE_WITH_CONCERNS | BLOCK
 5. 生成 Findings（每条关联 `Sx.y`）；需要时按读代码规则验证引用
 6. 按 Verdict 硬约束选出结果，填满输出模板全部节
 7. 结束；**不要**建议「下一步跑哪个 skill」
+
+> 主代理负责将本报告写入 `openspec/changes/<change_id>/reviews/design-review-report.md`。

@@ -1,14 +1,22 @@
-# 单 change 业务档案模板
-# 路径：.polaris/changes/<change_id>/state.yaml
-# （design Step 1 起草临时 draft-<session_suffix>-<unix_ts>/state.yaml；
-#  Step 4.4 用户整体确认后 mv 到正式 changes/<change_id>/state.yaml）
+# 单 change 业务档案模板（仅运行态）
+# 路径：.polaris/tasks/<change_id>/state.yaml
+# （clarify 起草：.polaris/tasks/draft-<session_suffix>-<unix_ts>/state.yaml；
+#  finalize 后 mv 到 .polaris/tasks/<change_id>/state.yaml）
 #
-# 由各阶段 skill 各自维护对应字段块。worktree 阶段拷贝整个 changes/<change_id>/
-# 目录到 worktree 内同名路径，主仓副本被重命名为 changes/<change_id>.snapshot/ 作只读快照。
+# 叙事文档不在本目录：propose 成功后 intention / 四件套 / detailed-design / *-design.md / reviews/*
+# 均在 openspec/changes/<change_id>/。本文件只维护阶段状态与 worktree 等运行态。
+#
+# worktree 阶段拷贝整个 .polaris/tasks/<change_id>/ 到 worktree 内同名路径，
+# 主仓副本可重命名为 .polaris/tasks/<change_id>.snapshot/ 作只读快照。
 
-change_id: ""        # 与父目录名一致；draft-* 阶段为占位，Step 4.4 回填
-current_verb: idle   # idle | clarify | propose | design | review | build | verify | delivery
+change_id: ""        # 与父目录名一致；draft-* 阶段为占位，clarify finalize 回填
+current_verb: idle   # idle | clarify | propose | design | plan | build | verify | delivery
 current_tier: ""     # trivial | standard | critical（triage 写入）
+
+# intention 路径生命周期：clarify 暂存 → propose Step 4.5 迁入 openspec（.polaris 不留备份）
+intention:
+  path: ""           # 例：.polaris/tasks/<id>/intention.md（暂存）
+                     # 或 openspec/changes/<id>/intention.md（迁入后）
 
 triage:
   tier: ""
@@ -26,16 +34,22 @@ worktree:
 
 propose:
   status: ""           # in_progress | completed | skipped（trivial 直跳过）
-  worktree_decision: ""  # created | reused | declined（用户在 propose Step 1.0 选 A/B/C）
-  opsx_propose_status: ""  # ok | failed | n/a（Step 2 调 /opsx:propose 的结果）
+  worktree_decision: ""  # created | reused | declined
+  opsx_propose_status: ""  # ok | failed | n/a
   finished_at: ""
 
 design:
   status: ""           # in_progress | completed
-  path: ""             # 完成后的最终 pre_design.md 路径
-                       # 例：.polaris/changes/<change_id>/pre_design.md
-                       # （worktree 内则是 worktree/.polaris/changes/<change_id>/pre_design.md）
-  draft_dir: ""        # design 进行中的临时目录名，例：draft-0701c0-1748060068；Step 4.4 后清空
+  path: ""             # 完成后：openspec/changes/<change_id>/detailed-design.md
+  review_report: ""    # openspec/changes/<change_id>/reviews/design-review-report.md
+                       # 或 skipped:<reason>
+  draft_dir: ""        # 历史字段；目标态 design 不再用 .polaris draft 目录写设计文档
+
+plan:
+  status: ""
+  tdd_policy: ""       # prefer_tdd | require_tdd | prefer_direct
+  tasks_path: ""       # openspec/changes/<change_id>/tasks.md
+  review_report: ""    # openspec/changes/<change_id>/reviews/plan-review-report.md
 
 review:
   status: ""
@@ -53,13 +67,14 @@ verify:
   scorer_results: {}
   overall_score: 0
   blocked: false
+  verification_report: ""  # openspec/changes/<change_id>/reviews/verify-report.md
 
 delivery:
   status: ""
   merge_strategy: ""
   finished_at: ""
   harness_sync: ""   # synced | partial_failure | skipped_no_source | skipped_worktree_retained | deferred_archive_conflict | n/a
-  archive_dir: ""    # 例：.polaris/archive/<change_id>
+  archive_dir: ""    # 例：.polaris/archive/<change_id>（运行态快照；叙事随 openspec archive）
   archive: ""        # archived | deferred | skipped | failed
   archive_path: ""
   archive_error: ""

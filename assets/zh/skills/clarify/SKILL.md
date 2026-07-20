@@ -1,7 +1,7 @@
 <!--
   简要说明：
-  - 职责：经结构化探索与确认，把用户需求落地为 intention.md（本阶段不写 OpenSpec）。
-  - 主产物：`.polaris/tasks/<task_id>/intention.md` + state / workflow 游标。
+  - 职责：经结构化探索与确认，把用户需求落地为 intention.md（本阶段不写 OpenSpec；intention 暂存于 .polaris，propose 后再迁入）。
+  - 主产物：`.polaris/tasks/<task_id>/intention.md`（暂存）+ state / workflow 游标。
   - 上游 / 下游：新建 change → 本阶段 → propose。
 -->
 

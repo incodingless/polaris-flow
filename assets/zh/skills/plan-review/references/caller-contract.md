@@ -17,7 +17,7 @@
 
 **唯一产物**：评审报告文件（路径由调用方指定）。
 
-easy-flow lock 链场景下输出路径为 `openspec/changes/<name>/review-report.md`。
+easy-flow lock / polaris-flow-plan 链场景下输出路径为 `openspec/changes/<name>/reviews/plan-review-report.md`。若有独立 Outside Voice / OpenSpec 交叉评审落盘，写入 `openspec/changes/<name>/reviews/openspec-review-report.md`。
 
 包含以下章节（顺序固定）：
 
@@ -39,7 +39,7 @@ easy-flow lock 链场景下输出路径为 `openspec/changes/<name>/review-repor
 
 **评审期间禁止修改"提案材料"目录之外的任何文件**（在 easy-flow lock 链场景中即 `openspec/changes/<name>/` 之外）。
 
-如果评审发现的测试缺口需要加入 tasks.md，**仅在 review-report.md 中列出建议**，由调用方统一更新 tasks.md：
+如果评审发现的测试缺口需要加入 tasks.md，**仅在 plan-review-report.md 中列出建议**，由调用方统一更新 tasks.md：
 
 - **polaris-flow-plan 调用**：本 skill 返回后，由 `polaris-flow-plan` Step 6 消化 STATUS 并改写 `tasks.md`，再 `tasks-lint`，必要时重跑本 skill。
 - **其他 lock 链 / 独立调用**：由调用方在进入 build 前统一更新。

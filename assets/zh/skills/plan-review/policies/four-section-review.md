@@ -50,7 +50,7 @@
 
 ### 测试评审产物（单一产物原则）
 
-测试评审产物**直接写入** review-report.md 的「测试评审」章节，**不另产出 test-plan.md 文件**。在 OpenSpec 场景下这与 `openspec/changes/<name>/` 的单一产物约定一致；在独立调用场景下亦避免散件管理。
+测试评审产物**直接写入**评审报告的「测试评审」章节，**不另产出 test-plan.md 文件**。在 polaris-flow / OpenSpec 场景下写入 `openspec/changes/<name>/reviews/plan-review-report.md`；在独立调用场景下亦避免散件管理。
 
 ## Section 4：性能评审
 
