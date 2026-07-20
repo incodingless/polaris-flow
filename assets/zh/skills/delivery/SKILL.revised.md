@@ -56,7 +56,7 @@
 
 ---
 name: polaris-flow-delivery
-description: "用户触发 /polaris-flow-delivery、/delivery，或在 verify 完成后要求交付 / 合回 / 归档 / 完结一个 change 时必须使用本 skill。不要用于：verify 未完成时强行交付、本阶段编写业务实现、或跳过用户确认直接 /opsx:archive。"
+description: "用户触发 /polaris-flow-delivery、/delivery、/ship，或在 verify 完成后要求交付 / 合回 / 归档 / 完结一个 change 时必须使用本 skill。不要用于：verify 未完成时强行交付、本阶段编写业务实现、或跳过用户确认直接 /opsx:archive。"
 ---
 
 # Polaris 工作流 - 阶段：交付（delivery）
@@ -72,7 +72,7 @@ description: "用户触发 /polaris-flow-delivery、/delivery，或在 verify �
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow] 进入 delivery Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 交割 — 使用 polaris-flow-delivery 技能。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: delivery — 使用 polaris-flow-delivery 技能。`
 
 ## 遵守的 Hard Stops
 
@@ -119,7 +119,7 @@ PLUGIN_ROOT="$(grep -E '^[[:space:]]*plugin_root:' "$CONFIG_FILE" | head -n1 | a
 
 通过后更新：`current_verb: delivery`。
 
-## 流程
+## 执行流程
 
 ### Step 0：获取 ship lock（串行保护）
 
@@ -136,13 +136,13 @@ PLUGIN_ROOT="$(grep -E '^[[:space:]]*plugin_root:' "$CONFIG_FILE" | head -n1 | a
 - 全部通过 → Step 2
 - 任一失败 → **阻断**；提示修复后重新触发 `/polaris-flow-verify`，通过后再回 `/polaris-flow-delivery`。本阶段不写业务修复代码。
 
-### Step 2：分支管理（核心）
+### Step 2：分支管理
 
 调用 `superpowers:finishing-a-development-branch`，呈现 PR / merge / cleanup 等选项给用户，等待其返回后再进入 Step 3。
 
 ### Step 3：worktree 产物合回 + 清理（仅本流程创建过 worktree 时）
 
-**条件**：`state.yaml: worktree.created_by_easy_flow == true`。
+**条件**：`worktree.created_by_polaris_flow == true`。  
 **顺序不可调换**：3.1–3.4 判定合并状态 → 3.5 先 sync 再 remove →（或 3.6 保留）。
 
 #### 3.1 读取 worktree 元信息
@@ -154,10 +154,10 @@ PLUGIN_ROOT="$(grep -E '^[[:space:]]*plugin_root:' "$CONFIG_FILE" | head -n1 | a
 ```bash
 bash "$PLUGIN_ROOT/hooks/worktree-merge-status.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$BRANCH"
 case $? in
-  0) ALREADY_MERGED=1 ;;       # 干净 + 已合并 → 跳到 3.5
-  1) ALREADY_MERGED=0 ;;       # 干净 + 未合并 → 进 3.3
-  2) exit 1 ;;                 # 脏 → stderr 已含阻断话术
-  *) exit 1 ;;                 # 参数/环境异常
+  0) ALREADY_MERGED=1 ;;   # 干净 + 已合并 → 跳到 3.5
+  1) ALREADY_MERGED=0 ;;   # 干净 + 未合并 → 进 3.3
+  2) exit 1 ;;             # 脏 → stderr 已含阻断话术
+  *) exit 1 ;;             # 参数/环境异常
 esac
 ```
 
@@ -182,12 +182,12 @@ bash "$PLUGIN_ROOT/hooks/worktree-rebase-ff.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" 
 **C 跳过本步**（见 3.6）。必须同一步内先 sync 再 remove：
 
 ```bash
-# ━━━ 第一步：polaris-sync（合回产物到主仓 .polaris/）━━━
+# 第一步：polaris-sync（合回产物到主仓 .polaris/）
 SYNC_RESULT=$(bash "$PLUGIN_ROOT/hooks/polaris-sync.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$change_id")
 SYNC_EXIT=$?
 # 0=synced / 1=partial_failure / 2=archive 目录冲突（弹三选项后带 flag 重调）/ 3=skipped_no_source
 
-# ━━━ 第二步：清理 worktree（仅第一步完成后）━━━
+# 第二步：清理 worktree（仅第一步完成后）
 cd "$ORIGIN_REPO"
 git worktree remove "$WORKTREE_PATH"
 if [ "$ALREADY_MERGED" = "1" ] || git merge-base --is-ancestor "$BRANCH" HEAD; then

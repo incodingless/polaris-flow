@@ -1,3 +1,27 @@
+<!--
+  对比修订稿（非正式发布）：与同目录 SKILL.md 对照阅读。
+  勿直接当作已生效 skill；确认后可替换 SKILL.md。
+
+  相对现稿的主要修正：
+  1. 身份统一：name=polaris-flow-verify；触发 /polaris-flow-verify；phase=verify；横幅 [polaris-flow]。
+  2. 切除全部 COMET_* / .comet.yaml / comet/reference/* / /comet-build / archive 推进。
+  3. 状态与游标对齐 plan/build：`.polaris/tasks/<change_id>/state.yaml` + `hooks/workflow-entry.sh`；
+     字段块用模板已有的 `verify.*`（不再写 `audit.*`）。
+  4. 职责边界：本阶段做 Constitution D + scorer + 实现验证；**不做**分支处理 / worktree 合回 / archive
+     （交 `/polaris-flow-delivery`）。
+  5. 步骤连续 0→5；验证失败决策点独立成节，不再错位成「Step 1b」。
+  6. 产物路径：验证报告 → `.polaris/tasks/<change_id>/verify-report.md`；
+     对照物改为 OpenSpec 四件套 + `detailed-design.md`（不再引用 docs/superpowers/specs）。
+  7. 修正不确定性原则（不确定时宁可标轻，勿标 CRITICAL）与 `vefiry_mode` 笔误。
+  8. decision-point / dirty-worktree 引用 `.polaris/reference/`（目标态）。
+
+  已知外部债（本修订稿约定目标态，需另改）：
+  - delivery/SKILL.md 仍读 `audit.*`、触发 /ezfl:audit；应改为 `verify.blocked` + /polaris-flow-verify。
+  - `hooks/constitution-validity.sh` 与 `$PLUGIN_ROOT/scorers/*.sh` 仓内尚未落地；晋升前需补脚本或改降级策略。
+  - change-state-template 注释仍写 `.polaris/changes/`；与 clarify/propose/plan 的 `.polaris/tasks/` 未统一。
+  - solo/team 阈值与 constitution_required 的配置源（原 harness.toml）需在 `.polaris/config.yaml` 或等价处定义。
+-->
+
 ---
 name: polaris-flow-verify
 description: "用户触发 /polaris-flow-verify、/verify，或在 build 完成后要求验收 / 审计实施产出 / 跑 Constitution 合规与 scorer / 对照 specs 与 detailed-design 做验证时必须使用本 skill。执行注入点 D（Constitution）+ 5 项 scorer、按规模做轻量或完整验证，结果写入 state.yaml 的 verify.* 与 .polaris/metrics/<timestamp>-metrics.json。不要用于：clarify/propose/design/plan、在 verify 未完成时直接 ship、或本阶段编写业务实现代码（修复回 /polaris-flow-build）。"
@@ -17,7 +41,7 @@ description: "用户触发 /polaris-flow-verify、/verify，或在 build 完成�
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow] 进入 verify Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 验收 — 使用 polaris-flow-verify 技能。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: verify — 使用 polaris-flow-verify 技能。`
 
 ## 标识约定
 
@@ -35,21 +59,14 @@ description: "用户触发 /polaris-flow-verify、/verify，或在 build 完成�
 > **链路**：`clarify → propose → design → plan → build → **verify** → delivery`。  
 > 本阶段验证是否可交付；不交付、不归档。
 
-## 前置条件
-
-- 代码已提交（阶段 3 完成）
-- tasks.md 全部任务已完成
-
 ## Metrics 存储约定
 
 - 目录：`.polaris/metrics/`（**当前工作目录**的 `.polaris/`——若在 worktree 内即 worktree 的 metrics；delivery 合回主仓）
-- 文件名：`<timestamp>-metrics.json`，每次 verify 写一个新文件，**不覆盖**历史，`<timestamp>`格式：`date -u +%Y%m%d-%H%M%S`（UTC）
+- 文件名：`<timestamp>-metrics.json`，每次 verify 写一个新文件，**不覆盖**历史
+- `<timestamp>`：`date -u +%Y%m%d-%H%M%S`（UTC）
 - JSON 顶层**必含** `change_id`
 - **禁止**写到 `.polaris/metrics.json`（单文件形式）——会破坏按时间戳叠加语义
-- **禁止**把顶层 metrics 当冗余清理——retro 靠全局 glob
-- 单个 scorer 也通过 `ls -t .polaris/metrics/*-metrics.json | head -1` 取最近一次结果
-
-
+- **禁止**把顶层 metrics 当冗余清理——retro / reflect 靠全局 glob
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
@@ -80,7 +97,7 @@ PLUGIN_ROOT="$(grep -E '^[[:space:]]*plugin_root:' "$CONFIG_FILE" | head -n1 | a
 通过后更新 `state.yaml`：`current_verb: verify`，`verify.status: in_progress`，`verify.blocked: false`（本轮重新判定）。  
 输出：`[polaris-flow] verify: change_id=<change_id> ; worktree=<path|main>`
 
-### Step 1：处理dirty worktree
+### Step 1：脏工作区检查
 
 验证开始前检查未提交改动（目标协议：`.polaris/reference/dirty-worktree.md`；若文件尚未安装，按下表内联执行）：
 

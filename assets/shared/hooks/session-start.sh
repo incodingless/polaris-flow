@@ -209,33 +209,26 @@ init_session_id() {
   _ok "subagent-probe session_id: $session_id (PPID=$PPID)"
 }
 
-# 4. 把交叉评审 agent 复制到 平台专属目录/agents/ 并注入模型
-#    让宿主能按注册名 Task(subagent_type=cross-review-agent) 直派；
+# 4. 把评审类 agent 复制到 平台专属目录/agents/ 并注入模型
+#    让宿主能按注册名 Task(subagent_type=…) 直派；
 #    模型取 config.yaml: challenger.model，留空 = inherit（复用主 agent 模型）。
-#    支持 Claude Code、 Tra；其它宿主静默跳过。
-sync_review_agent() {
-  case "$PLATFORM_ID" in
-    "claude") ;;
-    "trae") ;;
-    *) return 0 ;;
-  esac
+#    支持 Claude Code、Trae；其它宿主静默跳过。
+sync_one_review_agent() {
+  local name="$1"   # 例：cross-review-agent
+  local src_rel="$2" # 相对 PLUGIN_ROOT，例：skills/plan-review/agents/cross-review-agent.md
+  local src="$PLUGIN_ROOT/$src_rel"
 
-  # plugin 模式：skill 目录在 $PLUGIN_ROOT/skills/ 下
-  
-  local src="$PLUGIN_ROOT/skills/plan-review/agents/cross-review-agent.md"
-  
   if [ ! -f "$src" ]; then
-    _warn "cross-review-agent 源文件缺失: $src（Outside Voice 交叉评审将不可用）"
+    _warn "$name 源文件缺失: $src"
     return 1
   fi
 
   local dst_dir=".${PLATFORM_ID}/agents"
   if ! mkdir -p "$dst_dir" 2>/dev/null; then
-    _warn "无法创建 $dst_dir（Outside Voice 交叉评审将不可用）"
+    _warn "无法创建 $dst_dir（$name 同步失败）"
     return 1
   fi
 
-  # 解析 config.yaml: challenger.model（缺失/空 → inherit）
   local model="inherit"
   if [ -f "config.yaml" ]; then
     local cfg
@@ -243,22 +236,61 @@ sync_review_agent() {
     [ -n "$cfg" ] && model="$cfg"
   fi
 
-  # 复制并把 frontmatter 的 model 行替换为目标值
-  local dst="$dst_dir/cross-review-agent.md"
+  local dst="$dst_dir/${name}.md"
   if sed "s/^model:.*/model: $model/" "$src" > "$dst" 2>/dev/null; then
-    _ok "cross-review-agent synced → $dst (model: $model)"
+    _ok "$name synced → $dst (model: $model)"
   else
-    _warn "写入 $dst 失败（Outside Voice 交叉评审将不可用）"
+    _warn "写入 $dst 失败（$name 不可用）"
     return 1
   fi
 
-  # 不入仓：复制产物，避免污染用户仓库
   local ca_gi="$dst_dir/.gitignore"
-  if [ ! -f "$ca_gi" ] || ! grep -qxF "cross-review-agent.md" "$ca_gi" 2>/dev/null; then
-    echo "cross-review-agent.md" >> "$ca_gi" 2>/dev/null || true
+  if [ ! -f "$ca_gi" ] || ! grep -qxF "${name}.md" "$ca_gi" 2>/dev/null; then
+    echo "${name}.md" >> "$ca_gi" 2>/dev/null || true
   fi
 }
 
+# design-review-agent 由 init 从 assets/<lang>/agents/ 装到 .${PLATFORM}/agents/；
+# session-start 仅在已存在时注入 challenger.model（无 PLUGIN_ROOT 内技能副本）。
+inject_review_agent_model() {
+  local name="$1"
+  local dst_dir=".${PLATFORM_ID}/agents"
+  local dst="$dst_dir/${name}.md"
+
+  if [ ! -f "$dst" ]; then
+    _warn "$name 未安装到 $dst（请先 polaris-flow init/update）"
+    return 1
+  fi
+
+  local model="inherit"
+  if [ -f "config.yaml" ]; then
+    local cfg
+    cfg="$(sed -n -E 's/^[[:space:]]+model:[[:space:]]*"?([^"#]*)"?.*/\1/p' config.yaml 2>/dev/null | head -n1 | sed -E 's/[[:space:]]+$//')"
+    [ -n "$cfg" ] && model="$cfg"
+  fi
+
+  if sed "s/^model:.*/model: $model/" "$dst" > "${dst}.tmp" 2>/dev/null && mv "${dst}.tmp" "$dst"; then
+    _ok "$name model → $model ($dst)"
+  else
+    rm -f "${dst}.tmp" 2>/dev/null || true
+    _warn "注入 $name model 失败"
+    return 1
+  fi
+}
+
+sync_review_agent() {
+  case "$PLATFORM_ID" in
+    "claude") ;;
+    "trae") ;;
+    *) return 0 ;;
+  esac
+
+  local rc=0
+  sync_one_review_agent "cross-review-agent" \
+    "skills/plan-review/agents/cross-review-agent.md" || rc=1
+  inject_review_agent_model "design-review-agent" || rc=1
+  return "$rc"
+}
 # Execute checks
 # 两类计数：
 #   - WARN_COUNT：依赖缺失等"用户可纠正"问题（如 superpowers/openspec 未装）

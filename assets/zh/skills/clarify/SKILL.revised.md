@@ -1,7 +1,24 @@
+<!--
+  对比修订稿（非正式发布）：与同目录 SKILL.md 对照阅读。
+  勿直接当作已生效 skill；确认后可替换 SKILL.md。
+
+  相对现稿的主要修正：
+  1. 步骤编号连续：0→1→2→3→4→5，去掉「3.8 后跳 Step 5」「进入不存在的 4.x」等倒流。
+  2. 拆分预检放到澄清摘要之后、Reframe 之前（对齐 policies/task-split-precheck.md §8）。
+  3. 删除第二次调用 clarify-init「创建任务结构」——draft 由 Step 1 创建，正式目录由 finalize 的 mv 完成。
+  4. intention.md 先写入 draft 目录，finalize 时再 mv 并回填 task_id。
+  5. PLUGIN_ROOT 统一从 .polaris/config.yaml 的 plugin_root 读取；丢弃草稿脚本名统一为 clarify-init.sh。
+  6. decision-point 路径统一为 .polaris/reference/decision-point.md。
+  7. intention 节名与 templates/intention-template.md 对齐（中文节名）。
+  8. Step 0 只约束本阶段提问与 intention.md 语言，不再要求本阶段生成 OpenSpec 三件套。
+  9. 用户提问机制改引用 decision-point（AskUserQuestion / 文本降级），不再写死 ask_followup_question。
+-->
+
 ---
 name: polaris-flow-clarify
-description: "用户触发 /polaris-flow-clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
+description: "用户触发 /polaris-flow-clarify、/clarify，或要求进入需求澄清 / 产出 intention.md 时必须使用本 skill。"
 ---
+
 # Polaris 工作流 - 阶段1：澄清
 
 <HARD-GATE>
@@ -18,11 +35,11 @@ description: "用户触发 /polaris-flow-clarify 或 要求进入需求澄清 �
 
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 澄清目标及需求 — 使用 polaris-flow-clarify 技能。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: clarify — 使用 polaris-flow-clarify 技能。`
 
 ## 状态布局
 
-- 起草期间：`.polaris/tasks/draft-<session_suffix>-<unix_ts>/state.yaml`
+- 起草期间：`.polaris/tasks/draft-<session_suffix>-<unix_ts>/`
 - Step 5.3 finalize 成功后：`mv` 为 `.polaris/tasks/<task_id>/`
 - `intention.md` 在 finalize 前位于 draft 目录；finalize 后位于正式 `task_id` 目录
 - 同步维护 `.polaris/workflow.yaml` 的 active 游标（写入一律走 `hooks/workflow-entry.sh`；失败按 H12 阻断）
@@ -37,7 +54,7 @@ description: "用户触发 /polaris-flow-clarify 或 要求进入需求澄清 �
 
 ### Step 0：产物语言
 
-读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`中文`）。无配置时回退到当前用户请求语言。
+读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh-CN`）。无配置时回退到当前用户请求语言。
 
 本阶段所有提问、澄清摘要、`intention.md` 均以该语言为主语言。OpenSpec 三件套语言由后续 propose 阶段继承同一配置，**本阶段不创建**那些文件。
 
@@ -58,8 +75,8 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 | ----------- | -------- | ---- | -------- |
 | 0 | `"ok"` | 成功 | 取 `draft_name`，进入 Step 1.5 |
 | 1 | `"existing"` | 已有未完成 draft | 按决策点协议询问 A/B/C（见下） |
-| 2 | —（stderr）  | 参数/环境错误     | 按 H12 阻断 |
-| 3 | —（stderr）  | workflow 写入失败 | 按 H12 阻断 |
+| 2 | —（stderr） | 参数/环境错误 | 按 H12 阻断 |
+| 3 | —（stderr） | workflow 写入失败 | 按 H12 阻断 |
 
 `status="existing"` 时，`existing` 含已有 draft 目录列表。**必须**按 `.polaris/reference/decision-point.md` 暂停询问：
 
@@ -68,9 +85,9 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 
 ```bash
 for d in <existing 列表>; do
-    rm -rf "<repo_root>/.polaris/tasks/$d"
-    bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" delete-active --skill clarify \
-      --repo-root "<repo_root>" --where-change-id "$d"
+  rm -rf "<repo_root>/.polaris/tasks/$d"
+  bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" delete-active --skill clarify \
+    --repo-root "<repo_root>" --where-change-id "$d"
 done
 ```
 
@@ -90,11 +107,11 @@ done
 
 按其指引探索问题空间；不得把一次问答视为足够。必须形成澄清摘要，至少包含：
 
-- 目标：用户真正要解决的问题和期望结果
-- 非目标：本次明确不做的内容
-- 范围边界：涉及/不涉及的模块、用户、平台或数据
-- 关键未知项：仍不确定的假设、风险或依赖
-- 验收场景草案：核心成功场景 + 关键边界场景
+- 目标
+- 非目标
+- 范围边界
+- 关键未知项
+- 验收场景草案（核心成功场景 + 关键边界场景）
 
 #### 3.0 讨论（强制硬门）
 
@@ -145,7 +162,7 @@ done
 
 按 `.polaris/reference/decision-point.md` 暂停，让用户决定任务名（即后续目录名 / `task_id`）。**禁止**静默推断或自动落盘。
 
-约束：`task_id` 必须是 **kebab-case 英文**（小写字母、数字、连字符），如 `refine-requirements-doc`）。
+约束：`task_id` 必须是 **kebab-case 英文**（小写字母、数字、连字符）。
 
 暂停时必须展示：
 
@@ -229,16 +246,4 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 
 输出：`[polaris-flow] 澄清阶段完成：.polaris/tasks/<task_id>/intention.md 已锁定；state 已更新。`
 
-## 自动衔接下一阶段
-
-按 `polaris/reference/auto-transition.md` 执行。关键命令：
-
-```bash
-node "$POLARIS_FLOW" next <change-name>
-```
-
-- `NEXT: auto` → 调用 `SKILL` 指向的 skill 进入下一阶段
-- `NEXT: manual` → 不要调用下一 skill，按 `HINT` 提示用户手动运行 `/<SKILL>`
-- `NEXT: done` → 流程已完成，无需继续
-
-注意：无论 `NEXT` 为 `auto` 还是 `manual`，`polaris-flow-clarify` 进入后必须先执行归档前最终确认阻塞点，等待用户明确选择「确认归档」后才允许运行归档脚本。不得因为验证已通过就自动归档。
+并提示下一步：`/polaris-flow-propose`（或 `/propose`）。

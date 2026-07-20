@@ -1,6 +1,6 @@
 ---
 name: plan-review
-description: "用户触发 /ezfl:lock，或要求工程评审 / 锁定计划 / review architecture / tech review，或描述了一个非平凡变更（>3 文件、新增组件、跨模块改动）且处于编码前阶段时必须使用本 skill。以工程经理视角对计划/提案做对抗式评审（架构、数据流、边界情况、测试覆盖、性能），目标是找漏洞而非走过场。**不要**用于：简单 bug 修复 / 单文件改动 / 纯文档配置改动 / 已经在编码中要求'评审已写好的代码'（那是 code review，不是 plan review）。"
+description: "用户触发 /ezfl:lock，或由 polaris-flow-plan 在覆写 tasks.md 后调用，或要求工程评审 / 锁定计划 / review architecture / tech review，或描述了一个非平凡变更（>3 文件、新增组件、跨模块改动）且处于编码前阶段时必须使用本 skill。以工程经理视角对计划/提案做对抗式评审（架构、数据流、边界情况、测试覆盖、性能），目标是找漏洞而非走过场。**不要**用于：简单 bug 修复 / 单文件改动 / 纯文档配置改动 / 已经在编码中要求'评审已写好的代码'（那是 code review，不是 plan review）。"
 ---
 
 # Plan Eng Review
@@ -89,4 +89,4 @@ challenger 先 `read_file ./references/host-adapters.md` 并按其中规定通�
 
 ## 调用方契约
 
-本 skill 是通用提案评审器，不绑定任何特定工作流。调用方（如 easy-flow lock 链）需履行的契约（输入路径列表 / 输出报告章节顺序 / 修改约束 / Constitution Compliance 由调用方追加 / STATUS 硬门禁信号）见 `./references/caller-contract.md`。
+本 skill 是通用提案评审器，不绑定任何特定工作流。调用方需履行的契约（输入路径列表 / 输出报告章节顺序 / 修改约束 / Constitution Compliance 由调用方追加 / STATUS 硬门禁信号）见 `./references/caller-contract.md`。

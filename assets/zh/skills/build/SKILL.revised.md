@@ -1,3 +1,28 @@
+<!--
+  对比修订稿（非正式发布）：与同目录 SKILL.md 对照阅读。
+  勿直接当作已生效 skill；确认后可替换 SKILL.md。
+
+  相对现稿的主要修正：
+  1. 标题/职责改为「构建」；前置改为 plan 完成 + 可执行 tasks.md（不再写「Design Doc 阶段 2」）。
+  2. 命令与品牌统一：/polaris-flow-build、[polaris-flow]、下一步 /polaris-flow-verify。
+  3. 派发入口改为 polaris-flow:subagent-probe（H10）；删除已退役 agent-selector 与旧三态字符串。
+  4. HARD-GATE 允许 probe 退化为 inline 时主代理执行 /opsx:apply；禁止的是「未 probe / 未注入 C 就写业务代码」。
+  5. 执行方式选项显式定义 A=subagent_dispatch / B=inline；删除未定义的 A/B、direct/direct_override、COMET_STATE/comet-guard、plan-ready/writing-plans。
+  6. 删除全局 tdd_mode：TDD 节奏以 tasks.md 的 <!-- TDD 任务 / 非 TDD 任务 --> 为准（与 plan / tasks-template 契约一致）。
+  7. review_mode 真正接到 Step 4（apply 完成后的最终审查）；不再只写状态不消费。
+  8. 步骤连续 0→5；交叉引用与 Constitution 注入点对齐真实 Step 号。
+  9. 出口：校验 tasks checkbox + apply 摘要；写 state + workflow-entry phase=verify；
+     禁止本阶段强制 git commit（与 tasks-template「交 ship 统一处理」一致）。
+  10. 状态写入走 .polaris/tasks/<change_id>/state.yaml + hooks/workflow-entry.sh；
+      decision-point 引用 .polaris/reference/decision-point.md。
+
+  已知外部债（本修订稿约定目标态，需另改）：
+  - assets/implementer-prompt.md 仍写 easy-flow；晋升本稿时需同步改品牌并注入 change_id / review 提示。
+  - verify/SKILL.md 仍筛 phase=audit、命令 /ezfl:audit、COMET_*；目标应对齐 phase=verify 与 /polaris-flow-verify。
+  - hard-stops.md / workflow-template 注释仍混 easy-flow 与缺 plan 阶段；以 plan→build→verify 实链为准。
+  - change-state-template 路径仍写 .polaris/changes/；与 clarify/propose/plan 的 .polaris/tasks/ 未统一。
+-->
+
 ---
 name: polaris-flow-build
 description: "用户触发 /polaris-flow-build、/build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。主代理编排；优先由 implementer subagent 执行 apply；仅当 subagent-probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"
@@ -16,7 +41,7 @@ description: "用户触发 /polaris-flow-build、/build，或要求按已评审�
 - **禁止**本阶段强制 `git commit`（提交策略交 delivery/ship；apply 过程产生的未提交改动保留在工作区 / worktree）
 - **禁止**重写 `proposal.md` / 高层 `design.md` / `detailed-design.md` / 覆写整份 `tasks.md` 范围；发现计划缺陷 → pause 回 plan，不在 build 静默改 Scope
 - **禁止**用全局开关覆盖 tasks.md 内已有的 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->` 标注（要改标注回 plan）
-- **H8**（状态行输出）：每个 Step 入口输出`[polaris-flow] 进入 build Step <N>: <动作>` 等可见状态行
+
 **允许的例外**：`build_mode=inline`，或 probe 返回 `degradation=inline|unsupported` 时，主代理**可以**在本会话执行 `/opsx:apply`（仍须注入点 C，仍禁止在 apply 之外手写实现）。
 </HARD-GATE>
 
@@ -37,11 +62,11 @@ description: "用户触发 /polaris-flow-build、/build，或要求按已评审�
 > **链路**：`clarify → propose → design → plan → **build** → verify → delivery`。  
 > 本阶段不写计划、不审设计；只执行已评审的 `tasks.md`。
 
-## 前置条件
+## 遵守的 Hard Stops
 
-- Design Doc 已创建（阶段 2 完成）
-- 活跃 change 存在
-
+- **H8**（状态行）：每个 Step 入口输出 `[polaris-flow] 进入 build Step <N>: <动作>`
+- **H10**（subagent-probe 前置）：`build_mode=subagent_dispatch` 且即将派发时，**必须**先 `use_skill("polaris-flow:subagent-probe")` 并传入 `platform`
+- **H13**（禁用 superpowers 派发驱动器）：probe 退化为 inline/unsupported 时主代理 inline 跑 `/opsx:apply`，**绝不**回退到 `subagent-driven-development` / `executing-plans`
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
@@ -105,6 +130,22 @@ PLATFORM="$(grep -E '^[[:space:]]*platform:' "$CONFIG_FILE" | head -n1 | awk -F:
 > **刻意不做**：apply 循环内的「每任务 reviewer」——与「implementer 唯一动作是 `/opsx:apply`」冲突；需要更密审查时选 `thorough`，或事后在 verify 再审。
 
 若续跑且 `build.build_mode` / `build.review_mode` 已存在 → 展示当前值，问是否沿用（沿用则跳过写入）。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ### Step 2：Subagent Probe（仅 `build_mode=subagent_dispatch`）
 

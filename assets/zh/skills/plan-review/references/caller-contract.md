@@ -39,7 +39,10 @@ easy-flow lock 链场景下输出路径为 `openspec/changes/<name>/review-repor
 
 **评审期间禁止修改"提案材料"目录之外的任何文件**（在 easy-flow lock 链场景中即 `openspec/changes/<name>/` 之外）。
 
-如果评审发现的测试缺口需要加入 tasks.md，**仅在 review-report.md 中列出建议**，由调用方在下一阶段（如 easy-flow 的 `/ezfl:build`）启动前统一更新 tasks.md。
+如果评审发现的测试缺口需要加入 tasks.md，**仅在 review-report.md 中列出建议**，由调用方统一更新 tasks.md：
+
+- **polaris-flow-plan 调用**：本 skill 返回后，由 `polaris-flow-plan` Step 6 消化 STATUS 并改写 `tasks.md`，再 `tasks-lint`，必要时重跑本 skill。
+- **其他 lock 链 / 独立调用**：由调用方在进入 build 前统一更新。
 
 ## Constitution Compliance（由调用方处理，不在本 skill 职责内）
 
@@ -55,4 +58,9 @@ review-report 的 STATUS 字段是**调用方的硬门禁信号**：
 - `STATUS: DONE_WITH_CONCERNS` → 用户必须逐条决策每个 concern，确认后方可推进
 - `STATUS: BLOCKED` 或 `STATUS: NEEDS_CONTEXT` → 严禁推进，必须先解决 blocking
 
-在 easy-flow lock 链中，"下一阶段"指 `/ezfl:build`；STATUS 决策由 `commands/lock.md` 描述的链路转换处理。
+调用方与「下一阶段」映射：
+
+| 调用方 | STATUS 通过后进入 |
+|--------|-------------------|
+| `polaris-flow-plan` | `/polaris-flow-build`（plan skill 写完 state 后 `phase=build`） |
+| 传统 easy-flow `/ezfl:lock` | `/ezfl:build`（由 `commands/lock.md` 处理） |

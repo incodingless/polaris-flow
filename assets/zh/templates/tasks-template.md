@@ -1,6 +1,9 @@
-# tasks.md 模板与规则（easy-flow 工作流）
+# tasks.md 模板与规则（polaris-flow 工作流）
 
-> **重要**：design 阶段调用 `/opsx:propose` **必须在每次调用前 read_file 重读本文件**。
+> **重要**：
+> - **propose** 阶段调用 `/opsx:propose` 生成四件套前，必须 `read_file` 重读本文件（产出**粗骨架** tasks）。
+> - **plan** 阶段（`/polaris-flow-plan`）在 design 完成后**覆写**同一路径的 `tasks.md` 为可执行细计划；每次覆写前必须再次 `read_file` 本文件。
+> - 最终供 build / verify 消费的，以 **plan 覆写后** 的版本为准。
 
 ## 任务粒度规则
 
@@ -15,12 +18,13 @@ tasks.md 支持两类任务：
 
 ---
 
-## 模板正文（propose 须按此格式生成 tasks.md）
+## 模板正文（propose 初稿 / plan 覆写须按此格式）
 
 ```markdown
 # {{CHANGE_ID}} — 实施任务计划
 
-> **执行入口**：本计划由 `/ezfl:build` 通过 `/opsx:apply` 在 implementer subagent 内逐 task 执行。
+> **执行入口**：本计划由 `/polaris-flow-build` 通过 `/opsx:apply` 在 implementer subagent 内逐 task 执行。
+> **规划入口**：细计划由 `/polaris-flow-plan` 按 writing-plans（骨架模式）覆写；propose 仅提供粗骨架。
 
 
 **Goal**：{{GOAL_ONE_SENTENCE}}
@@ -39,6 +43,10 @@ tasks.md 支持两类任务：
   - Create / Modify: `{{IMPL_PATH}}`
   - Test: `{{TEST_PATH}}`
 
+  **Interfaces**:
+  - Consumes: {{PRIOR_SYMBOLS_OR_NONE}}
+  - Produces: {{EXPORTS_FOR_LATER_TASKS}}
+
   - [ ] 1.1.1 写失败测试：`{{TEST_PATH}}`
   - [ ] 1.1.2 验证测试失败（运行：`{{TEST_COMMAND}}`，确认失败原因是缺少功能）
   - [ ] 1.1.3 写最小实现：`{{IMPL_PATH}}`
@@ -49,6 +57,10 @@ tasks.md 支持两类任务：
 
   **Files**:
   - Modify: `{{PATH}}`
+
+  **Interfaces**:
+  - Consumes: {{PRIOR_SYMBOLS_OR_NONE}}
+  - Produces: {{EXPORTS_OR_N_A}}
 
   - [ ] 1.2.1 执行变更：`{{PATH}}`
   - [ ] 1.2.2 验证无回归（运行：`{{VERIFY_COMMAND}}`，确认输出干净）
@@ -71,7 +83,7 @@ tasks.md 支持两类任务：
 
 ---
 
-## tasks.md 强制规则（propose 生成时必须遵守）
+## tasks.md 强制规则（propose 初稿与 plan 覆写均必须遵守）
 
 ### 1. 任务类型判定与标注
 
@@ -85,17 +97,19 @@ tasks.md 支持两类任务：
 - **TDD 任务**：写失败测试 → 验证 RED → 写最小实现 → 验证 GREEN → REFACTOR（顺序不可调换）
 - **非 TDD 任务**：执行变更 → 验证无回归 → 检查完整性
 
-### 3. 文件与命令必须可执行
+### 3. 文件、接口与命令必须可执行
 
 - 文件路径相对项目根目录（如 `src/api/auth.ts`），禁止使用 `<...>` 占位符
+- **Interfaces**（plan 覆写后强制；propose 初稿鼓励填写）：Consumes / Produces 写清后续任务依赖的符号或路径约定
 - 测试命令、验证命令必须可直接复制到终端运行
-- 路径中如出现占位符，必须明确标注用 `{{...}}`，propose 生成时替换为真实值
+- **骨架模式**：tasks.md **不**贴大段实现代码（实现由 build 的 apply 完成）；必须写清行为与验证，禁止 TBD/TODO
+- 路径中如出现占位符，必须明确标注用 `{{...}}`，生成时替换为真实值
 
 ### 4. Documentation Sync 强制要求
 
 - DocSync **必须**作为最后一组（编号 N，N = 实施任务组数 + 1）
 - 子任务为平铺检查项，不再展开二级子任务
-- DocSync 内不做 commit / PR / merge 决策——这些动作交给 `/ezfl:ship` 阶段的 `ship` skill + `superpowers:finishing-a-development-branch`
+- DocSync 内不做 commit / PR / merge 决策——这些动作交给 delivery / ship 阶段
 
 ### 5. YAGNI 原则
 
@@ -110,12 +124,14 @@ tasks.md 支持两类任务：
 
 ---
 
-## 与 build / lock / audit 的契约
+## 与 propose / plan / lock / build 的契约
 
 | 上游消费方 | 期待 tasks.md 提供什么 |
 |------------|----------------------|
-| `/ezfl:lock`（plan-review） | 评审 tasks.md 的粒度、依赖排序、可执行性；评审建议写到 `review-report.md`，**不直接修改 tasks.md** |
-| `/ezfl:build`（implementer subagent 跑 `/opsx:apply`） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 注释决定子步骤节奏；apply 自身负责更新 checkbox（`[ ]` → `[x]`） |
-| `/ezfl:audit` | 实施完成后扫描产出物做 Constitution 合规与 scorer 评分；不读 tasks.md，只看代码改动与产出 |
+| `/polaris-flow-propose` | 按本模板生成**粗骨架**（可过 lint）；细粒度留给 plan |
+| `/polaris-flow-plan` | **覆写**为可执行细计划（Files + Interfaces + TDD/非TDD + 可复制命令）；跑 `tasks-lint`；再调 `plan-review` |
+| `plan-review`（由 plan 调用） | 评审粒度、依赖排序、可执行性、测试缺口；建议写入 `review-report.md`，**评审期间不直接改 tasks**；消化与改写由 plan skill 完成 |
+| `/polaris-flow-build`（implementer 跑 `/opsx:apply`） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
+| verify / audit | 实施完成后对照产物；audit 可不读 tasks，只看代码改动与产出 |
 
 ---

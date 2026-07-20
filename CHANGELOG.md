@@ -6,7 +6,7 @@
 
 - **平台安装布局**: 按平台 `skillsLayout`（nested / flat）将 polaris 资产装到正确目标目录；Trae 子 skill 扁平为 `polaris-flow-*`，其余平台嵌套进 `skills/polaris-flow/`
 - **包内公共内容安装**: init/update 同步安装 adapters、policies、templates、hooks 脚本到插件根
-- **agents 安装**: 将 `cross-review-agent` 等写入 `.<platform>/agents/`
+- **agents 安装**: 将 `cross-review-agent`、`design-review-agent` 等写入 `.<platform>/agents/`；session-start 同步二者
 - **config.yaml**: 写入 `platform` 与 `plugin_root` 字段
 
 ### Changed

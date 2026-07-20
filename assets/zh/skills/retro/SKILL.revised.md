@@ -1,4 +1,17 @@
 <!--
+  对比修订稿（非正式发布）：与同目录 SKILL.md 对照阅读。
+  勿直接当作已生效 skill；确认后可替换 SKILL.md。
+
+  相对现稿的主要修正：
+  1. 路径统一 `.polaris/metrics/`（消灭 description 里的 `.harness/metrics/`）。
+  2. 业务档案对齐 `.polaris/tasks/<change_id>/`（不再写 `.polaris/changes/`）。
+  3. 用语对齐：audit→verify、ship→delivery、reflect→retro；空数据判定改为「无 *-metrics.json」。
+  4. archive 与 delivery 目标态一致：metrics **只**在顶层；按 change_id 从顶层 JSON 过滤，
+     不假设 archive 内有 metrics/overrides 副本。
+  5. description 只保留触发与禁区，不摘要逐步流程。
+  6. 补 Step 流程、空数据退出、overview / monthly / 按 change 三种范围、固定报告骨架。
+  7. 删除无数据源的「响应时间」团队健康度指标；override 仅做频率/理由分布（可算则算）。
+
   已知外部债（本修订稿约定目标态，晋升前须另补或另改）：
   - overrides.log 行级 schema 在 verify 侧尚未固化；本稿按「一行一条、尽力解析」处理。
   - metrics JSON 顶层字段名 `audit`（violations/total_checks）为历史兼容，≠ 阶段名 audit。
@@ -49,7 +62,7 @@ description: "用户触发 /polaris-flow-retro、/retro，或要求查看度量�
 
 用户未说明时默认 overview。多种意图并存时按 decision-point 确认范围，再进入 Step 1。
 
-## 数据源
+## 数据契约
 
 ### Metrics JSON（verify 写入）
 

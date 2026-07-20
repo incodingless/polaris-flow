@@ -1,3 +1,17 @@
+<!--
+  对比修订稿（非正式发布）：与同目录 SKILL.md 对照阅读。
+  勿直接当作已生效 skill；确认后可替换 SKILL.md。
+
+  相对 git 现稿 / 早期粘贴稿的主要修正：
+  1. 产物统一 `.polaris/tasks/<change_id>/detailed-design.md`；对齐 polaris 标识。
+  2. 切除 plan-review / writing-plans 异物；本 skill 只做深度设计。
+  3. Step 4 仅「派发 design-review-agent」——评审标准与结果在 `assets/<lang>/agents/design-review-agent.md`，
+     禁止在 SKILL 内包装成评审技能。
+  4. 步骤连续 0→5；decision-point / workflow-entry 与 clarify/propose 一致。
+
+  已知外部债：propose 出口仍写 lock；state 模板仍混 .polaris/changes/ 与 pre_design.md。
+-->
+
 ---
 name: polaris-flow-design
 description: "用户触发 /polaris-flow-design、/design，或要求把 OpenSpec 高层 design.md 深化为 detailed-design.md / 深度技术设计时必须使用本 skill。"
@@ -132,7 +146,7 @@ canonical_spec: openspec
 
 有原生 compact 则触发一次。恢复提示含 `change_id`、Step 3 完成、以及 `detailed-design.md` / `design/`（若有）/ `brainstorm-summary.md` / OpenSpec 四件套。然后进入 Step 4。
 
-### Step 4：设计评审（阻塞点）
+### Step 4：调用 `design-review-agent`（阻塞点）
 
 本步**只负责派发**专用评审 subagent；评审标准与结果格式以已安装的 `design-review-agent` 为准（源文件 `assets/<lang>/agents/design-review-agent.md`），禁止在本 skill 内再包装一套评审流程。
 

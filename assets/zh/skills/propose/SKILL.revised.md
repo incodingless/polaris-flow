@@ -1,3 +1,29 @@
+<!--
+  对比修订稿（非正式发布）：与同目录 SKILL.md 对照阅读。
+  勿直接当作已生效 skill；确认后可替换 SKILL.md。
+
+  相对现稿的主要修正：
+  1. Step 0 筛 phase=clarify（clarify 完成后仍为 clarify），不再误筛 phase=design；
+     零匹配提示改为先执行 /polaris-flow-clarify。
+  2. workflow-entry 统一用 --where-change-id（删除不存在的 --where-task-id）。
+  3. 全文统一 change_id；目录 `.polaris/tasks/<change_id>/`（与 clarify finalize 后的 task_id 同值）。
+  4. description / 正文统一为 intention.md（删除 intent_brief.md）。
+  5. intention 节名与 templates/intention-template.md 对齐（中文节名）；删除英文幽灵节名。
+  6. 删除对不存在的 pre-design-validate.sh / pre-design-template.md 的调用；
+     改为按 intention-template 必含节清单校验。
+  7. 产物循环与出口统一为 OpenSpec 四件套：proposal + specs/ + design + tasks。
+  8. worktree 字段统一 created_by_polaris_flow；品牌前缀统一 [polaris-flow]；
+     下一步建议 /polaris-flow-design。
+  9. 修正 worktree 推荐规则（并行/脏工作区 → 建 worktree；小改动 → 留主仓）。
+  10. 询问协议改引用 .polaris/reference/decision-point.md（与 clarify.revised 一致）。
+  11. 补全产物树代码块闭合；HARD-GATE 与 fallback 边界写清。
+
+  已知外部债（本修订稿约定目标态，脚本尚未同步时需另改）：
+  - hooks/worktree-create.sh 仍写 .harness/changes/ 与 created_by_easy_flow；
+    目标应为拷贝/更新 .polaris/tasks/<change_id>/，并写 created_by_polaris_flow: true。
+  - change-state-template.yaml 路径注释仍混有 .polaris/changes/；以 clarify 的 tasks/ 为准。
+-->
+
 ---
 name: polaris-flow-propose
 description: "用户触发 /polaris-flow-propose、/propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。"
@@ -226,17 +252,4 @@ LINT_EXIT=$?
 `[polaris-flow] propose 完成：四件套已落盘到 openspec/changes/<change_id>/（tasks.md 为粗骨架，细计划由 /polaris-flow-plan 覆写）。下一步建议 /polaris-flow-design。`
 
 任一项不满足 → 阻断并输出失败原因。
-
-## 自动衔接下一阶段
-
-按 `polaris/reference/auto-transition.md` 执行。关键命令：
-
-```bash
-node "$POLARIS_FLOW" next <change-name>
-```
-
-- `NEXT: auto` → 调用 `SKILL` 指向的 skill 进入下一阶段
-- `NEXT: manual` → 不要调用下一 skill，按 `HINT` 提示用户手动运行 `/<SKILL>`
-- `NEXT: done` → 流程已完成，无需继续
-
-注意：无论 `NEXT` 为 `auto` 还是 `manual`，`polaris-flow-propose` 进入后必须先执行归档前最终确认阻塞点，等待用户明确选择「确认归档」后才允许运行归档脚本。不得因为验证已通过就自动归档。
+)

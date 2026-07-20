@@ -60,8 +60,9 @@
 
 ## 下游约束
 
-- tasks.md 生成前需 `read_file templates/tasks-template.md`（TDD=5步 / 非TDD=3步）
-- propose 出口由 `hooks/tasks-lint.sh` 脚本校验，不合规即阻断
+- tasks.md 生成：propose 出粗骨架；**plan 阶段**覆写细计划前需 `read_file templates/tasks-template.md`（TDD=5步 / 非TDD=3步）
+- propose / plan 出口均由 `hooks/tasks-lint.sh` 脚本校验，不合规即阻断
+- plan 完成后须经 `plan-review`（STATUS 门禁）方可进入 build
 
 
 ---
