@@ -1,4 +1,9 @@
 <!--
+  简要说明：
+  - 职责：只读聚合 `.polaris/metrics/` 与 overrides，输出可追溯复盘报告与改进建议。
+  - 主产物：回顾报告（不写业务代码、不推进 workflow phase）。
+  - 上游 / 下游：delivery 之后的旁路；不占用主链路游标。
+
   已知外部债（本修订稿约定目标态，晋升前须另补或另改）：
   - overrides.log 行级 schema 在 verify 侧尚未固化；本稿按「一行一条、尽力解析」处理。
   - metrics JSON 顶层字段名 `audit`（violations/total_checks）为历史兼容，≠ 阶段名 audit。

@@ -1,3 +1,10 @@
+<!--
+  简要说明：
+  - 职责：对 build 产出做 Constitution 审计、scorer 评分与对照规格验证；不交付、不归档。
+  - 主产物：verify-report、state.verify.*、`.polaris/metrics/<timestamp>-metrics.json`。
+  - 上游 / 下游：build → 本阶段 → delivery。
+-->
+
 ---
 name: polaris-flow-verify
 description: "用户触发 /polaris-flow-verify、/verify，或在 build 完成后要求验收 / 审计实施产出 / 跑 Constitution 合规与 scorer / 对照 specs 与 detailed-design 做验证时必须使用本 skill。执行注入点 D（Constitution）+ 5 项 scorer、按规模做轻量或完整验证，结果写入 state.yaml 的 verify.* 与 .polaris/metrics/<timestamp>-metrics.json。不要用于：clarify/propose/design/plan、在 verify 未完成时直接 ship、或本阶段编写业务实现代码（修复回 /polaris-flow-build）。"

@@ -1,3 +1,10 @@
+<!--
+  简要说明：
+  - 职责：经结构化探索与确认，把用户需求落地为 intention.md（本阶段不写 OpenSpec）。
+  - 主产物：`.polaris/tasks/<task_id>/intention.md` + state / workflow 游标。
+  - 上游 / 下游：新建 change → 本阶段 → propose。
+-->
+
 ---
 name: polaris-flow-clarify
 description: "用户触发 /polaris-flow-clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"

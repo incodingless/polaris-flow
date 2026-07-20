@@ -1,3 +1,10 @@
+<!--
+  简要说明：
+  - 职责：以四件套 + detailed-design 覆写可执行 tasks.md，询问 TDD 策略，并经 plan-review 独立放行。
+  - 主产物：`openspec/changes/<change_id>/tasks.md`（覆写）+ `review-report.md`。
+  - 上游 / 下游：design → 本阶段 → build。
+-->
+
 ---
 name: polaris-flow-plan
 description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完成后写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划必须基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md 全文推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并调用 plan-review 做独立评审。不要用于：clarify/propose 阶段、尚未完成 design、或已进入 build 要求直接写代码。"

@@ -1,3 +1,10 @@
+<!--
+  简要说明：
+  - 职责：按已评审的 tasks.md 调用 /opsx:apply 实施；主代理编排，优先 implementer subagent。
+  - 主产物：工作区 / worktree 中的实现改动；推进 phase 至 verify。
+  - 上游 / 下游：plan → 本阶段 → verify。
+-->
+
 ---
 name: polaris-flow-build
 description: "用户触发 /polaris-flow-build、/build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。主代理编排；优先由 implementer subagent 执行 apply；仅当 subagent-probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"

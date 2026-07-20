@@ -1,3 +1,10 @@
+<!--
+  简要说明：
+  - 职责：把 propose 的高层 design.md 深化为可实施的详细技术设计，并经 design-review-agent 评审。
+  - 主产物：`.polaris/tasks/<change_id>/detailed-design.md`（及可选 design-review-report）。
+  - 上游 / 下游：propose → 本阶段 → plan。
+-->
+
 ---
 name: polaris-flow-design
 description: "用户触发 /polaris-flow-design、/design，或要求把 OpenSpec 高层 design.md 深化为 detailed-design.md / 深度技术设计时必须使用本 skill。"

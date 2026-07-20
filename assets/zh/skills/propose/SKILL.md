@@ -1,3 +1,10 @@
+<!--
+  简要说明：
+  - 职责：基于已锁定的 intention.md 生成 OpenSpec 四件套；可提示创建 worktree（非阻断）。
+  - 主产物：`openspec/changes/<change_id>/` 下 proposal / specs / design / tasks（粗骨架）。
+  - 上游 / 下游：clarify → 本阶段 → design。
+-->
+
 ---
 name: polaris-flow-propose
 description: "用户触发 /polaris-flow-propose、/propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。"

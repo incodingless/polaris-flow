@@ -1,4 +1,9 @@
 <!--
+  简要说明：
+  - 职责：verify 通过后做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清游标。
+  - 主产物：合回主仓的 metrics/overrides/archive；可选 archive；清理 active_changes。
+  - 上游 / 下游：verify → 本阶段 → 结束（旁路可跑 retro）。
+
   对比修订稿（非正式发布）：与同目录 SKILL.md 对照阅读。
   勿直接当作已生效 skill；确认后可替换 SKILL.md。
 
