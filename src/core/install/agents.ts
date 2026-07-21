@@ -6,7 +6,7 @@ import path from 'path';
 import { fileExists, copyFile, readDir } from '../../utils/file-system.js';
 import { resolveAgentInstallDest } from '../platform/layout.js';
 import type { Platform } from '../platform/platforms.js';
-import type { InstallScope, Language } from '../types.js';
+import type { InstallScope, Language } from '../config/polaris-config.js';
 import { runCopyJobs, type CopyJob } from './copy-jobs.js';
 
 /**

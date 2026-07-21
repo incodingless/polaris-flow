@@ -2,13 +2,13 @@ import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
 
 import { t } from './i18n/index.js';
-import { detectPlatforms, getBaseDir, hasSkills } from '../core/platform/detect.js';
+import { detectPlatforms, getBaseDir, hasSkills } from '../core/integration/detect.js';
 import { readAssetManifest } from '../core/assets/manifest.js';
 import { getAssetsDir, installPolarisForPlatform } from '../core/install.js';
 import { PLATFORMS } from '../core/platform/platforms.js';
 import { printVersionInfo, PACKAGE_NAME } from '../core/deps/version.js';
 import { fileExists } from '../utils/file-system.js';
-import type { InstallScope, Language } from '../core/types.js';
+import type { InstallScope, Language } from '../core/config/polaris-config.js';
 
 export type UpdateOptions = {
   force?: boolean;

@@ -5,10 +5,10 @@ import path from 'path';
 import { createRequire } from 'module';
 
 import { fileExists, readJson } from '../utils/file-system.js';
-import { isCommandAvailable } from './deps/openspec.js';
-import { detectPlatforms, getBaseDir, hasSkills } from './platform/detect.js';
+import { isCommandAvailable } from './integration/openspec.js';
+import { detectPlatforms, getBaseDir, hasSkills } from './integration/detect.js';
 import { PLATFORMS } from './platform/platforms.js';
-import type { InstallScope } from './types.js';
+import type { InstallScope } from './config/polaris-config.js';
 
 const require = createRequire(import.meta.url);
 const { engines } = require('../../package.json') as { engines?: { node?: string } };

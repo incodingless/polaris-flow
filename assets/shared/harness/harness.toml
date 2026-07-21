@@ -1,0 +1,35 @@
+# easy-flow harness 配置示例
+# 将此文件复制为 .harness/harness.toml 并按项目需要修改
+
+[mode]
+kind = "solo"  # solo | team
+
+[scorer]
+model = ""  # 留空使用默认模型；team 模式可指定评分模型
+
+[triage]
+# 路径相对 plugin 根（$PLUGIN_ROOT，由 SessionStart 写入 .harness/.cache/.plugin_root），由 skill 拼接成绝对路径
+mechanical_script = "hooks/triage-t1.sh"
+sensitive_keywords_file = ".harness/keywords/critical.txt"
+default_tier_when_unclear = "standard"
+
+[triage.tiers]
+trivial = { path = ["build", "ship"] }
+standard = { path = ["design", "lock", "build", "audit", "ship"] }
+critical = { path = ["design", "lock", "challenge", "build", "audit", "ship"] }
+
+[deepread]
+default_action = "halt_and_wait"  # halt_and_wait | notify_and_continue
+template_path = "templates/deepread-template.html"
+output_dir = ".harness/deepreads"
+token_threshold = 500
+
+[constitution]
+required = false
+path = "openspec/memory/constitution.md"
+
+[thresholds.solo]
+warn_below = 60
+
+[thresholds.team]
+block_below = 70

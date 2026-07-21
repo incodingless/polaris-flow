@@ -10,9 +10,9 @@ import path from 'path';
 import { PLATFORMS } from '../platform/platforms.js';
 import { printCommandErrorDetails } from '../command-error.js';
 import { fileExists, readJson } from '../../utils/file-system.js';
-import { getNodeToolExecutable } from './npm.js';
+import { getNodeToolExecutable } from '../deps/npm.js';
 
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../config/polaris-config.js';
 
 const VALID_TOOL_IDS = new Set(PLATFORMS.map((p) => p.openspecToolId));
 const ALL_OPENSPEC_WORKFLOWS = [

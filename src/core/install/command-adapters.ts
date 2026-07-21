@@ -4,7 +4,7 @@
  */
 import path from 'path';
 
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../config/polaris-config.js';
 
 /** 从 assets 命令 .md 解析后的中间结构 */
 export interface CommandContent {

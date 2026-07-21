@@ -8,7 +8,7 @@ import { fileExists, ensureDir } from '../../utils/file-system.js';
 import { readManifest, resolveAssetSourcePath } from '../assets/manifest.js';
 import { getAssetsDir } from '../assets/paths.js';
 import { getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
-import type { InstallScope, Language } from '../types.js';
+import type { InstallScope, Language } from '../config/polaris-config.js';
 import { runCopyJobs, type CopyJob } from './copy-jobs.js';
 
 /** 按平台 rulesFormat 拷贝 hard-stops 等规则文件 */

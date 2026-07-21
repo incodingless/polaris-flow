@@ -6,7 +6,7 @@ import path from 'path';
 
 import { fileExists, readDir, readJson } from '../../utils/file-system.js';
 import { getAssetsDir } from './paths.js';
-import type { Language } from '../types.js';
+import type { Language } from '../config/polaris-config.js';
 
 /** Manifest 中单个 hook 条目 */
 export type HookConfig = {

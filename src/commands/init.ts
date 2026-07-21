@@ -11,12 +11,12 @@ import {
   resolveAction,
   type ComponentAction,
 } from './prompts.js';
-import { detectPlatforms, getBaseDir, hasSkills } from '../core/platform/detect.js';
-import { installOpenSpec } from '../core/deps/openspec.js';
+import { detectPlatforms, getBaseDir, hasSkills } from '../core/integration/detect.js';
+import { installOpenSpec } from '../core/integration/openspec.js';
 import {
   installSuperpowersForPlatforms,
   SUPERPOWERS_MIN_VERSION,
-} from '../core/deps/superpowers.js';
+} from '../core/integration/superpowers.js';
 import { readAssetManifest } from '../core/assets/manifest.js';
 import { writeLockFile, type LockSourceEntry } from '../core/install.js';
 import { getNpmPackageVersion } from '../core/deps/npm.js';
@@ -30,7 +30,7 @@ import {
   type Platform,
 } from '../core/platform/platforms.js';
 import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
-import type { InstallScope, Language } from '../core/types.js';
+import type { InstallScope, Language } from '../core/config/polaris-config.js';
 
 export type InitOptions = {
   yes?: boolean;
@@ -421,8 +421,8 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
   }
 
   if (scope === 'project') {
-    await createWorkingDirs(projectPath);
     const primaryPlatform = plans.find((p) => p.polarisAction !== 'skip')?.platform ?? platforms[0];
+    await createWorkingDirs(projectPath, primaryPlatform?.id);
     await writePolarisConfigIfMissing(projectPath, language, {
       platform: primaryPlatform?.id,
       plugin_root: primaryPlatform ? getPluginRootRel(primaryPlatform, scope) : undefined,

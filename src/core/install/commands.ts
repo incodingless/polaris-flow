@@ -10,7 +10,7 @@ import { getCommandAdapter } from './command-adapters.js';
 import type { SkillSource } from '../assets/sources.js';
 import { POLARIS_COMMAND_PREFIX } from '../assets/sources.js';
 import { getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
-import type { InstallScope, Language } from '../types.js';
+import type { InstallScope, Language } from '../config/polaris-config.js';
 import { runCopyJobs, type CopyJob } from './copy-jobs.js';
 import { getLanguageContentRoots } from '../assets/manifest.js';
 

@@ -8,7 +8,7 @@ import fs from 'fs/promises';
 import { copyDirContents, copyFile, ensureDir } from '../../utils/file-system.js';
 import type { SkillSource } from '../assets/sources.js';
 import { getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
-import type { InstallScope, Language } from '../types.js';
+import type { InstallScope, Language } from '../config/polaris-config.js';
 
 /** 将 assets 内语言路径 zh/ → en/（与 getLanguageContentRoots 策略一致） */
 function resolveLangPath(assetPath: string, lang: Language): string {

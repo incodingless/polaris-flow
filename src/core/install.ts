@@ -5,7 +5,7 @@
  * 2. 复制公共内容：adapters/policies/templates 至 polaris-flow Skill目录（含于 skills 步骤）
  */
 import type { Platform } from './platform/platforms.js';
-import type { InstallScope, Language } from './types.js';
+import type { InstallScope, Language } from './config/polaris-config.js';
 
 import { getAssetsDir } from './assets/paths.js';
 import { getPolarisSource } from './assets/sources.js';

@@ -5,7 +5,7 @@
 import path from 'path';
 
 import { getPlatformSkillsDir, getSkillsLayout, type Platform } from './platforms.js';
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../config/polaris-config.js';
 
 /** 包内公共目录前缀（装入 polaris-flow 插件根，两种 layout 相同） */
 const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/'] as const;

@@ -17,7 +17,7 @@ import { getAssetsDir } from '../assets/paths.js';
 import { resolveInstallDest } from '../platform/layout.js';
 import type { Platform } from '../platform/platforms.js';
 import { runCopyJobs, type CopyJob } from './copy-jobs.js';
-import type { InstallScope, Language } from '../types.js';
+import type { InstallScope, Language } from '../config/polaris-config.js';
 
 /** 再导出 Manifest 类型，保持历史 import 路径 */
 export type { Manifest };

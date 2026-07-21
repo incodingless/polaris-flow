@@ -6,8 +6,12 @@ import { parse as parseYaml } from 'yaml';
 
 import {
   createDefaultPolarisConfig,
+  getConstitutionPath,
   getPolarisConfigPath,
   loadPolarisConfig,
+  normalizePolarisConfig,
+  patchPolarisConfig,
+  resolveReviewAgentModel,
   writePolarisConfigIfMissing,
 } from '../../src/core/config/polaris-config.js';
 
@@ -100,5 +104,83 @@ describe('polaris-config', () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-config-'));
     const loaded = await loadPolarisConfig(tmpDir);
     expect(loaded).toBeNull();
+  });
+
+  it('normalizePolarisConfig 兼容 kebab 与旧 lang', () => {
+    const normalized = normalizePolarisConfig({
+      language: 'zh-CN',
+      'plugin-root': '.claude/skills/polaris-flow',
+      'context-compression': 'beta',
+      model: { review: 'R1', challenger: 'C1' },
+      constitution: { path: 'custom/constitution.md', required: true },
+    });
+    expect(normalized.lang).toBe('zh');
+    expect(normalized.language).toBe('zh-CN');
+    expect(normalized.plugin_root).toBe('.claude/skills/polaris-flow');
+    expect(normalized.context_compression).toBe('beta');
+    expect(normalized.model?.review).toBe('R1');
+    expect(getConstitutionPath(normalized)).toBe('custom/constitution.md');
+  });
+
+  it('loadPolarisConfig 可读模板风格 kebab 文件', async () => {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-config-'));
+    const configPath = getPolarisConfigPath(tmpDir);
+    await import('fs/promises').then((fs) =>
+      fs.mkdir(path.dirname(configPath), { recursive: true }),
+    );
+    await writeFile(
+      configPath,
+      [
+        'language: "zh-CN"',
+        'platform: claude',
+        'plugin-root: ".claude/skills/polaris-flow"',
+        'model:',
+        '  review: DeepSeek',
+        '  challenger: GLM',
+        'constitution:',
+        '  path: openspec/memory/constitution.md',
+        '',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    const loaded = await loadPolarisConfig(tmpDir);
+    expect(loaded?.plugin_root).toBe('.claude/skills/polaris-flow');
+    expect(loaded?.language).toBe('zh-CN');
+    expect(loaded?.lang).toBe('zh');
+    expect(resolveReviewAgentModel(loaded)).toBe('GLM');
+  });
+
+  it('patchPolarisConfig 不丢未改字段', async () => {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-config-'));
+    await writePolarisConfigIfMissing(tmpDir, 'zh', {
+      platform: 'claude',
+      plugin_root: '.claude/skills/polaris-flow',
+    });
+
+    const patched = await patchPolarisConfig(tmpDir, {
+      phase: 'build',
+      model: { review: 'R2' },
+    });
+    expect(patched.phase).toBe('build');
+    expect(patched.platform).toBe('claude');
+    expect(patched.plugin_root).toBe('.claude/skills/polaris-flow');
+    expect(patched.model?.review).toBe('R2');
+
+    const reloaded = await loadPolarisConfig(tmpDir);
+    expect(reloaded?.phase).toBe('build');
+    expect(reloaded?.plugin_root).toBe('.claude/skills/polaris-flow');
+  });
+
+  it('resolveReviewAgentModel 优先级正确', () => {
+    expect(
+      resolveReviewAgentModel({
+        challenger: { model: 'A' },
+        model: { challenger: 'B', review: 'C' },
+      }),
+    ).toBe('A');
+    expect(resolveReviewAgentModel({ model: { challenger: 'B', review: 'C' } })).toBe('B');
+    expect(resolveReviewAgentModel({ model: { review: 'C' } })).toBe('C');
+    expect(resolveReviewAgentModel(null)).toBe('inherit');
   });
 });

@@ -8,7 +8,7 @@ import { updateJsonFile } from '../../utils/json-io.js';
 import { hookScriptPluginRel } from '../platform/layout.js';
 import { getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
 import { readManifest, type HookConfig } from '../assets/manifest.js';
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../config/polaris-config.js';
 
 /** 根据 manifest 相对路径与 skillsDir 生成 hook 可执行命令 */
 export function buildHookCommand(skillsDir: string, scriptRelPath: string): string {

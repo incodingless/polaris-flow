@@ -1,7 +1,7 @@
 import { checkbox, select } from '@inquirer/prompts';
 
 import { t } from './i18n/index.js';
-import type { InstallScope, Language } from '../core/types.js';
+import type { InstallScope, Language } from '../core/config/polaris-config.js';
 import { PLATFORMS, type Platform } from '../core/platform/platforms.js';
 
 export type ComponentAction = 'install' | 'overwrite' | 'skip';

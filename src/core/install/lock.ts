@@ -5,7 +5,7 @@ import path from 'path';
 import { writeFile } from 'fs/promises';
 
 import { ensureDir } from '../../utils/file-system.js';
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../config/polaris-config.js';
 
 /** lock 中单个来源的版本记录 */
 export interface LockSourceEntry {

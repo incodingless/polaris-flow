@@ -4,6 +4,7 @@
 
 ### Added
 
+- **工作流 hooks 调用说明**: 新增 `docs/workflow-hooks-call-order.md`，按 clarify→delivery 梳理 hooks 调用顺序、作用、内部依赖与命名债
 - **平台安装布局**: 按平台 `skillsLayout`（nested / flat）将 polaris 资产装到正确目标目录；Trae 子 skill 扁平为 `polaris-flow-*`，其余平台嵌套进 `skills/polaris-flow/`
 - **包内公共内容安装**: init/update 同步安装 adapters、policies、templates、hooks 脚本到插件根
 - **agents 安装**: 将 `assets/<lang>/agents/` 下评审 agent（含 `propose-review-agent`、`design-review-agent`、`plan-review-agent`、`openspec-review-agent`）写入 `.<platform>/agents/`；session-start 注入 `challenger.model`
@@ -13,6 +14,19 @@
 
 ### Changed
 
+- **worktree 模块合并**: `worktree-create` / `worktree-merge-status` / `worktree-rebase-ff` 核心合并为 `src/core/hooks/worktree.ts`，导出 `create` / `merge` / `rebase`；CLI 与薄包装命令名不变
+- **config 读写层复用**: 扩展 `polaris-config`（模板对齐 + kebab/snake 归一 + save/patch + 取值辅助）、新增 `task-state` / `polaris-paths`；hooks（session-start、task-init/finalize、constitution-validity、draft-create、workflow-cursor/lock）改为只调用 `src/core/config`，不再本地解析 RawConfig 或字符串改 state
+- **workflow-state 合并**: 将 hooks `workflow-cursor`（`active_changes` / `pending_triages`）并入 `src/core/config/workflow-state.ts`；删除重复模块；`status` 改为展示 `.polaris/workflow.yaml` 游标字段
+- **types 归并**: 删除 `src/core/types.ts`，`Language` / `InstallScope` 统一由 `polaris-config.ts` 导出
+- **plugin 探测合并**: 将 hooks `plugin-presence`（global→project 详细探测与安装提示）并入 `integration/detect.ts`，与 `hasSkills` 共用 marker；session-start 改从 detect 导入
+- **hooks 路径统一**: hooks 内 `.polaris` / `.worktrees` 路径一律经 `polaris-paths` 获取；`ship-cleanup` 清理目标为 `.polaris/tasks/<id>{,.snapshot}`
+- **废除 .harness 路径**: `polaris-paths` / worktree / harness-sync / scorers 默认目录全部改为 `.polaris`（tasks、metrics、archive、overrides）
+- **getPluginRoot**: 签名改为 `(projectPath, platform)`，落盘 `.<platform>/skills/polaris-flow`；新增相对路径 `getPluginRootRelPath`
+- **task 模块合并**: `task-init` / `task-finalize` 核心合并为 `src/core/hooks/task.ts`，导出 `init` / `finalize`；CLI 命令名不变
+- **主链路 hooks 迁 TypeScript**: 除 scorers 外，`workflow-entry`、`draft-create`、`task-init`/`task-finalize`、`tasks-lint`、`constitution-validity`、`worktree-*`、`harness-sync`、`ship-cleanup`、`intention-validate` 均迁入 `src/core/hooks/`，扁平 CLI `polaris <name>`；各 `.sh` 经 `_polaris-cli.sh` 薄包装转发；Skill 调用路径不变
+- **intention-validate**: 原 `pre-design-validate` 重命名迁 TS；按 propose 必含节校验 `intention.md`（存在且非空）；`pre-design-validate.sh` 保留为别名
+- **structure-create 别名化**: 废弃 `.harness/changes` 逻辑，薄包装转发 `draft-create`（`.polaris/tasks`）
+- **session-start 迁 TypeScript**: 业务逻辑迁入 `src/core/hooks/`，经 `polaris session-start` 暴露；`session-start.sh` 改为薄包装（CRLF 自愈后转发 CLI）；宿主 `hooks.json` 命令不变；`plugin-check.sh` 语义移植到 `integration/detect.ts`（脚本文件保留为遗留）
 - **plan 主审 agent 化**: 退役独立 `plan-review` skill；新建 `plan-review-agent`，由 `polaris-flow-plan` 派发一次性主审并落盘 `plan-review-report.md`（主审不可跳过）
 - **Outside Voice 统一**: `openspec-review-agent` 专责挑战主审结论；design/plan 主审后均按 outside-voice 协议询问用户再派发
 - **plan 评审标准归位**: 将 `scope-challenge` / `four-section-review` / `engineering-mindset` / `test-review-methodology` / `main-review-summary` 恢复到 `skills/plan/`；`plan-review-agent` 经 `StandardsRoot` 强制 `read_file` 后再评审
@@ -31,11 +45,15 @@
 
 ### Fixed
 
+- **codegraph 导入路径**: `integration/codegraph.ts` 改为引用 `../command-error` 与 `../types`，修复构建失败
 - **hooks**: 从 `assets/shared/hooks` 扫描并拷贝脚本；settings 中命令指向 `skills/polaris-flow/hooks/`
 - **rules**: 正确解析 `skills/hard-stops.md` 源路径
 
 ### Tests
 
+- **hooks TS**: `workflow-entry`（锁/RMW/op）、`draft-create`/`task-init`/`task-finalize`、`tasks-lint`、`constitution-validity`、`harness-sync`/`ship-cleanup`、`intention-validate`（缺文件/缺节/空节/通过）；session-start / detect plugin 既有覆盖保留
+- **config / task-state**: 覆盖 kebab↔snake 归一、旧 `lang` 兼容、`patchPolarisConfig` / `patchTaskState` 不丢字段、constitution 读 config.path
+- **session-start / detect**: 覆盖 hook IO 通道、依赖探测（可注入 HOME/PATH）、缺 `.polaris` FAIL、gitignore/workflow/session 物化、agent model 注入、WARN/FAIL exit 语义
 - **install-layout / skills-install**: 覆盖 nested/flat 落盘、hooks 命令路径、agents 与 config 字段；skills 步骤不再隐式安装 agents；断言 `plan-review-agent` / `openspec-review-agent` 落盘
 
 ### Removed

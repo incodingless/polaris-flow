@@ -2,18 +2,18 @@
  * Superpowers 技能包安装（GitHub clone 优先，失败回退 npx skills add）。
  * 按平台映射 skills CLI agent 名并写入宿主 skills 目录。
  */
-import { getNodeToolExecutable } from './npm.js';
-import { cleanupTemp, fetchRepo, resolveVersion } from './github.js';
+import { getNodeToolExecutable } from '../deps/npm.js';
+import { cleanupTemp, fetchRepo, resolveVersion } from '../deps/github.js';
 import { installSource } from '../install/source-installer.js';
 import {
   getSuperpowersSource,
   SUPERPOWERS_REPO,
   SUPERPOWERS_MIN_VERSION,
 } from '../assets/sources.js';
-import { getBaseDir } from '../platform/detect.js';
+import { getBaseDir } from './detect.js';
 import { PLATFORMS } from '../platform/platforms.js';
 import { printCommandErrorDetails } from '../command-error.js';
-import type { InstallScope } from '../types.js';
+import type { InstallScope } from '../config/polaris-config.js';
 import { execFileSync } from 'child_process';
 
 /** Superpowers 安装结果 */

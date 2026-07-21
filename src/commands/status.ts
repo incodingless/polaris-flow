@@ -1,17 +1,23 @@
+/**
+ * `polaris status`：展示主仓与 `.polaris/workflow.yaml` 中的 active_changes。
+ */
 import path from 'path';
 
-import { loadWorkflowFromCwd } from '../core/config/workflow-state.js';
+import { getWorkflowStatePath, loadWorkflowFromCwd } from '../core/config/workflow-state.js';
 
 export type StatusOptions = {
   json?: boolean;
 };
 
+/**
+ * 输出当前仓库工作流状态。
+ */
 export async function runStatus(rawPath: string, options: StatusOptions = {}): Promise<void> {
   const cwd = path.resolve(rawPath || process.cwd());
   const { mainRepo, state } = await loadWorkflowFromCwd(cwd);
 
   if (!mainRepo) {
-    const payload = { error: 'not a git repository', changes: [] };
+    const payload = { error: 'not a git repository', active_changes: [] };
     if (options.json) {
       console.log(JSON.stringify(payload, null, 2));
     } else {
@@ -21,15 +27,16 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
     return;
   }
 
-  const changes = state?.changes ?? [];
+  const active = state?.active_changes ?? [];
 
   if (options.json) {
     console.log(
       JSON.stringify(
         {
           mainRepo,
-          workflowPath: path.join(mainRepo, '.harness', 'workflow.yaml'),
-          changes,
+          workflowPath: getWorkflowStatePath(mainRepo),
+          active_changes: active,
+          pending_triages: state?.pending_triages ?? [],
         },
         null,
         2,
@@ -41,19 +48,21 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
   console.log(`Main repository: ${mainRepo}`);
   console.log('');
 
-  if (changes.length === 0) {
+  if (active.length === 0) {
     console.log('No active changes.');
     return;
   }
 
   console.log('Active changes:');
-  for (const change of changes) {
-    const title = change.title ? ` — ${change.title}` : '';
-    const worktree = change.worktree ? ` @ ${change.worktree}` : '';
-    console.log(`  • ${change.id} [${change.status}]${title}${worktree}`);
+  for (const change of active) {
+    const worktree = change.worktree_path ? ` @ ${change.worktree_path}` : '';
+    console.log(`  • ${change.change_id} [${change.phase || 'unknown'}]${worktree}`);
   }
 }
 
+/**
+ * status 命令入口。
+ */
 export async function statusCommand(projectPath: string, options: StatusOptions): Promise<void> {
   await runStatus(projectPath, options);
 }

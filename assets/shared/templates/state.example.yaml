@@ -8,15 +8,19 @@
 #
 # worktree 阶段拷贝整个 .polaris/tasks/<change_id>/ 到 worktree 内同名路径，
 # 主仓副本可重命名为 .polaris/tasks/<change_id>.snapshot/ 作只读快照。
+language: "zh-CN"  # en | zh-CN
 
 change_id: ""        # 与父目录名一致；draft-* 阶段为占位，clarify finalize 回填
-current_verb: idle   # idle | clarify | propose | design | plan | build | verify | delivery
+phase: idle   # idle | clarify | propose | design | plan | build | verify | delivery
 current_tier: ""     # trivial | standard | critical（triage 写入）
-
-# intention 路径生命周期：clarify 暂存 → propose Step 4.5 迁入 openspec（.polaris 不留备份）
-intention:
-  path: ""           # 例：.polaris/tasks/<id>/intention.md（暂存）
-                     # 或 openspec/changes/<id>/intention.md（迁入后）
+kind: "solo"  # 协作模式: solo | team
+workflow: sdd  # 工作流类型: sdd | tweak | bugfix | full
+verify_mode: "light"  # 验证模式: light | heavy
+auto_transition: true  # 自动过渡
+isolation: "worktree" # 隔离模式: worktree | branch 
+context-compression: off  # 上下文压缩: off | beta
+review-mode: standard  # 审查模式: standard | thorough
+build-mode: tdd  # 开发模式: tdd | direct
 
 triage:
   tier: ""
@@ -30,14 +34,17 @@ worktree:
   branch: ""
   origin_repo: ""
   created_at: ""
-  status: ""           # active | merged | abandoned
+  status: ""     
+
+# intention 路径生命周期：clarify 暂存 → propose Step 4.5 迁入 openspec（.polaris 不留备份）
+intention:
+  path: ""           # 例：.polaris/tasks/<task_id>/intention.md（暂存）或 openspec/changes/<change_id>/intention.md（迁入后）
 
 propose:
   status: ""           # in_progress | completed | skipped（trivial 直跳过）
   worktree_decision: ""  # created | reused | declined
   opsx_propose_status: ""  # ok | failed | n/a
-  review_report: ""    # openspec/changes/<change_id>/reviews/propose-review-report.md
-                       # 或 skipped:<reason>
+  review_report: ""    # openspec/changes/<change_id>/reviews/propose-review-report.md 或 skipped:<reason>
   outside_voice: ""    # ran | skipped:<reason> | not_run:<reason>
   outside_voice_report: ""  # openspec/changes/<change_id>/reviews/openspec-review-report.md
   finished_at: ""
@@ -45,8 +52,7 @@ propose:
 design:
   status: ""           # in_progress | completed
   path: ""             # 完成后：openspec/changes/<change_id>/detailed-design.md
-  review_report: ""    # openspec/changes/<change_id>/reviews/design-review-report.md
-                       # 或 skipped:<reason>
+  review_report: ""    # openspec/changes/<change_id>/reviews/design-review-report.md 或 skipped:<reason>
   outside_voice: ""    # ran | skipped:<reason> | not_run:<reason>
   outside_voice_report: ""  # openspec/changes/<change_id>/reviews/openspec-review-report.md
   draft_dir: ""        # 历史字段；目标态 design 不再用 .polaris draft 目录写设计文档
