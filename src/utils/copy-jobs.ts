@@ -1,7 +1,7 @@
 /**
  * 带 overwrite/skip 语义的拷贝任务执行器，供 skills/rules/agents/commands 共用。
  */
-import { fileExists } from '../../utils/file-system.js';
+import { fileExists } from './file-system.js';
 
 /** 单条拷贝任务：目标路径 + 写出回调 */
 export type CopyJob = {

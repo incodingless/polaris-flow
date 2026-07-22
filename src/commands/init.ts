@@ -20,8 +20,9 @@ import {
 import { readAssetManifest } from '../core/assets/manifest.js';
 import { writeLockFile, type LockSourceEntry } from '../core/install.js';
 import { getNpmPackageVersion } from '../core/deps/npm.js';
-import { createWorkingDirs, getAssetsDir, installPolarisForPlatform } from '../core/install.js';
+import { createWorkingDirs, installPolarisForPlatform } from '../core/install.js';
 import { writePolarisConfigIfMissing } from '../core/config/polaris-config.js';
+import { getAssetsDir } from '../core/config/polaris-paths.js';
 import { getPluginRootRel } from '../core/platform/layout.js';
 import {
   getPlatformSkillsDir,

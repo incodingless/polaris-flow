@@ -6,10 +6,10 @@ import { readFile, writeFile } from 'fs/promises';
 
 import { fileExists, ensureDir } from '../../utils/file-system.js';
 import { readManifest, resolveAssetSourcePath } from '../assets/manifest.js';
-import { getAssetsDir } from '../assets/paths.js';
-import { getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
 import type { InstallScope, Language } from '../config/polaris-config.js';
-import { runCopyJobs, type CopyJob } from './copy-jobs.js';
+import { getAssetsDir } from '../config/polaris-paths.js';
+import { getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
+import { runCopyJobs, type CopyJob } from '../../utils/copy-jobs.js';
 
 /** 按平台 rulesFormat 拷贝 hard-stops 等规则文件 */
 export async function copyPolarisRulesForPlatform(

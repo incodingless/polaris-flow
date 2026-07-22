@@ -7,7 +7,7 @@
 import type { Platform } from './platform/platforms.js';
 import type { InstallScope, Language } from './config/polaris-config.js';
 
-import { getAssetsDir } from './assets/paths.js';
+import { getAssetsDir } from './config/polaris-paths.js';
 import { getPolarisSource } from './assets/sources.js';
 import { copyPolarisAgentsForPlatform } from './install/agents.js';
 import { installPolarisCommands } from './install/commands.js';
@@ -37,7 +37,6 @@ export {
   isManagedHookCommand,
 } from './install/hooks.js';
 export { createWorkingDirs } from './config/polaris-config.js';
-export { getAssetsDir } from './assets/paths.js';
 
 /** 单类文件拷贝结果 */
 export type CopyStats = { copied: number; skipped: number };

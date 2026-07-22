@@ -7,7 +7,7 @@ import { fileExists, copyFile, readDir } from '../../utils/file-system.js';
 import { resolveAgentInstallDest } from '../platform/layout.js';
 import type { Platform } from '../platform/platforms.js';
 import type { InstallScope, Language } from '../config/polaris-config.js';
-import { runCopyJobs, type CopyJob } from './copy-jobs.js';
+import { runCopyJobs, type CopyJob } from '../../utils/copy-jobs.js';
 
 /**
  * 拷贝 assets/<lang>/agents/*.md 到 .<platform>/agents/。

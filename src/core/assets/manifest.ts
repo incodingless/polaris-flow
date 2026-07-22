@@ -5,8 +5,8 @@
 import path from 'path';
 
 import { fileExists, readDir, readJson } from '../../utils/file-system.js';
-import { getAssetsDir } from './paths.js';
 import type { Language } from '../config/polaris-config.js';
+import { getAssetsDir } from '../config/polaris-paths.js';
 
 /** Manifest 中单个 hook 条目 */
 export type HookConfig = {
@@ -248,7 +248,7 @@ export async function resolveAssetSourcePath(
     candidates.push(path.join(assetsDir, langRoot, assetRelPath));
   }
 
-  // 兼容 contentDir 前缀与平铺目录：skills/foo → skills-zh/foo
+    // 兼容 contentDir 前缀与平铺目录：skills/foo → skills-zh/foo
   const parts = assetRelPath.split('/');
   if (parts.length > 1) {
     const [, ...rest] = parts;
@@ -256,11 +256,7 @@ export async function resolveAssetSourcePath(
     for (const langRoot of getLanguageContentRoots(lang)) {
       candidates.push(path.join(assetsDir, langRoot, flatPath));
     }
-    if (lang === 'zh') {
-      candidates.push(path.join(assetsDir, 'skills-zh', flatPath));
-    } else {
-      candidates.push(path.join(assetsDir, 'skills', flatPath));
-    }
+    candidates.push(path.join(assetsDir, lang, flatPath));
   }
 
   for (const candidate of candidates) {
@@ -270,14 +266,4 @@ export async function resolveAssetSourcePath(
   }
 
   return null;
-}
-
-/** 将 languageSkillsDir（skills / skills-zh）映射为 SkillLanguage */
-export function languageSkillsDirToLang(languageSkillsDir: string): Language {
-  return languageSkillsDir === 'skills-zh' ? 'zh' : 'en';
-}
-
-/** init/update 使用的语言 skills 源目录名（与 copyPolarisSkillsForPlatform 一致） */
-export function getLanguageSkillsDir(lang: Language): string {
-  return lang === 'zh' ? 'skills-zh' : 'skills';
 }

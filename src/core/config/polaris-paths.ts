@@ -1,7 +1,15 @@
 /**
- * `.polaris/` 与 `.worktrees/` 常用路径助手，供 config 层与 hooks 共用。
+ * 路径助手：包内 assets/、项目 `.polaris/` / `.worktrees/` 等，供 config、install、hooks 共用。
  */
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** 返回发布包/仓库根下的 assets 目录 */
+export function getAssetsDir(): string {
+  return path.resolve(__dirname, '..', '..', '..', 'assets');
+}
 
 /** 返回项目 `.polaris` 根目录 */
 export function getPolarisDir(projectPath: string): string {

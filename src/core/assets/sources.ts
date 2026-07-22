@@ -1,6 +1,6 @@
 /**
  * 上游技能来源 — GitHub 拉取、bundled 资产或 npm CLI。
- * assets 目录路径请用 assets/paths.getAssetsDir，本文件不重复实现。
+ * assets 目录路径请用 config/polaris-paths.getAssetsDir，本文件不重复实现。
  */
 
 /** 上游技能来源描述（bundled / github / npm） */
