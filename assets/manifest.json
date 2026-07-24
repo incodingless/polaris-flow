@@ -4,7 +4,8 @@
     { "id": "zh", "name": "中文" },
     { "id": "en", "name": "English" }
   ],
-  "langContentDirs": ["skills", "commands", "templates", "adapters", "policies"],
-  "langFiles": ["hard-stops.md"],
+
+  "langContentDirs": ["skills", "commands", "templates", "adapters", "policies", "agents"],
+  "langFiles": [],
   "sharedDirs": ["hooks", "scorers", "templates"]
 }

@@ -3,10 +3,10 @@ import { readFile, writeFile } from 'fs/promises';
 
 import { t } from './i18n/index.js';
 import { detectPlatforms, getBaseDir, hasSkills } from '../core/integration/detect.js';
-import { readAssetManifest } from '../core/assets/manifest.js';
+import { loadManifestConfig } from '../core/assets/manifest.js';
 import { installPolarisForPlatform } from '../core/install.js';
-import { getAssetsDir } from '../core/config/polaris-paths.js';
-import { PLATFORMS } from '../core/platform/platforms.js';
+import { getAssetsDir } from '../core/assets/polaris-paths.js';
+import { PLATFORMS } from '../core/platforms.js';
 import { printVersionInfo, PACKAGE_NAME } from '../core/deps/version.js';
 import { fileExists } from '../utils/file-system.js';
 import type { InstallScope, Language } from '../core/config/polaris-config.js';
@@ -86,7 +86,7 @@ export async function runUpdate(
   }
 
   const assetsDir = getAssetsDir();
-  const manifest = await readAssetManifest(assetsDir);
+  const manifest = await loadManifestConfig(assetsDir);
   const installedVersion = await getInstalledVersion(projectPath);
   const shouldCopy = options.force || installedVersion !== manifest.version;
 
@@ -117,6 +117,7 @@ export async function runUpdate(
       Boolean(options.force),
       language,
       scope,
+      projectPath,
     );
     skillsUpdated +=
       installed.skills.copied +

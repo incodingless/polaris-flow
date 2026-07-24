@@ -5,7 +5,7 @@ import { mkdir, readdir } from 'fs/promises';
 import path from 'path';
 import { randomBytes } from 'crypto';
 
-import { getTaskDir, getTasksDir } from '../config/polaris-paths.js';
+import { getTaskDir, getTasksDir } from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
 
 export type DraftCreateResult =

@@ -6,9 +6,9 @@
 import fs from 'fs';
 import { setTimeout as delay } from 'timers/promises';
 
-import { getLocksDir, getWorkflowLockPath } from '../config/polaris-paths.js';
+import { getLocksDir, getWorkflowLockPath } from '../assets/polaris-paths.js';
 
-export { getWorkflowLockPath } from '../config/polaris-paths.js';
+export { getWorkflowLockPath } from '../assets/polaris-paths.js';
 
 export const WORKFLOW_LOCK_STALE_MS = 5_000;
 export const WORKFLOW_LOCK_SPIN_MS = 6_000;

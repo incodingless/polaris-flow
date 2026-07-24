@@ -11,7 +11,7 @@ import {
   SUPERPOWERS_MIN_VERSION,
 } from '../assets/sources.js';
 import { getBaseDir } from './detect.js';
-import { PLATFORMS } from '../platform/platforms.js';
+import { PLATFORMS } from '../platforms.js';
 import { printCommandErrorDetails } from '../command-error.js';
 import type { InstallScope } from '../config/polaris-config.js';
 import { execFileSync } from 'child_process';

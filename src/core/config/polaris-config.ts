@@ -9,13 +9,14 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { fileExists, ensureDir } from '../../utils/file-system.js';
 import {
   getPolarisConfigPath,
-  getPluginRoot,
   getPluginRootRelPath,
   getPolarisDir,
   getWorktreeRoot,
-} from './polaris-paths.js';
+} from '../assets/polaris-paths.js';
+import { HarnessType, Platform } from '../platforms.js';
+import os from 'os';
 
-export { getPolarisConfigPath } from './polaris-paths.js';
+export { getPolarisConfigPath } from '../assets/polaris-paths.js';
 
 /** 上下文压缩开关，可选值: off-不压缩 | beta-压缩 */
 export type ContextCompression = 'off' | 'beta';
@@ -40,19 +41,11 @@ export type Language = 'en' | 'zh';
 export type InstallScope = 'global' | 'project';
 
 /** init 写入 config 时的可选平台字段 */
-export type PolarisConfigWriteOptions = {
-  platform?: string;
-  plugin_root?: string;
-  repo_root?: string;
+export type ProjectPolarisConfigWriteOptions = {
+  platforms?: Platform[];
   scope?: InstallScope;
   plugins?: Record<string, string | number>;
   kind?: string;
-  workflow?: WorkflowType;
-  phase?: TaskPhase;
-  auto_transition?: AutoTransition;
-  context_compression?: ContextCompression;
-  review_mode?: ReviewMode;
-  build_mode?: BuildMode;
 };
 
 /** 模型槽位配置 */
@@ -96,10 +89,16 @@ export type PolarisConstitutionConfig = {
   path?: string;
 };
 
+export interface GlobalPolarisConfig {
+  install_time?: string | Date;
+  version: string;
+  dashboard_port: number;
+}
+
 /**
  * `.polaris/config.yaml` 归一化结构。
  */
-export interface PolarisConfig {
+export interface ProjectPolarisConfig {
   language?: Language | string;
   install_time?: string | Date;
   platform?: string;
@@ -134,10 +133,10 @@ export interface PolarisConfig {
 }
 
 /** 生成 init 阶段的默认配置（最小集，保持既有落盘格式） */
-export function createDefaultPolarisConfig(
+export function createDefaultProjectPolarisConfig(
   language: Language,
-  options: PolarisConfigWriteOptions = {},
-): PolarisConfig {
+  options: ProjectPolarisConfigWriteOptions = {},
+): ProjectPolarisConfig {
   return {
     language: language ?? 'zh',
     install_time: new Date().toISOString(),
@@ -169,7 +168,7 @@ export function createDefaultPolarisConfig(
 }
 
 /** 将 init 最小配置格式化为带分区注释的 YAML 文本 */
-function formatPolarisConfigYaml(config: PolarisConfig): string {
+function formatPolarisConfigYaml(config: ProjectPolarisConfig): string {
   const lines = [
     '# 基础',
     `language: ${config.language ?? 'zh'}`,
@@ -204,9 +203,9 @@ function formatPolarisConfigYaml(config: PolarisConfig): string {
 /**
  * 将 YAML 原始对象键归一为 snake_case，并回填 lang ↔ language。
  */
-export function normalizePolarisConfig(raw: Record<string, unknown>): PolarisConfig {
+export function normalizePolarisConfig(raw: Record<string, unknown>): ProjectPolarisConfig {
   const flat = flattenKebabKeys(raw);
-  const config = flat as PolarisConfig;
+  const config = flat as ProjectPolarisConfig;
 
   if (!config.language) {
     config.language = 'zh' as Language;
@@ -264,10 +263,10 @@ function deepMerge<T extends Record<string, unknown>>(base: T, patch: Partial<T>
 }
 
 /** 若 config.yaml 不存在则写入默认配置 */
-export async function writePolarisConfigIfMissing(
+export async function writeProjectPolarisConfigIfMissing(
   projectPath: string,
   lang: Language,
-  options: PolarisConfigWriteOptions = {},
+  options: ProjectPolarisConfigWriteOptions = {},
 ): Promise<boolean> {
   await ensureDir(getPolarisDir(projectPath));
 
@@ -276,13 +275,13 @@ export async function writePolarisConfigIfMissing(
     return false;
   }
 
-  const config = createDefaultPolarisConfig(lang, options);
+  const config = createDefaultProjectPolarisConfig(lang, options);
   await writeFile(configPath, formatPolarisConfigYaml(config), 'utf-8');
   return true;
 }
 
 /** 读取 `.polaris/config.yaml`；不存在或解析失败时返回 null */
-export async function loadPolarisConfig(projectPath: string): Promise<PolarisConfig | null> {
+export async function loadPolarisConfig(projectPath: string): Promise<ProjectPolarisConfig | null> {
   const configPath = getPolarisConfigPath(projectPath);
   if (!(await fileExists(configPath))) {
     return null;
@@ -301,7 +300,10 @@ export async function loadPolarisConfig(projectPath: string): Promise<PolarisCon
 }
 
 /** 将配置整文件写回（YAML，无额外分区注释） */
-export async function savePolarisConfig(projectPath: string, config: PolarisConfig): Promise<void> {
+export async function savePolarisConfig(
+  projectPath: string,
+  config: ProjectPolarisConfig,
+): Promise<void> {
   await ensureDir(getPolarisDir(projectPath));
   const configPath = getPolarisConfigPath(projectPath);
   const text = stringifyYaml(config, { lineWidth: 0 });
@@ -311,13 +313,13 @@ export async function savePolarisConfig(projectPath: string, config: PolarisConf
 /** 读-合并-写：partial 深度合并到现有配置；文件不存在时以 partial 为底新建 */
 export async function patchPolarisConfig(
   projectPath: string,
-  partial: Partial<PolarisConfig>,
-): Promise<PolarisConfig> {
+  partial: Partial<ProjectPolarisConfig>,
+): Promise<ProjectPolarisConfig> {
   const existing = (await loadPolarisConfig(projectPath)) ?? {};
   const merged = deepMerge(
     existing as Record<string, unknown>,
     partial as Record<string, unknown>,
-  ) as PolarisConfig;
+  ) as ProjectPolarisConfig;
   await savePolarisConfig(projectPath, merged);
   return merged;
 }
@@ -325,7 +327,7 @@ export async function patchPolarisConfig(
 /**
  * 评审 agent 注入用 model：顶层 challenger.model → model.challenger → model.review → inherit。
  */
-export function resolveReviewAgentModel(config: PolarisConfig | null | undefined): string {
+export function resolveReviewAgentModel(config: ProjectPolarisConfig | null | undefined): string {
   const legacyChallenger = config?.challenger?.model?.trim();
   if (legacyChallenger) return legacyChallenger;
   const slotChallenger = config?.model?.challenger?.trim();
@@ -336,20 +338,59 @@ export function resolveReviewAgentModel(config: PolarisConfig | null | undefined
 }
 
 /** 返回宪法相对/绝对路径；缺省 openspec/memory/constitution.md */
-export function getConstitutionPath(config: PolarisConfig | null | undefined): string {
+export function getConstitutionPath(config: ProjectPolarisConfig | null | undefined): string {
   const fromConfig = config?.constitution?.path?.trim();
   if (fromConfig) return fromConfig;
   return 'openspec/memory/constitution.md';
 }
 
-/** 创建 init 所需工作目录（.polaris、可选插件根、.worktrees） */
-export async function createWorkingDirs(projectPath: string, platform?: string): Promise<void> {
-  const dirs = [getPolarisDir(projectPath), getWorktreeRoot(projectPath)];
-  if (platform) {
-    dirs.push(getPluginRoot(projectPath, platform));
-  }
+export type PluginName = 'hooks' | 'templates' | 'adapters' | 'policies' | 'scorers';
 
-  for (const dir of dirs) {
-    await ensureDir(dir);
+export const POLARIS_PLUGIN_SUBDIR_NAMES: PluginName[] = [
+  'hooks',
+  'templates',
+  'adapters',
+  'policies',
+  'scorers',
+];
+
+export function getProjectPluginSubdirSrc(pluginName: PluginName): string {
+  return `assets/shared/${pluginName}`;
+}
+
+export function getProjectPluginSubdirDest(projectPath: string, pluginName: PluginName): string {
+  return path.join(getPolarisDir(projectPath), 'skills', 'polaris-flow', pluginName);
+}
+
+export function getContextDir(
+  platform: Platform,
+  scope: InstallScope,
+  projectPath: string,
+): string {
+  if (scope === 'project') {
+    return path.join(projectPath, platform.contextDir);
+  } else {
+    return path.join(os.homedir(), platform.globalContextDir);
+  }
+}
+
+export function getHarnessDir(
+  platform: Platform,
+  scope: InstallScope,
+  projectPath: string,
+  harnessType: HarnessType,
+): string {
+  const contextDir = getContextDir(platform, scope, projectPath);
+  switch (harnessType) {
+    case 'skills':
+      return path.join(contextDir, platform.skillsDir);
+    case 'commands':
+      return path.join(contextDir, platform.commandsDir);
+    case 'agents':
+      return path.join(contextDir, platform.agentsDir);
+    case 'rules':
+      return path.join(contextDir, platform.rulesDir);
+    case 'hooks':
+      return path.join(contextDir, platform.hooksConfigFile);
   }
 }

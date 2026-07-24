@@ -14,7 +14,7 @@ import {
   getTasksDir,
   getWorktreePath,
   getWorktreeRoot,
-} from '../config/polaris-paths.js';
+} from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
 
 export type CreateResult = {

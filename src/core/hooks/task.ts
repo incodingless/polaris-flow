@@ -11,7 +11,7 @@ import {
   getTaskIntentionPath,
   getTaskIntentionRelPath,
   getTaskStatePath,
-} from '../config/polaris-paths.js';
+} from '../assets/polaris-paths.js';
 import {
   createDefaultTaskState,
   patchTaskStateFile,

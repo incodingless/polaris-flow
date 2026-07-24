@@ -12,7 +12,7 @@ import {
   installPolarisForPlatform,
   installPolarisHooksForPlatform,
 } from '../../src/core/install.js';
-import { PLATFORMS } from '../../src/core/platform/platforms.js';
+import { PLATFORMS } from '../../src/core/platforms.js';
 
 const claude = PLATFORMS.find((p) => p.id === 'claude')!;
 const trae = PLATFORMS.find((p) => p.id === 'trae')!;
@@ -28,7 +28,8 @@ describe('installPolarisForPlatform layout', () => {
     await access(path.join(tmpDir, '.claude/skills/polaris-flow/clarify/SKILL.md'));
     await access(path.join(tmpDir, '.claude/skills/polaris-flow/adapters'));
     await access(path.join(tmpDir, '.claude/skills/polaris-flow/hooks/session-start.sh'));
-    await access(path.join(tmpDir, '.claude/skills/polaris-flow/hard-stops.md'));
+    await access(path.join(tmpDir, '.claude/skills/polaris-flow'));
+    await access(path.join(tmpDir, '.polaris'));
     await access(path.join(tmpDir, '.claude/agents/propose-review-agent.md'));
     await access(path.join(tmpDir, '.claude/agents/design-review-agent.md'));
     await access(path.join(tmpDir, '.claude/agents/plan-review-agent.md'));

@@ -5,87 +5,37 @@ import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
 
 import { fileExists, ensureDir } from '../../utils/file-system.js';
-import { readManifest, resolveAssetSourcePath } from '../assets/manifest.js';
+import { Asset, readManifest, resolveAssetSourcePath } from '../assets/manifest.js';
 import type { InstallScope, Language } from '../config/polaris-config.js';
-import { getAssetsDir } from '../config/polaris-paths.js';
-import { getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
-import { runCopyJobs, type CopyJob } from '../../utils/copy-jobs.js';
+import { getAssetsDir } from '../assets/polaris-paths.js';
+import { getPlatformContextDir, type Platform } from '../platforms.js';
+import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
 
 /** 按平台 rulesFormat 拷贝 hard-stops 等规则文件 */
-export async function copyPolarisRulesForPlatform(
+export async function copyPolarisRules(
   baseDir: string,
-  platform: Platform,
   overwrite: boolean,
-  scope: InstallScope = 'project',
-  lang: Language = 'zh',
+  platform: Platform,
+  asset: Asset,
 ): Promise<{ copied: number; skipped: number }> {
-  if (!platform.rulesDir || !platform.rulesFormat) {
-    return { copied: 0, skipped: 0 };
-  }
-
-  const manifest = await readManifest(lang);
-  const rulePaths = manifest.rules;
-  if (!rulePaths || rulePaths.length === 0) {
-    return { copied: 0, skipped: 0 };
-  }
-
-  const assetsDir = getAssetsDir();
-  const rulesBase =
-    platform.rulesBaseDir !== undefined
-      ? platform.rulesBaseDir === ''
-        ? baseDir
-        : path.join(baseDir, platform.rulesBaseDir)
-      : path.join(baseDir, getPlatformSkillsDir(platform, scope));
-
+  const sources = asset.langContentPaths.filter((p) => p.startsWith('rules/'));
   const jobs: CopyJob[] = [];
-  for (const ruleRelPath of rulePaths) {
-    const src =
-      (await resolveAssetSourcePath(assetsDir, lang, ruleRelPath)) ??
-      path.join(assetsDir, 'skills', ruleRelPath);
-    if (!(await fileExists(src))) {
-      console.error(`    Rule source not found: ${ruleRelPath}`);
-      continue;
-    }
-
-    const ruleFileName = path.basename(ruleRelPath);
-    const rulesDestDir = path.join(rulesBase, platform.rulesDir);
-    const dest = computeRuleDestPath(rulesDestDir, ruleFileName, platform.rulesFormat);
+  for (const source of sources) {
     jobs.push({
-      label: ruleRelPath,
-      dest,
-      write: async () => {
-        const content = await readFile(src, 'utf-8');
-        await ensureDir(path.dirname(dest));
-        const formatted = formatRuleContent(content, ruleFileName, platform.rulesFormat!);
-        await writeFile(dest, formatted, 'utf-8');
-      },
+      label: source,
+      src: source,
+      dest: computeRuleDestPath(path.join(baseDir, source), platform.rulesFormat!),
+      type: 'file',
+      overwrite: overwrite,
     });
   }
-
-  return runCopyJobs(jobs, overwrite);
+  return runCopyJobs(jobs);
 }
 
 /** 按规则格式计算目标文件名（mdc / 原名） */
-export function computeRuleDestPath(
-  rulesDestDir: string,
-  ruleFileName: string,
-  rulesFormat: string,
-): string {
+export function computeRuleDestPath(ruleFilePath: string, rulesFormat: string): string {
   if (rulesFormat === 'mdc') {
-    return path.join(rulesDestDir, ruleFileName.replace(/\.md$/, '.mdc'));
+    return ruleFilePath.replace(/\.md$/, '.mdc');
   }
-  return path.join(rulesDestDir, ruleFileName);
-}
-
-function formatRuleContent(content: string, ruleFileName: string, rulesFormat: string): string {
-  if (rulesFormat === 'mdc') {
-    return `---
-description: ${ruleFileName.replace(/\.md$/, '').replace(/-/g, ' ')}
-globs:
-alwaysApply: true
----
-
-${content}`;
-  }
-  return content;
+  return ruleFilePath;
 }

@@ -8,7 +8,7 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 
 import { fileExists, readDir } from '../../utils/file-system.js';
-import { PLATFORMS, getPlatformSkillsDir, type Platform } from '../platform/platforms.js';
+import { PLATFORMS, getPlatformContextDir, type Platform } from '../platforms.js';
 import type { InstallScope } from '../config/polaris-config.js';
 
 /** superpowers 特征 skill（命中任一即视为已装） */
@@ -73,7 +73,7 @@ async function detectPlatforms(projectPath: string): Promise<Set<string>> {
         }
       }
     } else {
-      const skillsDir = getPlatformSkillsDir(platform, 'project');
+      const skillsDir = getPlatformContextDir(platform, 'project');
       if (await fileExists(path.join(projectPath, skillsDir))) {
         detected.add(platform.id);
       }
@@ -94,7 +94,7 @@ async function hasSkills(
   _selectedPlatforms: Platform[] = [],
   scope: InstallScope = 'project',
 ): Promise<boolean> {
-  const skillsDir = getPlatformSkillsDir(platform, scope);
+  const skillsDir = getPlatformContextDir(platform, scope);
   const fullPath = path.join(baseDir, skillsDir, 'skills');
   const entries = (await fileExists(fullPath)) ? await readDir(fullPath) : [];
 

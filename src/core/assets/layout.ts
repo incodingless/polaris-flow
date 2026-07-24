@@ -4,7 +4,7 @@
  */
 import path from 'path';
 
-import { getPlatformSkillsDir, getSkillsLayout, type Platform } from './platforms.js';
+import { getPlatformContextDir, getSkillsLayout, type Platform } from '../platforms.js';
 import type { InstallScope } from '../config/polaris-config.js';
 
 /** 包内公共目录前缀（装入 polaris-flow 插件根，两种 layout 相同） */
@@ -18,7 +18,7 @@ const SKIP_PREFIXES = ['skills/polaris/'] as const;
  * 例：`.claude/skills/polaris-flow`
  */
 export function getPluginRootRel(platform: Platform, scope: InstallScope = 'project'): string {
-  return path.posix.join(getPlatformSkillsDir(platform, scope), 'skills', 'polaris-flow');
+  return path.posix.join(getPlatformContextDir(platform, scope), 'skills', 'polaris-flow');
 }
 
 /**
@@ -94,7 +94,7 @@ export function resolveInstallDest(
   }
 
   const pluginRoot = getPluginRootRel(platform, scope);
-  const skillsRoot = path.posix.join(getPlatformSkillsDir(platform, scope), 'skills');
+  const skillsRoot = path.posix.join(getPlatformContextDir(platform, scope), 'skills');
 
   // 包内公共内容
   if (isPackageCommonAsset(normalized)) {
@@ -130,5 +130,5 @@ export function resolveAgentInstallDest(
   scope: InstallScope = 'project',
 ): string {
   const baseName = agentFileName.endsWith('.md') ? agentFileName : `${agentFileName}.md`;
-  return path.posix.join(getPlatformSkillsDir(platform, scope), 'agents', baseName);
+  return path.posix.join(getPlatformContextDir(platform, scope), 'agents', baseName);
 }

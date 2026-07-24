@@ -2,7 +2,7 @@
  * 支持的 AI 编码平台定义（skillsDir、rules、hooks、skillsLayout）。
  * 对齐 OpenSpec AI_TOOLS 配置思路；不写盘，仅提供元数据与路径辅助函数。
  */
-import type { InstallScope } from '../config/polaris-config.js';
+import type { InstallScope } from './config/polaris-config.js';
 
 /** 技能目录布局：nested 嵌套进 polaris-flow；flat 子 skill 扁平为 polaris-flow-*（如 Trae） */
 export type SkillsLayout = 'nested' | 'flat';
@@ -11,35 +11,30 @@ export type SkillsLayout = 'nested' | 'flat';
 export interface Platform {
   id: string;
   name: string;
+  contextDir: string;
+  globalContextDir: string;
   skillsDir: string;
-  globalSkillsDir?: string;
-  detectionPaths?: string[];
-  openspecToolId: string;
-  /** 技能安装布局，默认 nested */
-  skillsLayout?: SkillsLayout;
+  commandsDir: string;
+  agentsDir: string;
   /** 规则子目录，相对 rulesBaseDir；不支持则省略 */
-  rulesDir?: string;
-  /** 规则根目录覆盖（默认基于 skillsDir） */
-  rulesBaseDir?: string;
+  rulesDir: string;
   /** 规则文件格式 */
   rulesFormat?: 'md' | 'mdc';
+
+  /** 技能安装布局，默认 nested */
+  skillsLayout?: SkillsLayout;
   /** 是否支持 PreToolUse hooks */
   supportsHooks?: boolean;
+  hooksConfigFile: string;
   /** Hook 配置写入格式 */
   hookFormat?: 'claude-code';
+  detectionPaths?: string[];
+  openspecToolId: string;
 }
 
 /** 返回平台技能布局，缺省为 nested */
 export function getSkillsLayout(platform: Platform): SkillsLayout {
   return platform.skillsLayout ?? 'nested';
-}
-
-/** 按 scope 返回平台 skills 配置根目录名（如 .claude） */
-export function getPlatformSkillsDir(platform: Platform, scope: InstallScope): string {
-  if (scope === 'global' && platform.globalSkillsDir) {
-    return platform.globalSkillsDir;
-  }
-  return platform.skillsDir;
 }
 
 /** 返回平台 settings 相对路径（project→settings.local.json，global→settings.json） */
@@ -50,38 +45,67 @@ export function getSettingsFilePath(platform: Platform, scope: InstallScope): st
   return `${platform.skillsDir}/${fileName}`;
 }
 
+export type HarnessType = 'rules' | 'skills' | 'commands' | 'agents' | 'hooks';
+
+export enum HarnessTypes {
+  Rules = 'rules',
+  Skills = 'skills',
+  Commands = 'commands',
+  Agents = 'agents',
+  Hooks = 'hooks',
+}
+
 /** 已注册平台列表（claude / cursor / trae 等） */
 export const PLATFORMS: Platform[] = [
   {
     id: 'claude',
     name: 'Claude Code',
-    skillsDir: '.claude',
-    globalSkillsDir: '.claude',
-    openspecToolId: 'claude',
-    skillsLayout: 'nested',
+    contextDir: '.claude',
+    globalContextDir: '.claude',
+    skillsDir: 'skills',
+    commandsDir: 'commands',
+    agentsDir: 'agents',
     rulesDir: 'rules',
     rulesFormat: 'md',
+    skillsLayout: 'nested',
     supportsHooks: true,
+    hooksConfigFile: 'hooks',
     hookFormat: 'claude-code',
+    detectionPaths: ['/Users/jason/.claude/v1/history.json'],
+    openspecToolId: 'claude',
   },
   {
     id: 'cursor',
     name: 'Cursor',
-    skillsDir: '.cursor',
-    globalSkillsDir: '.cursor',
-    openspecToolId: 'cursor',
-    skillsLayout: 'nested',
+    contextDir: '.cursor',
+    globalContextDir: '.cursor',
+    skillsDir: 'skills',
+    commandsDir: 'commands',
+    agentsDir: 'agents',
     rulesDir: 'rules',
     rulesFormat: 'mdc',
+    skillsLayout: 'nested',
+    supportsHooks: true,
+    hooksConfigFile: 'settings.json',
+    hookFormat: 'claude-code',
+    detectionPaths: ['/Users/jason/.cursor/v1/history.json'],
+    openspecToolId: 'cursor',
   },
   {
     id: 'trae',
     name: 'Trae',
-    skillsDir: '.trae',
-    globalSkillsDir: '.trae',
-    openspecToolId: 'trae',
-    skillsLayout: 'flat',
+    contextDir: '.trae',
+    globalContextDir: '.trae',
+    skillsDir: 'skills',
+    commandsDir: 'commands',
+    agentsDir: 'agents',
     rulesDir: 'rules',
     rulesFormat: 'md',
+    skillsLayout: 'flat',
+    supportsHooks: true,
+    hooksConfigFile: 'hooks.json',
+    hookFormat: 'claude-code',
+    detectionPaths: ['/Users/jason/.trae/v1/history.json'],
+    openspecToolId: 'trae',
   },
 ];

@@ -1,6 +1,8 @@
 # 基础配置
 language: "zh-CN"  #语言: en | zh-CN
-platform: "trae" # 平台: trae | claude | qoder
+platform:          # 平台: trae | claude | qoder
+  - "trae" 
+  
 scope: "project" # 范围: global | project
 install-time: "2026-06-25T02:05:29.066Z" # 安装时间
 
@@ -25,7 +27,6 @@ isolation: "worktree" # 隔离模式: worktree | branch
 context-compression: off  # 上下文压缩: off | beta
 review-mode: standard  # 审查模式: standard | thorough
 build-mode: tdd  # 开发模式: tdd | bdd
-
 
 # 可用模型列表
 models:

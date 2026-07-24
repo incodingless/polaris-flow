@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import { PLATFORMS } from '../../src/core/platforms.js';
 import {
   getPluginRootRel,
   getTopLevelSkillName,
@@ -10,8 +11,7 @@ import {
   resolveAgentInstallDest,
   resolveInstallDest,
   shouldSkipAsset,
-} from '../../src/core/platform/layout.js';
-import { PLATFORMS } from '../../src/core/platform/platforms.js';
+} from '../../src/core/assets/layout.js';
 
 const claude = PLATFORMS.find((p) => p.id === 'claude')!;
 const trae = PLATFORMS.find((p) => p.id === 'trae')!;

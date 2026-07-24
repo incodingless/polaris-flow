@@ -4,7 +4,7 @@
 import { rm } from 'fs/promises';
 import path from 'path';
 
-import { getTaskDir, getTaskSnapshotDir } from '../config/polaris-paths.js';
+import { getTaskDir, getTaskSnapshotDir } from '../assets/polaris-paths.js';
 import { runWorkflowEntry } from './workflow-entry.js';
 
 export type DeliveryCleanupResult = { exitCode: number; message?: string };

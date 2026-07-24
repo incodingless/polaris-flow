@@ -7,7 +7,7 @@ import fs from 'fs';
 import { rm } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { PLATFORMS } from '../platform/platforms.js';
+import { PLATFORMS } from '../platforms.js';
 import { printCommandErrorDetails } from '../command-error.js';
 import { fileExists, readJson } from '../../utils/file-system.js';
 import { getNodeToolExecutable } from '../deps/npm.js';

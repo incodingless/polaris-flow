@@ -41,3 +41,16 @@ export async function updateJsonFile(
   const next = mutator(current) ?? current;
   await writeJsonPretty(filePath, next);
 }
+
+/**
+ * 读取 JSON 文件并解析为指定类型。
+ */
+export async function readJson<T>(filePath: string): Promise<T> {
+  const content = await readFile(filePath, 'utf-8');
+  return JSON.parse(content) as T;
+}
+
+/** @deprecated 使用 readJson */
+export async function readJsonFile<T>(filePath: string): Promise<T> {
+  return readJson<T>(filePath);
+}

@@ -255,4 +255,3 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill build \
 - 停在 apply pause → 从 Step 3 续，勿重选模式（除非用户要求）  
 - 停在 Step 4 审查未完成 → 从 Step 4 续  
 - 勿重新跑 plan / 勿调用 `writing-plans`
-)

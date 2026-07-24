@@ -18,7 +18,7 @@ import {
   getSessionIdPath,
   getSessionsDir,
   getWorkflowYamlPath,
-} from '../config/polaris-paths.js';
+} from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
 import { createHookIo, type HookIo } from './hook-io.js';
 import {

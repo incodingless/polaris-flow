@@ -4,23 +4,10 @@
  */
 import path from 'path';
 
-import { copyFile } from '../../utils/file-system.js';
-import {
-  collectSharedDirFiles,
-  getManifestSkills,
-  readManifest,
-  resolveAssetSourcePath,
-  resolveManifestAssets,
-  type Manifest,
-} from '../assets/manifest.js';
-import type { InstallScope, Language } from '../config/polaris-config.js';
-import { getAssetsDir } from '../config/polaris-paths.js';
-import { resolveInstallDest } from '../platform/layout.js';
-import type { Platform } from '../platform/platforms.js';
-import { runCopyJobs, type CopyJob } from '../../utils/copy-jobs.js';
-
-/** 再导出 Manifest 类型，保持历史 import 路径 */
-export type { Manifest };
+import { ensureDirSafe } from '../../utils/file-system.js';
+import { Asset } from '../assets/manifest.js';
+import type { Platform } from '../platforms.js';
+import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
 
 /**
  * 拷贝 Polaris skills 与包内公共内容到指定平台。
@@ -30,48 +17,67 @@ export async function copyPolarisSkillsForPlatform(
   baseDir: string,
   platform: Platform,
   overwrite: boolean,
-  lang: Language = 'zh',
-  scope: InstallScope = 'project',
+  assets: Asset,
 ): Promise<{ copied: number; skipped: number }> {
-  const assetsDir = getAssetsDir();
-  const resolved = await resolveManifestAssets(assetsDir, lang);
-
-  const contentPaths = resolved.skills.filter(
-    (p) =>
-      p.startsWith('skills/') ||
-      p.startsWith('adapters/') ||
-      p.startsWith('policies/') ||
-      p.startsWith('templates/') ||
-      p.includes('/scripts/') ||
-      p.endsWith('SKILL.md'),
-  );
-
-  const sharedHookPaths = Object.keys(resolved.hooks ?? {});
-  const sharedTemplatePaths = await collectSharedDirFiles(assetsDir, 'templates');
-  const allPaths = [...new Set([...contentPaths, ...sharedHookPaths, ...sharedTemplatePaths])];
+  // 1. 创建技能目录
+  await ensureDirSafe(baseDir);
 
   const jobs: CopyJob[] = [];
-  for (const assetRelPath of allPaths) {
-    const destRel = resolveInstallDest(assetRelPath, platform, scope);
-    if (!destRel) {
-      continue;
-    }
+  // 2. 准备要复制的共享文档路径
+  const sharedDirs = assets.langContentPaths.filter(
+    (p) => p.startsWith('hooks/') || p.startsWith('scorers/') || p.startsWith('templates/'),
+  );
 
-    const src = await resolveAssetSourcePath(assetsDir, lang, assetRelPath);
-    if (!src) {
-      console.error(`    Skill source not found: ${assetRelPath}`);
-      continue;
-    }
-
-    const dest = path.join(baseDir, destRel);
+  for (const sharedDir of sharedDirs) {
     jobs.push({
-      label: assetRelPath,
-      dest,
-      write: () => copyFile(src, dest),
+      label: 'shared_content',
+      src: sharedDir,
+      dest: path.join(baseDir, sharedDir),
+      type: 'dir',
+      overwrite: overwrite,
     });
   }
 
-  return runCopyJobs(jobs, overwrite);
-}
+  // 3. 复制区分语言的共享文档路径
+  const contentPaths = assets.langContentPaths.filter(
+    (p) => p.startsWith('adapters/') || p.startsWith('hooks/'),
+  );
+  for (const contentPath of contentPaths) {
+    jobs.push({
+      label: contentPath,
+      src: contentPath,
+      dest: path.join(baseDir, contentPath),
+      type: 'file',
+      overwrite: overwrite,
+    });
+  }
 
-export { getManifestSkills, readManifest };
+  //4. 根据布局类型复制技能内容
+  const skillDirs = assets.langContentPaths.filter((p) => p.startsWith('skills/'));
+  if (platform.skillsLayout === 'flat') {
+    // TODO: 扁平布局，需要处理技能目录名称
+    // 扁平布局，技能内容直接复制到技能目录
+    for (const skillDir of skillDirs) {
+      jobs.push({
+        label: 'skill',
+        src: skillDir,
+        dest: baseDir,
+        type: 'dir',
+        overwrite: overwrite,
+      });
+    }
+  } else {
+    // 嵌套布局
+    for (const skillDir of skillDirs) {
+      jobs.push({
+        label: 'skill',
+        src: skillDir,
+        dest: baseDir,
+        type: 'dir',
+        overwrite: overwrite,
+      });
+    }
+  }
+
+  return runCopyJobs(jobs);
+}

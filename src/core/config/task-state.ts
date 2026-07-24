@@ -7,7 +7,7 @@ import path from 'path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists, ensureDir } from '../../utils/file-system.js';
-import { getTaskDir, getTaskStatePath } from './polaris-paths.js';
+import { getTaskDir, getTaskStatePath } from '../assets/polaris-paths.js';
 import type { TaskPhase } from './polaris-config.js';
 
 /** triage 子块 */

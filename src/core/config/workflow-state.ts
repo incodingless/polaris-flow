@@ -8,7 +8,7 @@ import { execFileSync } from 'child_process';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists } from '../../utils/file-system.js';
-import { getWorkflowYamlPath } from './polaris-paths.js';
+import { getWorkflowYamlPath } from '../assets/polaris-paths.js';
 
 /** active_changes 单条 */
 export type ActiveChangeEntry = {
