@@ -4,8 +4,9 @@
  */
 import path from 'path';
 
-import { getPlatformContextDir, getSkillsLayout, type Platform } from '../platforms.js';
-import type { InstallScope } from '../config/polaris-config.js';
+import { getSkillsLayout, type Platform } from '../platforms.js';
+import type { InstallScope } from '../config/polaris-project-config.js';
+import { getPlatformContextDir } from '../install/layout.js';
 
 /** 包内公共目录前缀（装入 polaris-flow 插件根，两种 layout 相同） */
 const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/'] as const;
@@ -17,8 +18,8 @@ const SKIP_PREFIXES = ['skills/polaris/'] as const;
  * 返回插件根目录相对路径（相对 baseDir）。
  * 例：`.claude/skills/polaris-flow`
  */
-export function getPluginRootRel(platform: Platform, scope: InstallScope = 'project'): string {
-  return path.posix.join(getPlatformContextDir(platform, scope), 'skills', 'polaris-flow');
+export function getPluginRootRel(platform: Platform, scope: InstallScope = 'project', projectPath: string): string {
+  return path.posix.join(getPlatformContextDir(platform, scope, projectPath), 'skills', 'polaris-flow');
 }
 
 /**
@@ -86,6 +87,7 @@ export function resolveInstallDest(
   assetRelPath: string,
   platform: Platform,
   scope: InstallScope = 'project',
+  projectPath: string,
 ): string | null {
   const normalized = assetRelPath.replace(/\\/g, '/');
 
@@ -93,8 +95,8 @@ export function resolveInstallDest(
     return null;
   }
 
-  const pluginRoot = getPluginRootRel(platform, scope);
-  const skillsRoot = path.posix.join(getPlatformContextDir(platform, scope), 'skills');
+  const pluginRoot = getPluginRootRel(platform, scope, projectPath);
+  const skillsRoot = path.posix.join(getPlatformContextDir(platform, scope, projectPath), 'skills');
 
   // 包内公共内容
   if (isPackageCommonAsset(normalized)) {
@@ -125,10 +127,11 @@ export function resolveInstallDest(
  * 解析 agent 文件应安装到的平台 agents 目录路径（相对 baseDir）。
  */
 export function resolveAgentInstallDest(
+  projectPath: string,
   agentFileName: string,
   platform: Platform,
   scope: InstallScope = 'project',
 ): string {
   const baseName = agentFileName.endsWith('.md') ? agentFileName : `${agentFileName}.md`;
-  return path.posix.join(getPlatformContextDir(platform, scope), 'agents', baseName);
+  return path.posix.join(getPlatformContextDir(platform, scope, projectPath), 'agents', baseName);
 }

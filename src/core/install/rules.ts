@@ -2,13 +2,9 @@
  * 将 Polaris rule 文件安装到平台 rules 目录（md / mdc / copilot）。
  */
 import path from 'path';
-import { readFile, writeFile } from 'fs/promises';
 
-import { fileExists, ensureDir } from '../../utils/file-system.js';
-import { Asset, readManifest, resolveAssetSourcePath } from '../assets/manifest.js';
-import type { InstallScope, Language } from '../config/polaris-config.js';
-import { getAssetsDir } from '../assets/polaris-paths.js';
-import { getPlatformContextDir, type Platform } from '../platforms.js';
+import { Asset } from '../assets/manifest.js';
+import { type Platform } from '../platforms.js';
 import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
 
 /** 按平台 rulesFormat 拷贝 hard-stops 等规则文件 */

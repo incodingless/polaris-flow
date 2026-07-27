@@ -9,7 +9,7 @@ import { getAssetsDir } from '../core/assets/polaris-paths.js';
 import { PLATFORMS } from '../core/platforms.js';
 import { printVersionInfo, PACKAGE_NAME } from '../core/deps/version.js';
 import { fileExists } from '../utils/file-system.js';
-import type { InstallScope, Language } from '../core/config/polaris-config.js';
+import type { InstallScope, Language } from '../core/config/polaris-project-config.js';
 
 export type UpdateOptions = {
   force?: boolean;

@@ -9,10 +9,11 @@ import os from 'os';
 import path from 'path';
 import { PLATFORMS } from '../platforms.js';
 import { printCommandErrorDetails } from '../command-error.js';
-import { fileExists, readJson } from '../../utils/file-system.js';
+import { fileExists } from '../../utils/file-system.js';
+import { readJsonObjectOrEmpty } from '../../utils/json-io.js';
 import { getNodeToolExecutable } from '../deps/npm.js';
 
-import type { InstallScope } from '../config/polaris-config.js';
+import type { InstallScope } from '../config/polaris-project-config.js';
 
 const VALID_TOOL_IDS = new Set(PLATFORMS.map((p) => p.openspecToolId));
 const ALL_OPENSPEC_WORKFLOWS = [
@@ -181,7 +182,7 @@ async function cleanupLegacyLocalOpenSpecInstall(projectPath: string): Promise<v
     shouldCleanup = true;
   } else {
     try {
-      const pkg = await readJson<{ dependencies?: Record<string, string> }>(packageJsonPath);
+      const pkg = await readJsonObjectOrEmpty(packageJsonPath);
       const deps = Object.keys(pkg.dependencies ?? {});
       shouldCleanup = deps.length === 1 && deps[0] === '@fission-ai/openspec';
     } catch {

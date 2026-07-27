@@ -20,7 +20,7 @@ import {
   type InstallScope,
   type Language,
   type GlobalPolarisConfig,
-} from '../config/polaris-config.js';
+} from '../config/polaris-project-config.js';
 import type { Platform } from '../platforms.js';
 import path from 'path';
 import os from 'os';
@@ -28,7 +28,7 @@ import { getCurrentVersion } from '../deps/version.js';
 
 const POLARIS_FLOW_PLUGIN_NAME = 'polaris-flow';
 
-export type ProjectLayoutOptions = {
+export type ProjectLayoutOption = {
   /** 技能语言，写入 config.yaml */
   language: Language;
   /** 安装作用域：影响技能根与 worktree 落盘位置 */
@@ -39,7 +39,7 @@ export type ProjectLayoutOptions = {
    * 需要预创建插件根的平台列表。
    * 调用方保证非空；config 的 platform / plugin_root 取 platforms[0]。
    */
-  platforms: Platform[];
+  platform: Platform;
 };
 
 export type PlatformLayout = {
@@ -54,13 +54,14 @@ export type PlatformLayout = {
 };
 
 /**
- * 在安装任何 harness 组件之前：创建目录结构，并写入/补齐项目 config.yaml。
- * 项目结构始终建在 `projectPath`；技能根与 worktree 按 scope。
+ * 创建Polaris公共工作目录结构与配置
+ * @param projectPath 项目路径
+ * @param scope 安装作用域
  */
-export async function initializeProjectLayout(
+export async function initializePolarisCommonLayout(
   projectPath: string,
-  options: ProjectLayoutOptions,
-): Promise<PlatformLayout[]> {
+  scope: InstallScope,
+): Promise<void> {
   // 1. 全局 ~/.polaris/polaris.yaml
   await createGlobalPolarisDir();
 
@@ -71,14 +72,19 @@ export async function initializeProjectLayout(
   await copyIfMissing(getHarnessGitignoreSrc(), getPolarisGitignorePath(projectPath));
 
   // 3. worktree
-  const worktreeRoot = resolveWorktreeRoot(projectPath, options.scope);
+  const worktreeRoot = resolveWorktreeRoot(projectPath, scope);
   await ensureDirSafe(worktreeRoot);
+}
 
-  // 1. 创建目录结构
-  return await createWorkingDirs(projectPath, {
-    scope: options.scope,
-    platforms: options.platforms,
-  });
+/**
+ * 在安装任何 harness 组件之前：创建目录结构，并写入/补齐项目 config.yaml。
+ * 项目结构始终建在 `projectPath`；技能根与 worktree 按 scope。
+ */
+export async function initializeProjectLayout(
+  projectPath: string,
+  option: ProjectLayoutOption,
+): Promise<PlatformLayout> {
+  return await createWorkingDirs(projectPath, option.scope, option.platform);
 }
 
 /**
@@ -97,42 +103,44 @@ export async function initializeProjectLayout(
  */
 export async function createWorkingDirs(
   projectPath: string,
-  options: {
-    scope: InstallScope;
-    platforms: Platform[];
-  },
-): Promise<PlatformLayout[]> {
-  const scope = options.scope ?? 'project';
-  const platformLayouts: PlatformLayout[] = [];
-  // 4. 平台目录 + polaris-flow 子目录
-  for (const platform of options.platforms) {
-    const contextDir =
-      scope === 'global'
-        ? path.join(os.homedir(), platform.contextDir)
-        : path.join(projectPath, platform.contextDir);
-    const skillBase = path.join(contextDir, platform.skillsDir, POLARIS_FLOW_PLUGIN_NAME);
-    const commandBase = path.join(contextDir, platform.commandsDir, POLARIS_FLOW_PLUGIN_NAME);
-    const agentBase = path.join(contextDir, platform.agentsDir);
-    const ruleBase = path.join(contextDir, platform.rulesDir);
+  scope: InstallScope,
+  platform: Platform,
+): Promise<PlatformLayout> {
+  scope ??= 'project';
+  const contextDir =
+    scope === 'global'
+      ? path.join(os.homedir(), platform.contextDir)
+      : path.join(projectPath, platform.contextDir);
+  const skillBase = path.join(contextDir, platform.skillsDir, POLARIS_FLOW_PLUGIN_NAME);
+  const commandBase = path.join(contextDir, platform.commandsDir, POLARIS_FLOW_PLUGIN_NAME);
+  const agentBase = path.join(contextDir, platform.agentsDir);
+  const ruleBase = path.join(contextDir, platform.rulesDir);
 
-    await ensureDirSafe(skillBase);
-    await ensureDirSafe(commandBase);
-    await ensureDirSafe(agentBase);
-    await ensureDirSafe(ruleBase);
+  await ensureDirSafe(skillBase);
+  await ensureDirSafe(commandBase);
+  await ensureDirSafe(agentBase);
+  await ensureDirSafe(ruleBase);
 
-    platformLayouts.push({
-      baseDir: contextDir,
-      projectPath: projectPath,
-      skillsDir: skillBase,
-      commandsDir: commandBase,
-      agentsDir: agentBase,
-      rulesDir: ruleBase,
-      hooksDir: platform.hooksConfigFile,
-      platform: platform,
-    });
-  }
+  return {
+    baseDir: contextDir,
+    projectPath: projectPath,
+    skillsDir: skillBase,
+    commandsDir: commandBase,
+    agentsDir: agentBase,
+    rulesDir: ruleBase,
+    hooksDir: platform.hooksConfigFile,
+    platform: platform,
+  };
+}
 
-  return platformLayouts;
+export function getPlatformContextDir(
+  platform: Platform,
+  scope: InstallScope,
+  projectPath: string,
+) {
+  return scope === 'global'
+    ? path.join(os.homedir(), platform.contextDir)
+    : path.join(projectPath, platform.contextDir);
 }
 
 /**

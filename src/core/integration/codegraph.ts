@@ -4,7 +4,7 @@ import path from 'path';
 import { isCommandAvailable, getNpmExecutable } from './openspec.js';
 import { printCommandErrorDetails } from '../command-error.js';
 
-import type { InstallScope } from '../config/polaris-config.js';
+import type { InstallScope } from '../config/polaris-project-config.js';
 
 function getPnpmExecutable(platform: NodeJS.Platform = process.platform): string {
   return platform === 'win32' ? 'pnpm.cmd' : 'pnpm';

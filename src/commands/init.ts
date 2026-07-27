@@ -20,16 +20,12 @@ import {
 import { loadManifestConfig } from '../core/assets/manifest.js';
 import { writeLockFile, type LockSourceEntry } from '../core/install.js';
 import { getNpmPackageVersion } from '../core/deps/npm.js';
-import { initializeProjectLayout, installPolarisForPlatform } from '../core/install.js';
+import { installPolarisForPlatform } from '../core/install.js';
 import { getAssetsDir } from '../core/assets/polaris-paths.js';
-import {
-  getPlatformContextDir,
-  getSettingsFilePath,
-  PLATFORMS,
-  type Platform,
-} from '../core/platforms.js';
+import { getSettingsFilePath, PLATFORMS, type Platform } from '../core/platforms.js';
 import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
-import type { InstallScope, Language } from '../core/config/polaris-config.js';
+import type { InstallScope, Language } from '../core/config/polaris-project-config.js';
+import { initializePolarisCommonLayout } from '../core/install/layout.js';
 
 export type InitOptions = {
   yes?: boolean;
@@ -43,6 +39,7 @@ export type InitOptions = {
 type InstallStatus = 'installed' | 'skipped' | 'failed';
 
 export type InitPlatformResult = {
+  baseDir: string;
   platformId: string;
   platformName: string;
   openspec: InstallStatus;
@@ -218,9 +215,7 @@ function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang
     for (const r of installed) {
       const platform = PLATFORMS.find((p) => p.id === r.platformId);
       if (!platform) continue;
-      console.log(
-        `    ${green('✓')}  ${bold(r.platformName)} ${dim(`${getPlatformContextDir(platform, scope)}/skills/`)}`,
-      );
+      console.log(`    ${green('✓')}  ${bold(r.platformName)} ${dim(`${r.baseDir}/skills/`)}`);
     }
   }
   if (skipped.length > 0) {
@@ -282,17 +277,6 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
   const lockSources: LockSourceEntry[] = [];
   const platformResults: InitPlatformResult[] = [];
 
-  // --- 0. 项目结构与配置（与 scope 无关，始终落在项目路径；技能根按 scope 落 baseDir）---
-  const polarisPlatforms = plans.filter((p) => p.polarisAction !== 'skip').map((p) => p.platform);
-  // platforms 保证非空：无 polaris 计划时回退到已选平台列表首项
-  const layoutPlatforms = polarisPlatforms.length > 0 ? polarisPlatforms : [platforms[0]!];
-  await initializeProjectLayout(projectPath, {
-    language,
-    scope,
-    baseDir,
-    platforms: layoutPlatforms,
-  });
-
   // --- 1. OpenSpec ---
   const osToolIds = [
     ...new Set(
@@ -342,6 +326,10 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
   if (polarisNeeded) {
     log(`\n  ${blue('⏳')} ${bold('Polaris')} ${dim('(bundled)')}...`);
     try {
+      //----- 1. 创建Polaris公共工作目录结构与配置 -----
+      await initializePolarisCommonLayout(projectPath, scope);
+
+      //----- 2. 按选择的平台逐个安装 Polaris -----
       for (const plan of plans) {
         if (plan.polarisAction === 'skip') continue;
 
@@ -349,7 +337,7 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
           plan.polarisAction === 'overwrite' ||
           (plan.polarisAction === 'install' && !plan.hasPolaris);
 
-        const installed = await installPolarisForPlatform(
+        const result = await installPolarisForPlatform(
           baseDir,
           plan.platform,
           overwrite,
@@ -359,21 +347,22 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
         );
 
         platformResults.push({
+          baseDir: baseDir,
           platformId: plan.platform.id,
           platformName: plan.platform.name,
           openspec:
             plan.osAction !== 'skip' && plan.platform.openspecToolId ? osGlobalStatus : 'skipped',
           superpowers: plan.spAction !== 'skip' ? spGlobalStatus : 'skipped',
           polaris: 'installed',
-          skills: installed.skills,
-          commands: installed.commands,
-          agents: installed.agents,
-          rules: installed.rules,
-          hooks: installed.hooks,
+          skills: result.skills,
+          commands: result.commands,
+          agents: result.agents,
+          rules: result.rules,
+          hooks: result.hooks,
         });
 
         log(
-          `  ${green('✓')}  Polaris ${dim('→')} ${plan.platform.name} ${dim(`(${installed.skills.copied} ${t(lang, 'skillsCopiedSkipped')} ${installed.skills.skipped} ${t(lang, 'hooksSkipped')})`)}`,
+          `  ${green('✓')}  Polaris ${dim('→')} ${plan.platform.name} ${dim(`(${result.skills.copied} ${t(lang, 'skillsCopiedSkipped')} ${result.skills.skipped} ${t(lang, 'hooksSkipped')})`)}`,
         );
       }
       polarisGlobalStatus = 'installed';
@@ -417,6 +406,7 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
   for (const plan of plans) {
     if (platformResults.some((r) => r.platformId === plan.platform.id)) continue;
     platformResults.push({
+      baseDir: baseDir,
       platformId: plan.platform.id,
       platformName: plan.platform.name,
       openspec:

@@ -8,7 +8,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists, ensureDir } from '../../utils/file-system.js';
 import { getTaskDir, getTaskStatePath } from '../assets/polaris-paths.js';
-import type { TaskPhase } from './polaris-config.js';
+import type { TaskPhase } from './polaris-project-config.js';
 
 /** triage 子块 */
 export type TaskTriageState = {

@@ -4,11 +4,12 @@
 import path from 'path';
 import { createRequire } from 'module';
 
-import { fileExists, readJson } from '../utils/file-system.js';
+import { fileExists } from '../utils/file-system.js';
+import { readJsonObjectOrEmpty } from '../utils/json-io.js';
 import { isCommandAvailable } from './integration/openspec.js';
 import { detectPlatforms, getBaseDir, hasSkills } from './integration/detect.js';
 import { PLATFORMS } from './platforms.js';
-import type { InstallScope } from './config/polaris-config.js';
+import type { InstallScope } from './config/polaris-project-config.js';
 
 const require = createRequire(import.meta.url);
 const { engines } = require('../../package.json') as { engines?: { node?: string } };
@@ -79,7 +80,7 @@ async function checkSkillsLock(projectPath: string): Promise<DiagnosticItem> {
   }
 
   try {
-    await readJson(lockPath);
+    await readJsonObjectOrEmpty(lockPath);
     return { name: 'skills-lock.json', status: 'ok', message: lockPath };
   } catch (error) {
     return {

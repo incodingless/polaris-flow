@@ -37,14 +37,15 @@ _polaris_cli_tty() {
 }
 
 # 查找 polaris / polaris-flow 并 exec 子命令；找不到则提示并 exit 1
+# PLATFORM_ID 在安装hooks时由程序完成值的替换，如：claude、trae、cursor等
 exec_polaris() {
   local subcmd="$1"
   shift
   if command -v polaris >/dev/null 2>&1; then
-    exec polaris "$subcmd" "$@"
+    exec polaris "$subcmd" "$@" --platform @PLATFORM_ID@
   fi
   if command -v polaris-flow >/dev/null 2>&1; then
-    exec polaris-flow "$subcmd" "$@"
+    exec polaris-flow "$subcmd" "$@" --platform @PLATFORM_ID@
   fi
   _polaris_cli_tty "[polaris-flow][FAIL] polaris CLI not found — hook requires a global install"
   _polaris_cli_tty "                  Install: npm install -g @polaris/polaris-flow"

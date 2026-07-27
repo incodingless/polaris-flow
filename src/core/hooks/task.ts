@@ -5,7 +5,7 @@
 import { mkdir, rename, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 
-import { getPolarisConfigPath } from '../config/polaris-config.js';
+import { getPolarisConfigPath } from '../config/polaris-project-config.js';
 import {
   getTaskDir,
   getTaskIntentionPath,

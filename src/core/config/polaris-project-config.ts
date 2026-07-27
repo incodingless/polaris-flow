@@ -41,11 +41,30 @@ export type Language = 'en' | 'zh';
 export type InstallScope = 'global' | 'project';
 
 /** init 写入 config 时的可选平台字段 */
-export type ProjectPolarisConfigWriteOptions = {
-  platforms?: Platform[];
-  scope?: InstallScope;
+export type ProjectPolarisConfig = {
+  language: Language;
+  install_time: Date;
+  platforms: Platform[];
+  scope: InstallScope;
+  main_repo_root: string;
+  plugin_root: string;
+  worktree_dir: string;
+  kind: string;
   plugins?: Record<string, string | number>;
-  kind?: string;
+  workflow?: WorkflowType;
+  phase?: TaskPhase;
+  auto_transition?: AutoTransition;
+  context_compression?: ContextCompression;
+  review_mode?: ReviewMode;
+  build_mode?: BuildMode;
+  models?: PolarisModelSlots;
+  model?: { propose: string; code: string; review: string; challenger: string };
+  scorer?: PolarisScorerConfig;
+  thresholds?: PolarisThresholds;
+  triage?: PolarisTriageConfig;
+  tiers?: Record<string, { path: string[] }>;
+  deepread?: PolarisDeepreadConfig;
+  constitution?: PolarisConstitutionConfig;
 };
 
 /** 模型槽位配置 */
@@ -96,74 +115,29 @@ export interface GlobalPolarisConfig {
 }
 
 /**
- * `.polaris/config.yaml` 归一化结构。
+ * 生成 init 阶段的默认配置（最小集，保持既有落盘格式）
+ * @param language
+ * @param options
+ * @returns
  */
-export interface ProjectPolarisConfig {
-  language?: Language | string;
-  install_time?: string | Date;
-  platform?: string;
-  scope?: InstallScope | string;
-  plugins?: Record<string, string | number>;
-  main_repo_root?: string;
-  plugin_root?: string;
-  worktree_dir?: string;
-  kind?: string;
-  workflow?: WorkflowType | string;
-  phase?: TaskPhase | string;
-  verify_mode?: VerifyMode | string;
-  auto_transition?: AutoTransition | string;
-  isolation?: IsolationMode | string;
-  context_compression?: ContextCompression | string;
-  review_mode?: ReviewMode | string;
-  build_mode?: BuildMode | string;
-  models?: {
-    high?: string[];
-    medium?: string[];
-    low?: string[];
-  };
-  model?: PolarisModelSlots;
-  /** 旧版顶层 challenger.model */
-  challenger?: { model?: string };
-  scorer?: PolarisScorerConfig;
-  thresholds?: PolarisThresholds;
-  triage?: PolarisTriageConfig;
-  tiers?: Record<string, { path?: string[] }>;
-  deepread?: PolarisDeepreadConfig;
-  constitution?: PolarisConstitutionConfig;
-}
-
-/** 生成 init 阶段的默认配置（最小集，保持既有落盘格式） */
 export function createDefaultProjectPolarisConfig(
   language: Language,
-  options: ProjectPolarisConfigWriteOptions = {},
+  platforms: Platform[],
+  scope: InstallScope,
+  main_repo_root: string,
+  plugin_root: string,
+  worktree_dir: string,
+  kind: string,
 ): ProjectPolarisConfig {
   return {
     language: language ?? 'zh',
-    install_time: new Date().toISOString(),
-    platform: options.platform ?? 'trae',
-    scope: options.scope ?? 'project',
-    plugins: options.plugins ?? {},
-    main_repo_root: options.repo_root ?? '',
-    plugin_root: options.plugin_root ?? getPluginRootRelPath(options.platform ?? 'trae'),
-    worktree_dir: getWorktreeRoot(options.repo_root ?? ''),
-    kind: options.kind ?? 'solo',
-    workflow: options.workflow ?? 'sdd',
-    phase: options.phase ?? 'clarify',
-    auto_transition: options.auto_transition ?? 'auto',
-    context_compression: options.context_compression ?? 'off',
-    review_mode: options.review_mode ?? 'off',
-    build_mode: options.build_mode ?? 'tdd',
-    models: {
-      high: [],
-      medium: [],
-      low: [],
-    },
-    model: {
-      propose: '',
-      code: '',
-      review: '',
-      challenger: '',
-    },
+    install_time: new Date(),
+    platforms: platforms,
+    scope: scope,
+    main_repo_root: main_repo_root,
+    plugin_root: plugin_root,
+    worktree_dir: worktree_dir,
+    kind: kind,
   };
 }
 
@@ -175,8 +149,14 @@ function formatPolarisConfigYaml(config: ProjectPolarisConfig): string {
     `install_time: '${config.install_time ?? new Date().toISOString()}'`,
   ];
 
-  if (config.platform) {
-    lines.push(`platform: ${config.platform}`);
+  if (config.platforms) {
+    lines.push(`platforms: ${config.platforms.map((platform) => platform.name).join(',')}`);
+  }
+  if (config.scope) {
+    lines.push(`scope: ${config.scope}`);
+  }
+  if (config.main_repo_root) {
+    lines.push(`main_repo_root: ${config.main_repo_root}`);
   }
   if (config.plugin_root) {
     lines.push(`plugin_root: ${config.plugin_root}`);
@@ -211,7 +191,7 @@ export function normalizePolarisConfig(raw: Record<string, unknown>): ProjectPol
     config.language = 'zh' as Language;
   }
   if (!config.install_time) {
-    config.install_time = new Date().toISOString();
+    config.install_time = new Date();
   }
 
   return config;
@@ -266,7 +246,12 @@ function deepMerge<T extends Record<string, unknown>>(base: T, patch: Partial<T>
 export async function writeProjectPolarisConfigIfMissing(
   projectPath: string,
   lang: Language,
-  options: ProjectPolarisConfigWriteOptions = {},
+  platforms: Platform[],
+  scope: InstallScope,
+  main_repo_root: string,
+  plugin_root: string,
+  worktree_dir: string,
+  kind: string,
 ): Promise<boolean> {
   await ensureDir(getPolarisDir(projectPath));
 
@@ -275,7 +260,15 @@ export async function writeProjectPolarisConfigIfMissing(
     return false;
   }
 
-  const config = createDefaultProjectPolarisConfig(lang, options);
+  const config = createDefaultProjectPolarisConfig(
+    lang,
+    platforms,
+    scope,
+    main_repo_root,
+    plugin_root,
+    worktree_dir,
+    kind,
+  );
   await writeFile(configPath, formatPolarisConfigYaml(config), 'utf-8');
   return true;
 }
@@ -328,7 +321,7 @@ export async function patchPolarisConfig(
  * 评审 agent 注入用 model：顶层 challenger.model → model.challenger → model.review → inherit。
  */
 export function resolveReviewAgentModel(config: ProjectPolarisConfig | null | undefined): string {
-  const legacyChallenger = config?.challenger?.model?.trim();
+  const legacyChallenger = config?.model?.challenger?.trim();
   if (legacyChallenger) return legacyChallenger;
   const slotChallenger = config?.model?.challenger?.trim();
   if (slotChallenger) return slotChallenger;

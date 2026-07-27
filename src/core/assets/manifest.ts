@@ -6,7 +6,7 @@ import path from 'path';
 
 import { fileExists, walkFilesSafe } from '../../utils/file-system.js';
 import { readJson } from '../../utils/json-io.js';
-import type { Language } from '../config/polaris-config.js';
+import type { Language } from '../config/polaris-project-config.js';
 import { getAssetsDir } from './polaris-paths.js';
 
 /** Manifest 中单个 hook 条目 */

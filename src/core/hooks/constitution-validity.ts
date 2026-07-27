@@ -5,7 +5,7 @@
 import { readFile } from 'fs/promises';
 import path from 'path';
 
-import { getConstitutionPath, loadPolarisConfig } from '../config/polaris-config.js';
+import { getConstitutionPath, loadPolarisConfig } from '../config/polaris-project-config.js';
 import { fileExists } from '../../utils/file-system.js';
 
 export type ConstitutionValidityResult = { exitCode: number };

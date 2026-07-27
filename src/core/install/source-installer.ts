@@ -7,8 +7,9 @@ import fs from 'fs/promises';
 
 import { copyDirContents, copyFile, ensureDir } from '../../utils/file-system.js';
 import type { SkillSource } from '../assets/sources.js';
-import { getPlatformContextDir, type Platform } from '../platforms.js';
-import type { InstallScope, Language } from '../config/polaris-config.js';
+import { type Platform } from '../platforms.js';
+import type { InstallScope, Language } from '../config/polaris-project-config.js';
+import { getPlatformContextDir } from './layout.js';
 
 /** 将 assets 内语言路径 zh/ → en/（与 getLanguageContentRoots 策略一致） */
 function resolveLangPath(assetPath: string, lang: Language): string {
@@ -27,7 +28,7 @@ export async function installSource(
   scope: InstallScope,
   lang?: Language,
 ): Promise<void> {
-  const skillsDir = getPlatformContextDir(platform, scope);
+  const skillsDir = getPlatformContextDir(platform, scope, baseDir);
   const platformSkillsRoot = path.join(baseDir, skillsDir, 'skills');
   await ensureDir(platformSkillsRoot);
 

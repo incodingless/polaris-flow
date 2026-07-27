@@ -13,7 +13,7 @@ import {
 import { getBaseDir } from './detect.js';
 import { PLATFORMS } from '../platforms.js';
 import { printCommandErrorDetails } from '../command-error.js';
-import type { InstallScope } from '../config/polaris-config.js';
+import type { InstallScope } from '../config/polaris-project-config.js';
 import { execFileSync } from 'child_process';
 
 /** Superpowers 安装结果 */

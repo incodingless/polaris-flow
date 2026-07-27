@@ -1,4 +1,3 @@
-import { PlatformLayout } from './install/layout';
 /**
  * Polaris 安装编排入口。
  * 按以下顺序安装：
@@ -7,41 +6,29 @@ import { PlatformLayout } from './install/layout';
  * 3. 公共内容 adapters/policies/templates 随 skills 步骤落入 polaris-flow
  */
 import type { Platform } from './platforms.js';
-import type { InstallScope, Language } from './config/polaris-config.js';
+import type { InstallScope, Language } from './config/polaris-project-config.js';
 
 import { getAssetsDir } from './assets/polaris-paths.js';
-import { getPolarisSource } from './assets/sources.js';
-import { copyPolarisAgents, copyPolarisAgentsForPlatform } from './install/agents.js';
-import { installPolarisCommands, installPolarisCommandsForPlatform } from './install/commands.js';
+import { copyPolarisAgents } from './install/agents.js';
+import { installPolarisCommandsForPlatform } from './install/commands.js';
 import { installPolarisHooksForPlatform } from './install/hooks.js';
 import { initializeProjectLayout } from './install/layout.js';
-import { copyPolarisRules, copyPolarisRulesForPlatform } from './install/rules.js';
-import { copyPolarisSkillsForPlatform, copyPolarisSkillsForPlatforms } from './install/skills.js';
+import { copyPolarisRules } from './install/rules.js';
+import { copyPolarisSkillsForPlatform } from './install/skills.js';
 import { readAssets } from './assets/manifest.js';
 
 export type { LockFile, LockSourceEntry } from './install/lock.js';
 export { writeLockFile } from './install/lock.js';
-
-export {
-  installCommands,
-  installPolarisCommands,
-  parseFrontmatter,
-  resolveCommandsDir,
-} from './install/commands.js';
 export { installSource } from './install/source-installer.js';
 
-export { copyPolarisSkillsForPlatform, getManifestSkills, readManifest } from './install/skills.js';
-export type { Manifest } from './install/skills.js';
+export { copyPolarisSkillsForPlatform } from './install/skills.js';
+export type { Asset } from './assets/manifest.js';
 
-export { copyPolarisRulesForPlatform, computeRuleDestPath } from './install/rules.js';
-export { copyPolarisAgentsForPlatform } from './install/agents.js';
-export {
-  buildHookCommand,
-  installPolarisHooksForPlatform,
-  isManagedHookCommand,
-} from './install/hooks.js';
+export { copyPolarisRules, computeRuleDestPath } from './install/rules.js';
+export { copyPolarisAgents } from './install/agents.js';
+export { installPolarisHooksForPlatform } from './install/hooks.js';
 export { createWorkingDirs, initializeProjectLayout } from './install/layout.js';
-export type { ProjectLayoutOptions } from './install/layout.js';
+export type { ProjectLayoutOption } from './install/layout.js';
 
 /** 单类文件拷贝结果 */
 export type CopyStats = { copied: number; skipped: number };
@@ -69,63 +56,50 @@ export type PlatformInstallResult = {
  */
 export async function installPolarisForPlatform(
   baseDir: string,
-  platforms: Platform[],
+  platform: Platform,
   overwrite: boolean,
   language: Language = 'zh',
   scope: InstallScope = 'project',
   projectPath: string = baseDir,
-): Promise<PlatformInstallResult[]> {
-  const platformInstallResults: PlatformInstallResult[] = [];
-
-  const platformLayouts = await initializeProjectLayout(projectPath, {
+): Promise<PolarisInstallResult> {
+  const platformLayout = await initializeProjectLayout(projectPath, {
     language,
     scope,
     baseDir,
-    platforms: platforms,
+    platform: platform,
   });
 
   const assetsDir = getAssetsDir();
   const asset = await readAssets(language);
 
-  for (const platformLayout of platformLayouts) {
-    // 3. 复制技能
-    const skills = await copyPolarisSkillsForPlatform(
-      platformLayout.skillsDir,
-      platformLayout.platform,
-      overwrite,
-      asset,
-    );
+  // 3. 复制技能
+  const skills = await copyPolarisSkillsForPlatform(
+    platformLayout.skillsDir,
+    platformLayout.platform,
+    overwrite,
+    asset,
+  );
 
-    // 4. 复制命令
-    const commands = await installPolarisCommandsForPlatform(
-      platformLayout.commandsDir,
-      overwrite,
-      asset,
-    );
+  // 4. 复制命令
+  const commands = await installPolarisCommandsForPlatform(
+    platformLayout.commandsDir,
+    overwrite,
+    asset,
+  );
 
-    // 5. 复制代理
-    const agents = await copyPolarisAgents(platformLayout.agentsDir, overwrite, asset);
+  // 5. 复制代理
+  const agents = await copyPolarisAgents(platformLayout.agentsDir, overwrite, asset);
 
-    // 6. 复制规则
-    const rules = await copyPolarisRules(
-      platformLayout.rulesDir,
-      overwrite,
-      platformLayout.platform,
-      asset,
-    );
+  // 6. 复制规则
+  const rules = await copyPolarisRules(
+    platformLayout.rulesDir,
+    overwrite,
+    platformLayout.platform,
+    asset,
+  );
 
-    // 7. 复制钩子
-    const hooks = await installPolarisHooksForPlatform(
-      platformLayout.hooksDir,
-      platformLayout.platform,
-      scope,
-    );
+  // 7. 复制钩子
+  const hooks = await installPolarisHooksForPlatform(baseDir, platform, scope, asset);
 
-    platformInstallResults.push({
-      platform: platformLayout.platform,
-      result: { skills, commands, agents, rules, hooks },
-    });
-  }
-
-  return platformInstallResults;
+  return { skills, commands, agents, rules, hooks };
 }

@@ -10,7 +10,7 @@ import {
   getPolarisConfigPath,
   loadPolarisConfig,
   resolveReviewAgentModel,
-} from '../config/polaris-config.js';
+} from '../config/polaris-project-config.js';
 import {
   getLocksDir,
   getPolarisDir,
@@ -24,12 +24,11 @@ import { createHookIo, type HookIo } from './hook-io.js';
 import {
   checkPluginPresence,
   getInstallHints,
-  isSupportedPluginPlatform,
-  type PluginPlatformId,
   type PluginPresenceOptions,
 } from '../integration/detect.js';
+import { PLATFORMS, Platform } from '../platforms.js';
 
-export { resolveReviewAgentModel } from '../config/polaris-config.js';
+export { resolveReviewAgentModel } from '../config/polaris-project-config.js';
 
 const GITIGNORE_ENTRIES = [
   '.cache/',
@@ -57,6 +56,8 @@ export type SessionStartResult = {
 };
 
 export type SessionStartOptions = {
+  /** 平台 ID，如：claude、trae、cursor等 */
+  platformId?: string;
   /** 项目根目录，默认 process.cwd() */
   projectPath?: string;
   /** 可注入 IO，便于测试 */
@@ -81,11 +82,11 @@ export function createSessionId(now: Date = new Date()): string {
  */
 async function checkSuperpowers(
   io: HookIo,
-  platformId: PluginPlatformId,
+  platform: Platform,
   repoRoot: string,
   presenceOpts?: PluginPresenceOptions,
 ): Promise<boolean> {
-  const presence = await checkPluginPresence(platformId, 'superpowers', repoRoot, presenceOpts);
+  const presence = await checkPluginPresence(platform, 'superpowers', repoRoot, presenceOpts);
   if (presence.ok) {
     io.ok('superpowers found');
     return true;
@@ -95,7 +96,7 @@ async function checkSuperpowers(
   );
   io.hint('要求版本：superpowers >= 4.0.0');
   io.hint('安装方式（宿主 plugin，hook 不代为安装）：');
-  for (const line of getInstallHints(platformId, 'superpowers')) {
+  for (const line of getInstallHints(platform.id, 'superpowers')) {
     io.hint(line);
   }
   return false;
@@ -106,11 +107,11 @@ async function checkSuperpowers(
  */
 async function checkOpenspec(
   io: HookIo,
-  platformId: PluginPlatformId,
+  platform: Platform,
   repoRoot: string,
   presenceOpts?: PluginPresenceOptions,
 ): Promise<boolean> {
-  const presence = await checkPluginPresence(platformId, 'openspec', repoRoot, presenceOpts);
+  const presence = await checkPluginPresence(platform, 'openspec', repoRoot, presenceOpts);
   if (presence.ok) {
     io.ok('openspec found');
     return true;
@@ -121,7 +122,7 @@ async function checkOpenspec(
     return false;
   }
   io.warn('openspec CLI not found — polaris-flow 的 propose/design/build/ship 依赖 openspec 命令');
-  for (const line of getInstallHints(platformId, 'openspec')) {
+  for (const line of getInstallHints(platform.id, 'openspec')) {
     io.hint(line);
   }
   return false;
@@ -235,11 +236,11 @@ async function initSessionId(io: HookIo, projectPath: string, ppid: number): Pro
 export async function injectReviewAgentModel(
   io: HookIo,
   projectPath: string,
-  platformId: string,
+  platform: Platform,
   name: string,
   model: string,
 ): Promise<boolean> {
-  const dst = path.join(projectPath, `.${platformId}`, 'agents', `${name}.md`);
+  const dst = path.join(projectPath, `.${platform.id}`, 'agents', `${name}.md`);
   if (!(await fileExists(dst))) {
     io.warn(`${name} 未安装到 ${dst}（请先 polaris-flow init/update）`);
     return false;
@@ -262,15 +263,15 @@ export async function injectReviewAgentModel(
 async function syncReviewAgents(
   io: HookIo,
   projectPath: string,
-  platformId: string,
+  platform: Platform,
   model: string,
 ): Promise<boolean> {
-  if (platformId !== 'claude' && platformId !== 'trae') {
+  if (platform.id !== 'claude' && platform.id !== 'trae') {
     return true;
   }
   let ok = true;
   for (const name of REVIEW_AGENTS) {
-    const injected = await injectReviewAgentModel(io, projectPath, platformId, name, model);
+    const injected = await injectReviewAgentModel(io, projectPath, platform, name, model);
     if (!injected) ok = false;
   }
   return ok;
@@ -285,6 +286,17 @@ export async function runSessionStart(
   const projectPath = path.resolve(options.projectPath ?? process.cwd());
   const io = options.io ?? createHookIo();
   const ppid = options.ppid ?? process.ppid;
+  const platformId = options.platformId;
+  if (!platformId) {
+    io.fail('platform not set in .polaris/config.yaml — skip plugin presence checks');
+    return { warnCount: 1, failCount: 1, exitCode: 1 };
+  }
+
+  const platform = PLATFORMS.find((p) => p.id === platformId);
+  if (!platform) {
+    io.fail(`platform '${platformId}' not found — skip plugin presence checks`);
+    return { warnCount: 1, failCount: 1, exitCode: 1 };
+  }
 
   let warnCount = 0;
   let failCount = 0;
@@ -292,7 +304,6 @@ export async function runSessionStart(
   io.tty('=== polaris-flow SessionStart Check ===');
 
   const config = await loadPolarisConfig(projectPath);
-  const platformRaw = config?.platform;
   const pluginRoot = config?.plugin_root;
 
   const runWarn = async (fn: () => Promise<boolean>) => {
@@ -302,25 +313,16 @@ export async function runSessionStart(
     if (!(await fn())) failCount += 1;
   };
 
-  if (platformRaw && isSupportedPluginPlatform(platformRaw)) {
-    const platformId = platformRaw;
-    const presenceOpts = options.pluginPresence;
-    await runWarn(() => checkSuperpowers(io, platformId, projectPath, presenceOpts));
-    await runWarn(() => checkOpenspec(io, platformId, projectPath, presenceOpts));
-  } else if (platformRaw) {
-    io.warn(`unsupported platform '${platformRaw}' — skip plugin presence checks`);
-    warnCount += 1;
-  } else {
-    io.warn('platform not set in .polaris/config.yaml — skip plugin presence checks');
-    warnCount += 1;
-  }
+  const presenceOpts = options.pluginPresence;
+  await runWarn(() => checkSuperpowers(io, platform, projectPath, presenceOpts));
+  await runWarn(() => checkOpenspec(io, platform, projectPath, presenceOpts));
 
   await runFail(() => checkConfig(io, projectPath, pluginRoot));
   await runFail(() => initSessionId(io, projectPath, ppid));
 
   const model = resolveReviewAgentModel(config);
-  if (platformRaw) {
-    await runWarn(() => syncReviewAgents(io, projectPath, platformRaw, model));
+  if (platform) {
+    await runWarn(() => syncReviewAgents(io, projectPath, platform, model));
   }
 
   if (failCount > 0 || warnCount > 0) {

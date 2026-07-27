@@ -2,7 +2,7 @@
  * 支持的 AI 编码平台定义（skillsDir、rules、hooks、skillsLayout）。
  * 对齐 OpenSpec AI_TOOLS 配置思路；不写盘，仅提供元数据与路径辅助函数。
  */
-import type { InstallScope } from './config/polaris-config.js';
+import type { InstallScope } from './config/polaris-project-config.js';
 
 /** 技能目录布局：nested 嵌套进 polaris-flow；flat 子 skill 扁平为 polaris-flow-*（如 Trae） */
 export type SkillsLayout = 'nested' | 'flat';

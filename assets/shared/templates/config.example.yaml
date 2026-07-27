@@ -28,20 +28,6 @@ context-compression: off  # 上下文压缩: off | beta
 review-mode: standard  # 审查模式: standard | thorough
 build-mode: tdd  # 开发模式: tdd | bdd
 
-# 可用模型列表
-models:
-  high: 
-  - GLM5.2
-  - Doubao-Seed-2.1-Pro
-  - Doubao-Seed-2.1-Turbo
-  - Qwen3.7-Plus
-  medium:
-  - Kimi-K2.7-Code
-  - MiniMax-M3
-  - DeepSeek-V4-Pro
-  low:
-  - DeepSeek-V4-Flash
-
 # 模型配置
 model:
   propose: GLM5.2

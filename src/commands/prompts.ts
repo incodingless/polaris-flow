@@ -1,7 +1,22 @@
+/**
+ * init 安装流程的交互提示层（commands 层）。
+ *
+ * 定位：
+ * - 只负责「问用户」与「根据 CLI 标志解析动作」，不写盘、不探测、不安装。
+ * - 依赖 `@inquirer/prompts` 做 select/checkbox；文案走 `./i18n`。
+ * - 当前由 `init.ts` 消费；`--yes` / `--overwrite` / `--skip-existing` 等非交互路径
+ *   经 `resolveAction` 在本文件统一落到 install | overwrite | skip。
+ *
+ * 覆盖的交互：
+ * - 安装范围（project / global）
+ * - Skill 语言（en / zh）
+ * - 目标平台多选（标注已探测项）
+ * - 已有组件时的覆盖策略（整批或逐项）
+ */
 import { checkbox, select } from '@inquirer/prompts';
 
 import { t } from './i18n/index.js';
-import type { InstallScope, Language } from '../core/config/polaris-config.js';
+import type { InstallScope, Language } from '../core/config/polaris-project-config.js';
 import { PLATFORMS, type Platform } from '../core/platforms.js';
 
 export type ComponentAction = 'install' | 'overwrite' | 'skip';

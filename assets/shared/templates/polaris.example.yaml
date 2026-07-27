@@ -1,0 +1,21 @@
+version: "0.1.0"
+
+# 安装时间
+install-time: "2026-06-25T02:05:29.066Z"
+
+# 仪表盘端口
+dashboard-port: 8000
+
+# 可用模型列表
+models:
+  high: 
+  - GLM5.2
+  - Doubao-Seed-2.1-Pro
+  - Doubao-Seed-2.1-Turbo
+  - Qwen3.7-Plus
+  medium:
+  - Kimi-K2.7-Code
+  - MiniMax-M3
+  - DeepSeek-V4-Pro
+  low:
+  - DeepSeek-V4-Flash

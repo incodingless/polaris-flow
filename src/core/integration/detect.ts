@@ -8,8 +8,9 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 
 import { fileExists, readDir } from '../../utils/file-system.js';
-import { PLATFORMS, getPlatformContextDir, type Platform } from '../platforms.js';
-import type { InstallScope } from '../config/polaris-config.js';
+import { PLATFORMS, type Platform } from '../platforms.js';
+import type { InstallScope } from '../config/polaris-project-config.js';
+import { getPlatformContextDir } from '../install/layout.js';
 
 /** superpowers 特征 skill（命中任一即视为已装） */
 const SUPERPOWERS_MARKERS = [
@@ -22,7 +23,6 @@ const SUPERPOWERS_MARKERS = [
 ] as const;
 
 export type PluginName = 'superpowers' | 'openspec';
-export type PluginPlatformId = 'claude' | 'trae' | 'qoder' | 'codebuddy';
 
 export type PluginFindResult = {
   scope: 'global' | 'project';
@@ -48,13 +48,6 @@ export type PluginPresenceOptions = {
   isCommandAvailable?: (command: string) => boolean;
 };
 
-const PLATFORM_CONFIG_DIR: Record<PluginPlatformId, string> = {
-  claude: '.claude',
-  trae: '.trae',
-  qoder: '.qoder',
-  codebuddy: '.codebuddy',
-};
-
 /** 返回安装目标根目录：project 用项目路径，global 用用户主目录 */
 function getBaseDir(scope: InstallScope, projectPath: string): string {
   return scope === 'global' ? os.homedir() : projectPath;
@@ -73,7 +66,7 @@ async function detectPlatforms(projectPath: string): Promise<Set<string>> {
         }
       }
     } else {
-      const skillsDir = getPlatformContextDir(platform, 'project');
+      const skillsDir = getPlatformContextDir(platform, 'project', projectPath);
       if (await fileExists(path.join(projectPath, skillsDir))) {
         detected.add(platform.id);
       }
@@ -94,7 +87,7 @@ async function hasSkills(
   _selectedPlatforms: Platform[] = [],
   scope: InstallScope = 'project',
 ): Promise<boolean> {
-  const skillsDir = getPlatformContextDir(platform, scope);
+  const skillsDir = getPlatformContextDir(platform, scope, baseDir);
   const fullPath = path.join(baseDir, skillsDir, 'skills');
   const entries = (await fileExists(fullPath)) ? await readDir(fullPath) : [];
 
@@ -134,11 +127,6 @@ export function platformDisplayName(platformId: string): string {
     default:
       return platformId;
   }
-}
-
-/** 判断是否为支持的插件探测平台 id */
-export function isSupportedPluginPlatform(id: string): id is PluginPlatformId {
-  return id in PLATFORM_CONFIG_DIR;
 }
 
 /**
@@ -268,10 +256,10 @@ function readCliVersion(command: string): string {
 }
 
 async function findSuperpowersGlobal(
-  platformId: PluginPlatformId,
+  platform: Platform,
   home: string,
 ): Promise<PluginFindResult | null> {
-  if (platformId === 'claude') {
+  if (platform.id === 'claude') {
     const claudeConfig =
       home === os.homedir()
         ? process.env.CLAUDE_CONFIG_DIR || path.join(home, '.claude')
@@ -291,7 +279,7 @@ async function findSuperpowersGlobal(
     }
   }
 
-  if (platformId === 'codebuddy') {
+  if (platform.id === 'codebuddy') {
     const pluginPath = firstExistingDir([
       path.join(
         home,
@@ -308,7 +296,7 @@ async function findSuperpowersGlobal(
     }
   }
 
-  const configDir = PLATFORM_CONFIG_DIR[platformId];
+  const configDir = platform.contextDir;
   const skillsHit = await findSuperpowersSkillsInDir(path.join(home, configDir, 'skills'));
   if (skillsHit) {
     return { scope: 'global', kind: 'skills', path: skillsHit };
@@ -317,10 +305,10 @@ async function findSuperpowersGlobal(
 }
 
 async function findSuperpowersProject(
-  platformId: PluginPlatformId,
+  platform: Platform,
   repoRoot: string,
 ): Promise<PluginFindResult | null> {
-  const configDir = PLATFORM_CONFIG_DIR[platformId];
+  const configDir = platform.contextDir;
   const skillsHit = await findSuperpowersSkillsInDir(path.join(repoRoot, configDir, 'skills'));
   if (skillsHit) {
     return { scope: 'project', kind: 'skills', path: skillsHit };
@@ -329,7 +317,7 @@ async function findSuperpowersProject(
 }
 
 async function findOpenspecGlobal(
-  platformId: PluginPlatformId,
+  platform: Platform,
   home: string,
   isCmdAvailable: (command: string) => boolean = commandAvailable,
 ): Promise<PluginFindResult | null> {
@@ -355,7 +343,7 @@ async function findOpenspecGlobal(
     };
   }
 
-  const configDir = PLATFORM_CONFIG_DIR[platformId];
+  const configDir = platform.contextDir;
   const skillsHit = await findOpenspecSkillsInDir(path.join(home, configDir, 'skills'));
   if (skillsHit) {
     return { scope: 'global', kind: 'skills', path: skillsHit };
@@ -364,7 +352,7 @@ async function findOpenspecGlobal(
 }
 
 async function findOpenspecProject(
-  platformId: PluginPlatformId,
+  platform: Platform,
   repoRoot: string,
 ): Promise<PluginFindResult | null> {
   const localOpenspec = path.join(repoRoot, 'node_modules', '.bin', 'openspec');
@@ -389,7 +377,7 @@ async function findOpenspecProject(
     };
   }
 
-  const configDir = PLATFORM_CONFIG_DIR[platformId];
+  const configDir = platform.contextDir;
   const skillsHit = await findOpenspecSkillsInDir(path.join(repoRoot, configDir, 'skills'));
   if (skillsHit) {
     return { scope: 'project', kind: 'skills', path: skillsHit };
@@ -401,7 +389,7 @@ async function findOpenspecProject(
  * 查找指定平台下的 plugin（global → project）。
  */
 export async function findPlugin(
-  platformId: PluginPlatformId,
+  platform: Platform,
   pluginName: PluginName,
   repoRoot: string,
   options: PluginPresenceOptions = {},
@@ -410,13 +398,11 @@ export async function findPlugin(
   const isCmd = options.isCommandAvailable ?? commandAvailable;
   if (pluginName === 'superpowers') {
     return (
-      (await findSuperpowersGlobal(platformId, homeDir)) ??
-      findSuperpowersProject(platformId, repoRoot)
+      (await findSuperpowersGlobal(platform, homeDir)) ?? findSuperpowersProject(platform, repoRoot)
     );
   }
   return (
-    (await findOpenspecGlobal(platformId, homeDir, isCmd)) ??
-    findOpenspecProject(platformId, repoRoot)
+    (await findOpenspecGlobal(platform, homeDir, isCmd)) ?? findOpenspecProject(platform, repoRoot)
   );
 }
 
@@ -424,12 +410,12 @@ export async function findPlugin(
  * 检测 plugin 是否就绪；openspec-cn 仅找到时 found=true 但 ok=false（需别名告警）。
  */
 export async function checkPluginPresence(
-  platformId: PluginPlatformId,
+  platform: Platform,
   pluginName: PluginName,
   repoRoot: string,
   options: PluginPresenceOptions = {},
 ): Promise<PluginPresenceResult> {
-  const result = await findPlugin(platformId, pluginName, repoRoot, options);
+  const result = await findPlugin(platform, pluginName, repoRoot, options);
   if (!result) {
     return { ok: false, found: false };
   }
