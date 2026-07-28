@@ -21,11 +21,7 @@ import {
 import { copyPolarisAgents } from './install/agents.js';
 import { installPolarisCommandsForPlatform } from './install/commands.js';
 import { installPolarisHooksForPlatform } from './install/hooks.js';
-import {
-  ProjectLayoutOption,
-  initializePolarisCommonLayout,
-  initializeProjectLayout,
-} from './install/layout.js';
+import { initializeProjectLayout } from './install/layout.js';
 import { copyPolarisRules } from './install/rules.js';
 import { copyPolarisSkillsForPlatform } from './install/skills.js';
 import { readAssets } from './assets/manifest.js';
@@ -126,6 +122,8 @@ export async function installPolarisForPlatform(
   scope: InstallScope = 'project',
   projectPath: string = baseDir,
 ): Promise<PolarisInstallResult> {
+  const platformLayout = await initializeProjectLayout(projectPath, scope, platform);
+
   // 3. 复制 Polaris 资产
   const asset = await readAssets(language);
   // 3.1 复制技能
