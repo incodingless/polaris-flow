@@ -1,7 +1,7 @@
 /**
  * `polaris workflow-entry` 命令：workflow.yaml 持锁 RMW。
  */
-import { runWorkflowEntry, type WorkflowEntryOp } from '../core/hooks/workflow-entry.js';
+import { runWorkflowEntry, type WorkflowEntryOp } from '../../core/hooks/workflow-entry.js';
 
 export type WorkflowEntryCommandOptions = {
   skill: string;

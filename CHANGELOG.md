@@ -14,6 +14,8 @@
 
 ### Changed
 
+- **init 选择逻辑迁入 prompts**: `selectScope` / `selectLanguage` / `selectPlatforms` / `buildInstallPlans`（及 `PlatformPlan`）从 `init.ts` 迁入 `prompts.ts`；init 只保留安装编排与结果展示
+- **hooks CLI 入口**: hooks 薄包装 `_polaris-cli.sh` 只调用 `polaris-flow`；用户侧 init/status 等仍用 `polaris`（package.json 双 bin）
 - **getAssetsDir 归位**: 从 `assets/paths` 迁入 `config/polaris-paths`，安装与命令侧统一从此取包内 assets 路径
 - **init 目录初始化**: 新增 `install/layout`（`initializeProjectLayout`）；按注释创建全局/项目 `.polaris` 文件、scope 区分 worktree、平台 skills/commands/agents/rules 与 polaris-flow 子目录；路径助手归并 `polaris-paths`；`installPolarisForPlatform` 第一步调用 layout；`copy-jobs` 并入 `file-system`
 - **worktree 模块合并**: `worktree-create` / `worktree-merge-status` / `worktree-rebase-ff` 核心合并为 `src/core/hooks/worktree.ts`，导出 `create` / `merge` / `rebase`；CLI 与薄包装命令名不变

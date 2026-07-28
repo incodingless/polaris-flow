@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# _polaris-cli.sh — hooks 薄包装共用：CRLF 自愈 + 查找 polaris CLI 并 exec
+# _polaris-cli.sh — hooks 薄包装共用：CRLF 自愈 + 查找 polaris-flow CLI 并 exec
+#
+# 双入口约定（package.json bin）：
+#   - polaris       → 给人用的 CLI（init / status / update 等）
+#   - polaris-flow  → 给 hooks 用的运行时入口（本脚本只查这个，避免与用户 CLI 混淆）
 #
 # 用法（由各 hook 薄包装 source）：
 #   # 可选：对调用方脚本做 CRLF 自愈
@@ -36,19 +40,18 @@ _polaris_cli_tty() {
   fi
 }
 
-# 查找 polaris / polaris-flow 并 exec 子命令；找不到则提示并 exit 1
-# PLATFORM_ID 在安装hooks时由程序完成值的替换，如：claude、trae、cursor等
+# 查找 polaris-flow 并 exec 子命令；找不到则提示并 exit 1
+# PLATFORM_ID 在安装 hooks 时由程序完成值的替换，如：claude、trae、cursor 等
 exec_polaris() {
   local subcmd="$1"
   shift
-  if command -v polaris >/dev/null 2>&1; then
-    exec polaris "$subcmd" "$@" --platform @PLATFORM_ID@
-  fi
+  # hooks 专用入口：只用 polaris-flow（与用户侧 polaris CLI 分离）
   if command -v polaris-flow >/dev/null 2>&1; then
     exec polaris-flow "$subcmd" "$@" --platform @PLATFORM_ID@
   fi
-  _polaris_cli_tty "[polaris-flow][FAIL] polaris CLI not found — hook requires a global install"
+  _polaris_cli_tty "[polaris-flow][FAIL] polaris-flow CLI not found — hook requires a global install"
   _polaris_cli_tty "                  Install: npm install -g @polaris/polaris-flow"
-  _polaris_cli_tty "                  Then retry (or run: polaris ${subcmd} …)"
+  _polaris_cli_tty "                  Then retry (or run: polaris-flow ${subcmd} …)"
+  _polaris_cli_tty "                  Note: interactive CLI remains 'polaris' (init/status/…)"
   exit 1
 }

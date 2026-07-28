@@ -6,8 +6,8 @@ import { initCommand } from '../commands/init.js';
 import { updateCommand } from '../commands/update.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { statusCommand } from '../commands/status.js';
-import { sessionStartCommand } from '../commands/session-start.js';
-import { workflowEntryCommand } from '../commands/workflow-entry.js';
+import { sessionStartCommand } from '../commands/hooks/session-start.js';
+import { workflowEntryCommand } from '../commands/hooks/workflow-entry.js';
 import {
   constitutionValidityCommand,
   draftCreateCommand,
@@ -20,7 +20,7 @@ import {
   worktreeCreateCommand,
   worktreeMergeStatusCommand,
   worktreeRebaseFfCommand,
-} from '../commands/hooks-rest.js';
+} from '../commands/hooks/hooks-rest.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../../package.json');

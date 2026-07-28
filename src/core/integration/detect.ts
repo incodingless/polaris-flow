@@ -11,6 +11,7 @@ import { fileExists, readDir } from '../../utils/file-system.js';
 import { PLATFORMS, type Platform } from '../platforms.js';
 import type { InstallScope } from '../config/polaris-project-config.js';
 import { getPlatformContextDir } from '../install/layout.js';
+import { POLARIS_FLOW_PLUGIN_NAME, POLARIS_PLUGIN_PREFIX } from '../config/polaris-constants.js';
 
 /** superpowers 特征 skill（命中任一即视为已装） */
 const SUPERPOWERS_MARKERS = [
@@ -55,25 +56,25 @@ function getBaseDir(scope: InstallScope, projectPath: string): string {
 
 /** 根据 detectionPaths / skillsDir 是否存在，探测项目可能使用的平台集合 */
 async function detectPlatforms(projectPath: string): Promise<Set<string>> {
-  const detected = new Set<string>();
+  const detectedPlatforms = new Set<string>();
 
   for (const platform of PLATFORMS) {
     if (platform.detectionPaths && platform.detectionPaths.length > 0) {
       for (const p of platform.detectionPaths) {
         if (await fileExists(path.join(projectPath, p))) {
-          detected.add(platform.id);
+          detectedPlatforms.add(platform.id);
           break;
         }
       }
     } else {
       const skillsDir = getPlatformContextDir(platform, 'project', projectPath);
       if (await fileExists(path.join(projectPath, skillsDir))) {
-        detected.add(platform.id);
+        detectedPlatforms.add(platform.id);
       }
     }
   }
 
-  return detected;
+  return detectedPlatforms;
 }
 
 /**
@@ -81,15 +82,10 @@ async function detectPlatforms(projectPath: string): Promise<Set<string>> {
  * 只检查当前安装目标目录（project 或 global），不跨 scope 查主目录，避免误报。
  */
 async function hasSkills(
-  baseDir: string,
-  platform: Platform,
+  skillsDir: string,
   component: 'openspec' | 'superpowers' | 'polaris',
-  _selectedPlatforms: Platform[] = [],
-  scope: InstallScope = 'project',
 ): Promise<boolean> {
-  const skillsDir = getPlatformContextDir(platform, scope, baseDir);
-  const fullPath = path.join(baseDir, skillsDir, 'skills');
-  const entries = (await fileExists(fullPath)) ? await readDir(fullPath) : [];
+  const entries = (await fileExists(skillsDir)) ? await readDir(skillsDir) : [];
 
   switch (component) {
     case 'openspec':
@@ -102,7 +98,10 @@ async function hasSkills(
       // polaris-flow（嵌套包根）或 polaris-flow-*（Trae 扁平子 skill）或旧版 polaris*
       if (
         entries.some(
-          (e) => e === 'polaris-flow' || e.startsWith('polaris-flow-') || e.startsWith('polaris'),
+          (e) =>
+            e === POLARIS_FLOW_PLUGIN_NAME ||
+            e.startsWith(`${POLARIS_FLOW_PLUGIN_NAME}-`) ||
+            e.startsWith(POLARIS_PLUGIN_PREFIX),
         )
       ) {
         return true;
@@ -111,22 +110,6 @@ async function hasSkills(
   }
 
   return false;
-}
-
-/** 返回平台展示名 */
-export function platformDisplayName(platformId: string): string {
-  switch (platformId) {
-    case 'claude':
-      return 'Claude Code';
-    case 'trae':
-      return 'Trae';
-    case 'qoder':
-      return 'Qoder';
-    case 'codebuddy':
-      return 'CodeBuddy';
-    default:
-      return platformId;
-  }
 }
 
 /**

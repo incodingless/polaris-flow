@@ -2,6 +2,8 @@
  * 支持的 AI 编码平台定义（skillsDir、rules、hooks、skillsLayout）。
  * 对齐 OpenSpec AI_TOOLS 配置思路；不写盘，仅提供元数据与路径辅助函数。
  */
+import path from 'path';
+import os from 'os';
 import type { InstallScope } from './config/polaris-project-config.js';
 
 /** 技能目录布局：nested 嵌套进 polaris-flow；flat 子 skill 扁平为 polaris-flow-*（如 Trae） */
@@ -43,6 +45,38 @@ export function getSettingsFilePath(platform: Platform, scope: InstallScope): st
   // Global scope → settings.json
   const fileName = scope === 'project' ? 'settings.local.json' : 'settings.json';
   return `${platform.skillsDir}/${fileName}`;
+}
+
+/**
+ * 返回平台上下文目录（project→项目/.platform，global→~/.platform）
+ * @param platform 平台
+ * @param scope 安装作用域
+ * @param projectRoot 项目根目录
+ * @returns 平台上下文目录（project→项目/.platform，global→~/.platform）
+ */
+export function getPlatformContextDir(
+  platform: Platform,
+  scope: InstallScope = 'project',
+  projectRoot: string,
+): string {
+  return scope === 'global'
+    ? path.join(os.homedir(), platform.globalContextDir)
+    : path.join(projectRoot, platform.contextDir);
+}
+
+/**
+ * 返回平台技能目录（project→项目/skills，global→~/.platform/.skills）
+ * @param platform 平台
+ * @param scope 安装作用域
+ * @param projectRoot 项目根目录
+ * @returns 平台技能目录（project→项目/skills，global→~/.platform/.skills）
+ */
+export function getPlatformSkillsDir(
+  platform: Platform,
+  scope: InstallScope = 'project',
+  projectRoot: string,
+): string {
+  return path.join(getPlatformContextDir(platform, scope, projectRoot), platform.skillsDir);
 }
 
 export type HarnessType = 'rules' | 'skills' | 'commands' | 'agents' | 'hooks';

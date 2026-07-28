@@ -1,17 +1,13 @@
+/**
+ * `polaris init` 命令编排：探测 → 交互选择（prompts）→ 安装 OpenSpec/Superpowers/Polaris → 结果展示。
+ * 不持有底层交互实现；选择与覆盖策略见 `./prompts`。
+ */
 import path from 'path';
 import os from 'os';
 
 import { t } from './i18n/index.js';
-import {
-  promptBulkOverwriteChoice,
-  promptInstallScope,
-  promptOverwriteChoice,
-  promptPlatforms,
-  promptSkillLanguage,
-  resolveAction,
-  type ComponentAction,
-} from './prompts.js';
-import { detectPlatforms, getBaseDir, hasSkills } from '../core/integration/detect.js';
+import { buildInstallPlans, selectLanguage, selectPlatforms, selectScope } from './prompts.js';
+import { detectPlatforms, getBaseDir } from '../core/integration/detect.js';
 import { installOpenSpec } from '../core/integration/openspec.js';
 import {
   installSuperpowersForPlatforms,
@@ -22,7 +18,7 @@ import { writeLockFile, type LockSourceEntry } from '../core/install.js';
 import { getNpmPackageVersion } from '../core/deps/npm.js';
 import { installPolarisForPlatform } from '../core/install.js';
 import { getAssetsDir } from '../core/assets/polaris-paths.js';
-import { getSettingsFilePath, PLATFORMS, type Platform } from '../core/platforms.js';
+import { getSettingsFilePath } from '../core/platforms.js';
 import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
 import type { InstallScope, Language } from '../core/config/polaris-project-config.js';
 import { initializePolarisCommonLayout } from '../core/install/layout.js';
@@ -62,25 +58,12 @@ export type InitResult = {
 
 type Logger = (message: string) => void;
 
-type ComponentPlan = {
-  polarisAction: ComponentAction;
-  spAction: ComponentAction;
-  osAction: ComponentAction;
-};
-
-type PlatformPlan = ComponentPlan & {
-  platform: Platform;
-  hasPolaris: boolean;
-  hasSP: boolean;
-  hasOS: boolean;
-};
-
 const OPENSPEC_PACKAGE = '@fission-ai/openspec';
 
 const POLARIS_BANNER = [
   ``,
-  `${green('▄▄▄▄▄▄  ')}                                    ${red('██')}              ${green('▄▄▄▄▄▄▄▄')} ▄▄▄▄                         `,
-  `${green('██▀▀▀▀█▄')}                                    ${red('▀▀')}              ${green('██▀▀▀▀▀▀')} ▀▀██                         `,
+  `${green('▄▄▄▄▄▄')}                                              ${red('██')}                ${green('▄▄▄▄▄▄▄▄')} ▄▄▄▄                         `,
+  `${green('██▀▀▀▀█▄')}                                            ${red('▀▀')}                ${green('██▀▀▀▀▀▀')} ▀▀██                         `,
   `${green('██    ██')}  ▄████▄     ██       ▄█████▄   ██▄████   ████     ▄▄█████▄   ${green('██      ')}   ██       ▄████▄  ██      ██`,
   `${green('██████▀ ')} ██▀  ▀██    ██       ▀ ▄▄▄██   ██▀         ██     ██▄▄▄▄ ▀   ${green('███████ ')}   ██      ██▀  ▀██ ▀█  ██  █▀`,
   `${green('██      ')} ██    ██    ██      ▄██▀▀▀██   ██          ██      ▀▀▀▀██▄   ${green('██      ')}   ██      ██    ██  ██▄██▄██ `,
@@ -107,92 +90,6 @@ function statusLabel(status: InstallStatus, lang: Language): string {
   return red(t(lang, 'failedStatus'));
 }
 
-async function selectScope(options: InitOptions, lang?: string): Promise<InstallScope> {
-  if (options.scope) {
-    if (options.scope === 'project' || options.scope === 'global') {
-      return options.scope;
-    }
-    console.warn(
-      `  Warning: invalid scope "${options.scope}", expected "project" or "global". Falling back to prompt.`,
-    );
-  }
-  if (options.yes) return 'project';
-  return promptInstallScope(lang);
-}
-
-async function selectLanguage(options: InitOptions, langHint?: string): Promise<Language> {
-  if (options.lang === 'zh' || options.lang === 'en') {
-    return options.lang;
-  }
-  if (options.yes) return 'en';
-  return promptSkillLanguage(langHint);
-}
-
-async function selectPlatforms(
-  detected: Set<string>,
-  options: InitOptions,
-  lang?: string,
-): Promise<Platform[]> {
-  if (options.yes) {
-    const fromDetected = PLATFORMS.filter((p) => detected.has(p.id));
-    if (fromDetected.length > 0) return fromDetected;
-    return PLATFORMS.filter((p) => p.id === 'cursor' || p.id === 'claude');
-  }
-  return promptPlatforms(detected, lang);
-}
-
-async function buildInstallPlans(
-  baseDir: string,
-  platforms: Platform[],
-  scope: InstallScope,
-  options: InitOptions,
-  lang: Language,
-): Promise<PlatformPlan[]> {
-  const plans: PlatformPlan[] = [];
-
-  for (const platform of platforms) {
-    const hasPolaris = await hasSkills(baseDir, platform, 'polaris', platforms, scope);
-    const hasSP = await hasSkills(baseDir, platform, 'superpowers', platforms, scope);
-    const hasOS = await hasSkills(baseDir, platform, 'openspec', platforms, scope);
-
-    let polarisAction = resolveAction(hasPolaris, options);
-    let spAction = resolveAction(hasSP, options);
-    let osAction = resolveAction(hasOS, options);
-
-    if (!options.yes) {
-      const existingComponents = [
-        hasPolaris && polarisAction === 'install' ? 'Polaris' : null,
-        hasSP && spAction === 'install' ? 'Superpowers' : null,
-        hasOS && osAction === 'install' ? 'OpenSpec' : null,
-      ].filter((c): c is string => Boolean(c));
-
-      if (existingComponents.length > 1) {
-        const bulkChoice = await promptBulkOverwriteChoice(platform.name, existingComponents, lang);
-        if (bulkChoice !== 'choose') {
-          const action: ComponentAction = bulkChoice === 'overwrite-all' ? 'overwrite' : 'skip';
-          if (polarisAction === 'install') polarisAction = action;
-          if (spAction === 'install') spAction = action;
-          if (osAction === 'install') osAction = action;
-        }
-      }
-
-      if (polarisAction === 'install' && hasPolaris) {
-        polarisAction = await promptOverwriteChoice('Polaris', platform.name, lang);
-      }
-      if (spAction === 'install' && hasSP) {
-        spAction = await promptOverwriteChoice('Superpowers', platform.name, lang);
-      }
-      if (osAction === 'install' && hasOS) {
-        osAction = await promptOverwriteChoice('OpenSpec', platform.name, lang);
-      }
-    }
-
-    plans.push({ platform, polarisAction, spAction, osAction, hasPolaris, hasSP, hasOS });
-  }
-
-  return plans;
-}
-
 function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang: Language): void {
   const scopeLabel = scope === 'global' ? os.homedir() : 'project';
 
@@ -213,8 +110,6 @@ function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang
   if (installed.length > 0) {
     console.log(`  ${green(t(lang, 'installed'))}`);
     for (const r of installed) {
-      const platform = PLATFORMS.find((p) => p.id === r.platformId);
-      if (!platform) continue;
       console.log(`    ${green('✓')}  ${bold(r.platformName)} ${dim(`${r.baseDir}/skills/`)}`);
     }
   }
@@ -236,8 +131,9 @@ function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang
 }
 
 export async function runInit(rawPath: string, options: InitOptions = {}): Promise<InitResult> {
-  const projectPath = path.resolve(rawPath || process.cwd());
   const log = createLogger(Boolean(options.json));
+
+  const projectPath = path.resolve(rawPath || process.cwd());
   const langHint = options.lang;
 
   if (!options.json) {
@@ -255,11 +151,11 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
     log('');
   }
 
-  const detected = await detectPlatforms(projectPath);
+  const detectedPlatforms = await detectPlatforms(projectPath);
   const scope = await selectScope(options, langHint);
   const language = await selectLanguage(options, langHint);
   const lang = language;
-  const platforms = await selectPlatforms(detected, options, lang);
+  const platforms = await selectPlatforms(detectedPlatforms, options, lang);
 
   if (platforms.length === 0) {
     if (options.json) {
@@ -333,14 +229,10 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
       for (const plan of plans) {
         if (plan.polarisAction === 'skip') continue;
 
-        const overwrite =
-          plan.polarisAction === 'overwrite' ||
-          (plan.polarisAction === 'install' && !plan.hasPolaris);
-
         const result = await installPolarisForPlatform(
           baseDir,
           plan.platform,
-          overwrite,
+          plan.polarisAction === 'overwrite',
           language,
           scope,
           projectPath,

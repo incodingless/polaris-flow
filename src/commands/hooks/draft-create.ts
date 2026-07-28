@@ -1,7 +1,7 @@
 /**
  * `polaris draft-create` 命令。
  */
-import { runDraftCreate } from '../core/hooks/draft-create.js';
+import { runDraftCreate } from '../../core/hooks/draft-create.js';
 
 /** 运行 draft-create 并设置 exitCode / stdout JSON */
 export async function draftCreateCommand(repoRoot: string): Promise<void> {

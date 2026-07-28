@@ -1,5 +1,5 @@
 # 基础配置
-language: "zh"  #语言: en | zh-CN
+language: "zh-CN"  #语言: en | zh-CN
 platform:          # 平台: trae | claude | qoder
   - "trae" 
   

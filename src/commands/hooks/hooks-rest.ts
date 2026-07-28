@@ -2,12 +2,12 @@
  * Phase 2/3 hooks 的 Commander 命令包装（stdout JSON / exitCode）。
  */
 import { draftCreateCommand } from './draft-create.js';
-import { runConstitutionValidity } from '../core/hooks/constitution-validity.js';
-import { runHarnessSync, type HarnessSyncConflictMode } from '../core/hooks/harness-sync.js';
-import { runIntentionValidate } from '../core/hooks/intention-validate.js';
-import { runDeliveryCleanup } from '../core/hooks/delivery-cleanup.js';
-import { runTasksLint } from '../core/hooks/tasks-lint.js';
-import { create, merge, rebase } from '../core/hooks/worktree.js';
+import { runConstitutionValidity } from '../../core/hooks/constitution-validity.js';
+import { runHarnessSync, type HarnessSyncConflictMode } from '../../core/hooks/harness-sync.js';
+import { runIntentionValidate } from '../../core/hooks/intention-validate.js';
+import { runDeliveryCleanup } from '../../core/hooks/delivery-cleanup.js';
+import { runTasksLint } from '../../core/hooks/tasks-lint.js';
+import { create, merge, rebase } from '../../core/hooks/worktree.js';
 import { taskFinalizeCommand } from './task-finalize.js';
 import { taskInitCommand } from './task-init.js';
 

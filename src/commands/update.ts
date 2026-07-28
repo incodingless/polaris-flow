@@ -6,7 +6,7 @@ import { detectPlatforms, getBaseDir, hasSkills } from '../core/integration/dete
 import { loadManifestConfig } from '../core/assets/manifest.js';
 import { installPolarisForPlatform } from '../core/install.js';
 import { getAssetsDir } from '../core/assets/polaris-paths.js';
-import { PLATFORMS } from '../core/platforms.js';
+import { PLATFORMS, getPlatformSkillsDir } from '../core/platforms.js';
 import { printVersionInfo, PACKAGE_NAME } from '../core/deps/version.js';
 import { fileExists } from '../utils/file-system.js';
 import type { InstallScope, Language } from '../core/config/polaris-project-config.js';
@@ -50,7 +50,8 @@ async function findInstalledPlatforms(
     if (!detected.has(platform.id)) {
       continue;
     }
-    if (await hasSkills(baseDir, platform, 'polaris', [], scope)) {
+    const skillsBaseDir = getPlatformSkillsDir(platform, scope, baseDir);
+    if (await hasSkills(skillsBaseDir, 'polaris')) {
       installed.push(platform);
     }
   }

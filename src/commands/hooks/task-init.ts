@@ -1,7 +1,7 @@
 /**
  * `polaris task-init` 命令。
  */
-import { init } from '../core/hooks/task.js';
+import { init } from '../../core/hooks/task.js';
 
 /** 运行 task-init */
 export async function taskInitCommand(repoRoot: string): Promise<void> {

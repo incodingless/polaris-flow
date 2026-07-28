@@ -3,7 +3,7 @@
  */
 import path from 'path';
 
-import { runSessionStart } from '../core/hooks/session-start.js';
+import { runSessionStart } from '../../core/hooks/session-start.js';
 
 export type SessionStartCommandOptions = {
   /** 可选；默认 cwd */

@@ -8,7 +8,7 @@ import { fileExists } from '../utils/file-system.js';
 import { readJsonObjectOrEmpty } from '../utils/json-io.js';
 import { isCommandAvailable } from './integration/openspec.js';
 import { detectPlatforms, getBaseDir, hasSkills } from './integration/detect.js';
-import { PLATFORMS } from './platforms.js';
+import { PLATFORMS, getPlatformSkillsDir } from './platforms.js';
 import type { InstallScope } from './config/polaris-project-config.js';
 
 const require = createRequire(import.meta.url);
@@ -103,7 +103,8 @@ async function checkPolarisSkills(
     if (!detected.has(platform.id)) {
       continue;
     }
-    if (await hasSkills(baseDir, platform, 'polaris', [], scope)) {
+    const skillsBaseDir = getPlatformSkillsDir(platform, scope, baseDir);
+    if (await hasSkills(skillsBaseDir, 'polaris')) {
       installedCount++;
     }
   }

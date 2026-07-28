@@ -1,7 +1,7 @@
 /**
  * `polaris task-finalize` 命令。
  */
-import { finalize } from '../core/hooks/task.js';
+import { finalize } from '../../core/hooks/task.js';
 
 /** 运行 task-finalize */
 export async function taskFinalizeCommand(
