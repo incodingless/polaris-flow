@@ -14,7 +14,7 @@ import {
   SUPERPOWERS_MIN_VERSION,
 } from '../core/integration/superpowers.js';
 import { loadManifestConfig } from '../core/assets/manifest.js';
-import { writeLockFile, type LockSourceEntry } from '../core/install.js';
+import { writeLockFile, type LockSourceEntry, initPolarisConfig } from '../core/install.js';
 import { getNpmPackageVersion } from '../core/deps/npm.js';
 import { installPolarisForPlatform } from '../core/install.js';
 import { getAssetsDir } from '../core/assets/polaris-paths.js';
@@ -224,6 +224,9 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
     try {
       //----- 1. 创建Polaris公共工作目录结构与配置 -----
       await initializePolarisCommonLayout(projectPath, scope);
+
+      //----- 2. 生成 Polaris 配置文件 -----
+      await initPolarisConfig(projectPath, language, scope, platforms, Boolean(options.overwrite));
 
       //----- 2. 按选择的平台逐个安装 Polaris -----
       for (const plan of plans) {
