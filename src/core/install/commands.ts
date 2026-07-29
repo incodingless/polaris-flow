@@ -7,6 +7,8 @@ import path from 'path';
 import { type Platform } from '../platforms.js';
 import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
 import { Asset } from '../assets/manifest.js';
+import { getAssetsDir } from '../assets/polaris-paths.js';
+import { Language } from '../config/polaris-project-config.js';
 
 /** 安装 Polaris bundled 命令（读取 assets 内 commands/） */
 
@@ -22,6 +24,7 @@ import { Asset } from '../assets/manifest.js';
 export async function installPolarisCommandsForPlatform(
   baseDir: string,
   overwrite: boolean,
+  language: Language,
   asset: Asset,
 ): Promise<{ copied: number; skipped: number }> {
   const sources = asset.langContentPaths.filter((p) => p.startsWith('commands/'));
@@ -29,8 +32,8 @@ export async function installPolarisCommandsForPlatform(
   for (const source of sources) {
     jobs.push({
       label: source,
-      src: source,
-      dest: path.join(baseDir, source),
+      src: path.join(getAssetsDir(), language, source),
+      dest: path.join(baseDir, source.replace('commands/', '')),
       type: 'file',
       overwrite: overwrite,
     });

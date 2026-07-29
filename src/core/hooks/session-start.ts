@@ -17,7 +17,7 @@ import {
   getPolarisGitignorePath,
   getSessionIdPath,
   getSessionsDir,
-  getWorkflowYamlPath,
+  getWorkflowConfigPath,
 } from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
 import { createHookIo, type HookIo } from './hook-io.js';
@@ -175,7 +175,7 @@ async function checkConfig(
     }
   }
 
-  const workflowDst = getWorkflowYamlPath(projectPath);
+  const workflowDst = getWorkflowConfigPath(projectPath);
   if (!(await fileExists(workflowDst))) {
     if (pluginRootRel) {
       const workflowSrc = path.join(

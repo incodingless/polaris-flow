@@ -6,12 +6,15 @@ import path from 'path';
 import { Asset } from '../assets/manifest.js';
 import { type Platform } from '../platforms.js';
 import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
+import { Language } from '../config/polaris-project-config.js';
+import { getAssetsDir } from '../assets/polaris-paths.js';
 
 /** 按平台 rulesFormat 拷贝 hard-stops 等规则文件 */
 export async function copyPolarisRules(
   baseDir: string,
   overwrite: boolean,
   platform: Platform,
+  language: Language,
   asset: Asset,
 ): Promise<{ copied: number; skipped: number }> {
   const sources = asset.langContentPaths.filter((p) => p.startsWith('rules/'));
@@ -19,8 +22,11 @@ export async function copyPolarisRules(
   for (const source of sources) {
     jobs.push({
       label: source,
-      src: source,
-      dest: computeRuleDestPath(path.join(baseDir, source), platform.rulesFormat!),
+      src: path.join(getAssetsDir(), language, source),
+      dest: computeRuleDestPath(
+        path.join(baseDir, source.replace('rules/', '')),
+        platform.rulesFormat!,
+      ),
       type: 'file',
       overwrite: overwrite,
     });

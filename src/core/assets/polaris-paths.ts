@@ -28,14 +28,14 @@ export function getAssetsDir(): string {
   return path.resolve(__dirname, '..', '..', '..', 'assets');
 }
 
-/** 返回 `assets/shared/templates` */
-export function getSharedTemplatesDir(): string {
-  return path.join(getAssetsDir(), 'shared', 'templates');
+/** 返回 `assets/shared` */
+export function getSharedDir(): string {
+  return path.join(getAssetsDir(), 'shared');
 }
 
-/** 返回 `assets/shared/harness` */
-export function getSharedHarnessDir(): string {
-  return path.join(getAssetsDir(), 'shared', 'harness');
+/** 返回 `assets/shared/templates` */
+export function getSharedTemplatesDir(): string {
+  return path.join(getSharedDir(), 'templates');
 }
 
 /** 返回全局 polaris 模板源：`assets/shared/templates/polaris.example.yaml` */
@@ -53,9 +53,9 @@ export function getWorkflowTemplateYamlSrc(): string {
   return path.join(getSharedTemplatesDir(), 'workflow-template.yaml');
 }
 
-/** 返回 harness .gitignore 源：`assets/shared/harness/.gitignore` */
-export function getHarnessGitignoreSrc(): string {
-  return path.join(getSharedHarnessDir(), '.gitignore');
+/** 返回 shared .gitignore 源：`assets/shared/.gitignore` */
+export function getSharedGitignoreSrc(): string {
+  return path.join(getSharedDir(), '.gitignore');
 }
 
 //---------------------------------
@@ -115,7 +115,7 @@ export function getWorktreePath(projectPath: string, changeId: string): string {
 }
 
 /** 返回 `.polaris/workflow.yaml` 路径 */
-export function getWorkflowYamlPath(projectPath: string): string {
+export function getWorkflowConfigPath(projectPath: string): string {
   return path.join(getPolarisDir(projectPath), 'workflow.yaml');
 }
 

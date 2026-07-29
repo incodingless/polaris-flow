@@ -8,11 +8,10 @@
  * - `--yes` / `--overwrite` / `--skip-existing` 等非交互路径经本文件的
  *   `resolveAction` / `select*` / `buildInstallPlans` 统一落到 install | overwrite | skip。
  *
- * 覆盖的交互：
- * - 安装范围（project / global）及带 CLI 标志的 selectScope
- * - Skill 语言（en / zh）及 selectLanguage
- * - 目标平台多选（标注已探测项）及 selectPlatforms
- * - 已有组件时的覆盖策略（整批或逐项）及 buildInstallPlans
+ * 覆盖策略（已存在组件时）：
+ * 1. 仅 `--overwrite`：四者均 overwrite
+ * 2. 仅 `--skip-existing`：四者均 skip（按组件分别判断）
+ * 3. 两者都传：OpenSpec / Superpowers / Codegraph → skip；Polaris → overwrite
  */
 import { checkbox, select } from '@inquirer/prompts';
 
@@ -31,12 +30,15 @@ export type InitPromptOptions = {
   skipExisting?: boolean;
   scope?: InstallScope;
   lang?: Language;
+  platforms?: string[];
+  json?: boolean | string;
 };
 
 export type ComponentPlan = {
   polarisAction: ComponentAction;
   spAction: ComponentAction;
   osAction: ComponentAction;
+  codegraphAction: ComponentAction;
 };
 
 /** 单平台安装交互计划（动作已解析，含是否已存在） */
@@ -45,12 +47,32 @@ export type PlatformPlan = ComponentPlan & {
   hasPolaris: boolean;
   hasSP: boolean;
   hasOS: boolean;
+  hasCodegraph: boolean;
 };
 
-/** 根据已有安装与 CLI 选项决定组件动作（与 easyflow resolveAction 一致） */
-export function resolveAction(hasExisting: boolean, options: InitPromptOptions): ComponentAction {
+/** init 可安装的外部/内置组件，用于区分双 flag 时的覆盖策略 */
+export type InstallComponent = 'polaris' | 'openspec' | 'superpowers' | 'codegraph';
+
+/**
+ * 根据已有安装与 CLI 选项决定组件动作。
+ * @param hasExisting 该组件是否已安装
+ * @param options CLI 选项
+ * @param component 组件类型（双 flag 时 Polaris 与其它三者策略不同）
+ */
+export function resolveAction(
+  hasExisting: boolean,
+  options: InitPromptOptions,
+  component: InstallComponent,
+): ComponentAction {
   if (!hasExisting) return 'install';
+
+  // 情况 3：--overwrite + --skip-existing → Polaris 重装，其余三者跳过
+  if (options.overwrite && options.skipExisting) {
+    return component === 'polaris' ? 'overwrite' : 'skip';
+  }
+  // 情况 1：仅 --overwrite → 已存在则覆盖
   if (options.overwrite) return 'overwrite';
+  // 情况 2：仅 --skip-existing（或 --yes）→ 已存在则跳过
   if (options.skipExisting) return 'skip';
   if (options.yes) return 'skip';
   return 'install';
@@ -70,8 +92,8 @@ export async function promptSkillLanguage(lang?: string): Promise<Language> {
   return select({
     message: t(lang, 'languagePrompt'),
     choices: [
-      { name: 'English', value: 'en' as const },
       { name: '中文', value: 'zh' as const },
+      { name: 'English', value: 'en' as const },
     ],
   });
 }
@@ -152,18 +174,26 @@ export async function selectLanguage(
 
 /**
  * 解析目标平台列表。
- * --yes：优先已探测平台，否则默认 cursor + claude；否则 checkbox 交互。
+ * 1. 如果 options.platforms 有值，则直接返回
+ * 2. 如果 options.yes 为 true，则优先已探测平台，否则默认 cursor + claude；
+ * 3. 否则 checkbox 交互。
  */
 export async function selectPlatforms(
   detectedPlatforms: Set<string>,
   options: InitPromptOptions,
   lang?: string,
 ): Promise<Platform[]> {
+  if (options.platforms) {
+    const fromOptions = PLATFORMS.filter((p) => options.platforms!.includes(p.id));
+    if (fromOptions.length > 0) return fromOptions;
+  }
+
   if (options.yes) {
     const fromDetected = PLATFORMS.filter((p) => detectedPlatforms.has(p.id));
     if (fromDetected.length > 0) return fromDetected;
     return PLATFORMS.filter((p) => p.id === 'cursor' || p.id === 'claude');
   }
+
   return promptPlatforms(detectedPlatforms, lang);
 }
 
@@ -185,16 +215,19 @@ export async function buildInstallPlans(
     const hasPolaris = await hasSkills(skillsBaseDir, 'polaris');
     const hasSP = await hasSkills(skillsBaseDir, 'superpowers');
     const hasOS = await hasSkills(skillsBaseDir, 'openspec');
+    const hasCodegraph = await hasSkills(skillsBaseDir, 'codegraph');
 
-    let polarisAction = resolveAction(hasPolaris, options);
-    let spAction = resolveAction(hasSP, options);
-    let osAction = resolveAction(hasOS, options);
+    let polarisAction = resolveAction(hasPolaris, options, 'polaris');
+    let spAction = resolveAction(hasSP, options, 'superpowers');
+    let osAction = resolveAction(hasOS, options, 'openspec');
+    let codegraphAction = resolveAction(hasCodegraph, options, 'codegraph');
 
     if (!options.yes) {
       const existingComponents = [
         hasPolaris && polarisAction === 'install' ? 'Polaris' : null,
         hasSP && spAction === 'install' ? 'Superpowers' : null,
         hasOS && osAction === 'install' ? 'OpenSpec' : null,
+        hasCodegraph && codegraphAction === 'install' ? 'Codegraph' : null,
       ].filter((c): c is string => Boolean(c));
 
       if (existingComponents.length > 1) {
@@ -204,6 +237,7 @@ export async function buildInstallPlans(
           if (polarisAction === 'install') polarisAction = action;
           if (spAction === 'install') spAction = action;
           if (osAction === 'install') osAction = action;
+          if (codegraphAction === 'install') codegraphAction = action;
         }
       }
 
@@ -216,9 +250,22 @@ export async function buildInstallPlans(
       if (osAction === 'install' && hasOS) {
         osAction = await promptOverwriteChoice('OpenSpec', platform.name, lang);
       }
+      if (codegraphAction === 'install' && hasCodegraph) {
+        codegraphAction = await promptOverwriteChoice('Codegraph', platform.name, lang);
+      }
     }
 
-    plans.push({ platform, polarisAction, spAction, osAction, hasPolaris, hasSP, hasOS });
+    plans.push({
+      platform,
+      polarisAction,
+      spAction,
+      osAction,
+      codegraphAction,
+      hasPolaris,
+      hasSP,
+      hasOS,
+      hasCodegraph,
+    });
   }
 
   return plans;

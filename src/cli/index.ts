@@ -49,6 +49,15 @@ program
   .option('--overwrite', 'overwrite existing components')
   .option('--skip-existing', 'skip existing components')
   .option('--lang <lang>', 'skill language: zh or en')
+  .option(
+    '--platforms <ids>',
+    'comma-separated platform ids (e.g. trae,claude,cursor); skips platform prompt',
+    (value: string) =>
+      value
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean),
+  )
   .option('--json', 'output JSON')
   .action(async (path: string, options) => {
     try {
@@ -58,6 +67,7 @@ program
         overwrite: options.overwrite,
         skipExisting: options.skipExisting,
         lang: options.lang,
+        platforms: options.platforms,
         json: options.json,
       });
     } catch (error) {

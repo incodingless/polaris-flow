@@ -2,13 +2,10 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parse as parseYaml } from 'yaml';
+import { Language, LANGUAGES } from '../../core/config/polaris-project-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-const LANGUAGES = ['en', 'zh'] as const;
-
-export type Language = (typeof LANGUAGES)[number];
 
 /** 翻译 key，加载后由 messages.yaml 动态确定 */
 export type TranslationKey = string;

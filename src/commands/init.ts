@@ -6,7 +6,13 @@ import path from 'path';
 import os from 'os';
 
 import { t } from './i18n/index.js';
-import { buildInstallPlans, selectLanguage, selectPlatforms, selectScope } from './prompts.js';
+import {
+  InitPromptOptions,
+  buildInstallPlans,
+  selectLanguage,
+  selectPlatforms,
+  selectScope,
+} from './prompts.js';
 import { detectPlatforms, getBaseDir } from '../core/integration/detect.js';
 import { installOpenSpec } from '../core/integration/openspec.js';
 import {
@@ -21,22 +27,27 @@ import {
   installPolarisForPlatform,
 } from '../core/install.js';
 import { getNpmPackageVersion } from '../core/deps/npm.js';
-import { getAssetsDir } from '../core/assets/polaris-paths.js';
+import {
+  getAssetsDir,
+  getGlobalPolarisConfigPath,
+  getGlobalPolarisConfigSrc,
+} from '../core/assets/polaris-paths.js';
 import { getSettingsFilePath } from '../core/platforms.js';
 import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
 import type { InstallScope, Language } from '../core/config/polaris-project-config.js';
 import { initializePolarisCommonLayout } from '../core/install/layout.js';
-
-export type InitOptions = {
-  yes?: boolean;
-  scope?: InstallScope;
-  overwrite?: boolean;
-  skipExisting?: boolean;
-  lang?: Language;
-  json?: boolean;
-};
+import { installCodegraph } from '../core/integration/codegraph.js';
+import { ensureDir, fileExists } from '../utils/file-system.js';
+import { readFile, writeFile } from 'fs/promises';
+import { parseDocument } from 'yaml';
 
 type InstallStatus = 'installed' | 'skipped' | 'failed';
+
+export type PluginInstallResult = {
+  id: string;
+  version: string;
+  status: InstallStatus;
+};
 
 export type InitPlatformResult = {
   baseDir: string;
@@ -134,7 +145,7 @@ function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang
   console.log(`    ${cyan(t(lang, 'getStartedTweak'))}\n`);
 }
 
-export async function runInit(rawPath: string, options: InitOptions = {}): Promise<InitResult> {
+export async function runInit(rawPath: string, options: InitPromptOptions): Promise<InitResult> {
   const log = createLogger(Boolean(options.json));
 
   const projectPath = path.resolve(rawPath || process.cwd());
@@ -176,7 +187,7 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
   const plans = await buildInstallPlans(baseDir, platforms, scope, options, lang);
   const lockSources: LockSourceEntry[] = [];
   const platformResults: InitPlatformResult[] = [];
-
+  const pluginResults: PluginInstallResult[] = [];
   // --- 1. OpenSpec ---
   const osToolIds = [
     ...new Set(
@@ -195,9 +206,16 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
     log(`  ${statusSymbol(osGlobalStatus)}  OpenSpec ${statusLabel(osGlobalStatus, lang)}`);
     const installedVersion =
       osGlobalStatus === 'installed' ? getNpmPackageVersion(OPENSPEC_PACKAGE) : '0.0.0';
+
+    pluginResults.push({
+      id: 'openspec',
+      version: installedVersion,
+      status: osGlobalStatus,
+    });
+
     lockSources.push({
       id: 'openspec',
-      version: osGlobalStatus === 'installed' ? installedVersion : 'skipped',
+      version: installedVersion,
     });
   } else {
     log(`\n  ${dim('○')}  OpenSpec ${dim(t(lang, 'skip'))}`);
@@ -212,11 +230,48 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
     const spResult = await installSuperpowersForPlatforms(projectPath, scope, spPlatformIds, true);
     spGlobalStatus = spResult.status;
     log(`  ${statusSymbol(spGlobalStatus)}  Superpowers ${statusLabel(spGlobalStatus, lang)}`);
+
+    pluginResults.push({
+      id: 'superpowers',
+      version: spResult.version,
+      status: spGlobalStatus,
+    });
+
     if (spGlobalStatus === 'installed') {
-      lockSources.push({ id: 'superpowers', version: spResult.version });
+      lockSources.push({
+        id: 'superpowers',
+        version: spResult.version,
+      });
     }
   } else {
     log(`\n  ${dim('○')}  Superpowers ${dim(t(lang, 'skip'))}`);
+  }
+
+  // --- 3. Codegraph ---
+  const shouldInstallCodegraph = plans.some((p) => p.codegraphAction !== 'skip');
+  let codegraphGlobalStatus: InstallStatus = 'skipped';
+
+  let codegraphVersion = '0.0.0';
+
+  if (shouldInstallCodegraph) {
+    log(`\n  ${blue('⏳')} ${bold('Codegraph')}...`);
+    codegraphGlobalStatus = await installCodegraph(projectPath, scope, shouldInstallCodegraph);
+    log(
+      `  ${statusSymbol(codegraphGlobalStatus)}  Codegraph ${statusLabel(codegraphGlobalStatus, lang)}`,
+    );
+
+    pluginResults.push({
+      id: 'codegraph',
+      version: codegraphVersion,
+      status: codegraphGlobalStatus,
+    });
+
+    lockSources.push({
+      id: 'codegraph',
+      version: codegraphVersion,
+    });
+  } else {
+    log(`\n  ${dim('○')}  Codegraph ${dim(t(lang, 'skip'))}`);
   }
 
   // --- 3. Polaris bundled（skills → commands → agents → rules → hooks）---
@@ -229,10 +284,17 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
       //----- 1. 创建Polaris公共工作目录结构与配置 -----
       await initializePolarisCommonLayout(projectPath, scope);
 
-      //----- 2. 生成 Polaris 配置文件 -----
+      //----- 2. 生成 Polaris 全局配置文件 -----
+      await generatePolarisGlobalConfig(
+        getGlobalPolarisConfigPath(),
+        Boolean(options.overwrite),
+        pluginResults,
+      );
+
+      //----- 3. 生成 Polaris 项目配置文件 -----
       await initPolarisConfig(projectPath, language, scope, platforms, Boolean(options.overwrite));
 
-      //----- 3. 按选择的平台逐个安装 Polaris -----
+      //----- 4. 按选择的平台逐个安装 Polaris -----
       for (const plan of plans) {
         if (plan.polarisAction === 'skip') continue;
 
@@ -268,6 +330,7 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
 
       const assetsDir = getAssetsDir();
       const manifest = await loadManifestConfig(assetsDir);
+
       lockSources.push({ id: 'polaris', version: manifest.version });
     } catch (err) {
       log(`  ${red('✗')}  Polaris: ${red((err as Error).message)}`);
@@ -348,6 +411,41 @@ export async function runInit(rawPath: string, options: InitOptions = {}): Promi
   return result;
 }
 
-export async function initCommand(projectPath: string, options: InitOptions): Promise<void> {
+export async function initCommand(projectPath: string, options: InitPromptOptions): Promise<void> {
   await runInit(projectPath, options);
+}
+
+/**
+ * 基于 polaris.example.yaml 生成全局 `~/.polaris/polaris.yaml`。
+ * 保留模板注释；写入 version / install-time / plugins。
+ * @param polarisGlobalConfigPath 全局配置路径
+ * @param overwrite 为 true 时即使文件已存在也按模板重写
+ * @param pluginResults 已安装插件列表，写入 plugins 字段
+ */
+async function generatePolarisGlobalConfig(
+  polarisGlobalConfigPath: string,
+  overwrite: boolean = false,
+  pluginResults: PluginInstallResult[],
+): Promise<void> {
+  if (!overwrite && (await fileExists(polarisGlobalConfigPath))) {
+    return;
+  }
+
+  // 始终从模板读，避免 copyIfMissing 未完成或 overwrite 时读到旧/空目标
+  const templateText = await readFile(getGlobalPolarisConfigSrc(), 'utf-8');
+  const doc = parseDocument(templateText, { keepSourceTokens: true });
+
+  doc.set('version', '0.1.0');
+  doc.set('install-time', new Date().toISOString());
+  doc.set(
+    'plugins',
+    pluginResults.map((p) => ({
+      id: p.id,
+      version: p.version,
+    })),
+  );
+
+  await ensureDir(path.dirname(polarisGlobalConfigPath));
+  const text = String(doc);
+  await writeFile(polarisGlobalConfigPath, text.endsWith('\n') ? text : `${text}\n`, 'utf-8');
 }

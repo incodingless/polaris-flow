@@ -83,7 +83,7 @@ async function detectPlatforms(projectPath: string): Promise<Set<string>> {
  */
 async function hasSkills(
   skillsDir: string,
-  component: 'openspec' | 'superpowers' | 'polaris',
+  component: 'openspec' | 'superpowers' | 'polaris' | 'codegraph',
 ): Promise<boolean> {
   const entries = (await fileExists(skillsDir)) ? await readDir(skillsDir) : [];
 
@@ -93,6 +93,9 @@ async function hasSkills(
       break;
     case 'superpowers':
       if (SUPERPOWERS_MARKERS.some((name) => entries.includes(name))) return true;
+      break;
+    case 'codegraph':
+      if (entries.some((e) => e.startsWith('codegraph-'))) return true;
       break;
     case 'polaris':
       // polaris-flow（嵌套包根）或 polaris-flow-*（Trae 扁平子 skill）或旧版 polaris*

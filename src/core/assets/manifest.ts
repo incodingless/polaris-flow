@@ -24,6 +24,12 @@ export type AssetManifest = {
   sharedDirs: string[];
 };
 
+export type AssetManifestFile = {
+  name: string;
+  path: string;
+  type: 'file' | 'dir';
+}
+
 /** 安装管线使用的完整资产列表 */
 export type Asset = {
   langContentPaths: string[];
@@ -41,12 +47,12 @@ export async function loadManifestConfig(assetsDir: string): Promise<AssetManife
 }
 
 /** 按语言读取完整 manifest（基座 + 已解析 skills/rules/hooks 列表） */
-export async function readAssets(lang: Language = 'en'): Promise<Asset> {
+export async function readAssets(lang: Language = 'zh'): Promise<Asset> {
   const assetsDir = getAssetsDir();
   const manifest = await loadManifestConfig(assetsDir);
-  const langContentPaths = await collectLangContentPaths(assetsDir, lang, manifest.langContentDirs);
-  const langContentFiles = await collectLangContentFiles(assetsDir, lang, manifest.langFiles);
-  const sharedAssets = await collectSharedAssets(assetsDir, manifest.sharedDirs);
+  const langContentPaths = await collectContentPaths(path.join(assetsDir, lang), manifest.langContentDirs);
+  const langContentFiles = await collectContentPaths(path.join(assetsDir, lang), manifest.langFiles);
+  const sharedAssets = await collectContentPaths(path.join(assetsDir, 'shared'), manifest.sharedDirs);
   return {
     langContentPaths,
     langContentFiles,
@@ -55,64 +61,22 @@ export async function readAssets(lang: Language = 'en'): Promise<Asset> {
 }
 
 /**
- * 收集 assets/<lang>/<contentDir> 下文件，返回形如 `<lang>/<contentDir>/<file>` 的路径列表。
+ * 收集指定目录下的文件，返回目录及文件绝对路径列表
  * @param assetsDir assets 目录
- * @param lang 语言
  * @param contentDirs 内容目录列表
  * @returns 
  */
-async function collectLangContentPaths(
+async function collectContentPaths(
   assetsDir: string,
-  lang: Language,
   contentDirs: string[],
 ): Promise<string[]> {
-  const paths = new Set<string>();
+  const paths = new Array<string>();
   for (const contentDir of contentDirs) {
-    const scanRoot = path.join(assetsDir, lang, contentDir);
+    const scanRoot = path.join(assetsDir, contentDir);
     const files = await walkFilesSafe(scanRoot, scanRoot);
     for (const file of files) {
-      paths.add(`${contentDir}/${file}`);
+      paths.push(path.join(contentDir, file));
     }
   }
-  return [...paths];
-}
-
-/**
- * 收集 assets/<lang>/<fileName> 下文件，返回形如 `<lang>/<fileName>` 的路径列表。
- * @param assetsDir assets 目录
- * @param lang 语言
- * @param fileNames 文件名列表
- * @returns 
- */
-async function collectLangContentFiles(
-  assetsDir: string,
-  lang: Language,
-  fileNames: string[],
-): Promise<string[]> {
-  const paths = new Set<string>();
-  for (const fileName of fileNames) {
-      paths.add(path.join(assetsDir, lang, fileName));
-  }
-  return [...paths];
-}
-
-/**
- * 收集 assets/shared/<dirName> 下文件，返回形如 `<dirName>/rel` 的路径列表。
- * @param assetsDir assets 目录
- * @param dirNames 目录名列表
- * @returns 
- */
-export async function collectSharedAssets(
-  assetsDir: string,
-  dirNames: string[],
-): Promise<string[]> {
-  const paths = new Set<string>();
-  for (const dirName of dirNames) {
-    const sharedDir = path.join(assetsDir, 'shared', dirName);
-    const files = await walkFilesSafe(sharedDir, sharedDir);
-    for (const file of files) {
-      paths.add(`${dirName}/${file}`);
-    }
-  }
-  return [...paths];
+  return paths;
 }

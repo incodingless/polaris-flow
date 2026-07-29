@@ -35,10 +35,12 @@ export type WorkflowType = 'sdd' | 'tweak' | 'bugfix' | 'full';
 /** 任务阶段 */
 export type TaskPhase =
   'idle' | 'clarify' | 'propose' | 'design' | 'plan' | 'build' | 'verify' | 'delivery' | string;
-/** 语言, 可选值: en-英文 | zh-中文 */
-export type Language = 'en' | 'zh';
 /** 安装作用域，可选值: global-全局用户目录 | project-当前项目 */
 export type InstallScope = 'global' | 'project';
+
+/** 语言, 可选值: en-英文 | zh-中文 */
+export const LANGUAGES = ['en', 'zh'] as const;
+export type Language = (typeof LANGUAGES)[number];
 
 /** init 写入 config 时的可选平台字段 */
 export type ProjectPolarisConfig = {

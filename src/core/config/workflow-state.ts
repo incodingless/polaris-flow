@@ -8,7 +8,7 @@ import { execFileSync } from 'child_process';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists } from '../../utils/file-system.js';
-import { getWorkflowYamlPath } from '../assets/polaris-paths.js';
+import { getWorkflowConfigPath } from '../assets/polaris-paths.js';
 
 /** active_changes 单条 */
 export type ActiveChangeEntry = {
@@ -40,7 +40,7 @@ export type WorkflowCursor = WorkflowState;
 
 /** 返回 workflow.yaml 路径 */
 export function getWorkflowStatePath(repoRoot: string): string {
-  return getWorkflowYamlPath(repoRoot);
+  return getWorkflowConfigPath(repoRoot);
 }
 
 /** @deprecated 使用 getWorkflowStatePath */

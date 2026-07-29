@@ -24,6 +24,9 @@ export async function readDir(dirPath: string): Promise<string[]> {
  * 递归创建目录。
  */
 export async function ensureDir(dirPath: string): Promise<void> {
+  if (await fileExists(dirPath)) {
+    return;
+  }
   await mkdir(dirPath, { recursive: true });
 }
 
