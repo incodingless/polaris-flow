@@ -3,11 +3,11 @@
  */
 import path from 'path';
 
-import { Asset } from '../assets/manifest.js';
+import { Assets } from '../assets/manifest.js';
 import { type Platform } from '../platforms.js';
 import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
 import { Language } from '../config/polaris-project-config.js';
-import { getAssetsDir } from '../assets/polaris-paths.js';
+import { getAssetsDir } from '../assets/manifest.js';
 
 /** 按平台 rulesFormat 拷贝 hard-stops 等规则文件 */
 export async function copyPolarisRules(
@@ -15,21 +15,23 @@ export async function copyPolarisRules(
   overwrite: boolean,
   platform: Platform,
   language: Language,
-  asset: Asset,
+  asset: Assets,
 ): Promise<{ copied: number; skipped: number }> {
-  const sources = asset.langContentPaths.filter((p) => p.startsWith('rules/'));
+  const ruleDirs = asset.langDirAssets.filter((asset) => asset.dir.startsWith('rules/'));
   const jobs: CopyJob[] = [];
-  for (const source of sources) {
-    jobs.push({
-      label: source,
-      src: path.join(getAssetsDir(), language, source),
-      dest: computeRuleDestPath(
-        path.join(baseDir, source.replace('rules/', '')),
-        platform.rulesFormat!,
-      ),
-      type: 'file',
-      overwrite: overwrite,
-    });
+  for (const ruleDir of ruleDirs) {
+    for (const file of ruleDir.files) {
+      jobs.push({
+        label: ruleDir.dir,
+        src: file.fullPath,
+        dest: computeRuleDestPath(
+          path.join(baseDir, ruleDir.dir, file.shortPath),
+          platform.rulesFormat!,
+        ),
+        type: 'file',
+        overwrite: overwrite,
+      });
+    }
   }
   return runCopyJobs(jobs);
 }

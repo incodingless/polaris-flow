@@ -1,13 +1,57 @@
 /**
- * assets/manifest.json 解析与语言资产路径解析。
- * 负责解析 assets/manifest.json 文件，并返回语言资产路径列表。
+ * assets/manifest.json 解析、语言资产路径解析，以及发布包 `assets/` 源路径助手。
  */
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { fileExists, walkFilesSafe } from '../../utils/file-system.js';
 import { readJson } from '../../utils/json-io.js';
 import type { Language } from '../config/polaris-project-config.js';
-import { getAssetsDir } from './polaris-paths.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+//---------------------------------
+//         发布包 assets 源
+//---------------------------------
+
+/** 返回发布包/仓库根下的 assets 目录 */
+export function getAssetsDir(): string {
+  return path.resolve(__dirname, '..', '..', '..', 'assets');
+}
+
+/** 返回 `assets/shared` */
+export function getSharedDir(): string {
+  return path.join(getAssetsDir(), 'shared');
+}
+
+/** 返回 `assets/shared/templates` */
+export function getSharedTemplatesDir(): string {
+  return path.join(getSharedDir(), 'templates');
+}
+
+/** 返回全局 polaris 模板源：`assets/shared/templates/polaris.example.yaml` */
+export function getGlobalPolarisConfigSrc(): string {
+  return path.join(getSharedTemplatesDir(), 'polaris.example.yaml');
+}
+
+/** 返回项目 config 模板源：`assets/shared/templates/config.example.yaml` */
+export function getConfigExampleYamlSrc(): string {
+  return path.join(getSharedTemplatesDir(), 'config.example.yaml');
+}
+
+/** 返回 workflow 模板源：`assets/shared/templates/workflow-template.yaml` */
+export function getWorkflowTemplateYamlSrc(): string {
+  return path.join(getSharedTemplatesDir(), 'workflow-template.yaml');
+}
+
+/** 返回 shared .gitignore 源：`assets/shared/.gitignore` */
+export function getSharedGitignoreSrc(): string {
+  return path.join(getSharedDir(), '.gitignore');
+}
+
+//---------------------------------
+//         Manifest 解析
+//---------------------------------
 
 /** Manifest 中单个 hook 条目 */
 export type HookConfig = {
@@ -22,41 +66,48 @@ export type AssetManifest = {
   langContentDirs: string[];
   langFiles: string[];
   sharedDirs: string[];
+
+  langDirAssets: AssetDir[];
+  langFileAssets: AssetFile[];
+  sharedAssets: AssetDir[];
 };
 
-export type AssetManifestFile = {
-  name: string;
-  path: string;
-  type: 'file' | 'dir';
+export type AssetDir = {
+  dir: string;
+  files: AssetFile[];
 }
 
-/** 安装管线使用的完整资产列表 */
-export type Asset = {
-  langContentPaths: string[];
-  langContentFiles: string[];
-  sharedAssets: string[];
-};
+export type AssetFile = {
+  shortPath: string;
+  fullPath: string;
+}
 
-/** 读取 assets/manifest.json */
+export type Assets = {
+  langDirAssets: AssetDir[];
+  langFileAssets: AssetFile[];
+  sharedAssets: AssetDir[];
+}
+
 export async function loadManifestConfig(assetsDir: string): Promise<AssetManifest> {
   const manifestPath = path.join(assetsDir, 'manifest.json');
   if (!(await fileExists(manifestPath))) {
     throw new Error(`Manifest not found at ${manifestPath}`);
   }
-  return readJson<AssetManifest>(manifestPath);
+  const manifest = await readJson<AssetManifest>(manifestPath);
+  return manifest;
 }
 
-/** 按语言读取完整 manifest（基座 + 已解析 skills/rules/hooks 列表） */
-export async function readAssets(lang: Language = 'zh'): Promise<Asset> {
+/** 读取 assets/manifest.json, 按语言读取完整 assets（基座 + 已解析 skills/rules/hooks 列表） */
+export async function readAssets(lang: Language = 'zh'): Promise<Assets> {
   const assetsDir = getAssetsDir();
   const manifest = await loadManifestConfig(assetsDir);
-  const langContentPaths = await collectContentPaths(path.join(assetsDir, lang), manifest.langContentDirs);
-  const langContentFiles = await collectContentPaths(path.join(assetsDir, lang), manifest.langFiles);
-  const sharedAssets = await collectContentPaths(path.join(assetsDir, 'shared'), manifest.sharedDirs);
+  const langDirAssets =  await collectContentPaths(path.join(assetsDir, lang), manifest.langContentDirs);
+  const langFileAssets =  await collectFilePaths(path.join(assetsDir, lang), manifest.langFiles);
+  const sharedAssets =  await collectContentPaths(path.join(assetsDir, 'shared'), manifest.sharedDirs);
   return {
-    langContentPaths,
-    langContentFiles,
-    sharedAssets
+    langDirAssets,
+    langFileAssets,
+    sharedAssets,
   };
 }
 
@@ -69,14 +120,38 @@ export async function readAssets(lang: Language = 'zh'): Promise<Asset> {
 async function collectContentPaths(
   assetsDir: string,
   contentDirs: string[],
-): Promise<string[]> {
-  const paths = new Array<string>();
+): Promise<AssetDir[]> {
+  const dirs = new Array<AssetDir>();
   for (const contentDir of contentDirs) {
     const scanRoot = path.join(assetsDir, contentDir);
+    const paths = new Array<AssetFile>();
     const files = await walkFilesSafe(scanRoot, scanRoot);
+    
     for (const file of files) {
-      paths.push(path.join(contentDir, file));
+      paths.push({
+        shortPath: file,
+        fullPath: path.join(assetsDir, contentDir, file),
+      });
     }
+
+    dirs.push({
+      dir: contentDir,
+      files: paths,
+    });
   }
-  return paths;
+  return dirs;
+}
+
+async function collectFilePaths(
+  assetsDir: string,
+  files: string[],
+): Promise<AssetFile[]> {
+  const assetFiles = new Array<AssetFile>();
+  for (const file of files) {
+    assetFiles.push({
+      shortPath: file,
+      fullPath: path.join(assetsDir, file),
+    });
+  }
+  return assetFiles;
 }

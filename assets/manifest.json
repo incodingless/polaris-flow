@@ -6,6 +6,6 @@
   ],
 
   "langContentDirs": ["skills", "commands", "templates", "adapters", "policies", "agents"],
-  "langFiles": [],
+  "langFiles": [".gitignore", "hooks.json"],
   "sharedDirs": ["hooks", "scorers", "templates"]
 }

@@ -1,13 +1,18 @@
 /**
  * init 阶段项目目录与配置初始化。
- * 路径一律经 `assets/polaris-paths` 解析；本文件只负责创建目录与复制模板。
+ * 含 scope/worktree 布局路径；其余路径经 `assets/polaris-paths` / `platforms` 解析。
  */
-import { ensureDirSafe } from '../../utils/file-system.js';
-import { getPolarisDir, getPolarisHomeDir, resolveWorktreeRoot } from '../assets/polaris-paths.js';
-import { type InstallScope, type Language } from '../config/polaris-project-config.js';
-import type { Platform } from '../platforms.js';
-import path from 'path';
 import os from 'os';
+import path from 'path';
+import { ensureDirSafe } from '../../utils/file-system.js';
+import {
+  getPolarisDir,
+  getPolarisHomeDir,
+  getWorktreeRoot,
+  type InstallScope,
+} from '../assets/polaris-paths.js';
+import { type Language } from '../config/polaris-project-config.js';
+import { getPlatformContextDir, type Platform } from '../platforms.js';
 
 const POLARIS_FLOW_PLUGIN_NAME = 'polaris-flow';
 
@@ -37,6 +42,24 @@ export type PlatformLayout = {
   hooksDir: string;
   platform: Platform;
 };
+
+/**
+ * 返回技能安装根：project → 项目路径，global → 用户主目录。
+ */
+export function getInstallSkillBase(scope: InstallScope, projectPath: string): string {
+  return scope === 'global' ? os.homedir() : projectPath;
+}
+
+/**
+ * 按 scope 返回 worktree 根目录。
+ * project → `<project>/.worktrees`；global → `~/.polaris/.worktrees`。
+ */
+export function resolveWorktreeRoot(projectPath: string, scope: InstallScope): string {
+  if (scope === 'global') {
+    return path.join(getPolarisHomeDir(), '.worktrees');
+  }
+  return getWorktreeRoot(projectPath);
+}
 
 /**
  * 创建Polaris公共工作目录结构与配置
@@ -75,7 +98,8 @@ export async function initializeProjectLayout(
   scope ??= 'project';
   const globalContextDir = getPolarisHomeDir();
   const projectContextDir = path.join(projectPath, platform.contextDir);
-  const contextDir = scope === 'global' ? globalContextDir : projectContextDir;
+  const contextDir =
+    scope === 'global' ? globalContextDir : getPlatformContextDir(platform, scope, projectPath);
 
   const skillBase = path.join(contextDir, platform.skillsDir, POLARIS_FLOW_PLUGIN_NAME);
   const commandBase = path.join(contextDir, platform.commandsDir, POLARIS_FLOW_PLUGIN_NAME);
@@ -99,16 +123,6 @@ export async function initializeProjectLayout(
     hooksDir: platform.hooksConfigFile,
     platform: platform,
   };
-}
-
-export function getPlatformContextDir(
-  platform: Platform,
-  scope: InstallScope,
-  projectPath: string,
-) {
-  return scope === 'global'
-    ? path.join(os.homedir(), platform.contextDir)
-    : path.join(projectPath, platform.contextDir);
 }
 
 /**

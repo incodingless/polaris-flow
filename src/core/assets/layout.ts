@@ -1,12 +1,12 @@
 /**
  * 平台差异化安装目标路径映射。
  * 将 assets 相对路径解析为 nested/flat 布局下的落盘相对路径（相对 baseDir）。
+ * 发布包 assets 源路径见 `manifest.ts`。
  */
 import path from 'path';
 
 import { getSkillsLayout, type Platform } from '../platforms.js';
-import type { InstallScope } from '../config/polaris-project-config.js';
-import { getPlatformContextDir } from '../install/layout.js';
+import type { InstallScope } from './polaris-paths.js';
 
 /** 包内公共目录前缀（装入 polaris-flow 插件根，两种 layout 相同） */
 const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/'] as const;
@@ -15,11 +15,22 @@ const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/
 const SKIP_PREFIXES = ['skills/polaris/'] as const;
 
 /**
+ * 返回平台上下文相对目录名（project→contextDir，global→globalContextDir）。
+ */
+function getPlatformContextRel(platform: Platform, scope: InstallScope = 'project'): string {
+  return scope === 'global' ? platform.globalContextDir : platform.contextDir;
+}
+
+/**
  * 返回插件根目录相对路径（相对 baseDir）。
  * 例：`.claude/skills/polaris-flow`
  */
-export function getPluginRootRel(platform: Platform, scope: InstallScope = 'project', projectPath: string): string {
-  return path.posix.join(getPlatformContextDir(platform, scope, projectPath), 'skills', 'polaris-flow');
+export function getPluginRootRel(
+  platform: Platform,
+  scope: InstallScope = 'project',
+  _projectPath?: string,
+): string {
+  return path.posix.join(getPlatformContextRel(platform, scope), 'skills', 'polaris-flow');
 }
 
 /**
@@ -87,7 +98,7 @@ export function resolveInstallDest(
   assetRelPath: string,
   platform: Platform,
   scope: InstallScope = 'project',
-  projectPath: string,
+  projectPath?: string,
 ): string | null {
   const normalized = assetRelPath.replace(/\\/g, '/');
 
@@ -96,7 +107,7 @@ export function resolveInstallDest(
   }
 
   const pluginRoot = getPluginRootRel(platform, scope, projectPath);
-  const skillsRoot = path.posix.join(getPlatformContextDir(platform, scope, projectPath), 'skills');
+  const skillsRoot = path.posix.join(getPlatformContextRel(platform, scope), 'skills');
 
   // 包内公共内容
   if (isPackageCommonAsset(normalized)) {
@@ -127,11 +138,10 @@ export function resolveInstallDest(
  * 解析 agent 文件应安装到的平台 agents 目录路径（相对 baseDir）。
  */
 export function resolveAgentInstallDest(
-  projectPath: string,
   agentFileName: string,
   platform: Platform,
   scope: InstallScope = 'project',
 ): string {
   const baseName = agentFileName.endsWith('.md') ? agentFileName : `${agentFileName}.md`;
-  return path.posix.join(getPlatformContextDir(platform, scope, projectPath), 'agents', baseName);
+  return path.posix.join(getPlatformContextRel(platform, scope), 'agents', baseName);
 }

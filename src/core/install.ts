@@ -6,37 +6,36 @@
  * 3. 公共内容 adapters/policies/templates 随 skills 步骤落入 polaris-flow
  */
 import path from 'path';
-import { mkdir, readFile, writeFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { parseDocument } from 'yaml';
-import type { Platform } from './platforms.js';
+import { getPlatformSkillsDir, type Platform } from './platforms.js';
 import { type InstallScope, type Language } from './config/polaris-project-config.js';
 
 import {
-  getConfigExampleYamlSrc,
-  getSharedGitignoreSrc,
   getPolarisConfigPath,
   getPolarisGitignorePath,
   getWorkflowConfigPath,
-  resolveWorktreeRoot,
-  getWorkflowTemplateYamlSrc,
-  getGlobalPolarisConfigPath,
 } from './assets/polaris-paths.js';
+import {
+  getConfigExampleYamlSrc,
+  getSharedGitignoreSrc,
+  getWorkflowTemplateYamlSrc,
+} from './assets/manifest.js';
 import { copyPolarisAgents } from './install/agents.js';
 import { installPolarisCommandsForPlatform } from './install/commands.js';
 import { installPolarisHooksForPlatform } from './install/hooks.js';
-import { initializeProjectLayout } from './install/layout.js';
+import { initializeProjectLayout, resolveWorktreeRoot } from './install/layout.js';
 import { copyPolarisRules } from './install/rules.js';
 import { copyPolarisSkillsForPlatform } from './install/skills.js';
-import { readAssets } from './assets/manifest.js';
-import { copyIfMissing, ensureDir, fileExists } from '../utils/file-system.js';
-import { PluginInstallResult } from '../commands/init.js';
+import { Assets, readAssets } from './assets/manifest.js';
+import { copyIfMissing, fileExists } from '../utils/file-system.js';
 
 export type { LockFile, LockSourceEntry } from './install/lock.js';
 export { writeLockFile } from './install/lock.js';
 export { installSource } from './install/source-installer.js';
 
 export { copyPolarisSkillsForPlatform } from './install/skills.js';
-export type { Asset } from './assets/manifest.js';
+export type { Assets } from './assets/manifest.js';
 
 export { copyPolarisRules, computeRuleDestPath } from './install/rules.js';
 export { copyPolarisAgents } from './install/agents.js';
@@ -93,14 +92,17 @@ export async function installPolarisForPlatform(
 ): Promise<PolarisInstallResult> {
   const platformLayout = await initializeProjectLayout(projectPath, scope, platform);
 
+  //2. 复制gitignore
+  await copyIfMissing(getSharedGitignoreSrc(), getPolarisGitignorePath(projectPath));
+
   // 3. 复制 Polaris 资产
   const asset = await readAssets(language);
 
   // 3.1 复制技能
   const skills = await copyPolarisSkillsForPlatform(
     platformLayout.skillsDir,
-    platformLayout.platform,
-    language,
+    getPlatformSkillsDir(platform, scope, projectPath),
+    platform.skillsLayout,
     overwrite,
     asset,
   );
@@ -109,12 +111,11 @@ export async function installPolarisForPlatform(
   const commands = await installPolarisCommandsForPlatform(
     platformLayout.commandsDir,
     overwrite,
-    language,
     asset,
   );
 
   // 3.3 复制代理
-  const agents = await copyPolarisAgents(platformLayout.agentsDir, overwrite, language, asset);
+  const agents = await copyPolarisAgents(platformLayout.agentsDir, overwrite, asset);
 
   // 3.4 复制规则
   const rules = await copyPolarisRules(
@@ -125,8 +126,14 @@ export async function installPolarisForPlatform(
     asset,
   );
 
-  // 3.5 复制钩子
-  const hooks = await installPolarisHooksForPlatform(baseDir, platform, scope, asset);
+  // 3.5 复制钩子（baseDir 为平台 context 根，如 project/.claude）
+  const hooks = await installPolarisHooksForPlatform(
+    platformLayout.baseDir,
+    platform,
+    scope,
+    asset,
+    overwrite,
+  );
 
   return { skills, commands, agents, rules, hooks };
 }

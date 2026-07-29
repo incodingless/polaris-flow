@@ -1,17 +1,16 @@
 /**
- * installPolarisForPlatform / skills 布局 / hooks 路径的集成单测。
+ * installPolarisForPlatform / skills 布局的集成单测。
  */
 import path from 'path';
-import { mkdtemp, readFile, access } from 'fs/promises';
+import { mkdtemp, access } from 'fs/promises';
 import os from 'os';
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildHookCommand,
   copyPolarisSkillsForPlatform,
   installPolarisForPlatform,
-  installPolarisHooksForPlatform,
 } from '../../src/core/install.js';
+import { readAssets } from '../../src/core/assets/manifest.js';
 import { PLATFORMS } from '../../src/core/platforms.js';
 
 const claude = PLATFORMS.find((p) => p.id === 'claude')!;
@@ -55,35 +54,19 @@ describe('installPolarisForPlatform layout', () => {
 describe('copyPolarisSkillsForPlatform', () => {
   it('仅拷贝 skills/公共内容，不安装 agents', async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-skills-only-'));
-    await copyPolarisSkillsForPlatform(tmpDir, claude, true, 'zh', 'project');
+    const skillsDir = path.join(tmpDir, '.claude', 'skills', 'polaris-flow');
+    const asset = await readAssets('zh');
+    await copyPolarisSkillsForPlatform(
+      skillsDir,
+      path.join(tmpDir, '.claude', 'skills'),
+      'nested',
+      true,
+      asset,
+    );
 
     await access(path.join(tmpDir, '.claude/skills/polaris-flow/clarify/SKILL.md'));
     await expect(
       access(path.join(tmpDir, '.claude/agents/plan-review-agent.md')),
     ).rejects.toThrow();
-  });
-});
-
-describe('buildHookCommand', () => {
-  it('指向 polaris-flow/hooks', () => {
-    expect(buildHookCommand('.claude', 'hooks/session-start.sh')).toBe(
-      'bash .claude/skills/polaris-flow/hooks/session-start.sh',
-    );
-  });
-});
-
-describe('installPolarisHooksForPlatform', () => {
-  it('claude 写入 settings 且命令含 polaris-flow/hooks', async () => {
-    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-hooks-'));
-    await copyPolarisSkillsForPlatform(tmpDir, claude, true, 'zh', 'project');
-    const hooks = await installPolarisHooksForPlatform(tmpDir, claude, 'project');
-
-    expect(hooks.installed).toBe(true);
-
-    const settingsRaw = await readFile(
-      path.join(tmpDir, '.claude', 'settings.local.json'),
-      'utf-8',
-    );
-    expect(settingsRaw).toContain('polaris-flow/hooks/');
   });
 });

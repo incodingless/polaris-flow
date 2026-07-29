@@ -4,31 +4,34 @@
 import path from 'path';
 
 import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
-import { Asset } from '../assets/manifest.js';
-import { Language } from '../config/polaris-project-config.js';
-import { getAssetsDir } from '../assets/polaris-paths.js';
+import { Assets } from '../assets/manifest.js';
 
 /**
  * 拷贝 assets/<lang>/agents/*.md 到 .<platform>/agents/。
  * 含 design-review-agent、plan-review-agent、openspec-review-agent 等。
+ * @param agentsDir 代理目录
+ * @param overwrite 是否覆盖
+ * @param asset 资产
+ * @returns 拷贝结果
  */
 export async function copyPolarisAgents(
-  baseDir: string,
+  agentsDir: string,
   overwrite: boolean,
-  language: Language,
-  asset: Asset,
+  asset: Assets,
 ): Promise<{ copied: number; skipped: number }> {
-  const sources = asset.langContentPaths.filter((p) => p.startsWith('agents/'));
+  const agentDirs = asset.langDirAssets.filter((asset) => ['agents'].includes(asset.dir));
 
   const jobs: CopyJob[] = [];
-  for (const source of sources) {
-    jobs.push({
-      label: source,
-      src: path.join(getAssetsDir(), language, source),
-      dest: path.join(baseDir, source.replace('agents/', '')),
-      type: 'file',
-      overwrite: overwrite,
-    });
+  for (const agentDir of agentDirs) {
+    for (const file of agentDir.files) {
+      jobs.push({
+        label: agentDir.dir,
+        src: file.fullPath,
+        dest: path.join(agentsDir, file.shortPath),
+        type: 'file',
+        overwrite: overwrite,
+      });
+    }
   }
 
   return runCopyJobs(jobs);

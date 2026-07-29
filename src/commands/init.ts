@@ -19,7 +19,6 @@ import {
   installSuperpowersForPlatforms,
   SUPERPOWERS_MIN_VERSION,
 } from '../core/integration/superpowers.js';
-import { loadManifestConfig } from '../core/assets/manifest.js';
 import {
   writeLockFile,
   type LockSourceEntry,
@@ -27,11 +26,8 @@ import {
   installPolarisForPlatform,
 } from '../core/install.js';
 import { getNpmPackageVersion } from '../core/deps/npm.js';
-import {
-  getAssetsDir,
-  getGlobalPolarisConfigPath,
-  getGlobalPolarisConfigSrc,
-} from '../core/assets/polaris-paths.js';
+import { getAssetsDir, getGlobalPolarisConfigSrc } from '../core/assets/manifest.js';
+import { getGlobalPolarisConfigPath } from '../core/assets/polaris-paths.js';
 import { getSettingsFilePath } from '../core/platforms.js';
 import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
 import type { InstallScope, Language } from '../core/config/polaris-project-config.js';
@@ -40,6 +36,7 @@ import { installCodegraph } from '../core/integration/codegraph.js';
 import { ensureDir, fileExists } from '../utils/file-system.js';
 import { readFile, writeFile } from 'fs/promises';
 import { parseDocument } from 'yaml';
+import { loadManifestConfig } from '../core/assets/manifest.js';
 
 type InstallStatus = 'installed' | 'skipped' | 'failed';
 

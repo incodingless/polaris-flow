@@ -7,16 +7,12 @@ import { writeFile, readFile } from 'fs/promises';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists, ensureDir } from '../../utils/file-system.js';
-import {
-  getPolarisConfigPath,
-  getPluginRootRelPath,
-  getPolarisDir,
-  getWorktreeRoot,
-} from '../assets/polaris-paths.js';
+import { getPolarisConfigPath, getPolarisDir, type InstallScope } from '../assets/polaris-paths.js';
 import { HarnessType, Platform } from '../platforms.js';
 import os from 'os';
 
 export { getPolarisConfigPath } from '../assets/polaris-paths.js';
+export type { InstallScope } from '../assets/polaris-paths.js';
 
 /** 上下文压缩开关，可选值: off-不压缩 | beta-压缩 */
 export type ContextCompression = 'off' | 'beta';
@@ -35,8 +31,6 @@ export type WorkflowType = 'sdd' | 'tweak' | 'bugfix' | 'full';
 /** 任务阶段 */
 export type TaskPhase =
   'idle' | 'clarify' | 'propose' | 'design' | 'plan' | 'build' | 'verify' | 'delivery' | string;
-/** 安装作用域，可选值: global-全局用户目录 | project-当前项目 */
-export type InstallScope = 'global' | 'project';
 
 /** 语言, 可选值: en-英文 | zh-中文 */
 export const LANGUAGES = ['en', 'zh'] as const;

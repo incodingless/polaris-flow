@@ -8,7 +8,8 @@ import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
 import { generatePolarisConfig } from '../../src/core/install.js';
-import { getPolarisConfigPath, resolveWorktreeRoot } from '../../src/core/assets/polaris-paths.js';
+import { getPolarisConfigPath } from '../../src/core/assets/polaris-paths.js';
+import { resolveWorktreeRoot } from '../../src/core/install/layout.js';
 import { PLATFORMS } from '../../src/core/platforms.js';
 
 function platformById(id: string) {
