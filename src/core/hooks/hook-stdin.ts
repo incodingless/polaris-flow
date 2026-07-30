@@ -130,23 +130,3 @@ export function parseHookStdinJson(text: string): HookStdinPayload {
       return { ...common, event: 'Unknown' };
   }
 }
-
-/**
- * 读取宿主 hook stdin 并归一（兼容旧调用；新代码优先 commands 层读流）。
- * stdin 为 TTY、空内容或解析失败时返回 Unknown。
- */
-export async function readHookStdin(
-  stdin: NodeJS.ReadableStream = process.stdin,
-  isTty: boolean = Boolean((stdin as NodeJS.ReadStream).isTTY),
-): Promise<HookStdinPayload> {
-  if (isTty) return { event: 'Unknown', raw: {} };
-  const chunks: Buffer[] = [];
-  try {
-    for await (const chunk of stdin) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-    }
-  } catch {
-    return { event: 'Unknown', raw: {} };
-  }
-  return parseHookStdinJson(Buffer.concat(chunks).toString('utf-8'));
-}

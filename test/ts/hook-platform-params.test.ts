@@ -7,7 +7,7 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 
-import { readHookStdin } from '../../src/core/hooks/hook-stdin.js';
+import { readHostHookStdin } from '../../src/commands/hooks/read-host-stdin.js';
 import { resolveHookPlatformId } from '../../src/core/hooks/resolve-platform.js';
 import { rewritePolarisCliPlatformId } from '../../src/core/install/hook-assets.js';
 import {
@@ -63,9 +63,9 @@ describe('resolveHookPlatformId', () => {
   });
 });
 
-describe('readHookStdin', () => {
+describe('readHostHookStdin', () => {
   it('TTY 返回 Unknown', async () => {
-    expect(await readHookStdin(Readable.from([]), true)).toEqual({
+    expect(await readHostHookStdin(Readable.from([]), true)).toEqual({
       event: 'Unknown',
       raw: {},
     });
@@ -78,7 +78,7 @@ describe('readHookStdin', () => {
       source: 'startup',
       hook_event_name: 'SessionStart',
     });
-    const result = await readHookStdin(Readable.from([payload]), false);
+    const result = await readHostHookStdin(Readable.from([payload]), false);
     expect(result.event).toBe('SessionStart');
     expect(result.cwd).toBe('/tmp/proj');
     expect(result.session_id).toBe('sess-1');
@@ -87,7 +87,7 @@ describe('readHookStdin', () => {
   });
 
   it('非法 JSON 返回 Unknown', async () => {
-    expect(await readHookStdin(Readable.from(['not-json']), false)).toEqual({
+    expect(await readHostHookStdin(Readable.from(['not-json']), false)).toEqual({
       event: 'Unknown',
       raw: {},
     });
