@@ -7,6 +7,7 @@ import path from 'path';
 
 import { getSkillsLayout, type Platform } from '../platforms.js';
 import type { InstallScope } from './polaris-paths.js';
+import { loadPolarisConfig } from '../config/polaris-project-config.js';
 
 /** 包内公共目录前缀（装入 polaris-flow 插件根，两种 layout 相同） */
 const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/'] as const;
@@ -144,4 +145,14 @@ export function resolveAgentInstallDest(
 ): string {
   const baseName = agentFileName.endsWith('.md') ? agentFileName : `${agentFileName}.md`;
   return path.posix.join(getPlatformContextRel(platform, scope), 'agents', baseName);
+}
+
+/**
+ * 获取项目的Polaris插件根路径
+ * @param projectPath 项目根路径
+ * @param platform 平台
+ * @returns Polaris插件根路径
+ */
+export async function getPolarisPluginRootPath(projectPath: string, platform: Platform): Promise<string> {
+  return path.posix.join(projectPath, `.${platform.id}`, 'skills', 'polaris-flow');
 }

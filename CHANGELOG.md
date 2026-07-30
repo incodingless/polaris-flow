@@ -4,7 +4,9 @@
 
 ### Added
 
-- **宿主 hook stdin 归一**: Claude/Cursor/Trae 字段别名与事件判别联合（`parseHookStdinJson`）；commands 层 `HostHookHandler` + SessionStart 实现
+- **SessionStart 路径注入**: core `runSessionStart` 返回 `paths`（repoRoot / platformId / pluginRoot）；commands 映射为 `PLUGIN_ROOT` 等，经 `additionalContext` / Cursor `env` / `CLAUDE_ENV_FILE` / `.polaris/.cache/runtime-env` 注入会话
+- **宿主 hook stdout 协议**: 分发器按平台序列化 JSON（Claude/Trae `hookSpecificOutput`，Cursor `additional_context`/`env`）；过程日志改走 TTY，避免污染宿主 stdout
+- **宿主 hook stdin 归一**: Claude/Cursor/Trae 字段别名与事件判别联合；`HostHookHandler` 为分发器（读 stdin / 写 stdout / 按 event 派发），事件实现为 `HostHookEventHandler`；宿主 `.sh` 统一 `polaris-flow host-hook`
 - **工作流 hooks 调用说明**: 新增 `docs/workflow-hooks-call-order.md`，按 clarify→delivery 梳理 hooks 调用顺序、作用、内部依赖与命名债
 - **平台安装布局**: 按平台 `skillsLayout`（nested / flat）将 polaris 资产装到正确目标目录；Trae 子 skill 扁平为 `polaris-flow-*`，其余平台嵌套进 `skills/polaris-flow/`
 - **包内公共内容安装**: init/update 同步安装 adapters、policies、templates、hooks 脚本到插件根
@@ -15,7 +17,7 @@
 ### Changed
 
 - **platform 解析**: 无效 `--platform` 回退 `.polaris/config.yaml`，不再把未知字符串当有效 id
-- **SessionStart I/O**: stdin 读取与成功摘要上移到 `commands/hooks`，core 通过注入 `HookIo` 输出
+- **SessionStart I/O 与平台边界**: stdin 解析、platform resolve、成功摘要均在 `commands/hooks`；core 只消费已归一的 `projectPath` / `sessionId` / `platformId`，经注入 `HookIo` 写过程日志
 - **init 选择逻辑迁入 prompts**: `selectScope` / `selectLanguage` / `selectPlatforms` / `buildInstallPlans`（及 `PlatformPlan`）从 `init.ts` 迁入 `prompts.ts`；init 只保留安装编排与结果展示
 - **hooks CLI 入口**: hooks 薄包装 `_polaris-cli.sh` 只调用 `polaris-flow`；用户侧 init/status 等仍用 `polaris`（package.json 双 bin）
 - **getAssetsDir 归位**: 从 `assets/paths` 迁入 `config/polaris-paths`，安装与命令侧统一从此取包内 assets 路径

@@ -1,6 +1,7 @@
 /**
  * Polaris hooks 安装：按平台写入/合并宿主 hooks 配置。
  * Trae → 独立 hooks.json；Claude/Cursor → settings*.json 的 hooks 字段。
+ * 落盘前将 command 改写为项目相对路径（不依赖 CLAUDE_PLUGIN_ROOT）。
  */
 import path from 'path';
 
@@ -34,8 +35,67 @@ export function resolveHooksConfigPath(
 }
 
 /**
+ * 生成项目相对 hooks 脚本 command（cwd 一般为项目根）。
+ */
+export function buildPolarisHookCommand(platformId: string, scriptName: string): string {
+  return `bash ".${platformId}/skills/polaris-flow/hooks/${scriptName}"`;
+}
+
+/**
+ * 是否为 Polaris 已管的 hook command（合并前剔除以免重复）。
+ */
+export function isManagedHookCommand(command: unknown): boolean {
+  if (typeof command !== 'string') return false;
+  return (
+    command.includes('polaris-flow/hooks') ||
+    command.includes('/hooks/session-start.sh') ||
+    command.includes('${CLAUDE_PLUGIN_ROOT}/hooks/') ||
+    /\/skills\/polaris-flow\/hooks\//.test(command)
+  );
+}
+
+/**
+ * 将托管 hook command 改写为平台相对路径；非托管原样返回。
+ */
+export function rewriteHookCommand(command: string, platformId: string): string {
+  if (!isManagedHookCommand(command)) {
+    return command;
+  }
+  const match = command.match(/hooks\/([A-Za-z0-9_-]+\.sh)/);
+  if (!match) {
+    return command;
+  }
+  return buildPolarisHookCommand(platformId, match[1]);
+}
+
+/**
+ * 深拷贝并改写 hooks 事件表中所有托管 command。
+ */
+export function rewriteHooksCommandsForPlatform(
+  hooks: Record<string, Array<Record<string, unknown>>>,
+  platformId: string,
+): Record<string, Array<Record<string, unknown>>> {
+  const out: Record<string, Array<Record<string, unknown>>> = {};
+  for (const [event, groups] of Object.entries(hooks)) {
+    out[event] = groups.map((group) => {
+      if (!Array.isArray(group.hooks)) {
+        return { ...group };
+      }
+      return {
+        ...group,
+        hooks: (group.hooks as Array<Record<string, unknown>>).map((hook) => ({
+          ...hook,
+          command: rewriteHookCommand(String(hook.command ?? ''), platformId),
+        })),
+      };
+    });
+  }
+  return out;
+}
+
+/**
  * 按平台安装 Polaris hooks。
- * - 目标不存在：写入模板
+ * - 目标不存在：写入模板（command 已按平台改写）
  * - overwrite：Trae 整文件覆盖；settings 仅替换 hooks 字段
  * - 非 overwrite：按事件/matcher/command 合并
  */
@@ -71,11 +131,11 @@ export async function installPolarisHooksForPlatform(
 
   try {
     const template = await readJsonObjectOrEmpty(templatePath);
-    const templateHooks = asHooksMap(template.hooks);
+    const templateHooks = rewriteHooksCommandsForPlatform(asHooksMap(template.hooks), platform.id);
 
     if (!(await fileExists(destPath))) {
       if (isStandaloneHooksFile) {
-        await writeJsonPretty(destPath, template);
+        await writeJsonPretty(destPath, { ...template, hooks: templateHooks });
       } else {
         await writeJsonPretty(destPath, { hooks: templateHooks });
       }
@@ -84,7 +144,7 @@ export async function installPolarisHooksForPlatform(
 
     if (overwrite) {
       if (isStandaloneHooksFile) {
-        await writeJsonPretty(destPath, template);
+        await writeJsonPretty(destPath, { ...template, hooks: templateHooks });
       } else {
         const settings = await readJsonObjectOrEmpty(destPath);
         settings.hooks = templateHooks;
@@ -114,16 +174,6 @@ export async function installPolarisHooksForPlatform(
   } catch (err) {
     return { installed: false, reason: (err as Error).message };
   }
-}
-
-/** 是否为 Polaris 已管的 hook command（合并前剔除以免重复） */
-function isManagedHookCommand(command: unknown): boolean {
-  if (typeof command !== 'string') return false;
-  return (
-    command.includes('polaris-flow/hooks') ||
-    command.includes('/hooks/session-start.sh') ||
-    command.includes('${CLAUDE_PLUGIN_ROOT}/hooks/')
-  );
 }
 
 /** 从分组中剔除 Polaris 已管 hooks；组内 hooks 清空且原有 hooks 非空则去掉该组 */

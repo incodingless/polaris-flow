@@ -317,8 +317,10 @@ export async function patchPolarisConfig(
  * 评审 agent 注入用 model：顶层 challenger.model → model.challenger → model.review → inherit。
  */
 export function resolveReviewAgentModel(config: ProjectPolarisConfig | null | undefined): string {
-  const legacyChallenger = config?.model?.challenger?.trim();
-  if (legacyChallenger) return legacyChallenger;
+  const raw = config as
+    (ProjectPolarisConfig & { challenger?: { model?: string } }) | null | undefined;
+  const topChallenger = raw?.challenger?.model?.trim();
+  if (topChallenger) return topChallenger;
   const slotChallenger = config?.model?.challenger?.trim();
   if (slotChallenger) return slotChallenger;
   const review = config?.model?.review?.trim();

@@ -1,8 +1,10 @@
 /**
- * Hook 运行时 platform id 解析：有效 CLI `--platform` → config → 无法解析。
+ * 命令层：Hook 运行时 platform id 解析（有效 CLI `--platform` → config → 无法解析）。
+ * 平台身份感知停在 commands，再把 platformId 传给 core。
  */
-import { loadPolarisConfig } from '../config/polaris-project-config.js';
-import { PLATFORMS } from '../platforms.js';
+import { loadPolarisConfig } from '../../../core/config/polaris-project-config.js';
+import { PLATFORMS } from '../../../core/platforms.js';
+import { hookDebug } from './debug-log.js';
 
 /**
  * 将配置中的平台标记归一为已知 platform id；无法识别返回 null。
@@ -56,19 +58,27 @@ export async function resolveHookPlatformId(
   const fromCli = cliPlatformId?.trim();
   if (fromCli) {
     const known = coercePlatformId(fromCli);
-    if (known) return known;
+    if (known) {
+      hookDebug('resolveHookPlatformId: from CLI', { fromCli, known });
+      return known;
+    }
+    hookDebug('resolveHookPlatformId: CLI invalid, fall back to config', { fromCli });
   }
 
   const config = await loadPolarisConfig(projectPath);
   if (!config) {
+    hookDebug('resolveHookPlatformId: no config', { projectPath });
     return null;
   }
 
   const raw = config as typeof config & { platform?: unknown };
   const fromSingular = extractPlatformId(raw.platform);
   if (fromSingular) {
+    hookDebug('resolveHookPlatformId: from config.platform', { fromSingular });
     return fromSingular;
   }
 
-  return extractFirstPlatformId(raw.platforms);
+  const fromList = extractFirstPlatformId(raw.platforms);
+  hookDebug('resolveHookPlatformId: from config.platforms', { fromList });
+  return fromList;
 }

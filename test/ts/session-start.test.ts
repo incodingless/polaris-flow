@@ -14,6 +14,9 @@ import {
   resolveReviewAgentModel,
   runSessionStart,
 } from '../../src/core/hooks/session-start.js';
+import { PLATFORMS } from '../../src/core/platforms.js';
+
+const claudePlatform = PLATFORMS.find((p) => p.id === 'claude')!;
 
 /** 收集 hook IO 输出的测试用 sink */
 function createCaptureIo() {
@@ -127,7 +130,7 @@ describe('plugin presence (detect)', () => {
       '# x\n',
       'utf-8',
     );
-    const found = await findPlugin('claude', 'superpowers', tmp, { homeDir: fakeHome });
+    const found = await findPlugin(claudePlatform, 'superpowers', tmp, { homeDir: fakeHome });
     expect(found?.scope).toBe('project');
     expect(found?.kind).toBe('skills');
     expect(found?.path).toContain('brainstorming');
@@ -137,7 +140,8 @@ describe('plugin presence (detect)', () => {
     const tmp = await makeProject({ platform: 'trae' });
     const fakeHome = path.join(tmp, '_home');
     await mkdir(fakeHome, { recursive: true });
-    const found = await findPlugin('trae', 'openspec', tmp, {
+    const traePlatform = PLATFORMS.find((p) => p.id === 'trae')!;
+    const found = await findPlugin(traePlatform, 'openspec', tmp, {
       homeDir: fakeHome,
       isCommandAvailable: () => false,
     });
@@ -149,7 +153,12 @@ describe('runSessionStart', () => {
   it('缺 .polaris 目录 → FAIL 且 exitCode 1', async () => {
     const tmp = await makeProject({ withPolarisDir: false, withConfig: false });
     const { io, lines } = createCaptureIo();
-    const result = await runSessionStart({ projectPath: tmp, io, ppid: 4242 });
+    const result = await runSessionStart({
+      projectPath: tmp,
+      platformId: 'claude',
+      io,
+      ppid: 4242,
+    });
     expect(result.failCount).toBeGreaterThan(0);
     expect(result.exitCode).toBe(1);
     expect(lines.fail.some((l) => l.includes('.polaris/'))).toBe(true);
@@ -178,6 +187,7 @@ describe('runSessionStart', () => {
     const { io } = createCaptureIo();
     const result = await runSessionStart({
       projectPath: tmp,
+      platformId: 'claude',
       io,
       ppid: 99901,
       pluginPresence: { homeDir: fakeHome, isCommandAvailable: () => false },
@@ -197,6 +207,11 @@ describe('runSessionStart', () => {
     // agents 未装 → WARN；依赖可能 ok
     expect(result.exitCode).toBe(1);
     expect(result.warnCount).toBeGreaterThan(0);
+    expect(result.paths).toEqual({
+      repoRoot: path.resolve(tmp),
+      platformId: 'claude',
+      pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris-flow'),
+    });
   });
 
   it('注入 review agent model', async () => {
@@ -213,7 +228,7 @@ describe('runSessionStart', () => {
     const ok = await injectReviewAgentModel(
       io,
       tmp,
-      'claude',
+      claudePlatform,
       'propose-review-agent',
       'test-model',
     );
@@ -224,12 +239,13 @@ describe('runSessionStart', () => {
   });
 
   it('依赖缺失时 WARN 且 exitCode 1', async () => {
-    const tmp = await makeProject({ platform: 'qoder' });
+    const tmp = await makeProject({ platform: 'claude' });
     const fakeHome = path.join(tmp, '_home');
     await mkdir(fakeHome, { recursive: true });
     const { io, lines } = createCaptureIo();
     const result = await runSessionStart({
       projectPath: tmp,
+      platformId: 'claude',
       io,
       ppid: 7,
       pluginPresence: { homeDir: fakeHome, isCommandAvailable: () => false },
@@ -237,5 +253,10 @@ describe('runSessionStart', () => {
     expect(result.warnCount).toBeGreaterThan(0);
     expect(result.exitCode).toBe(1);
     expect(lines.warn.some((l) => l.includes('superpowers') || l.includes('openspec'))).toBe(true);
+    expect(result.paths).toEqual({
+      repoRoot: path.resolve(tmp),
+      platformId: 'claude',
+      pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris-flow'),
+    });
   });
 });

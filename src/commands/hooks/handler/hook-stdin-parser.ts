@@ -1,6 +1,8 @@
 /**
- * 宿主 hook stdin JSON 归一：公共字段别名 + 事件判别联合。
+ * 命令层：宿主 hook stdin JSON 归一（Claude/Cursor/Trae 字段别名 + 事件判别联合）。
+ * 平台协议差异在此消化，core 只接收已归一字段。
  */
+import { hookDebug } from './debug-log.js';
 
 export type HookStdinCommon = {
   cwd?: string;
@@ -85,20 +87,32 @@ function extractCommon(obj: Record<string, unknown>): HookStdinCommon {
  */
 export function parseHookStdinJson(text: string): HookStdinPayload {
   if (!text.trim()) {
+    hookDebug('parseHookStdinJson: empty text → Unknown');
     return { event: 'Unknown', raw: {} };
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
-  } catch {
+  } catch (err) {
+    hookDebug('parseHookStdinJson: JSON.parse failed → Unknown', {
+      error: err instanceof Error ? err.message : String(err),
+      preview: text.slice(0, 200),
+    });
     return { event: 'Unknown', raw: {} };
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    hookDebug('parseHookStdinJson: non-object → Unknown');
     return { event: 'Unknown', raw: {} };
   }
   const obj = parsed as Record<string, unknown>;
   const common = extractCommon(obj);
   const event = mapEventName(common.hook_event_name);
+  hookDebug('parseHookStdinJson: mapped', {
+    hook_event_name: common.hook_event_name,
+    event,
+    cwd: common.cwd,
+    session_id: common.session_id,
+  });
 
   switch (event) {
     case 'SessionStart':

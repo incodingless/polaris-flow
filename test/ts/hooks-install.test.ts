@@ -51,7 +51,8 @@ describe('installPolarisHooksForPlatform Trae', () => {
     };
     expect(parsed.$schema).toBeTruthy();
     expect(parsed.hooks?.SessionStart?.length).toBeGreaterThan(0);
-    expect(raw).toContain('session-start.sh');
+    expect(raw).toContain('.trae/skills/polaris-flow/hooks/session-start.sh');
+    expect(raw).not.toContain('CLAUDE_PLUGIN_ROOT');
   });
 
   it('已存在 + !overwrite：保留用户事件，合入 SessionStart 且 command 不重复', async () => {
@@ -135,7 +136,7 @@ describe('installPolarisHooksForPlatform Claude settings', () => {
     const raw = await readFile(path.join(baseDir, 'settings.local.json'), 'utf-8');
     const parsed = JSON.parse(raw) as { hooks?: { SessionStart?: unknown[] } };
     expect(parsed.hooks?.SessionStart?.length).toBeGreaterThan(0);
-    expect(raw).toContain('session-start.sh');
+    expect(raw).toContain('.claude/skills/polaris-flow/hooks/session-start.sh');
   });
 
   it('已有其它键 + !overwrite：其它键保留，hooks 合并', async () => {

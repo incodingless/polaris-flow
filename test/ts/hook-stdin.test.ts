@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { parseHookStdinJson } from '../../src/core/hooks/hook-stdin.js';
+import { parseHookStdinJson } from '../../src/commands/hooks/handler/hook-stdin-parser.js';
 
 describe('parseHookStdinJson', () => {
   it('Claude SessionStart', () => {

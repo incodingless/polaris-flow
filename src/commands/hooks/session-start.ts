@@ -1,64 +1,125 @@
 /**
- * SessionStart：HostHookHandler 实现 + CLI 入口。
+ * SessionStart 事件实现（HostHookEventHandler）：调 core，并向 Agent 注入平台路径变量。
+ *
+ * 路径事实（repoRoot / platformId / pluginRoot）一律来自 `runSessionStart` 返回值，本层不拼接。
+ *
+ * 注入渠道：
+ * - additionalContext（Claude/Trae/Cursor 均可读入会话上下文）
+ * - env（Cursor sessionStart stdout）
+ * - CLAUDE_ENV_FILE（若宿主设置了该路径，追加 export）
+ * - `.polaris/.cache/runtime-env`（供 skill bash `set -a; source …`）
  */
+import { appendFile, mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 
-import { createHookIo } from '../../core/hooks/hook-io.js';
-import type { HookStdinPayload } from '../../core/hooks/hook-stdin.js';
-import { resolveHookPlatformId } from '../../core/hooks/resolve-platform.js';
-import { runSessionStart } from '../../core/hooks/session-start.js';
-import type { HostHookHandler } from './host-hook-handler.js';
-import { readHostHookStdin } from './read-host-stdin.js';
+import { getPolarisDir } from '../../core/assets/polaris-paths.js';
+import { createHookIo, writeTtyLine } from '../../core/hooks/hook-io.js';
+import { runSessionStart, type SessionStartPaths } from '../../core/hooks/session-start.js';
+import { hookDebug } from './handler/debug-log.js';
+import type { HostHookEventHandler, HostHookEventResult } from './handler/host-hook-handler.js';
 
-export type SessionStartCommandOptions = {
-  /** CLI `--platform`；优先于 config */
-  platform?: string;
+/** SessionStart 注入给 Agent / shell 的路径环境 */
+export type SessionRuntimePaths = {
+  REPO_ROOT: string;
+  PLATFORM_ID: string;
+  /** 与 skill 文档中的 PLUGIN_ROOT 对齐 */
+  PLUGIN_ROOT: string;
 };
 
 /**
- * SessionStart 宿主 hook 处理：解析平台、调 core、设 exitCode、写成功摘要。
+ * 将 core 返回的路径事实映射为 Agent/shell 环境变量名。
  */
-export const sessionStartHandler: HostHookHandler<'SessionStart'> = {
+export function toSessionRuntimeEnv(paths: SessionStartPaths): SessionRuntimePaths {
+  return {
+    REPO_ROOT: paths.repoRoot,
+    PLATFORM_ID: paths.platformId,
+    PLUGIN_ROOT: paths.pluginRoot,
+  };
+}
+
+/**
+ * 生成注入 Agent 的 additionalContext 文本。
+ */
+export function formatSessionPathContext(paths: SessionRuntimePaths): string {
+  return [
+    '=== polaris-flow ready ===',
+    'Polaris runtime paths for this session (use these absolute paths in skills/shell):',
+    `REPO_ROOT=${paths.REPO_ROOT}`,
+    `PLATFORM_ID=${paths.PLATFORM_ID}`,
+    `PLUGIN_ROOT=${paths.PLUGIN_ROOT}`,
+    'Do not expand <repo_root> / <platform> placeholders; prefer $PLUGIN_ROOT / $REPO_ROOT.',
+  ].join('\n');
+}
+
+/**
+ * 将路径写入 `.polaris/.cache/runtime-env`（KEY=value，可 source）。
+ */
+async function persistRuntimeEnv(repoRoot: string, paths: SessionRuntimePaths): Promise<void> {
+  const cacheDir = path.join(getPolarisDir(repoRoot), '.cache');
+  await mkdir(cacheDir, { recursive: true });
+  const file = path.join(cacheDir, 'runtime-env');
+  const body =
+    Object.entries(paths)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n') + '\n';
+  await writeFile(file, body, 'utf-8');
+  hookDebug('persisted runtime-env', { file, paths });
+}
+
+/**
+ * 若存在 CLAUDE_ENV_FILE，追加 export（Claude Code SessionStart 约定）。
+ */
+async function appendClaudeEnvFile(paths: SessionRuntimePaths): Promise<void> {
+  const envFile = process.env.CLAUDE_ENV_FILE?.trim();
+  if (!envFile) return;
+  const lines =
+    Object.entries(paths)
+      .map(([k, v]) => `export ${k}=${JSON.stringify(v)}`)
+      .join('\n') + '\n';
+  await appendFile(envFile, lines, 'utf-8');
+  hookDebug('appended CLAUDE_ENV_FILE', { envFile });
+}
+
+/**
+ * SessionStart：跑 core 检查，并注入 PLATFORM / PLUGIN_ROOT / REPO_ROOT。
+ * 即使仅有 WARN（exitCode=1）也注入路径，便于会话继续跑 skill。
+ */
+export const sessionStartEventHandler: HostHookEventHandler<'SessionStart'> = {
   event: 'SessionStart',
   async handle(payload, ctx) {
     const resolved = path.resolve(ctx.projectPath || payload.cwd || process.cwd());
-    const platformId = await resolveHookPlatformId(resolved, ctx.platform);
-    const io = createHookIo();
+    const io = createHookIo({
+      stdout: (line) => writeTtyLine(line),
+    });
     const result = await runSessionStart({
       projectPath: resolved,
-      platformId: platformId ?? undefined,
+      platformId: ctx.resolvedPlatformId ?? undefined,
       sessionId: payload.session_id,
       io,
     });
-    if (result.exitCode === 0) {
-      console.log('');
-      console.log('=== polaris-flow ready ===');
+
+    if (!result.paths) {
+      hookDebug('skip path injection: runSessionStart did not return paths');
+      return { exitCode: result.exitCode };
     }
-    if (result.exitCode !== 0) {
-      process.exitCode = result.exitCode;
+
+    const envPaths = toSessionRuntimeEnv(result.paths);
+    try {
+      await persistRuntimeEnv(result.paths.repoRoot, envPaths);
+      await appendClaudeEnvFile(envPaths);
+    } catch (err) {
+      hookDebug('path persistence failed (non-fatal)', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      io.warn('failed to persist runtime path env file — Agent context injection still applied');
     }
+
+    const out: HostHookEventResult = {
+      exitCode: result.exitCode,
+      additionalContext: formatSessionPathContext(envPaths),
+      env: { ...envPaths },
+    };
+    hookDebug('SessionStart path injection', envPaths);
+    return out;
   },
 };
-
-/**
- * `polaris session-start`：读 stdin；Unknown 亦按 SessionStart 公共字段处理（手动 CLI）。
- */
-export async function sessionStartCommand(
-  projectPath?: string,
-  options: SessionStartCommandOptions = {},
-): Promise<void> {
-  const payload = await readHostHookStdin();
-  const asSession: Extract<HookStdinPayload, { event: 'SessionStart' }> =
-    payload.event === 'SessionStart'
-      ? payload
-      : {
-          ...payload,
-          event: 'SessionStart',
-          source: undefined,
-          model: undefined,
-        };
-  await sessionStartHandler.handle(asSession, {
-    platform: options.platform,
-    projectPath,
-  });
-}

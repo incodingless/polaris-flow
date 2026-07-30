@@ -11,6 +11,9 @@
 #   exec_polaris <subcommand> "$@"
 #
 # 不单独作为 hook 入口执行。
+#
+# @PLATFORM_ID@：安装期由 rewritePolarisCliPlatformId 替换为真实平台 id
+# （claude / cursor / trae）。未替换时 CLI 会因无效 platform 失败。
 
 # === CRLF self-heal（对 hooks/ 与 scorers/ 下 *.sh）===
 # 参数：$1=触发自愈的脚本路径；$2...=原 argv（re-exec 时转发）

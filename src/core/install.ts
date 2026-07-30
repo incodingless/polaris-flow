@@ -23,6 +23,7 @@ import {
 } from './assets/manifest.js';
 import { copyPolarisAgents } from './install/agents.js';
 import { installPolarisCommandsForPlatform } from './install/commands.js';
+import { rewritePolarisCliPlatformId } from './install/hook-assets.js';
 import { installPolarisHooksForPlatform } from './install/hooks.js';
 import { initializeProjectLayout, resolveWorktreeRoot } from './install/layout.js';
 import { copyPolarisRules } from './install/rules.js';
@@ -106,6 +107,9 @@ export async function installPolarisForPlatform(
     overwrite,
     asset,
   );
+
+  // 3.1.1 替换 hooks 薄包装中的平台占位符
+  await rewritePolarisCliPlatformId(path.join(platformLayout.skillsDir, 'hooks'), platform.id);
 
   // 3.2 复制命令
   const commands = await installPolarisCommandsForPlatform(

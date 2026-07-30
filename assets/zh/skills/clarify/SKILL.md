@@ -50,11 +50,34 @@ description: "用户触发 /polaris-flow-clarify 或 要求进入需求澄清 �
 
 ### Step 1：准备 draft 目录 + workflow entry
 
-解析插件根目录（本 skill 内此后一律复用此方式）：
+使用 SessionStart 注入的路径（本 skill 内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
+
+- 优先：环境变量 `PLUGIN_ROOT` / `REPO_ROOT`（Trae `env`、 Cursor `env`、Claude `CLAUDE_ENV_FILE`，或 Agent 上下文中的同名赋值）
+- 兜底：source `.polaris/.cache/runtime-env`（SessionStart 落盘）
+- 仍无 `PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
 
 ```bash
-PLUGIN_ROOT="$(cat "<repo_root>/.polaris/config.yaml" | grep "plugin_root" | awk -F'"' '{print $2}')"
-INIT_RESULT=$(bash "$PLUGIN_ROOT/hooks/clarify-init.sh" "<repo_root>")
+# 若 shell 未继承注入 env，从 SessionStart 缓存加载
+if [ -z "${PLUGIN_ROOT:-}" ] || [ -z "${REPO_ROOT:-}" ]; then
+  _rr="$(git rev-parse --show-toplevel 2>/dev/null)" || true
+  _rr="${_rr:-$PWD}"
+  if [ -f "$_rr/.polaris/.cache/runtime-env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . "$_rr/.polaris/.cache/runtime-env"
+    set +a
+  fi
+fi
+
+REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
+REPO_ROOT="${REPO_ROOT:-$PWD}"
+PLUGIN_ROOT="${PLUGIN_ROOT:-}"
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/hooks/clarify-init.sh" ]; then
+  echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
+  exit 2
+fi
+
+INIT_RESULT=$(bash "$PLUGIN_ROOT/hooks/clarify-init.sh" "$REPO_ROOT")
 INIT_EXIT=$?
 echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```
@@ -75,9 +98,9 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 
 ```bash
 for d in <existing 列表>; do
-    rm -rf "<repo_root>/.polaris/tasks/$d"
-    bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" delete-active --skill clarify \
-      --repo-root "<repo_root>" --where-change-id "$d"
+  rm -rf "$REPO_ROOT/.polaris/tasks/$d"
+  bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" delete-active --skill clarify \
+    --repo-root "$REPO_ROOT" --where-change-id "$d"
 done
 ```
 
@@ -219,8 +242,8 @@ done
 将 draft 目录 `mv` 为正式 `task_id`，回填 intention 首行，更新 state / workflow：
 
 ```bash
-PLUGIN_ROOT="$(cat "<repo_root>/.polaris/config.yaml" | grep "plugin_root" | awk -F'"' '{print $2}')"
-FINAL_RESULT=$(bash "$PLUGIN_ROOT/hooks/clarify-finalize.sh" "<repo_root>" "<draft_name>" "<task_id>")
+# 复用 Step 1 的 $REPO_ROOT / $PLUGIN_ROOT（勿再 grep config）
+FINAL_RESULT=$(bash "$PLUGIN_ROOT/hooks/clarify-finalize.sh" "$REPO_ROOT" "<draft_name>" "<task_id>")
 FINAL_EXIT=$?
 echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 ```

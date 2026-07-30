@@ -7,6 +7,7 @@ install-time: "2026-06-25T02:05:29.066Z" # 安装时间
 
 # 主要目录
 main-repo-root: "<project_root>"
+plugin-root: "<project_root>/.<platform_id>/skills/polaris-flow"
 worktree-dir: "<project_root>/.worktrees"
 
 # 运行配置

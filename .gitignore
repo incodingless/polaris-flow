@@ -83,9 +83,6 @@ skills-lock.json
 .gcp/
 .agents/
 
-# Superpowers docs (local only)
-docs/superpowers/
-
 .codegraph/
 
 .polaris-flow/

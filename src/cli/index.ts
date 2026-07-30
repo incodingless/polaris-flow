@@ -6,7 +6,7 @@ import { initCommand } from '../commands/init.js';
 import { updateCommand } from '../commands/update.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { statusCommand } from '../commands/status.js';
-import { sessionStartCommand } from '../commands/hooks/session-start.js';
+import { hostHookCommand, sessionStartCommand } from '../commands/hooks/host-hook.js';
 import { workflowEntryCommand } from '../commands/hooks/workflow-entry.js';
 import {
   constitutionValidityCommand,
@@ -118,12 +118,37 @@ program
     await statusCommand(path, { json: options.json });
   });
 
+/** hooks 薄包装经 `_polaris-cli.sh` 追加的平台选项；多数子命令仅接受以免 unknown option */
+const PLATFORM_OPTION = ['--platform <id>', 'platform id (claude|cursor|trae)'] as const;
+
+program
+  .command('host-hook')
+  .description('Host lifecycle hook dispatcher: parse stdin and route by event')
+  .argument('[path]', 'project root directory')
+  .option(...PLATFORM_OPTION)
+  .option(
+    '--fallback-event <name>',
+    'when stdin lacks hook_event_name, treat as this event (e.g. SessionStart)',
+  )
+  .action(
+    async (
+      projectPath: string | undefined,
+      options: { platform?: string; fallbackEvent?: string },
+    ) => {
+      await hostHookCommand(projectPath, {
+        platform: options.platform,
+        fallbackEvent: options.fallbackEvent,
+      });
+    },
+  );
+
 program
   .command('session-start')
-  .description('SessionStart hook: env check, dependency warnings, agent model inject')
-  .argument('[path]', 'project root directory', process.cwd())
-  .action(async (projectPath: string) => {
-    await sessionStartCommand(projectPath);
+  .description('Alias of host-hook with --fallback-event SessionStart')
+  .argument('[path]', 'project root directory')
+  .option(...PLATFORM_OPTION)
+  .action(async (projectPath: string | undefined, options: { platform?: string }) => {
+    await sessionStartCommand(projectPath, { platform: options.platform });
   });
 
 program
@@ -147,6 +172,7 @@ program
   .option('--t1 <result>')
   .option('--t2 <result>')
   .option('--timestamp <iso>')
+  .option(...PLATFORM_OPTION)
   .option(
     '--set <kv...>',
     'phase=... and/or worktree-path=...',
@@ -180,6 +206,7 @@ program
   .command('draft-create')
   .description('Create .polaris/tasks/draft-* directory')
   .argument('<repo_root>', 'project root')
+  .option(...PLATFORM_OPTION)
   .action(async (repoRoot: string) => {
     await draftCreateCommand(repoRoot);
   });
@@ -188,6 +215,7 @@ program
   .command('task-init')
   .description('Clarify: create draft task + state.yaml')
   .argument('<repo_root>', 'project root')
+  .option(...PLATFORM_OPTION)
   .action(async (repoRoot: string) => {
     await taskInitCommand(repoRoot);
   });
@@ -198,6 +226,7 @@ program
   .argument('<repo_root>', 'project root')
   .argument('<draft_name>', 'draft-* name')
   .argument('<change_id>', 'final change id')
+  .option(...PLATFORM_OPTION)
   .action(async (repoRoot: string, draftName: string, changeId: string) => {
     await taskFinalizeCommand(repoRoot, draftName, changeId);
   });
@@ -206,6 +235,7 @@ program
   .command('tasks-lint')
   .description('Lint tasks.md for propose/plan gate')
   .argument('<file>', 'path to tasks.md')
+  .option(...PLATFORM_OPTION)
   .action(async (file: string) => {
     await tasksLintCommand(file);
   });
@@ -214,6 +244,7 @@ program
   .command('constitution-validity')
   .description('Check constitution.md validity')
   .argument('[path]', 'project root', process.cwd())
+  .option(...PLATFORM_OPTION)
   .action(async (projectPath: string) => {
     await constitutionValidityCommand(projectPath);
   });
@@ -223,6 +254,7 @@ program
   .description('Create isolated git worktree for a change')
   .argument('<change_id>', 'change id')
   .argument('<main_repo_root>', 'main repo root')
+  .option(...PLATFORM_OPTION)
   .action(async (changeId: string, mainRepoRoot: string) => {
     await worktreeCreateCommand(changeId, mainRepoRoot);
   });
@@ -233,6 +265,7 @@ program
   .argument('<worktree_path>')
   .argument('<origin_repo>')
   .argument('<branch>')
+  .option(...PLATFORM_OPTION)
   .action(async (wt: string, origin: string, branch: string) => {
     await worktreeMergeStatusCommand(wt, origin, branch);
   });
@@ -243,6 +276,7 @@ program
   .argument('<worktree_path>')
   .argument('<origin_repo>')
   .argument('<branch>')
+  .option(...PLATFORM_OPTION)
   .action(async (wt: string, origin: string, branch: string) => {
     await worktreeRebaseFfCommand(wt, origin, branch);
   });
@@ -254,6 +288,7 @@ program
   .argument('<origin_repo>')
   .argument('<change_id>')
   .argument('[conflict_mode]', '--overwrite|--suffix|--skip')
+  .option(...PLATFORM_OPTION)
   .action(async (wt: string, origin: string, changeId: string, mode?: string) => {
     await harnessSyncCommand(wt, origin, changeId, mode);
   });
@@ -263,6 +298,7 @@ program
   .description('Delete workflow active entry and .polaris/tasks leftovers')
   .argument('<change_id>')
   .argument('<origin_repo>')
+  .option(...PLATFORM_OPTION)
   .action(async (changeId: string, originRepo: string) => {
     await shipCleanupCommand(changeId, originRepo);
   });
@@ -271,6 +307,7 @@ program
   .command('intention-validate')
   .description('Validate intention.md required sections (propose gate)')
   .argument('<file>', 'path to intention.md')
+  .option(...PLATFORM_OPTION)
   .action(async (file: string) => {
     await intentionValidateCommand(file);
   });

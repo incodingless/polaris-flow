@@ -21,13 +21,13 @@ import {
 } from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
 import { createHookIo, type HookIo } from './hook-io.js';
-import { resolveHookPlatformId } from './resolve-platform.js';
 import {
   checkPluginPresence,
   getInstallHints,
   type PluginPresenceOptions,
 } from '../integration/detect.js';
 import { PLATFORMS, Platform } from '../platforms.js';
+import { getPolarisPluginRootPath } from '../assets/layout.js';
 
 export { resolveReviewAgentModel } from '../config/polaris-project-config.js';
 
@@ -49,15 +49,25 @@ const REVIEW_AGENTS = [
   'openspec-review-agent',
 ] as const;
 
+/** SessionStart 解析出的仓库 / 平台路径（供 commands 注入 Agent，不自行拼接） */
+export type SessionStartPaths = {
+  repoRoot: string;
+  platformId: string;
+  /** `$RepoRoot/.<platform_id>/skills/polaris-flow` */
+  pluginRoot: string;
+};
+
 export type SessionStartResult = {
   warnCount: number;
   failCount: number;
   /** 与 hook 契约一致：有 WARN/FAIL 则为 1 */
   exitCode: number;
+  /** 已解析到平台且算出 pluginRoot 时给出 */
+  paths?: SessionStartPaths;
 };
 
 export type SessionStartOptions = {
-  /** 平台 ID，如：claude、trae、cursor等；缺省时从 config 解析 */
+  /** 平台 ID，如：claude、trae、cursor等；由 commands 层 resolve 后传入，缺省则 FAIL */
   platformId?: string;
   /** 项目根目录，默认 process.cwd() */
   projectPath?: string;
@@ -133,11 +143,12 @@ async function checkOpenspec(
 
 /**
  * 检查 .polaris 目录、config、gitignore、workflow 骨架、.locks。
+ * @param pluginRoot 插件根绝对路径（`$RepoRoot/.<platform>/skills/polaris-flow`）
  */
 async function checkConfig(
   io: HookIo,
   projectPath: string,
-  pluginRootRel: string | undefined,
+  pluginRoot: string | undefined,
 ): Promise<boolean> {
   let ok = true;
   const polarisDir = getPolarisDir(projectPath);
@@ -180,13 +191,8 @@ async function checkConfig(
 
   const workflowDst = getWorkflowConfigPath(projectPath);
   if (!(await fileExists(workflowDst))) {
-    if (pluginRootRel) {
-      const workflowSrc = path.join(
-        projectPath,
-        pluginRootRel,
-        'templates',
-        'workflow-template.yaml',
-      );
+    if (pluginRoot) {
+      const workflowSrc = path.join(pluginRoot, 'templates', 'workflow-template.yaml');
       if (await fileExists(workflowSrc)) {
         try {
           await copyFile(workflowSrc, workflowDst);
@@ -295,8 +301,7 @@ export async function runSessionStart(
   const projectPath = path.resolve(options.projectPath ?? process.cwd());
   const io = options.io ?? createHookIo();
   const ppid = options.ppid ?? process.ppid;
-  const platformId =
-    options.platformId?.trim() || (await resolveHookPlatformId(projectPath)) || undefined;
+  const platformId = options.platformId?.trim() || undefined;
   if (!platformId) {
     io.fail('platform not set — pass --platform or set platform/platforms in .polaris/config.yaml');
     return { warnCount: 1, failCount: 1, exitCode: 1 };
@@ -313,8 +318,17 @@ export async function runSessionStart(
 
   io.tty('=== polaris-flow SessionStart Check ===');
 
-  const config = await loadPolarisConfig(projectPath);
-  const pluginRoot = config?.plugin_root;
+  const pluginRoot = await getPolarisPluginRootPath(projectPath, platform);
+  if (!pluginRoot || pluginRoot === null || pluginRoot === '') {
+    io.fail(`polaris plugin root not found for platform '${platformId}'`);
+    return { warnCount: 1, failCount: 1, exitCode: 1 };
+  }
+
+  const paths: SessionStartPaths = {
+    repoRoot: projectPath,
+    platformId,
+    pluginRoot,
+  };
 
   const runWarn = async (fn: () => Promise<boolean>) => {
     if (!(await fn())) warnCount += 1;
@@ -330,6 +344,11 @@ export async function runSessionStart(
   await runFail(() => checkConfig(io, projectPath, pluginRoot));
   await runFail(() => initSessionId(io, projectPath, ppid, options.sessionId));
 
+  const config = await loadPolarisConfig(projectPath);
+  if (!config) {
+    io.fail(`polaris config not found for platform '${platformId}'`);
+    return { warnCount: 1, failCount: 1, exitCode: 1, paths };
+  }
   const model = resolveReviewAgentModel(config);
   await runWarn(() => syncReviewAgents(io, projectPath, platform, model));
 
@@ -344,8 +363,8 @@ export async function runSessionStart(
         `polaris-flow SessionStart finished with ${warnCount} dependency warning(s) — 见上方安装指引；会话可继续，但相关阶段可能失败`,
       );
     }
-    return { warnCount, failCount, exitCode: 1 };
+    return { warnCount, failCount, exitCode: 1, paths };
   }
 
-  return { warnCount, failCount, exitCode: 0 };
+  return { warnCount, failCount, exitCode: 0, paths };
 }

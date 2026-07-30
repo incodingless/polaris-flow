@@ -1,7 +1,8 @@
 /**
  * 从 process.stdin（或注入流）读取宿主 hook JSON 并归一。
  */
-import { parseHookStdinJson, type HookStdinPayload } from '../../core/hooks/hook-stdin.js';
+import { hookDebug } from './debug-log.js';
+import { parseHookStdinJson, type HookStdinPayload } from './hook-stdin-parser.js';
 
 /**
  * 将 Readable 读至 EOF 为字符串。
@@ -21,11 +22,18 @@ export async function readHostHookStdin(
   stdin: NodeJS.ReadableStream = process.stdin,
   isTty: boolean = Boolean((stdin as NodeJS.ReadStream).isTTY),
 ): Promise<HookStdinPayload> {
-  if (isTty) return { event: 'Unknown', raw: {} };
+  if (isTty) {
+    hookDebug('readHostHookStdin: isTTY → Unknown');
+    return { event: 'Unknown', raw: {} };
+  }
   try {
     const text = await readStreamToString(stdin);
+    hookDebug('readHostHookStdin: raw bytes', { length: text.length, preview: text.slice(0, 300) });
     return parseHookStdinJson(text);
-  } catch {
+  } catch (err) {
+    hookDebug('readHostHookStdin: read failed → Unknown', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return { event: 'Unknown', raw: {} };
   }
 }

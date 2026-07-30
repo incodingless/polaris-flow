@@ -40,13 +40,14 @@
 
 ## 方案（stdin 归一）
 
-单文件别名表 + 事件 `switch`（可演进拆 `hook-stdin-events.ts`）：
+命令层别名表 + 事件 `switch`（`commands/hooks/parse-hook-stdin.ts`）：
 
 1. command 读 `process.stdin` → 文本  
-2. core `parseHookStdinJson`：提取公共字段（含别名回退）  
+2. `parseHookStdinJson`：提取公共字段（含别名回退）  
 3. 映射 `hook_event_name`（Cursor camelCase → Claude PascalCase）  
 4. 按内部事件名填充专有字段  
-5. 返回判别联合；始终保留 `raw`
+5. 返回判别联合；始终保留 `raw`  
+6. handler 内 `resolveHookPlatformId` 后调用 core（只传归一后的 cwd / sessionId / platformId）
 
 ## 事件名映射
 
@@ -120,77 +121,73 @@ type HookStdinPayload =
 
 ## API
 
-- `parseHookStdinJson(text: string)`（`core/hooks`）：纯函数；非法 JSON → `{ event: 'Unknown', raw: {} }`。
-- 读流 / 碰 `process.stdin`：放在 `commands/hooks`（TTY / 空则交给 parse 空串或直接 Unknown）。
+- `parseHookStdinJson(text: string)`（`commands/hooks`）：纯函数；非法 JSON → `{ event: 'Unknown', raw: {} }`。
+- 读流 / 碰 `process.stdin`：`commands/hooks/read-host-stdin.ts`。
 - 消费方用 `payload.event === '…'` 收窄后再访问专有字段。
-- `resolveHookPlatformId(projectPath, cliPlatformId?)`：见上文「平台身份识别」；`--platform` 优先且须为有效已知 id。
+- `resolveHookPlatformId(projectPath, cliPlatformId?)`（`commands/hooks`）：见上文「平台身份识别」。
 
 ## 分层（I/O vs 领域）
 
 | 职责 | 位置 |
 | --- | --- |
-| 读 stdin / 写 stdout·TTY / 设 `exitCode` | `commands/hooks` |
-| 宿主 hook **处理接口与按事件实现** | `commands/hooks`（见下节） |
-| `parseHookStdinJson`、事件专有字段、业务逻辑 | `core/hooks` |
-| `HookIo` 创建与注入 | command 实现内创建并注入；core 不默认绑死 `console` |
+| 读 stdin / 解析 stdin / 写 stdout·TTY / 设 `exitCode` / 解析 platform | `commands/hooks` |
+| 宿主 hook **处理接口与按事件实现** | `commands/hooks` |
+| SessionStart 等业务（写 session、探测插件、注入 agents） | `core/hooks`；只收已归一的 `projectPath` / `sessionId` / `platformId` |
+| `HookIo` 注入 | command 创建并注入；core 经接口写过程日志 |
 
-## commands/hooks：先接口，再实现
+## commands/hooks：分发器 + 事件实现
 
-宿主生命周期 hook（吃 stdin 的那类）在 `src/commands/hooks` **先定义统一处理接口**，再为各事件编写实现。Skill 用 argv 的命令（`hooks-rest` / `workflow-entry` 等）**不**塞进该接口。
+宿主生命周期 hook 在 `src/commands/hooks`：
 
-### 接口（示意）
+1. **`HostHookHandler`（分发器）**：读/解析 stdin → 按 `event` 派发 → 写 stdout / `exitCode`
+2. **`HostHookEventHandler`（事件实现）**：只处理已收窄的 payload，返回 `HostHookEventResult`
+3. **CLI**：`polaris-flow host-hook`；各宿主生命周期 `.sh` 只调此入口（`session-start.sh` 另传 `--fallback-event SessionStart`）
+4. Skill 用 argv 的命令（`hooks-rest` 等）**不**走分发器
+
+### 类型（示意）
 
 ```ts
-/** 宿主 hook 命令层处理契约：stdin 已归一，负责调 core 并写完 I/O */
-export type HostHookHandler = {
-  /** 匹配的内部事件名；Unknown 不注册专用 handler */
-  readonly event: Exclude<HookStdinPayload['event'], 'Unknown'>;
-  /**
-   * 处理一次宿主触发。
-   * @param payload 已是对应 event 收窄后的 stdin
-   * @param ctx CLI 选项（如 --platform）、可选显式 projectPath
-   */
-  handle(payload: HookStdinPayload & { event: this['event'] }, ctx: HostHookContext): Promise<void>;
+export type HostHookEventHandler<E extends HostHookEvent> = {
+  readonly event: E;
+  handle(
+    payload: Extract<HookStdinPayload, { event: E }>,
+    ctx: HostHookContext,
+  ): Promise<HostHookEventResult>;
 };
 
-export type HostHookContext = {
-  /** CLI `--platform` 原始值；有效性在 resolve 时判定 */
-  platform?: string;
-  /** CLI 位置参数路径；优先于 stdin.cwd */
-  projectPath?: string;
+export type HostHookHandler = {
+  handle(ctx: HostHookContext, io?: HostHookIoOptions): Promise<void>;
 };
+
+export function createHostHookHandler(
+  eventHandlers: ReadonlyArray<HostHookEventHandler>,
+): HostHookHandler;
 ```
 
-共享编排（可放 `commands/hooks/run-host-hook.ts`）：
+### 实现文件
 
-1. 读 `process.stdin` → `parseHookStdinJson`  
-2. 按 `payload.event` 查找 `HostHookHandler`  
-3. 无 handler（含 `Unknown`）→ 显式策略：SessionStart 兼容路径可走默认 handler，或 no-op + exit 0（本轮：**仅注册 SessionStart**；其它事件暂不注册，未知则 no-op）  
-4. `handler.handle` 内：解析路径与 `resolveHookPlatformId` → 调 `core` → 写 stdout/TTY/`exitCode`
-
-### 实现文件（本轮与后续）
-
-| 文件 | 本轮 |
+| 文件 | 职责 |
 | --- | --- |
-| `commands/hooks/host-hook-handler.ts`（或 `types.ts`） | 定义 `HostHookHandler` / `HostHookContext` |
-| `commands/hooks/run-host-hook.ts` | 读 stdin + 分发 |
-| `commands/hooks/session-start.ts` | 实现 `SessionStart` handler；CLI `session-start` 走同一实现 |
-| PreToolUse / PostToolUse / Stop / SessionEnd / UserPromptSubmit | **本轮不实现**；接口与注册表预留，后续按同一模式加文件 |
+| `host-hook-handler.ts` | 分发器类型 + `createHostHookHandler` |
+| `host-hook.ts` | CLI `host-hook` / 兼容 `session-start`；事件注册表 |
+| `session-start.ts` | `HostHookEventHandler<'SessionStart'>` |
+| `parse-hook-stdin.ts` / `read-host-stdin.ts` / `resolve-platform.ts` | 协议与平台解析 |
+| PreToolUse 等 | 后续追加事件实现并注册 |
 
-`_polaris-cli.sh` / `polaris-flow session-start` 入口不变；内部改为「编排 + SessionStart handler」。
+`session-start.sh` → `exec_polaris host-hook --fallback-event SessionStart`。
 
 ## 接入
 
 | 组件 | 本轮行为 |
 | --- | --- |
-| `src/core/hooks/hook-stdin.ts` | 类型 + `parseHookStdinJson`（别名归一） |
-| `src/core/hooks/resolve-platform.ts` | `--platform`（有效）→ config → null；无效 CLI 值回退 config |
-| `src/commands/hooks/host-hook-handler.ts` | 处理接口定义 |
-| `src/commands/hooks/run-host-hook.ts` | stdin 读取与按 event 分发 |
-| `src/commands/hooks/session-start.ts` | `HostHookHandler` 的 SessionStart 实现 + 现有 CLI 导出 |
-| 其它宿主事件 handler | 不实现；仅接口可扩展 |
-| Skill 向 CLI（`hooks-rest` 等） | 不纳入 `HostHookHandler` |
-| `.sh` / `_polaris-cli.sh` | 不变（`exec` 继承 stdin；`--platform` 由安装期写入） |
+| `src/commands/hooks/parse-hook-stdin.ts` | 类型 + `parseHookStdinJson` |
+| `src/commands/hooks/resolve-platform.ts` | `--platform`（有效）→ config → null |
+| `src/commands/hooks/host-hook-handler.ts` | 分发器 |
+| `src/commands/hooks/host-hook.ts` | CLI 入口 + 注册表 |
+| `src/commands/hooks/session-start.ts` | SessionStart 事件实现 |
+| `src/core/hooks/session-start.ts` | 业务；不解析 stdin / 不 resolve platform |
+| `assets/shared/hooks/session-start.sh` | 调 `host-hook --fallback-event SessionStart` |
+| Skill 向 CLI（`hooks-rest` 等） | 不纳入分发器 |
 
 ## 错误处理
 
