@@ -21,6 +21,7 @@ import {
 } from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
 import { createHookIo, type HookIo } from './hook-io.js';
+import { resolveHookPlatformId } from './resolve-platform.js';
 import {
   checkPluginPresence,
   getInstallHints,
@@ -56,10 +57,12 @@ export type SessionStartResult = {
 };
 
 export type SessionStartOptions = {
-  /** 平台 ID，如：claude、trae、cursor等 */
+  /** 平台 ID，如：claude、trae、cursor等；缺省时从 config 解析 */
   platformId?: string;
   /** 项目根目录，默认 process.cwd() */
   projectPath?: string;
+  /** 宿主 stdin 提供的 session_id；缺省则本地生成 */
+  sessionId?: string;
   /** 可注入 IO，便于测试 */
   io?: HookIo;
   /** 可注入 PPID，便于测试 */
@@ -208,8 +211,14 @@ async function checkConfig(
 
 /**
  * 写入按 PPID 隔离的 session_id 文件。
+ * @param providedSessionId 宿主 stdin 已给时优先使用，否则本地生成
  */
-async function initSessionId(io: HookIo, projectPath: string, ppid: number): Promise<boolean> {
+async function initSessionId(
+  io: HookIo,
+  projectPath: string,
+  ppid: number,
+  providedSessionId?: string,
+): Promise<boolean> {
   const sessionsDir = getSessionsDir(projectPath);
   try {
     await mkdir(sessionsDir, { recursive: true });
@@ -218,7 +227,7 @@ async function initSessionId(io: HookIo, projectPath: string, ppid: number): Pro
     return false;
   }
 
-  const sessionId = createSessionId();
+  const sessionId = providedSessionId?.trim() || createSessionId();
   const sessionFile = getSessionIdPath(projectPath, ppid);
   try {
     await writeFile(sessionFile, `${sessionId}\n`, 'utf-8');
@@ -286,9 +295,10 @@ export async function runSessionStart(
   const projectPath = path.resolve(options.projectPath ?? process.cwd());
   const io = options.io ?? createHookIo();
   const ppid = options.ppid ?? process.ppid;
-  const platformId = options.platformId;
+  const platformId =
+    options.platformId?.trim() || (await resolveHookPlatformId(projectPath)) || undefined;
   if (!platformId) {
-    io.fail('platform not set in .polaris/config.yaml — skip plugin presence checks');
+    io.fail('platform not set — pass --platform or set platform/platforms in .polaris/config.yaml');
     return { warnCount: 1, failCount: 1, exitCode: 1 };
   }
 
@@ -318,12 +328,10 @@ export async function runSessionStart(
   await runWarn(() => checkOpenspec(io, platform, projectPath, presenceOpts));
 
   await runFail(() => checkConfig(io, projectPath, pluginRoot));
-  await runFail(() => initSessionId(io, projectPath, ppid));
+  await runFail(() => initSessionId(io, projectPath, ppid, options.sessionId));
 
   const model = resolveReviewAgentModel(config);
-  if (platform) {
-    await runWarn(() => syncReviewAgents(io, projectPath, platform, model));
-  }
+  await runWarn(() => syncReviewAgents(io, projectPath, platform, model));
 
   if (failCount > 0 || warnCount > 0) {
     io.tty('');
@@ -337,12 +345,6 @@ export async function runSessionStart(
       );
     }
     return { warnCount, failCount, exitCode: 1 };
-  }
-
-  // 成功摘要走 stdout（喂 AI）；注入 io 的测试路径跳过，避免污染 vitest 输出
-  if (!options.io) {
-    console.log('');
-    console.log('=== polaris-flow ready ===');
   }
 
   return { warnCount, failCount, exitCode: 0 };

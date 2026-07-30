@@ -189,4 +189,9 @@ describe('runSessionStart platform', () => {
     const session = await readFile(path.join(tmp, '.polaris', 'sessions', '424242.id'), 'utf-8');
     expect(session.trim()).toBe('host-session-xyz');
   });
+
+  it('sessionStartHandler.event 为 SessionStart', async () => {
+    const { sessionStartHandler } = await import('../../src/commands/hooks/session-start.js');
+    expect(sessionStartHandler.event).toBe('SessionStart');
+  });
 });
