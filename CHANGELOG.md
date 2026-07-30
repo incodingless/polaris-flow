@@ -4,6 +4,7 @@
 
 ### Added
 
+- **宿主 hook stdin 归一**: Claude/Cursor/Trae 字段别名与事件判别联合（`parseHookStdinJson`）；commands 层 `HostHookHandler` + SessionStart 实现
 - **工作流 hooks 调用说明**: 新增 `docs/workflow-hooks-call-order.md`，按 clarify→delivery 梳理 hooks 调用顺序、作用、内部依赖与命名债
 - **平台安装布局**: 按平台 `skillsLayout`（nested / flat）将 polaris 资产装到正确目标目录；Trae 子 skill 扁平为 `polaris-flow-*`，其余平台嵌套进 `skills/polaris-flow/`
 - **包内公共内容安装**: init/update 同步安装 adapters、policies、templates、hooks 脚本到插件根
@@ -13,6 +14,8 @@
 
 ### Changed
 
+- **platform 解析**: 无效 `--platform` 回退 `.polaris/config.yaml`，不再把未知字符串当有效 id
+- **SessionStart I/O**: stdin 读取与成功摘要上移到 `commands/hooks`，core 通过注入 `HookIo` 输出
 - **init 选择逻辑迁入 prompts**: `selectScope` / `selectLanguage` / `selectPlatforms` / `buildInstallPlans`（及 `PlatformPlan`）从 `init.ts` 迁入 `prompts.ts`；init 只保留安装编排与结果展示
 - **hooks CLI 入口**: hooks 薄包装 `_polaris-cli.sh` 只调用 `polaris-flow`；用户侧 init/status 等仍用 `polaris`（package.json 双 bin）
 - **getAssetsDir 归位**: 从 `assets/paths` 迁入 `config/polaris-paths`，安装与命令侧统一从此取包内 assets 路径
@@ -54,6 +57,7 @@
 
 ### Fixed
 
+- **hook 跨平台参数**: CLI 统一接受 `--platform`；安装时替换 `_polaris-cli.sh` 的 `@PLATFORM_ID@`；SessionStart 读宿主 stdin JSON（cwd/session_id）；宿主 hooks command 改写为 `.<platform>/skills/polaris-flow/hooks/...`，不再依赖 `CLAUDE_PLUGIN_ROOT`
 - **core 循环依赖**: 消除 `polaris-paths` ↔ `polaris-project-config` ↔ `platforms` 三文件 SCC；`InstallScope` 下沉为 `polaris-paths` 叶类型，config 再导出保持调用方兼容
 - **core→commands 死引用**: 删除 `install.ts` 对 `commands/init` 的未使用 `PluginInstallResult` import
 - **codegraph 导入路径**: `integration/codegraph.ts` 改为引用 `../command-error` 与 `../types`，修复构建失败
@@ -69,6 +73,8 @@
 - **install-layout / skills-install**: 覆盖 nested/flat 落盘、hooks 命令路径、agents 与 config 字段；skills 步骤不再隐式安装 agents；断言 `plan-review-agent` / `openspec-review-agent` 落盘
 - **generatePolarisConfig**: 覆盖从模板首次生成、已存在跳过、`--overwrite` 整文件重写，以及模板注释保留
 - **hooks-install**: Trae/Claude 六场景（不存在写入、合并保留用户配置、overwrite 替换 hooks）
+- **hook-platform-params**: platform 解析优先级、stdin JSON、`_polaris-cli` 占位替换、hooks command 路径改写、SessionStart session_id
+- **session-start.sh 集成**: 薄包装无 CLI 失败提示；stdin cwd/session_id 全链路落盘；CLI 路径优先于 stdin.cwd
 
 ### Removed
 
