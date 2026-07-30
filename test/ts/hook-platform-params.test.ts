@@ -47,6 +47,20 @@ describe('resolveHookPlatformId', () => {
     const tmp = await mkdtemp(path.join(os.tmpdir(), 'polaris-plat-none-'));
     expect(await resolveHookPlatformId(tmp)).toBeNull();
   });
+
+  it('无效 --platform 回退 config', async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), 'polaris-plat-bad-'));
+    await mkdir(path.join(tmp, '.polaris'), { recursive: true });
+    await writeFile(path.join(tmp, '.polaris', 'config.yaml'), 'platform: claude\n', 'utf-8');
+    expect(await resolveHookPlatformId(tmp, 'not-a-platform')).toBe('claude');
+  });
+
+  it('coercePlatformId 未知返回 null', async () => {
+    const { coercePlatformId } = await import('../../src/core/hooks/resolve-platform.js');
+    expect(coercePlatformId('nope')).toBeNull();
+    expect(coercePlatformId('trae')).toBe('trae');
+    expect(coercePlatformId('.cursor')).toBe('cursor');
+  });
 });
 
 describe('readHookStdin', () => {
