@@ -32,9 +32,14 @@ export type HostHookContext = {
 /** 单次事件处理后的领域结果；由分发器按平台序列化到 stdout */
 export type HostHookEventResult = {
   exitCode: number;
+  /**
+   * 解析后的平台 id（claude / cursor / trae）。
+   * 由通用分发器在事件 handler 返回后统一写入，事件实现不必自行填充。
+   */
+  PLATFORM_ID?: string;
   /** 注入宿主会话的上下文文本（平台无关语义） */
   additionalContext?: string;
-  /** Cursor SessionStart 等可选环境变量 */
+  /** Cursor SessionStart 等可选环境变量（分发器会确保含 PLATFORM_ID） */
   env?: Record<string, string>;
   /** Cursor PreToolUse / beforeSubmitPrompt */
   continue?: boolean;
@@ -44,6 +49,27 @@ export type HostHookEventResult = {
   permissionDecision?: 'allow' | 'deny' | 'ask';
   permissionDecisionReason?: string;
 };
+
+/**
+ * 将分发器解析到的 platform id 写入返回结果（及 Cursor 用 env）。
+ */
+export function enrichHookResultWithPlatformId(
+  result: HostHookEventResult,
+  platformId: string | null | undefined,
+): HostHookEventResult {
+  const id = platformId?.trim();
+  if (!id) {
+    return result;
+  }
+  return {
+    ...result,
+    PLATFORM_ID: id,
+    env: {
+      ...result.env,
+      PLATFORM_ID: id,
+    },
+  };
+}
 
 /**
  * 单个宿主事件的业务适配（不读 stdin、不写宿主 stdout、不设 process.exitCode）。
@@ -177,13 +203,15 @@ export function createHostHookHandler(
         p: Extract<HookStdinPayload, { event: HostHookEvent }>,
         c: HostHookContext,
       ) => Promise<HostHookEventResult>;
-      const result = await run(
+      const rawResult = await run(
         payload as Extract<HookStdinPayload, { event: HostHookEvent }>,
         enrichedCtx,
       );
+      const result = enrichHookResultWithPlatformId(rawResult, resolvedPlatformId);
       hookDebug('event handler result', {
         event: payload.event,
         exitCode: result.exitCode,
+        PLATFORM_ID: result.PLATFORM_ID,
         additionalContext: result.additionalContext,
         permissionDecision: result.permissionDecision,
         continue: result.continue,

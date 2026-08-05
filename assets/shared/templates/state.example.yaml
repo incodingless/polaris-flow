@@ -8,92 +8,224 @@
 #
 # worktree 阶段拷贝整个 .polaris/tasks/<change_id>/ 到 worktree 内同名路径，
 # 主仓副本可重命名为 .polaris/tasks/<change_id>.snapshot/ 作只读快照。
-language: "zh-CN"  # en | zh-CN
 
-change_id: ""        # 与父目录名一致；draft-* 阶段为占位，clarify finalize 回填
-phase: idle   # idle | clarify | propose | design | plan | build | verify | delivery
-current_tier: ""     # trivial | standard | critical（triage 写入）
-kind: "solo"  # 协作模式: solo | team
-workflow: sdd  # 工作流类型: sdd | tweak | bugfix | full
-verify_mode: "light"  # 验证模式: light | heavy
-auto_transition: true  # 自动过渡
-isolation: "worktree" # 隔离模式: worktree | branch 
-context-compression: off  # 上下文压缩: off | beta
-review-mode: standard  # 审查模式: standard | thorough
-build-mode: tdd  # 开发模式: tdd | direct
+####################
+# 基础配置 
+####################
+# 语言
+# 可选值: en-英文 | zh-中文
+language: "zh"
 
+# 安装时间
+install-time: "2026-06-25T02:05:29.066Z"
+
+# 仓库根目录
+main-repo-root: "<project_root>"
+
+# 工作树目录
+worktree-dir: "<project_root>/.worktrees"
+
+####################
+# 运行配置 
+####################
+# 变更ID
+# 与父目录名一致；draft-* 阶段为占位，clarify finalize 回填
+change_id: ""
+
+# 阶段
+# 可选值: idle-空闲 | clarify-澄清 | propose-提案 | design-设计 | plan-计划 | build-构建 | verify-验证 | delivery-交付
+phase: idle
+
+# 当前层级
+# 可选值: trivial-简单 | standard-标准 | critical-关键
+current_tier: ""
+
+# 工作流类型
+# 可选值: sdd-需求开发 | tweak-需求优化 | bugfix-缺陷修复 | full-全栈开发
+workflow: sdd
+
+# 验证模式
+# 可选值: light-轻量验证 | heavy-重量验证
+verify_mode: "light"
+
+# 自动过渡
+auto_transition: true
+
+# 隔离模式
+# 可选值: worktree-工作树 | branch-分支
+isolation: "worktree"
+
+# 问题分类
 triage:
+  # 层级
+  # 可选值: trivial-简单 | standard-标准 | critical-关键
   tier: ""
+  # 问题分类
+  # 可选值: trivial-简单 | standard-标准 | critical-关键
   t1_result: ""
   t2_result: ""
+  # 时间戳
   timestamp: ""
 
+# 工作树信息
 worktree:
+  # 是否由 polaris-flow 创建
   created_by_polaris_flow: false
-  path: ""             # propose Step 1.3.A 写入
+  # 工作树路径
+  path: ""
+  # 工作树分支
   branch: ""
+  # 工作树源仓库
   origin_repo: ""
-  created_at: ""
+  # 工作树状态
   status: ""     
+  # 工作树创建时间
+  created_at: ""
 
-# intention 路径生命周期：clarify 暂存 → propose Step 4.5 迁入 openspec（.polaris 不留备份）
+####################
+# 产物信息 （运行态产物）
+####################
+####### intention 信息 #############
 intention:
-  path: ""           # 例：.polaris/tasks/<task_id>/intention.md（暂存）或 openspec/changes/<change_id>/intention.md（迁入后）
+  # 路径
+  # 可选值: .polaris/tasks/<task_id>/intention.md（暂存）或 openspec/changes/<change_id>/intention.md（迁入后）
+  path: ""
 
+####### 提案信息 #############
 propose:
-  status: ""           # in_progress | completed | skipped（trivial 直跳过）
-  worktree_decision: ""  # created | reused | declined
-  opsx_propose_status: ""  # ok | failed | n/a
-  review_report: ""    # openspec/changes/<change_id>/reviews/propose-review-report.md 或 skipped:<reason>
-  outside_voice: ""    # ran | skipped:<reason> | not_run:<reason>
-  outside_voice_report: ""  # openspec/changes/<change_id>/reviews/openspec-review-report.md
-  finished_at: ""
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
+  status: ""
+  # 工作树决策
+  # 可选值: created-创建 | reused-重用 | declined-拒绝
+  worktree_decision: ""
+  # 提案状态
+  # 可选值: ok-成功 | failed-失败 | n/a-未执行
+  opsx_propose_status: ""
+  # 审查报告
+  # 可选值: openspec/changes/<change_id>/reviews/propose-review-report.md 或 skipped:<reason>
+  review_report: ""
+  # 外部声音
+  # 可选值: ran-运行 | skipped:<reason>-跳过 | not_run:<reason>-未运行
+  outside_voice: ""
+  # 外部声音报告
+  # 可选值: openspec/changes/<change_id>/reviews/openspec-review-report.md
+  outside_voice_report: ""
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""    
 
+####### 设计信息 #############
 design:
-  status: ""           # in_progress | completed
-  path: ""             # 完成后：openspec/changes/<change_id>/detailed-design.md
-  review_report: ""    # openspec/changes/<change_id>/reviews/design-review-report.md 或 skipped:<reason>
-  outside_voice: ""    # ran | skipped:<reason> | not_run:<reason>
-  outside_voice_report: ""  # openspec/changes/<change_id>/reviews/openspec-review-report.md
-  draft_dir: ""        # 历史字段；目标态 design 不再用 .polaris draft 目录写设计文档
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
+  status: ""
+  # 路径
+  # 可选值: openspec/changes/<change_id>/detailed-design.md
+  path: ""
+  # 审查报告
+  # 可选值: openspec/changes/<change_id>/reviews/design-review-report.md 或 skipped:<reason>
+  review_report: ""
+  # 外部声音
+  # 可选值: ran-运行 | skipped:<reason>-跳过 | not_run:<reason>-未运行
+  outside_voice: ""
+  outside_voice_report: ""
+  # 草稿目录
+  # 可选值: .polaris/draft/<change_id>
+  draft_dir: ""
 
+####### 计划信息 #############
 plan:
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
   status: ""
-  tdd_policy: ""       # prefer_tdd | require_tdd | prefer_direct
-  tasks_path: ""       # openspec/changes/<change_id>/tasks.md
-  review_report: ""    # openspec/changes/<change_id>/reviews/plan-review-report.md
-  outside_voice: ""    # ran | skipped:<reason>
-  outside_voice_report: ""  # openspec/changes/<change_id>/reviews/openspec-review-report.md
+  # TDD 策略
+  # 可选值: prefer_tdd-优先TDD | require_tdd-强制TDD | prefer_direct-优先直接
+  tdd_policy: ""
+  # 任务路径
+  # 可选值: openspec/changes/<change_id>/tasks.md
+  tasks_path: ""
+  # 审查报告
+  # 可选值: openspec/changes/<change_id>/reviews/plan-review-report.md
+  review_report: ""
+  # 外部声音
+  # 可选值: ran-运行 | skipped:<reason>-跳过 | not_run:<reason>-未运行
+  outside_voice: ""
+  # 外部声音报告
+  # 可选值: openspec/changes/<change_id>/reviews/openspec-review-report.md
+  outside_voice_report: ""
 
+####### 审查信息 #############
 review:
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
   status: ""
+  # 计划审查状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
   plan_review_status: ""
+  # 宪法合规
+  # 可选值: true-合规 | false-不合规
   constitution_compliance: ""
+  # 审查报告
+  # 可选值: openspec/changes/<change_id>/reviews/review-report.md
+  review_report: ""
+  # 外部声音
+  # 可选值: ran-运行 | skipped:<reason>-跳过 | not_run:<reason>-未运行
+  outside_voice: ""
+  # 外部声音报告
+  # 可选值: openspec/changes/<change_id>/reviews/openspec-review-report.md
+  outside_voice_report: ""
 
+####### 构建信息 #############
 build:
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
   status: ""
+  # 当前任务
+  # 可选值: openspec/changes/<change_id>/tasks/<task_id>.md
   current_task: ""
+  # 总任务数
+  # 可选值: 0
   total_tasks: 0
+  # 完成任务数
+  # 可选值: 0
   completed_tasks: 0
 
-verify:
-  constitution_valid: false
-  scorer_results: {}
-  overall_score: 0
-  blocked: false
-  verification_report: ""  # openspec/changes/<change_id>/reviews/verify-report.md
-
+####### 交付信息 #############
 delivery:
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
   status: ""
+  # 合并策略
+  # 可选值: merge-合并 | rebase-重基 | squash-压缩
   merge_strategy: ""
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
   finished_at: ""
-  harness_sync: ""   # synced | partial_failure | skipped_no_source | skipped_worktree_retained | deferred_archive_conflict | n/a
-  archive_dir: ""    # 例：.polaris/archive/<change_id>（运行态快照；叙事随 openspec archive）
-  archive: ""        # archived | deferred | skipped | failed
+  # 同步状态
+  # 可选值: synced-同步 | partial_failure-部分失败 | skipped_no_source-跳过无源 | skipped_worktree_retained-跳过工作树保留 | deferred_archive_conflict-延迟归档冲突 | n/a-未执行
+  harness_sync: ""
+  # 归档目录
+  # 可选值: .polaris/archive/<change_id>（运行态快照；叙事随 openspec archive）
+  archive_dir: ""
+  # 归档状态
+  # 可选值: archived-归档 | deferred-延迟 | skipped-跳过 | failed-失败
+  archive: ""
+  # 归档路径
+  # 可选值: openspec/changes/<change_id>/archive.md
   archive_path: ""
+  # 归档错误
+  # 可选值: 错误信息
   archive_error: ""
 
+################ 深度阅读信息 #############
 deepread:
+  # 上次触发时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
   last_triggered: ""
+  # 待处理文件
+  # 可选值: openspec/changes/<change_id>/<file_path>
   pending_file: ""
+  # 动作
+  # 可选值: halt_and_wait-等待 | continue-继续
   action: halt_and_wait

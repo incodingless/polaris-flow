@@ -68,8 +68,10 @@ description: "用户触发 /polaris-flow-design、/design，或要求把 OpenSpe
 通过后：
 
 ```bash
-CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
-PLUGIN_ROOT="$(cat "$CONFIG_FILE" | grep "plugin_root" | awk -F'"' '{print $2}')"
+REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
+REPO_ROOT="${REPO_ROOT:-$PWD}"
+PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
+
 bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill design \
   --where-change-id "$change_id" --set phase=design
 ```

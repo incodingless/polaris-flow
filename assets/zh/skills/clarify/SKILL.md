@@ -57,21 +57,9 @@ description: "用户触发 /polaris-flow-clarify 或 要求进入需求澄清 �
 - 仍无 `PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
 
 ```bash
-# 若 shell 未继承注入 env，从 SessionStart 缓存加载
-if [ -z "${PLUGIN_ROOT:-}" ] || [ -z "${REPO_ROOT:-}" ]; then
-  _rr="$(git rev-parse --show-toplevel 2>/dev/null)" || true
-  _rr="${_rr:-$PWD}"
-  if [ -f "$_rr/.polaris/.cache/runtime-env" ]; then
-    set -a
-    # shellcheck disable=SC1091
-    . "$_rr/.polaris/.cache/runtime-env"
-    set +a
-  fi
-fi
-
 REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-PLUGIN_ROOT="${PLUGIN_ROOT:-}"
+PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
 if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/hooks/clarify-init.sh" ]; then
   echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
   exit 2
@@ -159,7 +147,7 @@ done
 
 #### 3.3 设计决策方案 Options
 
-继续按 `reframe-check.md` **第 2 节**：每个实现层决策点给出 2–3 个方案 + 优劣权衡，等用户选择；未选方案与拒绝理由记入后续 `intention.md`「备选方案」节。完成后进入 3.4。
+继续按 `reframe-check.md` **第 2 节**：每个实现层决策点给出 2–3 个方案 + 优劣权衡，等用户选择（按决策点逐个让用户选择）；未选方案与拒绝理由记入后续 `intention.md`「备选方案」节。完成后进入 3.4。
 
 #### 3.4 Premise Challenge
 
@@ -242,7 +230,6 @@ done
 将 draft 目录 `mv` 为正式 `task_id`，回填 intention 首行，更新 state / workflow：
 
 ```bash
-# 复用 Step 1 的 $REPO_ROOT / $PLUGIN_ROOT（勿再 grep config）
 FINAL_RESULT=$(bash "$PLUGIN_ROOT/hooks/clarify-finalize.sh" "$REPO_ROOT" "<draft_name>" "<task_id>")
 FINAL_EXIT=$?
 echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"

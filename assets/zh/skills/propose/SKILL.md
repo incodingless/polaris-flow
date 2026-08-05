@@ -70,11 +70,11 @@ description: "用户触发 /polaris-flow-propose、/propose，或要求基于 in
 #### 1.3.A 用户选 A — 创建 worktree
 
 ```bash
-CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
-PLUGIN_ROOT="$(cat "$CONFIG_FILE" | grep "plugin_root" | awk -F'"' '{print $2}')"
+REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
+REPO_ROOT="${REPO_ROOT:-$PWD}"
+PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
 
-main_repo_root="$(git rev-parse --show-toplevel)"
-WT_RESULT=$(bash "$PLUGIN_ROOT/hooks/worktree-create.sh" "$change_id" "$main_repo_root")
+WT_RESULT=$(bash "$PLUGIN_ROOT/hooks/worktree-create.sh" "$change_id" "$REPO_ROOT")
 WT_EXIT=$?
 ```
 
@@ -224,8 +224,6 @@ openspec/changes/<change_id>/
 4. `tasks.md` 含任务列表，每个任务有明确描述；通过合规检查（**必须跑脚本，禁止脑补核对**）：
 
 ```bash
-CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
-PLUGIN_ROOT="$(cat "$CONFIG_FILE" | grep "plugin_root" | awk -F'"' '{print $2}')"
 LINT_RESULT=$(bash "$PLUGIN_ROOT/hooks/tasks-lint.sh" "openspec/changes/$change_id/tasks.md")
 LINT_EXIT=$?
 ```

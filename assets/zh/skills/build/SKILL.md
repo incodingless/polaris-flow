@@ -56,9 +56,11 @@ description: "用户触发 /polaris-flow-build、/build，或要求按已评审�
 ### Step 0：定位 change_id + 入口校验
 
 ```bash
+REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
+REPO_ROOT="${REPO_ROOT:-$PWD}"
+PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
+
 CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
-PLUGIN_ROOT="$(grep -E '^[[:space:]]*plugin_root:' "$CONFIG_FILE" | head -n1 | awk -F: '{print $2}' | tr -d ' \"')"
-PLATFORM="$(grep -E '^[[:space:]]*platform:' "$CONFIG_FILE" | head -n1 | awk -F: '{print $2}' | tr -d ' \"')"
 ```
 
 读取 `.polaris/workflow.yaml: active_changes`，筛选 `phase=build` 的 entry：

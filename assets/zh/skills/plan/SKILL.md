@@ -96,6 +96,10 @@ description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完�
 通过后：
 
 ```bash
+REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
+REPO_ROOT="${REPO_ROOT:-$PWD}"
+PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
+
 CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
 PLUGIN_ROOT="$(cat "$CONFIG_FILE" | grep "plugin_root" | awk -F'"' '{print $2}')"
 bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \

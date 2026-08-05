@@ -1,6 +1,6 @@
 # Changelog
 
-## What's Changed [0.1.1] - 2026-07-28
+## What's Changed [0.1.1] - 2026-08-04
 
 ### Added
 
@@ -59,6 +59,10 @@
 
 ### Fixed
 
+- **OpenSpec 按平台目录落盘**: `installOpenSpec` 接收 Platform 列表；CLI 仍用 `openspecToolId`，init 后按 `contextDir`/`skillsDir`/`commandsDir` 迁入（如 trae-cn → `.trae-cn/skills`），不再把 toolId 当作平台目录
+- **Superpowers 技能嵌套路径**: `installSource` 对已含 `baseDir` 的平台目录再次 `path.join(baseDir, …)`；Node `path.join` 不丢弃绝对段，会写出 `<project>/Users/.../<project>/.trae-cn/skills`。改为直接使用 `getPlatformSkillsDir`
+- **平台探测双重 join**: `detectPlatforms` 对 `getPlatformContextDir` 结果不再二次 `path.join(projectPath, …)`
+- **hook 返回 PLATFORM_ID**: 通用分发器在事件处理后将解析到的平台 id 写入 `HostHookEventResult.PLATFORM_ID` 与 `env.PLATFORM_ID`（Cursor SessionStart stdout 可见）
 - **hook 跨平台参数**: CLI 统一接受 `--platform`；安装时替换 `_polaris-cli.sh` 的 `@PLATFORM_ID@`；SessionStart 读宿主 stdin JSON（cwd/session_id）；宿主 hooks command 改写为 `.<platform>/skills/polaris-flow/hooks/...`，不再依赖 `CLAUDE_PLUGIN_ROOT`
 - **core 循环依赖**: 消除 `polaris-paths` ↔ `polaris-project-config` ↔ `platforms` 三文件 SCC；`InstallScope` 下沉为 `polaris-paths` 叶类型，config 再导出保持调用方兼容
 - **core→commands 死引用**: 删除 `install.ts` 对 `commands/init` 的未使用 `PluginInstallResult` import
@@ -68,6 +72,7 @@
 
 ### Tests
 
+- **openspec relocate**: 覆盖 trae-cn 迁入 `.trae-cn`、trae 不迁入、trae+trae-cn 双保留
 - **install/layout**: 覆盖 `resolveWorktreeRoot` / `getInstallSkillBase` / `initializePolarisCommonLayout` / `initializeProjectLayout`
 - **hooks TS**: `workflow-entry`（锁/RMW/op）、`draft-create`/`task-init`/`task-finalize`、`tasks-lint`、`constitution-validity`、`harness-sync`/`ship-cleanup`、`intention-validate`（缺文件/缺节/空节/通过）；session-start / detect plugin 既有覆盖保留
 - **config / task-state**: 覆盖 kebab↔snake 归一、旧 `lang` 兼容、`patchPolarisConfig` / `patchTaskState` 不丢字段、constitution 读 config.path

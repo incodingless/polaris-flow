@@ -27,15 +27,16 @@ describe('formatHostHookStdout', () => {
     expect(JSON.parse(raw).hookSpecificOutput.hookEventName).toBe('SessionStart');
   });
 
-  it('Cursor SessionStart → additional_context / env', () => {
+  it('Cursor SessionStart → additional_context / env（含 PLATFORM_ID）', () => {
     const raw = formatHostHookStdout('cursor', 'SessionStart', {
       exitCode: 0,
+      PLATFORM_ID: 'cursor',
       additionalContext: 'hello',
       env: { POLARIS: '1' },
     });
     expect(JSON.parse(raw)).toEqual({
       additional_context: 'hello',
-      env: { POLARIS: '1' },
+      env: { POLARIS: '1', PLATFORM_ID: 'cursor' },
     });
   });
 

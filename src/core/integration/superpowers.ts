@@ -24,12 +24,13 @@ export type SuperpowersInstallResult = {
   method?: 'github' | 'npx';
 };
 
-const SKILLS_AGENT_MAP: Record<string, string | null> = {
-  claude: 'claude-code',
-  cursor: 'cursor',
-  trae: 'trae',
-};
-
+const SKILLS_AGENT_MAP: Record<string, string> = PLATFORMS.reduce(
+  (acc, platform) => {
+    acc[platform.id] = platform.name;
+    return acc;
+  },
+  {} as Record<string, string>,
+);
 const VALID_PLATFORM_IDS = new Set(Object.keys(SKILLS_AGENT_MAP));
 const SUPERPOWERS_INSTALL_TIMEOUT_MS = 300_000;
 

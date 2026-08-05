@@ -60,13 +60,13 @@
 
 ### 1.4 阶段产出
 
-Reframe 阶段必须在 `pre_design.md` 中记录一行 **"Reframe 历程"**，例如：
+Reframe 阶段必须在 `intention.md` 中记录一行 **"Reframe 历程"**，例如：
 - `原始诉求 X → 用户接受 Reframe 为 Y`，或
 - `用户拒绝 Reframe，保留原始 framing X`
 
 ---
 
-## 2. 设计决策方案输出格式（Options，实现层）
+## 2. 决策方案输出格式（Options，实现层）
 
 ### 2.1 触发规则
 
@@ -100,4 +100,4 @@ Reframe 阶段必须在 `pre_design.md` 中记录一行 **"Reframe 历程"**，�
 
 ### 2.3 与 Premise Challenge 的衔接
 
-被淘汰的方案及拒绝理由会在 Premise Challenge 完成后写入 `pre_design.md` 的 `## Alternatives` 节。
+被淘汰的方案及拒绝理由会在 Premise Challenge 完成后写入 `intention.md` 的 `## Alternatives` 节。

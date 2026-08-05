@@ -105,8 +105,9 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 ## 输入与入口校验
 
 ```bash
-CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
-PLUGIN_ROOT="$(grep -E '^[[:space:]]*plugin_root:' "$CONFIG_FILE" | head -n1 | awk -F: '{print $2}' | tr -d ' \"')"
+REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
+REPO_ROOT="${REPO_ROOT:-$PWD}"
+PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
 ```
 
 读取 `.polaris/workflow.yaml: active_changes`，筛选 `phase=delivery` 的 entry：

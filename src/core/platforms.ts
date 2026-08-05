@@ -41,8 +41,12 @@ export interface Platform {
   supportsHooks?: boolean;
   hooksConfigFile: string;
   /** Hook 配置写入格式 */
-  hookFormat?: 'claude-code';
+  hookFormat?: 'claude-code' | 'trae' | 'trae-cn';
   detectionPaths?: string[];
+  /**
+   * 传给 OpenSpec CLI `--tools` 的工具 id（≠ polaris platform id）。
+   * 落盘目录以 `contextDir` / `skillsDir` / `commandsDir` 为准；若与 OpenSpec 原生目录不同，init 后会迁入平台目录。
+   */
   openspecToolId: string;
 }
 
@@ -216,6 +220,23 @@ export const PLATFORMS: Platform[] = [
     hooksConfigFile: 'hooks.json',
     hookFormat: 'claude-code',
     detectionPaths: ['/Users/jason/.trae/v1/history.json'],
+    openspecToolId: 'trae',
+  },
+  {
+    id: 'trae-cn',
+    name: 'Trae-CN',
+    contextDir: '.trae',
+    globalContextDir: '.trae-cn',
+    skillsDir: 'skills',
+    commandsDir: 'commands',
+    agentsDir: 'agents',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    skillsLayout: 'flat',
+    supportsHooks: true,
+    hooksConfigFile: 'hooks.json',
+    hookFormat: 'trae',
+    detectionPaths: ['/Users/jason/.trae-cn/v1/history.json'],
     openspecToolId: 'trae',
   },
 ];

@@ -46,7 +46,7 @@ export async function copyPolarisSkillsForPlatform(
 
   // 2. 复制区分语言的共享文档路径
   const contentDirs = assets.langDirAssets.filter((asset) =>
-    ['adapters', 'policies'].includes(asset.dir),
+    ['adapters', 'policies', 'templates'].includes(asset.dir),
   );
   for (const contentDir of contentDirs) {
     for (const file of contentDir.files) {

@@ -186,20 +186,15 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
   const platformResults: InitPlatformResult[] = [];
   const pluginResults: PluginInstallResult[] = [];
   // --- 1. OpenSpec ---
-  const osToolIds = [
-    ...new Set(
-      plans
-        .filter((p) => p.osAction !== 'skip' && p.platform.openspecToolId)
-        .map((p) => p.platform.openspecToolId),
-    ),
-  ];
+  const osPlatforms = plans
+    .filter((p) => p.osAction !== 'skip' && p.platform.openspecToolId)
+    .map((p) => p.platform);
   let osGlobalStatus: InstallStatus = 'skipped';
 
-  if (osToolIds.length > 0) {
-    log(
-      `\n  ${blue('⏳')} ${bold('OpenSpec')} ${dim(`${t(lang, 'installingOS')} ${osToolIds.join(', ')}`)}`,
-    );
-    osGlobalStatus = await installOpenSpec(projectPath, osToolIds, scope, true);
+  if (osPlatforms.length > 0) {
+    const osLabels = osPlatforms.map((p) => p.id).join(', ');
+    log(`\n  ${blue('⏳')} ${bold('OpenSpec')} ${dim(`${t(lang, 'installingOS')} ${osLabels}`)}`);
+    osGlobalStatus = await installOpenSpec(projectPath, osPlatforms, scope, true);
     log(`  ${statusSymbol(osGlobalStatus)}  OpenSpec ${statusLabel(osGlobalStatus, lang)}`);
     const installedVersion =
       osGlobalStatus === 'installed' ? getNpmPackageVersion(OPENSPEC_PACKAGE) : '0.0.0';

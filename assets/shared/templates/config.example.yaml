@@ -1,47 +1,74 @@
-# 基础配置
-language: "zh"  #语言: en | zh-CN
-platform:          # 平台: trae | claude | qoder
-  - "trae" 
-scope: "project" # 范围: global | project
-install-time: "2026-06-25T02:05:29.066Z" # 安装时间
+####################
+# 基础配置 
+####################
+# 语言
+# 可选值: en-英文 | zh-中文
+language: "zh"
 
-# 主要目录
+# 平台
+# 可选值: trae-trae | claude-claude | qoder-qoder | trae-cn-trae中文版
+platform:
+  - "trae-cn"
+
+# 范围
+# 可选值: global-全局 | project-项目
+
+scope: "project"
+# 安装时间
+
+install-time: "2026-06-25T02:05:29.066Z"
+# 仓库根目录
+
 main-repo-root: "<project_root>"
-plugin-root: "<project_root>/.<platform_id>/skills/polaris-flow"
-worktree-dir: "<project_root>/.worktrees"
+# 插件根目录
 
-# 运行配置
-# 协作模式: solo | team
-kind: "solo"
-# 工作流类型: sdd | tweak | bugfix | full
-workflow: sdd
-# 阶段: clarify | design | build | audit | ship
-phase: clarify
-# 验证模式: light | heavy
-verify_mode: "light"
-# 自动过渡
-auto_transition: true
-# 隔离模式: worktree | branch
-isolation: "worktree"
-# 上下文压缩: off | beta
-context-compression: off
+plugin-root: "<project_root>/.<platform_id>/skills/polaris-flow"
+# 工作树目录
+
+worktree-dir: "<project_root>/.worktrees"
 
 # 模型配置
 model:
+  # 提案模型
   propose: GLM5.2
+  # 编码模型
   code: Doubao-Seed-2.1-Pro
+  # 审查模型
   review: DeepSeek-V4-Flash
+  # 挑战模型
   challenger: DeepSeek-V4-Pro
 
+# 上下文压缩
+# 可选值: off-关闭 | beta-开启
+context-compression: off
+
+####################
+# 运行配置 
+####################
+# 协作模式
+# 可选值: solo-单人协作 | team-多人协作
+kind: "solo"
+
+
+
+####################
+# 高级配置 
+####################
 # 评分配置
 scorer:
   # 留空使用默认模型；team 模式可指定评分模型
-  model: ""  
+  model: ""
+  # 权重配置
   weights:
+    # 审计违规率
     audit-violation-rate: 1.0
+    # 宪法违规数量
     constitution-violation-count: 1.0
+    # 测试覆盖率
     test-coverage: 1.0
+    # 代码复杂度
     complexity: 1.0
+    # 文档同步
     doc-sync: 1.0
 
 # 质量评分阈值配置

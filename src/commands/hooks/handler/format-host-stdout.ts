@@ -67,8 +67,10 @@ function formatCursor(event: HostHookEvent, result: HostHookEventResult): Record
     if (result.additionalContext !== undefined) {
       out.additional_context = result.additionalContext;
     }
-    if (result.env && Object.keys(result.env).length > 0) {
-      out.env = result.env;
+    const env = result.env ?? {};
+    // 通用层写入的 PLATFORM_ID 保证进入 Cursor sessionStart env
+    if (Object.keys(env).length > 0 || result.PLATFORM_ID) {
+      out.env = result.PLATFORM_ID ? { ...env, PLATFORM_ID: result.PLATFORM_ID } : { ...env };
     }
     return out;
   }

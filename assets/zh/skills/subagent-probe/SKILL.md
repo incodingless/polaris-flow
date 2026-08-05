@@ -34,21 +34,14 @@ description: 在 subagent 派发前必须调用。接收 platform，按该平台
 |---|---|---|---|
 | `platform` | string | 是 | 宿主平台 id（如 `claude` / `cursor` / `codebuddy` / `trae` / `qoder`）。调用方宜从 `.polaris/config.yaml` 的 `platform` 字段读取后传入 |
 
-**平台补齐**：若调用方未传 `platform`，本 skill 必须尝试：
-
-```bash
-CONFIG_FILE="$(git rev-parse --show-toplevel)/.polaris/config.yaml"
-platform="$(grep -E '^[[:space:]]*platform:' "$CONFIG_FILE" | head -n1 | awk -F: '{print $2}' | tr -d ' \"')"
-```
-
-仍为空 → 按未登记平台退化（见输出）。
+**平台补齐**：若调用方未传 `platform`，按未登记平台退化（见输出）。
 
 ## 输出
 
 必须返回以下结构化结果（字段齐全；`agents` 可以为空数组）：
 
 ```text
-platform: <id 或 "">
+platform: <$PLATFORM_ID 或 "">
 supports_subagent: true|false
 agents:
   - id: <可选，builtin 时为 subagent_type；目录型可为文件名 stem>

@@ -67,8 +67,9 @@ async function detectPlatforms(projectPath: string): Promise<Set<string>> {
         }
       }
     } else {
+      // getPlatformContextDir 已含 projectPath，勿再 join（Node path.join 不丢弃绝对段）
       const skillsDir = getPlatformContextDir(platform, 'project', projectPath);
-      if (await fileExists(path.join(projectPath, skillsDir))) {
+      if (await fileExists(skillsDir)) {
         detectedPlatforms.add(platform.id);
       }
     }

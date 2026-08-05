@@ -6,8 +6,30 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   createHostHookHandler,
+  enrichHookResultWithPlatformId,
   type HostHookEventHandler,
 } from '../../src/commands/hooks/handler/host-hook-handler.js';
+
+describe('enrichHookResultWithPlatformId', () => {
+  it('写入 PLATFORM_ID 并合并 env', () => {
+    expect(
+      enrichHookResultWithPlatformId(
+        { exitCode: 0, env: { REPO_ROOT: '/r' }, additionalContext: 'x' },
+        'claude',
+      ),
+    ).toEqual({
+      exitCode: 0,
+      additionalContext: 'x',
+      PLATFORM_ID: 'claude',
+      env: { REPO_ROOT: '/r', PLATFORM_ID: 'claude' },
+    });
+  });
+
+  it('platform 为空时原样返回', () => {
+    const result = { exitCode: 1 as number };
+    expect(enrichHookResultWithPlatformId(result, null)).toBe(result);
+  });
+});
 
 describe('createHostHookHandler', () => {
   it('按 SessionStart 派发并写 Claude JSON + exitCode', async () => {
@@ -47,7 +69,7 @@ describe('createHostHookHandler', () => {
     process.exitCode = prev;
   });
 
-  it('Cursor 平台写 additional_context', async () => {
+  it('Cursor 平台写 additional_context，且 env 含 PLATFORM_ID', async () => {
     const eventHandler: HostHookEventHandler<'SessionStart'> = {
       event: 'SessionStart',
       handle: async () => ({ exitCode: 0, additionalContext: 'ready' }),
@@ -61,7 +83,10 @@ describe('createHostHookHandler', () => {
       { platform: 'cursor' },
       { stdin, isTty: false, writeStdout: (l) => lines.push(l) },
     );
-    expect(JSON.parse(lines[0]!)).toEqual({ additional_context: 'ready' });
+    expect(JSON.parse(lines[0]!)).toEqual({
+      additional_context: 'ready',
+      env: { PLATFORM_ID: 'cursor' },
+    });
   });
 
   it('无 handler → no-op', async () => {
