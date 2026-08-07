@@ -53,7 +53,8 @@ const REVIEW_AGENTS = [
 export type SessionStartPaths = {
   repoRoot: string;
   platformId: string;
-  /** `$RepoRoot/.<platform_id>/skills/polaris-flow` */
+  contextDir: string;
+  /** `$RepoRoot/projectContextDir/skills/polaris-flow` */
   pluginRoot: string;
 };
 
@@ -255,7 +256,7 @@ export async function injectReviewAgentModel(
   name: string,
   model: string,
 ): Promise<boolean> {
-  const dst = path.join(projectPath, `.${platform.id}`, 'agents', `${name}.md`);
+  const dst = path.join(projectPath, platform.contextDir, 'agents', `${name}.md`);
   if (!(await fileExists(dst))) {
     io.warn(`${name} 未安装到 ${dst}（请先 polaris-flow init/update）`);
     return false;
@@ -273,7 +274,7 @@ export async function injectReviewAgentModel(
 }
 
 /**
- * 对 claude/trae 同步四个评审 agent 的 model。
+ * 对当前平台同步四个评审 agent 的 model。
  */
 async function syncReviewAgents(
   io: HookIo,
@@ -281,9 +282,6 @@ async function syncReviewAgents(
   platform: Platform,
   model: string,
 ): Promise<boolean> {
-  if (platform.id !== 'claude' && platform.id !== 'trae') {
-    return true;
-  }
   let ok = true;
   for (const name of REVIEW_AGENTS) {
     const injected = await injectReviewAgentModel(io, projectPath, platform, name, model);
@@ -327,6 +325,7 @@ export async function runSessionStart(
   const paths: SessionStartPaths = {
     repoRoot: projectPath,
     platformId,
+    contextDir: platform.contextDir,
     pluginRoot,
   };
 

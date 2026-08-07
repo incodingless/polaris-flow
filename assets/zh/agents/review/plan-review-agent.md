@@ -1,7 +1,7 @@
 ---
 name: plan-review-agent
 description: 任务规划主审 subagent。对 OpenSpec 四件套（含细 tasks.md）+ detailed-design 按固定标准做独立工程评审，输出可判定的 STATUS 与 Findings。不修改任何文件，不执行命令，不与用户对话。
-tools: read_file, codebase_search, search_content, list_dir, search_file
+tools: Read, SearchCodebase, Grep, Glob, LS
 model: DeepSeek-V4-Flash
 enabled: true
 enabledAutoRun: false

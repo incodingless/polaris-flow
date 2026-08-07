@@ -154,5 +154,5 @@ export function resolveAgentInstallDest(
  * @returns Polaris插件根路径
  */
 export async function getPolarisPluginRootPath(projectPath: string, platform: Platform): Promise<string> {
-  return path.posix.join(projectPath, `.${platform.id}`, 'skills', 'polaris-flow');
+  return path.posix.join(projectPath, platform.contextDir, platform.skillsDir, 'polaris-flow');
 }

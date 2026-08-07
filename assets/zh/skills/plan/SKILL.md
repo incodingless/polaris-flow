@@ -1,13 +1,6 @@
-<!--
-  简要说明：
-  - 职责：以四件套 + detailed-design 覆写可执行 tasks.md，询问 TDD 策略，经 plan-review-agent 主审，并按 outside-voice 可选派 openspec-review-agent。
-  - 主产物：`openspec/changes/<change_id>/tasks.md`（覆写）+ `reviews/plan-review-report.md`（+ 可选 openspec-review-report.md）。
-  - 上游 / 下游：design → 本阶段 → build。
--->
-
 ---
-name: polaris-flow-plan
-description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完成后写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划必须基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md 全文推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并派发 plan-review-agent 做独立主审（可选 Outside Voice）。不要用于：clarify/propose 阶段、尚未完成 design、或已进入 build 要求直接写代码。"
+name: {{SKILL_NAME_PREFIX}}plan
+description: "用户触发 /{{SKILL_NAME_PREFIX}}plan 或要求在 design 完成后写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划必须基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md 全文推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并派发 plan-review-agent 做独立主审（可选 Outside Voice）。不要用于：clarify/propose 阶段、尚未完成 design、或已进入 build 要求直接写代码。"
 ---
 
 # Polaris 工作流 - 阶段：任务规划（plan）
@@ -22,14 +15,14 @@ description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完�
 - **禁止**另写 `docs/superpowers/plans/*.md` 或 `.polaris/tasks/*/implementation-plan.md` 作为主产物——**唯一**实施计划是 `openspec/changes/<change_id>/tasks.md`（覆写，不是并列第二份）
 - **禁止**跳过 `tasks-lint.sh` 或脑补核对
 - **禁止**跳过 Step 6 主审：必须派发 `plan-review-agent`，并注入本 skill 的 `StandardsRoot`（agent 须读完 `policies/` + `references/` 标准文档；禁止主代理自审冒充；**主审不可跳过**）
-- **禁止**跳过 Step 6 Outside Voice **询问**（按 `.polaris/reference/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
+- **禁止**跳过 Step 6 Outside Voice **询问**（按 `./reference/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
 - **禁止**在本阶段编写业务实现代码 / 调用 `/opsx:apply`（那是 build）
 - **禁止**借机重写 `proposal.md` / 高层 `design.md` 的范围与架构结论；缺口只进 review 消化或回 design，不在 plan 静默改 Scope
 - **禁止**写出规划依据中不存在的需求 / 模块 / 验收场景（YAGNI；多出来的任务 = 失败）
-- **禁止**未按 `.polaris/reference/decision-point.md` 获得用户对 **TDD 策略**（Step 2）的明确选择，就进入 Step 4 覆写 `tasks.md`
+- **禁止**未按 `./reference/decision-point.md` 获得用户对 **TDD 策略**（Step 2）的明确选择，就进入 Step 4 覆写 `tasks.md`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: plan — 使用 polaris-flow-plan 技能。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: plan — 使用 {{SKILL_NAME_PREFIX}}plan 技能。`
 
 ## 标识约定
 
@@ -55,7 +48,7 @@ description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完�
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `hooks/workflow-entry.sh`）
 - 运行态：`.polaris/tasks/<change_id>/state.yaml`
 
-> **链路**：`clarify → propose → design → **plan** → build`。  
+> **链路**：`clarify → propose → design → **plan** → build → verify → delivery → retro(可选)`。  
 > 细计划 = f(四件套, detailed-design)；propose 的 tasks 只是输入粗骨架。主审走 `plan-review-agent`；可选 Outside Voice 走 `openspec-review-agent`。
 
 ## 有效 vs 无效（写计划前默念）
@@ -74,12 +67,62 @@ description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完�
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
+```
+TODO 待补充内部流程过程
+```
+
+每个阶段的"做什么"在对应 policy 文件，本 SKILL.md 仅承载入口、HARD-GATE 锚点与跨阶段衔接。
+
 ### Step 0：定位 change_id + 入口校验
 
-读取 `.polaris/workflow.yaml: active_changes`，筛选 `phase=design` 的 entry：
+用 bash 读取工作流配置中有效变更的`change_id`：
+
+```bash
+WORK_FLOW_CONFIG="${WORK_FLOW_CONFIG:-$REPO_ROOT/.polaris/workflow.yaml}"
+
+Entries=$(node -e '
+const fs = require("fs");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const strip = (s) => s.trim().replace(/^"(.*)"$/, "$1");
+const ids = [];
+let inList = false;
+let changeId = null;
+let phase = null;
+const flush = () => {
+  if (changeId && phase === "clarify") ids.push(changeId);
+  changeId = null;
+  phase = null;
+};
+for (const raw of text.split(/\r?\n/)) {
+  const line = raw.replace(/\t/g, "  ");
+  if (/^active_changes:\s*\[\s*\]\s*$/.test(line)) break;
+  if (/^active_changes:\s*$/.test(line)) { inList = true; continue; }
+  if (inList && /^[^\s#]/.test(line)) break;
+  if (!inList) continue;
+  const itemStart = line.match(/^\s*-\s+change_id:\s*(.+?)\s*$/);
+  if (itemStart) {
+    flush();
+    changeId = strip(itemStart[1]);
+    continue;
+  }
+  const cid = line.match(/^\s+change_id:\s*(.+?)\s*$/);
+  if (cid) {
+    flush();
+    changeId = strip(cid[1]);
+    continue;
+  }
+  const ph = line.match(/^\s+phase:\s*(.+?)\s*$/);
+  if (ph) phase = strip(ph[1]);
+}
+flush();
+process.stdout.write(ids.join("\n"));
+' "$WORK_FLOW_CONFIG")
+```
+
+按 `$Entries` 行数解读：
 
 - **唯一匹配**：取其 `change_id`
-- **多个匹配**：按 `.polaris/reference/decision-point.md` 列出候选让用户选择
+- **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 design 阶段的 active change，请先执行 /polaris-flow-design」
 
 > 若 entry 已是 `phase=plan`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
@@ -96,12 +139,7 @@ description: "用户触发 /polaris-flow-plan、/plan，或要求在 design 完�
 通过后：
 
 ```bash
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
-REPO_ROOT="${REPO_ROOT:-$PWD}"
-PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
-
 CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
-PLUGIN_ROOT="$(cat "$CONFIG_FILE" | grep "plugin_root" | awk -F'"' '{print $2}')"
 bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
   --where-change-id "$change_id" --set phase=plan
 ```
@@ -126,12 +164,12 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
 若存在则一并只读：
 
 - `openspec/changes/<change_id>/reviews/design-review-report.md`
-- `openspec/changes/<change_id>/*-design.md`（专项设计；排除四件套 `design.md`）
+- `openspec/changes/<change_id>/*-design.md`（专项设计，如有；排除四件套 `design.md`）
 - `openspec/changes/<change_id>/intention.md`（冲突以四件套 + detailed-design 为准）
 
 ### Step 2：TDD 策略（用户决策点）
 
-在加载 `writing-plans`、拆任务、覆写 `tasks.md` **之前**，必须按 `.polaris/reference/decision-point.md` 暂停，询问本次 change 的 TDD 策略。  
+在加载 `writing-plans`、拆任务、覆写 `tasks.md` **之前**，必须按 `./reference/decision-point.md` 暂停，询问本次 change 的 TDD 策略。  
 **推荐只能说明，不能代选。** 选定前禁止进入 Step 3。
 
 向用户说明：TDD 决定的是 **tasks.md 里每条顶层任务的子步骤形态**（TDD=5 步 / 非 TDD=3 步），不是 build 阶段再选的全局开关；build 将严格按标注执行。
@@ -142,7 +180,7 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
 | **B** | `require_tdd` | **从紧**：凡含行为或接口变更的任务一律 TDD；仅纯文档 / 纯文案可标非 TDD | 高风险、核心业务、安全相关 |
 | **C** | `prefer_direct` | **从宽**：默认非 TDD（三步）；仅当 `detailed-design` 测试策略点名、或用户在本决策中另行指定的任务标 TDD | hotfix、探索性小改、明确不要求测试覆盖时 |
 
-写入 `.polaris/tasks/<change_id>/state.yaml`：
+写入 `$REPO_ROOT/.polaris/tasks/<change_id>/state.yaml`：
 
 ```yaml
 plan:
@@ -180,10 +218,10 @@ plan:
 #### 3.2 强制重读模板
 
 ```text
-read_file templates/tasks-template.md
+read_file ./templates/tasks-template.md
 ```
 
-输出：`[polaris-flow plan] 已 read_file templates/tasks-template.md`
+输出：`[polaris-flow plan] 已读取任务模板(tasks-template.md)`
 
 ### Step 4：文件地图 → 任务分解 → 覆写 tasks.md
 
@@ -250,7 +288,7 @@ read_file templates/tasks-template.md
 
 将完整计划写入（**覆写**）`openspec/changes/<change_id>/tasks.md`。  
 最后一组必须是 Documentation Sync（见模板）。  
-输出：`[polaris-flow] plan: wrote openspec/changes/<change_id>/tasks.md`
+输出：`[polaris-flow] plan: 已写 openspec/changes/<change_id>/tasks.md`
 
 ### Step 5：自审 + tasks-lint
 
@@ -277,17 +315,33 @@ LINT_EXIT=$?
 
 #### 6.1 主审
 
-1. **`subagent-probe`**：加载 `polaris-flow:subagent-probe`（传入 `platform`）。`inline` / `unsupported` → **阻断**（计划无独立主审不得进 build；与 design 可跳过主审不同）。不得 inline 假评审。
+1. **`subagent-probe`**：加载 `{{SKILL_NAME_PREFIX}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → **阻断**（计划无独立主审不得进 build；与 design 可跳过主审不同）。不得 inline 假评审。
 2. **解析 StandardsRoot**：本 skill 安装根目录（含 `policies/`、`references/`、`prompts/`）。例：`$PLUGIN_ROOT/plan`（nested）或项目 skills 下的 `polaris-flow-plan`（flat）。目录缺失 → 阻断，提示 `polaris-flow init/update`。
-3. **派发**：注册名 / `subagent_type` = `plan-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断。启动 prompt：
+3. **派发**：注册名 / `subagent_type` = `plan-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断。
 
-```text
-Change: <change_id>
-tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
-StandardsRoot: <本 skill 安装绝对或仓库相对根路径>
-```
+   **按 `subagent-delegate-policy.md` 执行派发**（D-0 工具可用性判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
 
-agent **必须**先读 `{StandardsRoot}/policies/scope-challenge.md`、`four-section-review.md` 与 `{StandardsRoot}/references/engineering-mindset.md`、`test-review-methodology.md` 再评审。
+   - `stage_fields`:
+     ```text
+     tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
+     StandardsRoot: <本 skill 安装绝对或仓库相对根路径>
+     ```
+   - `materials`（按以下顺序构造）：
+     1. `./policies/scope-challenge.md`
+     2. `./policies/four-section-review.md`
+     3. `./references/engineering-mindset.md`
+     4. `./references/test-review-methodology.md`
+     5. `./templates/review-report-template.md`
+     5. `openspec/changes/<change_id>/tasks.md`
+     6. `openspec/changes/<change_id>/proposal.md`
+     7. `openspec/changes/<change_id>/design.md`
+     8. `openspec/changes/<change_id>/specs/**/*.md`（每个非空文件）
+     9. `openspec/changes/<change_id>/detailed-design.md`
+     10. 若有：`openspec/changes/<change_id>/reviews/design-review-report.md`
+     11. 若有：`openspec/changes/<change_id>/*-design.md`（专项设计；排除四件套 `design.md`）
+     12. 若有：`openspec/changes/<change_id>/intention.md`
+
+   D-1 下 agent 自读上述路径；D-2 下主代理 Read 全部全文（含四份标准文档）拼入 `Materials:` 段；`StandardsRoot` 在 D-2 下仅作溯源标注用。
 
 4. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；将完整 **Plan Review Report** 写入 `openspec/changes/<change_id>/reviews/plan-review-report.md`。
 
@@ -295,23 +349,25 @@ agent **必须**先读 `{StandardsRoot}/policies/scope-challenge.md`、`four-sec
 
 #### 6.2 Outside Voice（询问后可选）
 
-1. `read_file` `.polaris/reference/outside-voice.md`（或插件 `policies/outside-voice.md`）并按其执行。
+1. `read_file` `./reference/outside-voice.md` 并按其执行。
 2. 按复杂度给出建议，decision-point：**A 启动** / **B 跳过**（AI 不得代决）。
-3. 用户选 A → 填充本 skill 的 `prompts/main-review-summary.tmpl.md`，派发 `openspec-review-agent`：
+3. 用户选 A → 填充本 skill 的 `prompts/main-review-summary.tmpl.md`，派发 `openspec-review-agent`。
 
-```text
-Change: <change_id>
-Stage: plan
-PrimaryReport: openspec/changes/<change_id>/reviews/plan-review-report.md
-Materials:
-  - openspec/changes/<change_id>/proposal.md
-  - openspec/changes/<change_id>/design.md
-  - openspec/changes/<change_id>/specs/
-  - openspec/changes/<change_id>/tasks.md
-  - openspec/changes/<change_id>/detailed-design.md
-```
+   **按 `subagent-delegate-policy.md` 执行派发**（D-0 判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
 
-（模板内 findings 摘录从刚落盘的 `plan-review-report.md` 填充；**不要**附带用户对 findings 的采纳决策。）
+   - `stage_fields`:
+     ```text
+     Stage: plan
+     ```
+   - `materials`:
+     1. `openspec/changes/<change_id>/reviews/plan-review-report.md`（即 PrimaryReport，D-2 下全文拼入）
+     2. `openspec/changes/<change_id>/proposal.md`
+     3. `openspec/changes/<change_id>/design.md`
+     4. `openspec/changes/<change_id>/specs/**/*.md`（每个非空文件）
+     5. `openspec/changes/<change_id>/tasks.md`
+     6. `openspec/changes/<change_id>/detailed-design.md`
+
+   （模板内 findings 摘录从刚落盘的 `plan-review-report.md` 填充；**不要**附带用户对 findings 的采纳决策。）
 
 4. 通过可信度门禁后写入 `openspec/changes/<change_id>/reviews/openspec-review-report.md`。
 5. 宿主无 subagent 时主审已在 6.1 阻断，不会到达本步的「无 subagent 自动跳过 OV」。
@@ -364,7 +420,7 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
   outside-voice : <ran | skipped:...>
   STATUS        : <DONE | DONE_WITH_CONCERNS>
 
-下一步建议 /polaris-flow-build（按 tasks.md 由 implementer 执行 /opsx:apply）。
+下一步建议 /{{SKILL_NAME_PREFIX}}build（按 tasks.md 由 implementer 执行 /opsx:apply）。
 ```
 
 ## 退出条件

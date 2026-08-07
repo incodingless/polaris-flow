@@ -8,10 +8,10 @@ import fs from 'fs/promises';
 import { copyDirContents, copyFile, ensureDir } from '../../utils/file-system.js';
 import type { SkillSource } from '../assets/sources.js';
 import { type Platform, getPlatformSkillsDir } from '../platforms.js';
-import type { InstallScope, Language } from '../config/polaris-project-config.js';
+import type { InstallScope, Languages } from '../config/polaris-project-config.js';
 
 /** 将 assets 内语言路径 zh/ → en/（与 getLanguageContentRoots 策略一致） */
-function resolveLangPath(assetPath: string, lang: Language): string {
+function resolveLangPath(assetPath: string, lang: Languages): string {
   if (lang === 'zh') return assetPath;
   return assetPath.replace(/^zh\//, 'en/').replace(/^skills-zh\//, 'skills/');
 }
@@ -25,7 +25,7 @@ export async function installSource(
   baseDir: string,
   platform: Platform,
   scope: InstallScope,
-  lang?: Language,
+  lang?: Languages,
 ): Promise<void> {
   // getPlatformSkillsDir 已含 baseDir，禁止再 path.join(baseDir, ...)（Node path.join 不丢弃绝对段）
   const platformSkillsRoot = getPlatformSkillsDir(platform, scope, baseDir);

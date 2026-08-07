@@ -2,7 +2,7 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parse as parseYaml } from 'yaml';
-import { Language, LANGUAGES } from '../../core/config/polaris-project-config.js';
+import { Languages, LANGUAGES } from '../../core/config/polaris-project-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,13 +13,13 @@ export type TranslationKey = string;
 /** 加载完成后从 YAML 导出的全部 key */
 export let TRANSLATION_KEYS: readonly string[] = [];
 
-let translations: Record<Language, Record<string, string>> | null = null;
+let translations: Record<Languages, Record<string, string>> | null = null;
 
 function getDefaultConfigPath(): string {
   return path.resolve(__dirname, 'messages.yaml');
 }
 
-function normalizeLanguage(lang: string | undefined): Language {
+function normalizeLanguage(lang: string | undefined): Languages {
   return lang === 'zh' ? 'zh' : 'en';
 }
 
@@ -31,21 +31,21 @@ function parseTranslationEntry(
   key: string,
   value: unknown,
   configPath: string,
-): Record<Language, string> {
+): Record<Languages, string> {
   if (!isRecord(value)) {
     throw new Error(
       `i18n config key "${key}" must be an object with en/zh strings in ${configPath}`,
     );
   }
 
-  const result = {} as Record<Language, string>;
+  const result = {} as Record<Languages, string>;
 
   for (const language of LANGUAGES) {
-    const text = value[language];
+    const text = value[language.code];
     if (typeof text !== 'string') {
-      throw new Error(`i18n config key "${key}" missing "${language}" in ${configPath}`);
+      throw new Error(`i18n config key "${key}" missing "${language.code}" in ${configPath}`);
     }
-    result[language] = text;
+    result[language.code] = text;
   }
 
   return result;
@@ -54,7 +54,7 @@ function parseTranslationEntry(
 function parseMessagesYaml(
   raw: string,
   configPath: string,
-): Record<Language, Record<string, string>> {
+): Record<Languages, Record<string, string>> {
   let parsed: unknown;
   try {
     parsed = parseYaml(raw);

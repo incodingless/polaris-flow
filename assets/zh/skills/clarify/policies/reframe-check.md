@@ -14,6 +14,8 @@
 
 ## 1. Reframe 候选输出格式（问题层）
 
+> 本节向用户呈现 Reframe 候选并征询 ✅/✏️/❌ 选择，属发问场景，按 `./policies/ask-question-react.md` 执行。
+
 ### 1.1 何时可跳过 Reframe（唯一判定门）
 
 仅当以下 **全部** 满足时，AI 可以跳过 Reframe 候选并明确说明 "本次需求 framing 已足够清晰，无需 Reframe"：
@@ -67,6 +69,8 @@ Reframe 阶段必须在 `intention.md` 中记录一行 **"Reframe 历程"**，�
 ---
 
 ## 2. 决策方案输出格式（Options，实现层）
+
+> 本节向用户呈现多方案并征询选择，属发问场景，按 `./policies/ask-question-react.md` 执行。
 
 ### 2.1 触发规则
 

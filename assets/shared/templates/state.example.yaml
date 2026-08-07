@@ -229,3 +229,84 @@ deepread:
   # 动作
   # 可选值: halt_and_wait-等待 | continue-继续
   action: halt_and_wait
+
+
+####################
+# 运行时数据
+####################
+
+######## clarify阶段 #############
+clarify:
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  start_time: ""
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
+
+######## propose阶段 #############
+propose:
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  start_time: ""
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
+
+  # 审查
+  review:
+    # 是否跳过
+    skipped: true
+    # 审查轮次
+    round: 0
+    # 开始时间
+    # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+    start_time: ""
+    # 完成时间
+    # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+    finished_at: ""
+
+######## design阶段 #############
+design:
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  start_time: ""
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
+
+######## plan阶段 #############
+plan:
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  start_time: ""
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
+
+######## build阶段 #############
+build:
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  start_time: ""
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
+
+######## verify阶段 #############
+verify:
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  start_time: ""
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
+
+######## delivery阶段 #############
+delivery:
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  start_time: ""
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""

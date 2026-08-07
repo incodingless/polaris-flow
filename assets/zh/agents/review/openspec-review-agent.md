@@ -1,7 +1,7 @@
 ---
 name: openspec-review-agent
 description: Outside Voice 交叉评审 subagent。在 propose-review-agent / design-review-agent / plan-review-agent 主审完成后，挑战主审结论与提案材料，专注发现主审遗漏的逻辑漏洞、过度复杂、可行性风险、依赖排序与战略误判。不修改任何文件，不执行命令。
-tools: read_file, codebase_search, search_content, list_dir, search_file
+tools: Read, SearchCodebase, Grep, Glob, LS
 model: DeepSeek-V4-Flash
 enabled: true
 enabledAutoRun: false

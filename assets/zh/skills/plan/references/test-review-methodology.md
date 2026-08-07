@@ -1,6 +1,6 @@
 # 测试评审方法论
 
-本文档是 **`polaris-flow-plan`** 下 `plan-review-agent` 在 Section 3「测试评审」中的详细执行规范（路径：`skills/plan/references/test-review-methodology.md`）。
+本文档是 **`{{SKILL_NAME_PREFIX}}plan`** 下 `plan-review-agent` 在 Section 3「测试评审」中的详细执行规范（路径：`./references/test-review-methodology.md`）。
 
 测试评审的目标是 **100% 覆盖**。评估计划中的每条代码路径，确保每条路径都有对应的测试。若计划缺少测试，把测试缺口写入报告「建议加入 tasks」清单——**不直接改** `tasks.md`（由 plan skill 消化）。
 
@@ -219,4 +219,4 @@ LLM 集成: [GAP] [→EVAL] Prompt 模板变更——需要 eval 测试
 - ...
 ```
 
-**调用方约束**：测试缺口转换为 tasks.md 中的可执行任务这一步**由调用方在下一阶段启动前统一处理**（在 easy-flow lock 链中即由 `/ezfl:build` 入口处理），本 skill 在 review-report.md 中列出建议即可，**禁止直接修改 tasks.md**。
+**调用方约束**：测试缺口转换为 tasks.md 中的可执行任务这一步**由调用方在下一阶段启动前统一处理**（在 polaris-flow lock 链中即由 `/{{SKILL_NAME_PREFIX}}build` 入口处理），本 skill 在 review-report.md 中列出建议即可，**禁止直接修改 tasks.md**。

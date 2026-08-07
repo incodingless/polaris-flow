@@ -1,9 +1,10 @@
-# intent research 模板
+# 意图调研结果
 
-> **使用约定**：本模板由 `clarify` skill Step 4.1 引用。clarify 主代理读取本模板后，按节顺序填充 `.polaris/tasks/<draft_or_id>/intention.md`（propose 成功后迁入 `openspec/changes/<change_id>/intention.md`，不留备份）；各节内容来源标注见行内注释。
+> **使用约定**：本模板由 `{{SKILL_NAME_PREFIX}}clarify` skill Step 4.1 引用。clarify 主代理读取本模板后，按节顺序填充；各节内容来源标注见行内注释。
+
 ---
 
-# 任务意图调研结果: <task_id>
+# 意图调研结果: <task_id>
 
 ## Reframe 历程
 <!-- 来自 design Step 3.2，一行 -->
@@ -57,14 +58,3 @@
 ## 待决问题
 <!-- openspec-explore 中悬而未决、留给 design 阶段消化的问题 -->
 - <...>
-
-## 下游约束
-
-- tasks.md 生成：propose 出粗骨架；**plan 阶段**覆写细计划前需 `read_file templates/tasks-template.md`（TDD=5步 / 非TDD=3步）
-- propose / plan 出口均由 `hooks/tasks-lint.sh` 脚本校验，不合规即阻断
-- plan 完成后须经 `plan-review-agent`（STATUS 门禁；可选 Outside Voice）方可进入 build
-
-
----
-
-

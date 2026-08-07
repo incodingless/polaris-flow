@@ -32,7 +32,7 @@ description: 在 subagent 派发前必须调用。接收 platform，按该平台
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| `platform` | string | 是 | 宿主平台 id（如 `claude` / `cursor` / `codebuddy` / `trae` / `qoder`）。调用方宜从 `.polaris/config.yaml` 的 `platform` 字段读取后传入 |
+| `platform` | string | 是 | 宿主平台 id（如 `claude` / `cursor` / `trae-cn` / `trae` / `qoder`）。调用方宜从 `.polaris/config.yaml` 的 `platform` 字段读取后传入 |
 
 **平台补齐**：若调用方未传 `platform`，按未登记平台退化（见输出）。
 
@@ -47,6 +47,7 @@ agents:
   - id: <可选，builtin 时为 subagent_type；目录型可为文件名 stem>
     path: <可选，相对 repo 根的 .md 路径；builtin 可省略>
     description: <摘要>
+    tools: <数组：agent frontmatter 声明的工具清单；无声明或 builtin 置 []>
     source: directory | builtin
 degradation: null | "inline" | "unsupported" | "empty"
 reason: <短说明>
@@ -54,27 +55,29 @@ reason: <短说明>
 
 | `degradation` | 含义 | 调用方应执行 |
 |---|---|---|
-| `null` | 有可用候选 | 从 `agents` 选取后派发（路径型用 `path`；builtin 用 `id` 作为 `subagent_type`） |
+| `null` | 有可用候选 | 从 `agents` 选取后派发（路径型用 `path`；builtin 用 `id` 作为 `subagent_type`）。**派发前必须按 `tools` 字段判定走路径引用型 / 内容注入型（见 degradation.md）** |
 | `"empty"` | 宿主有能力但扫不到候选 | 可退到宿主**默认** subagent（不指定 agent 文件），或按调用方策略改为 inline |
 | `"inline"` | 能力表要求强制内联 | 主代理在自己会话内执行，不派发 |
 | `"unsupported"` | 未登记或明确无能力 | 禁止按项目 agent 路径派发；通常按调用方策略 skip 或 inline |
 
 > **`null` 作为整份返回值不合法。** 必须始终返回上述结构。
+>
+> **`tools` 字段约束**：仅反映 frontmatter 声明，**不保证宿主实际授予**。已知部分宿主（如 Trae Task 工具）会忽略 frontmatter `tools:` 字段，按宿主默认工具集挂载 subagent。调用方必须按 `degradation.md` 的工具可用性判定分支处理。
 
-消费细则：先 `read_file ./policies/degradation.md`。
+消费细则：先 `read_file ./references/degradation.md`。
 
 ## 完整流程
 
 ```
 [1] 解析 platform（入参优先；否则读 .polaris/config.yaml；仍空 → 跳 [5] unsupported）
 
-[2] read_file ./policies/platform-scan-strategies.md
+[2] read_file ./references/agent-directory-probe.md
     - 未登记 → supports_subagent=false, degradation=unsupported, agents=[]
     - 已登记且 supports_subagent=false → degradation=inline, agents=[]
     - 已登记且 supports_subagent=true → 继续 [3]
 
 [3] 按该 platform 专属策略扫描（不得套用其它平台目录）
-    - 目录型：见策略表 + adapters/agent-directory-probe.md
+    - 目录型：见策略表 + ./references/agent-directory-probe.md
     - cursor 额外：目录空时回退 builtin Task 清单（策略表内写死）
 
 [4] agents 非空 → degradation=null, reason=ok
@@ -83,11 +86,10 @@ reason: <短说明>
 [5] 返回完整结构；不弹菜单、不写缓存、不做关键词推荐
 ```
 
-## Policies
+## references
 
 | Policy | 路径 | 职责 |
 |---|---|---|
-| 平台扫描策略 | `./policies/platform-scan-strategies.md` | platform → 能力 + 扫描方式 |
-| 退化消费 | `./policies/degradation.md` | 调用方如何消费 degradation |
-
-扫描目录细节另见 `read_file` 仓库内 `adapters/agent-directory-probe.md`（与本 skill 同插件包安装后的相对路径，以插件根下 `adapters/` 为准）。
+| 平台扫描策略 | `./references/agent-directory-probe.md` | platform → 能力 + 扫描方式 |
+| 退化消费 | `./references/degradation.md` | 调用方如何消费 degradation（null/empty/inline/unsupported 四分支） |
+| 派发策略 | `./references/subagent-delegate-policy.md` | `degradation=null` 后的派发执行（D-0 工具可用性判定 → D-1 路径引用型 / D-2 内容注入型 + 各阶段材料清单） |

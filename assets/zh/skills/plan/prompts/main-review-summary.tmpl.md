@@ -1,6 +1,6 @@
 # Main Review Summary 模板
 
-> 归属：`polaris-flow-plan`（`skills/plan/prompts/main-review-summary.tmpl.md`）。  
+> 归属：`{{SKILL_NAME_PREFIX}}plan`（`./prompts/main-review-summary.tmpl.md`）。  
 > 用于喂给 **`openspec-review-agent`**（Outside Voice）：主审 findings 摘要 + 材料路径，避免重复主审。  
 > **默认不包含**用户对 findings 的采纳决策，以最大化 challenger 独立性。
 >

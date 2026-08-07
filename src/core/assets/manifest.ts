@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 import { fileExists, walkFilesSafe } from '../../utils/file-system.js';
 import { readJson } from '../../utils/json-io.js';
-import type { Language } from '../config/polaris-project-config.js';
+import type { Languages } from '../config/polaris-project-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -98,7 +98,7 @@ export async function loadManifestConfig(assetsDir: string): Promise<AssetManife
 }
 
 /** 读取 assets/manifest.json, 按语言读取完整 assets（基座 + 已解析 skills/rules/hooks 列表） */
-export async function readAssets(lang: Language = 'zh'): Promise<Assets> {
+export async function readAssets(lang: Languages = 'zh'): Promise<Assets> {
   const assetsDir = getAssetsDir();
   const manifest = await loadManifestConfig(assetsDir);
   const langDirAssets =  await collectContentPaths(path.join(assetsDir, lang), manifest.langContentDirs);

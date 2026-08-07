@@ -1,19 +1,19 @@
 # 自动衔接下一阶段协议
 
-规范路径：`comet/reference/auto-transition.md`
+规范路径：`./policies/auto-transition.md`
 
 本协议由所有 comet 子 skill 共享，定义阶段守卫推进后的自动衔接规则。
 
 ## 术语区分
 
-「阶段守卫推进」由 guard `--apply` 完成，更新 `.comet.yaml` 的 `phase` 字段——这一步**始终发生**，与 `auto_transition` 无关。本协议的「自动衔接」只决定**是否自动调用下一个 skill**，由 `auto_transition` 控制。
+「阶段守卫推进」由 guard `--apply` 完成，更新 `.polaris.yaml` 的 `phase` 字段——这一步**始终发生**，与 `auto_transition` 无关。本协议的「自动衔接」只决定**是否自动调用下一个 skill**，由 `auto_transition` 控制。
 
 ## 执行方式
 
 退出条件满足且阶段守卫推进 phase 后，运行：
 
 ```bash
-node "$COMET_STATE" next <change-name>
+node polaris-flow state next <change-name>
 ```
 
 脚本根据 `phase`、`workflow`、`auto_transition` 输出确定性的下一步：
@@ -24,4 +24,4 @@ node "$COMET_STATE" next <change-name>
 
 ## 预设路由
 
-`workflow: hotfix` 时，`phase: build` 返回 `comet-hotfix`；`workflow: tweak` 时返回 `comet-tweak`。其余 phase（`verify`、`archive`）按标准 Skill 名称返回（`comet-verify`、`comet-archive`），不受 workflow 类型影响。预设 Skill 内部的"连续执行模式"可能覆盖 `auto_transition` 行为——详见对应预设的 `<IMPORTANT>` 块。
+`workflow: hotfix` 时，`phase: build` 返回 `polaris-flow-hotfix`；`{{SKILL_NAME_PREFIX}}tweak` 时返回 `polaris-flow-tweak`。其余 phase（`verify`、`archive`）按标准 Skill 名称返回（`polaris-flow-verify`、`polaris-flow-archive`），不受 workflow 类型影响。预设 Skill 内部的"连续执行模式"可能覆盖 `auto_transition` 行为——详见对应预设的 `<IMPORTANT>` 块。

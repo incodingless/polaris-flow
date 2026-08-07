@@ -33,12 +33,23 @@ export type TaskPhase =
   'idle' | 'clarify' | 'propose' | 'design' | 'plan' | 'build' | 'verify' | 'delivery' | string;
 
 /** 语言, 可选值: en-英文 | zh-中文 */
-export const LANGUAGES = ['en', 'zh'] as const;
-export type Language = (typeof LANGUAGES)[number];
+
+export type Language = {
+  code: string;
+  name: string;
+};
+
+export const LANGUAGES = [
+  { code: 'en', name: 'English' },
+  { code: 'zh', name: '中文' },
+] as const;
+
+export const LANGUAGE_CODES = LANGUAGES.map((language) => language.code);
+export type Languages = (typeof LANGUAGE_CODES)[number];
 
 /** init 写入 config 时的可选平台字段 */
 export type ProjectPolarisConfig = {
-  language: Language;
+  language: Languages;
   install_time: Date;
   platforms: Platform[];
   scope: InstallScope;
@@ -54,7 +65,7 @@ export type ProjectPolarisConfig = {
   review_mode?: ReviewMode;
   build_mode?: BuildMode;
   models?: PolarisModelSlots;
-  model?: { propose: string; code: string; review: string; challenger: string };
+  model?: { propose: string; code: string; review: string; challenger: string; default: string };
   scorer?: PolarisScorerConfig;
   thresholds?: PolarisThresholds;
   triage?: PolarisTriageConfig;
@@ -117,7 +128,7 @@ export interface GlobalPolarisConfig {
  * @returns
  */
 export function createDefaultProjectPolarisConfig(
-  language: Language,
+  language: Languages,
   platforms: Platform[],
   scope: InstallScope,
   main_repo_root: string,
@@ -184,7 +195,7 @@ export function normalizePolarisConfig(raw: Record<string, unknown>): ProjectPol
   const config = flat as ProjectPolarisConfig;
 
   if (!config.language) {
-    config.language = 'zh' as Language;
+    config.language = 'zh' as Languages;
   }
   if (!config.install_time) {
     config.install_time = new Date();
@@ -241,7 +252,7 @@ function deepMerge<T extends Record<string, unknown>>(base: T, patch: Partial<T>
 /** 若 config.yaml 不存在则写入默认配置 */
 export async function writeProjectPolarisConfigIfMissing(
   projectPath: string,
-  lang: Language,
+  lang: Languages,
   platforms: Platform[],
   scope: InstallScope,
   main_repo_root: string,
@@ -311,6 +322,32 @@ export async function patchPolarisConfig(
   ) as ProjectPolarisConfig;
   await savePolarisConfig(projectPath, merged);
   return merged;
+}
+
+/**
+ * 解析 agent 模型
+ * <pre>
+ * # 模型配置
+ * ```yaml
+ * model:
+ *   propose: GLM5.2
+ *   code: Doubao-Seed-2.1-Pro
+ *   review: DeepSeek-V4-Flash
+ *   challenger: DeepSeek-V4-Pro
+ *   default: GLM5.2
+ * ```
+ * </pre>
+ * @param config 配置
+ * @param type 模型类型
+ * @returns 模型名
+ */
+export function resolveAgentModel(
+  config: ProjectPolarisConfig | null | undefined,
+  type: string,
+): string {
+  const defaultModel = config?.model?.default?.trim();
+  const model = config?.model?.[type as keyof typeof config.model]?.trim();
+  return model ?? defaultModel ?? 'inherit';
 }
 
 /**

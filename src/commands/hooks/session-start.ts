@@ -21,6 +21,7 @@ import type { HostHookEventHandler, HostHookEventResult } from './handler/host-h
 /** SessionStart 注入给 Agent / shell 的路径环境 */
 export type SessionRuntimePaths = {
   REPO_ROOT: string;
+  CONTEXT_DIR: string;
   PLATFORM_ID: string;
   /** 与 skill 文档中的 PLUGIN_ROOT 对齐 */
   PLUGIN_ROOT: string;
@@ -32,6 +33,7 @@ export type SessionRuntimePaths = {
 export function toSessionRuntimeEnv(paths: SessionStartPaths): SessionRuntimePaths {
   return {
     REPO_ROOT: paths.repoRoot,
+    CONTEXT_DIR: paths.contextDir,
     PLATFORM_ID: paths.platformId,
     PLUGIN_ROOT: paths.pluginRoot,
   };
@@ -46,6 +48,7 @@ export function formatSessionPathContext(paths: SessionRuntimePaths): string {
     'Polaris runtime paths for this session (use these absolute paths in skills/shell):',
     `REPO_ROOT=${paths.REPO_ROOT}`,
     `PLATFORM_ID=${paths.PLATFORM_ID}`,
+    `CONTEXT_DIR=${paths.CONTEXT_DIR}`,
     `PLUGIN_ROOT=${paths.PLUGIN_ROOT}`,
     'Do not expand <repo_root> / <platform> placeholders; prefer $PLUGIN_ROOT / $REPO_ROOT.',
   ].join('\n');

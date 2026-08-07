@@ -1,7 +1,7 @@
 ---
 name: design-review-agent
 description: 深度设计评审 subagent。对 detailed-design.md 与专项设计文档（*-design.md）按固定标准做独立技术评审，输出可判定的评审结果（Verdict + 分维结论 + Findings）。不修改任何文件，不执行命令。
-tools: read_file, codebase_search, search_content, list_dir, search_file
+tools: Read, SearchCodebase, Grep, Glob, LS
 model: DeepSeek-V4-Flash
 enabled: true
 enabledAutoRun: false
@@ -133,7 +133,7 @@ enabledAutoRun: false
 主代理只消费本节输出。必须使用以下 markdown 结构：
 
 ```markdown
-# Design Review Report
+# 深度设计审查报告
 
 ## Meta
 - change_id: <change_id>

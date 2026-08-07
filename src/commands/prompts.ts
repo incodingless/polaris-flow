@@ -16,7 +16,7 @@
 import { checkbox, select } from '@inquirer/prompts';
 
 import { t } from './i18n/index.js';
-import type { InstallScope, Language } from '../core/config/polaris-project-config.js';
+import type { InstallScope, Languages } from '../core/config/polaris-project-config.js';
 import { hasSkills } from '../core/integration/detect.js';
 import { PLATFORMS, getPlatformSkillsDir, type Platform } from '../core/platforms.js';
 
@@ -29,7 +29,7 @@ export type InitPromptOptions = {
   overwrite?: boolean;
   skipExisting?: boolean;
   scope?: InstallScope;
-  lang?: Language;
+  lang?: Languages;
   platforms?: string[];
   json?: boolean | string;
 };
@@ -88,7 +88,7 @@ export async function promptInstallScope(lang?: string): Promise<InstallScope> {
   });
 }
 
-export async function promptSkillLanguage(lang?: string): Promise<Language> {
+export async function promptSkillLanguage(lang?: string): Promise<Languages> {
   return select({
     message: t(lang, 'languagePrompt'),
     choices: [
@@ -164,7 +164,7 @@ export async function selectScope(
 export async function selectLanguage(
   options: InitPromptOptions,
   langHint?: string,
-): Promise<Language> {
+): Promise<Languages> {
   if (options.lang === 'zh' || options.lang === 'en') {
     return options.lang;
   }
@@ -206,7 +206,7 @@ export async function buildInstallPlans(
   platforms: Platform[],
   scope: InstallScope,
   options: InitPromptOptions,
-  lang: Language,
+  lang: Languages,
 ): Promise<PlatformPlan[]> {
   const plans: PlatformPlan[] = [];
 

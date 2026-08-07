@@ -9,11 +9,11 @@ import { loadManifestConfig } from '../core/assets/manifest.js';
 import { PLATFORMS, getPlatformSkillsDir } from '../core/platforms.js';
 import { printVersionInfo, PACKAGE_NAME } from '../core/deps/version.js';
 import { fileExists } from '../utils/file-system.js';
-import type { InstallScope, Language } from '../core/config/polaris-project-config.js';
+import type { InstallScope, Languages } from '../core/config/polaris-project-config.js';
 
 export type UpdateOptions = {
   force?: boolean;
-  lang?: Language;
+  lang?: Languages;
   scope?: InstallScope;
   json?: boolean;
 };

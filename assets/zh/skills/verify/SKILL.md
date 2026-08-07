@@ -1,13 +1,6 @@
-<!--
-  简要说明：
-  - 职责：对 build 产出做 Constitution 审计、scorer 评分与对照规格验证；不交付、不归档。
-  - 主产物：`reviews/verify-report.md`、state.verify.*、`.polaris/metrics/<timestamp>-metrics.json`。
-  - 上游 / 下游：build → 本阶段 → delivery。
--->
-
 ---
-name: polaris-flow-verify
-description: "用户触发 /polaris-flow-verify、/verify，或在 build 完成后要求验收 / 审计实施产出 / 跑 Constitution 合规与 scorer / 对照 specs 与 detailed-design 做验证时必须使用本 skill。执行注入点 D（Constitution）+ 5 项 scorer、按规模做轻量或完整验证，结果写入 state.yaml 的 verify.* 与 .polaris/metrics/<timestamp>-metrics.json。不要用于：clarify/propose/design/plan、在 verify 未完成时直接 ship、或本阶段编写业务实现代码（修复回 /polaris-flow-build）。"
+name: {{SKILL_NAME_PREFIX}}verify
+description: "对 build 产出做 Constitution 审计、scorer 评分与对照规格验证；用户触发 /{{SKILL_NAME_PREFIX}}verify，或在 build 完成后要求验收 / 审计实施产出 / 跑 Constitution 合规与 scorer / 对照 specs 与 深度设计做验证时必须使用本 skill。"
 ---
 
 # Polaris 工作流 - 阶段：验证（verify）
@@ -19,12 +12,12 @@ description: "用户触发 /polaris-flow-verify、/verify，或在 build 完成�
 - **禁止**在 team 模式下，scorer / Constitution 形成 blocking 时把 `verify.blocked=false` 或标记通过
 - **禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 且未完成出口校验就把 `phase` 推到 delivery
 - **禁止**本阶段做分支合并 / PR / worktree 合回 / `/opsx:archive`（那是 delivery）
-- **禁止**本阶段编写业务实现代码；用户确认修复后回 `/polaris-flow-build`，不得在 verify 内静默改实现
-- **禁止**未按 `.polaris/reference/decision-point.md` 获得用户对「验证失败 / override / 规格漂移」的明确选择就继续或接受偏差
+- **禁止**本阶段编写业务实现代码；用户确认修复后回 `/{{SKILL_NAME_PREFIX}}build`，不得在 verify 内静默改实现
+- **禁止**未按 `./reference/decision-point.md` 获得用户对「验证失败 / override / 规格漂移」的明确选择就继续或接受偏差
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow] 进入 verify Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 验收 — 使用 polaris-flow-verify 技能。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: 验收 — 使用 {{SKILL_NAME_PREFIX}}verify 技能。`
 
 ## 标识约定
 
@@ -36,10 +29,10 @@ description: "用户触发 /polaris-flow-verify、/verify，或在 build 完成�
 | 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
 | 验证报告 | `openspec/changes/<change_id>/reviews/verify-report.md` |
 | Metrics | `.polaris/metrics/<timestamp>-metrics.json` |
-| Constitution 规则 | `$PLUGIN_ROOT/skills/verify/policies/constitution-audit.md` |
+| Constitution 规则 | `./policies/constitution-audit.md` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `hooks/workflow-entry.sh`） |
 
-> **链路**：`clarify → propose → design → plan → build → **verify** → delivery`。  
+> **链路**：`clarify → propose → design → plan → build → **verify** → delivery`。
 > 本阶段验证是否可交付；不交付、不归档。
 
 ## 前置条件
@@ -56,22 +49,58 @@ description: "用户触发 /polaris-flow-verify、/verify，或在 build 完成�
 - **禁止**把顶层 metrics 当冗余清理——retro 靠全局 glob
 - 单个 scorer 也通过 `ls -t .polaris/metrics/*-metrics.json | head -1` 取最近一次结果
 
-
-
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
 ### Step 0：定位 change_id + 入口校验
 
+用 bash 读取工作流配置中有效变更的`change_id`：
+
 ```bash
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
-REPO_ROOT="${REPO_ROOT:-$PWD}"
-PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
+WORK_FLOW_CONFIG="${WORK_FLOW_CONFIG:-$REPO_ROOT/.polaris/workflow.yaml}"
+
+Entries=$(node -e '
+const fs = require("fs");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const strip = (s) => s.trim().replace(/^"(.*)"$/, "$1");
+const ids = [];
+let inList = false;
+let changeId = null;
+let phase = null;
+const flush = () => {
+  if (changeId && phase === "clarify") ids.push(changeId);
+  changeId = null;
+  phase = null;
+};
+for (const raw of text.split(/\r?\n/)) {
+  const line = raw.replace(/\t/g, "  ");
+  if (/^active_changes:\s*\[\s*\]\s*$/.test(line)) break;
+  if (/^active_changes:\s*$/.test(line)) { inList = true; continue; }
+  if (inList && /^[^\s#]/.test(line)) break;
+  if (!inList) continue;
+  const itemStart = line.match(/^\s*-\s+change_id:\s*(.+?)\s*$/);
+  if (itemStart) {
+    flush();
+    changeId = strip(itemStart[1]);
+    continue;
+  }
+  const cid = line.match(/^\s+change_id:\s*(.+?)\s*$/);
+  if (cid) {
+    flush();
+    changeId = strip(cid[1]);
+    continue;
+  }
+  const ph = line.match(/^\s+phase:\s*(.+?)\s*$/);
+  if (ph) phase = strip(ph[1]);
+}
+flush();
+process.stdout.write(ids.join("\n"));
+' "$WORK_FLOW_CONFIG")
 ```
 
-读取 `.polaris/workflow.yaml: active_changes`，筛选 `phase=verify` 的 entry：
+按 `$Entries` 行数解读：
 
 - **唯一匹配**：取其 `change_id`（及 `worktree_path`，若非空）
-- **多个匹配**：按 `.polaris/reference/decision-point.md` 列出候选让用户选择
+- **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 phase=verify 的 active change，请先执行 /polaris-flow-build」
 
 > 若上次中断在 verify（`verify.status=in_progress`），从中断点续跑；不得因「已是 verify」而报零匹配。
@@ -90,7 +119,7 @@ PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
 
 ### Step 1：处理dirty worktree
 
-验证开始前检查未提交改动（目标协议：`.polaris/reference/dirty-worktree.md`；若文件尚未安装，按下表内联执行）：
+验证开始前检查未提交改动（目标协议：`./policies/dirty-worktree.md`；若文件尚未安装，按下表内联执行）：
 
 | 情况 | 动作 |
 |------|------|
@@ -98,11 +127,11 @@ PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
 | dirty 仅为本阶段产物（验证报告草稿等） | 可继续 |
 | 已实现但 `tasks.md` 仍有未勾选 | 视为 build 状态滞后 → [验证失败决策](#验证失败决策阻塞点) |
 
-用户选择「回 build 修复」后，才允许调用 `/polaris-flow-build`；本 skill 只写 `verify.status: failed` 与失败原因，**不**改 `phase`（由用户确认后主代理再把 phase 设回 build，或由 build 入口接受「从 verify 回退」的显式选择）。
+用户选择「回 build 修复」后，才允许调用 `/{{SKILL_NAME_PREFIX}}build`；本 skill 只写 `verify.status: failed` 与失败原因，**不**改 `phase`（由用户确认后主代理再把 phase 设回 build，或由 build 入口接受「从 verify 回退」的显式选择）。
 
 ### Step 2：Constitution Compliance Audit（注入点 D）
 
-`read_file "$PLUGIN_ROOT/skills/verify/policies/constitution-audit.md"` 并按其执行。
+`read_file "./policies/constitution-audit.md"` 并按其执行。
 
 脚本定位（若缺失或不可执行 → 提示用户重启会话以触发 SessionStart 重写 `plugin_root`；仍不可用则 decision-point：A 阻断 / B 用户接受跳过并记 override）：
 
@@ -316,7 +345,7 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill verify \
 
 ## 验证失败决策（阻塞点）
 
-验证不通过时**必须**按 `.polaris/reference/decision-point.md` 暂停。不得自动调用 `/polaris-flow-build`，不得自动把失败标成通过。
+验证不通过时**必须**按 `./reference/decision-point.md` 暂停。不得自动调用 `/{{SKILL_NAME_PREFIX}}build`，不得自动把失败标成通过。
 
 暂停时必须列出：
 
@@ -330,7 +359,7 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill verify \
 
 | 选择 | 动作 |
 |------|------|
-| 全部修复 | 写 `verify.status: failed`；调用 `/polaris-flow-build` 修复（用户确认后） |
+| 全部修复 | 写 `verify.status: failed`；调用 `/{{SKILL_NAME_PREFIX}}build` 修复（用户确认后） |
 | 逐项处理 | CRITICAL / IMPORTANT 必须修；WARNING / SUGGESTION 可接受偏差但须写入报告；存在任一 CRITICAL/IMPORTANT 时禁止「全部接受」 |
 | 接受偏差（仅非 blocking） | 记 overrides.log + 报告；team blocking 场景除外 |
 

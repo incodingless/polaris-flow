@@ -34,6 +34,7 @@ model:
   code: Doubao-Seed-2.1-Pro
   review: DeepSeek-V4-Flash
   challenger: DeepSeek-V4-Pro
+  default: GLM5.2
 
 # 评分配置
 scorer:

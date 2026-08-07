@@ -1,11 +1,6 @@
-<!--
-  Outside Voice 协议：propose / design / plan 主审报告落盘后，由父 skill 询问用户是否派发 openspec-review-agent。
-  安装后路径：.polaris/reference/outside-voice.md（与 decision-point 同级策略）。
--->
-
 # Outside Voice 协议
 
-规范路径：`.polaris/reference/outside-voice.md`
+规范路径：`reference/outside-voice.md`
 
 由 **propose** / **design** / **plan** 在主审 subagent 报告落盘后执行。挑战主审结论的 subagent 固定为 `openspec-review-agent`。
 
@@ -22,10 +17,10 @@
 | 阶段 | 主审 agent | 主审报告 |
 |------|------------|----------|
 | propose | `propose-review-agent` | `openspec/changes/<change_id>/reviews/propose-review-report.md` |
-| design | `design-review-agent` | `openspec/changes/<change_id>/reviews/design-review-report.md` |
-| plan | `plan-review-agent` | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
+| design  | `design-review-agent`  | `openspec/changes/<change_id>/reviews/design-review-report.md` |
+| plan    | `plan-review-agent`    | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
 
-然后：`read_file` 本文件（或已安装的 `.polaris/reference/outside-voice.md`），按下列步骤。
+然后：`read_file` 本文件（或已安装的 `./reference/outside-voice.md`），按下列步骤。
 
 ## Step OV-1：复杂度建议（仅建议）
 
@@ -39,7 +34,7 @@
 
 ## Step OV-2：用户决策点
 
-按 `.polaris/reference/decision-point.md` 暂停：
+按 `./reference/decision-point.md` 暂停：
 
 ```text
 主审已完成。是否启动 Outside Voice（openspec-review-agent）独立交叉评审？

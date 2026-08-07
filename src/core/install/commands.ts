@@ -4,11 +4,8 @@
  */
 import path from 'path';
 
-import { type Platform } from '../platforms.js';
 import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
 import { Assets } from '../assets/manifest.js';
-import { getAssetsDir } from '../assets/manifest.js';
-import { Language } from '../config/polaris-project-config.js';
 
 /** 安装 Polaris bundled 命令（读取 assets 内 commands/） */
 

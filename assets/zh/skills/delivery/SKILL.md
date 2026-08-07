@@ -1,68 +1,6 @@
-<!--
-  简要说明：
-  - 职责：verify 通过后做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清游标。
-  - 主产物：合回主仓的 metrics/overrides/archive；可选 archive；清理 active_changes。
-  - 上游 / 下游：verify → 本阶段 → 结束（旁路可跑 retro）。
-
-  对比修订稿（非正式发布）：与同目录 SKILL.md 对照阅读。
-  勿直接当作已生效 skill；确认后可替换 SKILL.md。
-
-  相对现稿的主要修正：
-  1. 身份统一：触发 /polaris-flow-delivery；横幅 [polaris-flow]；阶段名 delivery（对外可称 ship）。
-  2. 切除全部 easy-flow / ezfl / poflo / audit 幽灵命令；失败回流 /polaris-flow-verify。
-  3. 状态与游标对齐 verify/build：`.polaris/tasks/<change_id>/state.yaml`；
-     字段块用模板已有的 `delivery.*`（不再写 `ship.*`）；入口读 `verify.blocked`。
-  4. worktree 标记统一 `created_by_polaris_flow`；产物合回目标 `.polaris/archive/<change_id>/`
-     （主要合回 state / metrics / overrides；叙事文档在 openspec，随 /opsx:archive）
-     与顶层 `.polaris/metrics/`（不再写 .harness/）。
-  5. archive 策略：用户选 A 但命令失败 → **不做归档**（openspec 目录保持原位；
-     `delivery.archive=failed`）；不回滚 0–4；不阻断 Step 6.1 清游标。
-  6. 入口筛 `phase=delivery`；零匹配提示先跑 /polaris-flow-verify。
-  7. 询问协议改 `.polaris/reference/decision-point.md`；PLUGIN_ROOT 解析对齐 verify。
-  8. Step 3 编号理顺：3.1–3.4 合并判定 → 3.5（sync→remove 同一步、不可拆）→ 3.6 保留。
-  9. 合回脚本目标名固定为 `polaris-sync.sh`（取代 harness-sync.sh）。
-  10. description 只保留触发与禁区，不摘要逐步流程（避免代理只跟 description 走）。
-
-  已知外部债 / 缺失内容（本修订稿约定目标态，晋升前须另补或另改）：
-
-  【hooks — 仓内尚不存在，须新建】
-  - assets/shared/hooks/polaris-sync.sh
-      取代 harness-sync.sh；契约见 Step 3.5（exit 0/1/2/3；合回 metrics/overrides/
-      state → .polaris/archive；叙事文档在 openspec，不由此脚本搬 detailed-design）
-  - assets/shared/hooks/worktree-merge-status.sh
-      脏检查 + 是否已合并；exit 0=已合并 / 1=未合并 / 2=脏
-  - assets/shared/hooks/worktree-rebase-ff.sh
-      本地 rebase + ff；exit 0/1/2/3 见 Step 3.4
-  - assets/shared/hooks/ship-cleanup.sh
-      删 active_changes entry + rm -rf .polaris/tasks/<id>{,.snapshot}
-  - （可选）change-locate.sh：ship-lock.md 旧稿引用过；若 Step 0 仍内联定位则可省略
-
-  【policies — 存在但契约过期，须改写/改名】
-  - delivery/policies/ship-lock.md
-      仍 .harness/.locks/ + [easy-flow]；目标：.polaris/.locks/ship.lock + [polaris-flow]
-  - delivery/policies/harness-sync.md
-      仍 .harness/archive + harness-sync.sh + created_by_easy_flow；
-      目标：改名为 polaris-sync.md，对齐 polaris-sync.sh 与 .polaris/ 路径
-
-  【跨 skill / 共享资产 — 未与本修订稿对齐】
-  - assets/zh/skills/hard-stops.md
-      H8/H9/H11 仍 easy-flow、created_by_easy_flow、.harness/；H9 三段式路径须改 .polaris/
-  - assets/shared/hooks/worktree-create.sh
-      仍写 created_by_easy_flow 与旧目录；应写 created_by_polaris_flow + .polaris/tasks/
-  - assets/shared/templates/change-state-template.yaml
-      路径注释仍混 .polaris/changes/；以 .polaris/tasks/ 为准（delivery.* 字段已基本可用）
-  - assets/zh/skills/retro/SKILL.md
-      数据源仍写 .polaris/changes/ 与 audit 用语；应对齐 tasks/ + verify/delivery
-  - manifest.json / init 分发列表：新建 hooks 须登记，否则 install 不会落到用户项目
-  - 英文 skill（assets/en/skills/delivery/）：中文确认并晋升 SKILL.md 后再同步（仓库约定）
-
-  【引用目标但可能尚未落地的 reference】
-  - .polaris/reference/decision-point.md（由 init 分发；若用户仓缺失则 decision-point 无落点）
--->
-
 ---
-name: polaris-flow-delivery
-description: "用户触发 /polaris-flow-delivery、/delivery，或在 verify 完成后要求交付 / 合回 / 归档 / 完结一个 change 时必须使用本 skill。不要用于：verify 未完成时强行交付、本阶段编写业务实现、或跳过用户确认直接 /opsx:archive。"
+name: {{SKILL_NAME_PREFIX}}delivery
+description: "verify 通过后做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清游标。用户触发 /{{SKILL_NAME_PREFIX}}delivery，或在 verify 完成后要求交付 / 合回 / 归档 / 完结一个 change 时必须使用本 skill。不要用于：verify 未完成时强行交付、本阶段编写业务实现、或跳过用户确认直接 /opsx:archive。"
 ---
 
 # Polaris 工作流 - 阶段：交付（delivery）
@@ -70,19 +8,19 @@ description: "用户触发 /polaris-flow-delivery、/delivery，或在 verify �
 <HARD-GATE>
 本 skill **仅**负责：在 **verify 已完成** 的前提下，做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清理 workflow 游标。
 
-- **禁止**跳过 Step 0（ship lock）进入后续步骤（H11）
+- **禁止**跳过 Step 0（delivery lock）进入后续步骤（H11）
 - **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 3.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
-- **禁止**未按 `.polaris/reference/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
+- **禁止**未按 `./reference/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
 - **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 6.1
-- **禁止**本阶段编写业务实现代码；终验失败 → 回 `/polaris-flow-verify`（必要时再回 `/polaris-flow-build`）
+- **禁止**本阶段编写业务实现代码；终验失败 → 回 `/{{SKILL_NAME_PREFIX}}verify`（必要时再回 `/{{SKILL_NAME_PREFIX}}build`）
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow] 进入 delivery Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 交割 — 使用 polaris-flow-delivery 技能。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: 交割 — 使用 {{SKILL_NAME_PREFIX}}delivery 技能。`
 
 ## 遵守的 Hard Stops
 
-H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、H12（写 workflow.yaml 须持 workflow.lock；本阶段清理走 `ship-cleanup.sh` / `workflow-entry.sh`）。
+H8（状态行）、H9（worktree 合回必须）、H11（delivery lock 串行）、H12（写 workflow.yaml 须持 workflow.lock；本阶段清理走 `ship-cleanup.sh` / `workflow-entry.sh`）。
 
 ## 标识约定
 
@@ -93,27 +31,65 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 | OpenSpec 变更目录 | `openspec/changes/<change_id>/`（四件套 + intention / detailed-design / `*-design.md` / `reviews/`；归档后进 `openspec/changes/archive/`） |
 | 产物快照 | `.polaris/archive/<change_id>/`（合回的 **state** 等运行态；叙事文档随 openspec archive） |
 | Metrics（顶层） | `.polaris/metrics/*-metrics.json`（worktree 合回追加到主仓顶层） |
-| ship lock | 主仓 `.polaris/.locks/ship.lock` |
+| delivery lock | 主仓 `.polaris/.locks/delivery.lock` |
 | sync 脚本 | `$PLUGIN_ROOT/hooks/polaris-sync.sh`（仓内待建，见文首外部债） |
-| sync policy | `$PLUGIN_ROOT/skills/delivery/policies/polaris-sync.md`（现稿仍为 harness-sync.md，晋升时改名） |
-| lock policy | `$PLUGIN_ROOT/skills/delivery/policies/ship-lock.md` |
+| sync policy | `policies/polaris-sync.md` |
+| lock policy | `policies/delivery-lock.md` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 hooks） |
 
-> **链路**：`clarify → propose → design → plan → build → verify → **delivery`。  
+> **链路**：`clarify → propose → design → plan → build → verify → **delivery**`。  
 > 本阶段交付与归档；不再做 Constitution / scorer（那是 verify）。
 
 ## 输入与入口校验
 
+用 bash 读取工作流配置中有效变更的`change_id`：
+
 ```bash
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
-REPO_ROOT="${REPO_ROOT:-$PWD}"
-PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
+WORK_FLOW_CONFIG="${WORK_FLOW_CONFIG:-$REPO_ROOT/.polaris/workflow.yaml}"
+
+Entries=$(node -e '
+const fs = require("fs");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const strip = (s) => s.trim().replace(/^"(.*)"$/, "$1");
+const ids = [];
+let inList = false;
+let changeId = null;
+let phase = null;
+const flush = () => {
+  if (changeId && phase === "clarify") ids.push(changeId);
+  changeId = null;
+  phase = null;
+};
+for (const raw of text.split(/\r?\n/)) {
+  const line = raw.replace(/\t/g, "  ");
+  if (/^active_changes:\s*\[\s*\]\s*$/.test(line)) break;
+  if (/^active_changes:\s*$/.test(line)) { inList = true; continue; }
+  if (inList && /^[^\s#]/.test(line)) break;
+  if (!inList) continue;
+  const itemStart = line.match(/^\s*-\s+change_id:\s*(.+?)\s*$/);
+  if (itemStart) {
+    flush();
+    changeId = strip(itemStart[1]);
+    continue;
+  }
+  const cid = line.match(/^\s+change_id:\s*(.+?)\s*$/);
+  if (cid) {
+    flush();
+    changeId = strip(cid[1]);
+    continue;
+  }
+  const ph = line.match(/^\s+phase:\s*(.+?)\s*$/);
+  if (ph) phase = strip(ph[1]);
+}
+flush();
+process.stdout.write(ids.join("\n"));
+' "$WORK_FLOW_CONFIG")
 ```
 
-读取 `.polaris/workflow.yaml: active_changes`，筛选 `phase=delivery` 的 entry：
+按 `$Entries` 行数解读：
 
 - **唯一匹配**：取其 `change_id`（及 `worktree_path`，若非空）
-- **多个匹配**：按 `.polaris/reference/decision-point.md` 列出候选让用户选择
+- **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 phase=delivery 的 active change，请先执行 /polaris-flow-verify」
 
 读 `.polaris/tasks/<change_id>/state.yaml`（若 `worktree_path` 非空 → 从 **worktree 内**同路径读）：
@@ -128,20 +104,20 @@ PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
 
 ## 流程
 
-### Step 0：获取 ship lock（串行保护）
+### Step 0：获取 delivery lock（串行保护）
 
-`read_file "$PLUGIN_ROOT/skills/delivery/policies/ship-lock.md"`，按其规定在主仓 `.polaris/.locks/ship.lock` 上获取互斥锁；失败即阻断。
+`read_file "./policies/delivery-lock.md"`，按其规定在主仓 `.polaris/.locks/delivery.lock` 上获取互斥锁；失败即阻断。
 
 锁内容含 `change_id`、PID、启动时间；`trap EXIT INT TERM HUP` 自动释放；≥ 30min 视为 stale，须用户显式确认清理（H11）。
 
-输出：`[polaris-flow] ship lock 已获取：change_id=<change_id> pid=<PID>`
+输出：`[polaris-flow] delivery lock 已获取：change_id=<change_id> pid=<PID>`
 
 ### Step 1：终验
 
 在 verify 已通过的前提下，再跑一轮 `superpowers:verification-before-completion` 作为交付前冒烟（构建/测试等宿主检查）。
 
 - 全部通过 → Step 2
-- 任一失败 → **阻断**；提示修复后重新触发 `/polaris-flow-verify`，通过后再回 `/polaris-flow-delivery`。本阶段不写业务修复代码。
+- 任一失败 → **阻断**；提示修复后重新触发 `/{{SKILL_NAME_PREFIX}}verify`，通过后再回 `/{{SKILL_NAME_PREFIX}}delivery`。本阶段不写业务修复代码。
 
 ### Step 2：分支管理（核心）
 
@@ -170,7 +146,7 @@ esac
 
 #### 3.3 若未合并：询问用户
 
-按 decision-point 呈现 worktree 路径/分支，三选项：
+**必须**按 `./reference/decision-point.md` 询问：worktree 路径/分支，三选项：
 
 - **A**：已通过 PR 合并 / 不需本地合并 → 仅合回产物并清理
 - **B**：本地 rebase 到主干后 fast-forward 合入
@@ -229,7 +205,7 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 
 ```yaml
 delivery:
-  status: "shipped"
+  status: "delivered"
   finished_at: "<ISO>"
   merge_strategy: "<rebase-ff|pr-only|abandoned|n/a>"
   harness_sync: "<synced|partial_failure|skipped_no_source|skipped_worktree_retained|deferred_archive_conflict|n/a>"
@@ -244,13 +220,13 @@ current_verb: idle
 
 `harness_sync = "n/a"`：本次未创建 worktree，无需合回。
 
-> Step 4 在 archive **之前**写入 `delivery.status=shipped`，确保 archive 跳过/失败时分支与合回结果不丢失。
+> Step 4 在 archive **之前**写入 `delivery.status=delivered`，确保 archive 跳过/失败时分支与合回结果不丢失。
 
 ### Step 5：OpenSpec 归档（强制询问，主代理执行）
 
 #### 5.1 询问是否归档
 
-按 decision-point 呈现 `change_id` 与 `delivery.status=shipped`，三选项：
+按 decision-point 呈现 `change_id` 与 `delivery.status=delivered`，三选项：
 
 - **A**：立即归档（推荐）——将 `openspec/changes/<change_id>/` 移到 `openspec/changes/archive/YYYY-MM-DD-<change_id>/`
 - **B**：暂不归档（PR 仍在 review / 稍后手动）
@@ -289,7 +265,7 @@ openspec-cn archive "$change_id" --yes
   verify 总分   : <X>（来自 state.verify.overall_score）
   archive       : <已归档于 <archive_path> | 已延迟（B）| 已跳过（C）| 未归档（失败：<archive_error>）>
 
-后续：下一个变更 /polaris-flow-clarify 或 /polaris-flow-propose；度量回顾 /polaris-flow-retro。
+后续：下一个变更 /{{SKILL_NAME_PREFIX}}clarify 或 /{{SKILL_NAME_PREFIX}}propose；度量回顾 /{{SKILL_NAME_PREFIX}}retro。
 ```
 
 #### 6.1 主仓游标重置 + 清理
@@ -306,8 +282,8 @@ bash "$PLUGIN_ROOT/hooks/ship-cleanup.sh" "$change_id" "$ORIGIN_REPO" || exit 1
 
 ## 退出条件
 
-- ship lock 已获取并在流程结束时由 trap 释放
-- `delivery.status=shipped` 已写入
+- delivery lock 已获取并在流程结束时由 trap 释放
+- `delivery.status=delivered` 已写入
 - 若 `created_by_polaris_flow`：已完成 3.5，或用户选 C 且已标注 abandoned
 - archive 已询问；选 A 成功则为 archived，失败则为 failed（**未**移动 openspec）
 - Step 6.1 已成功

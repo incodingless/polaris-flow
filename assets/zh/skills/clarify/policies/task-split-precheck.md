@@ -3,10 +3,9 @@
 ## 核心原则
 
 - 拆分预检**必须**基于已形成的澄清摘要（目标、非目标、范围边界、关键未知项、验收场景草案），不得凭空拆分
-- 拆分决策是阻塞点，必须按 `.polaris/reference/decision-point.md` 协议暂停并等待用户选择
+- 拆分决策是阻塞点，必须按 `./policies/decision-point.md` 协议暂停并等待用户选择
 - 不得在用户完成拆分选择前创建 `proposal.md`、`design.md` 或 `tasks.md`
-- 每个被接受的拆分项必须通过 `/polaris-clarify` 创建独立 change，**禁止**直接调用 `/opsx:new`
-- `/polaris-clarify` 负责同时创建 OpenSpec artifacts 和 `.polaris.yaml`，确保每个 change 进入 polaris 状态机
+- 每个被接受的拆分项必须通过 `/{{SKILL_NAME_PREFIX}}clarify` 创建独立 change，**禁止**直接调用 `/opsx:new`
 
 ---
 
@@ -30,7 +29,7 @@
 - 预计产出 ≤ 1 个 delta spec 且 ≤ 3 个大任务
 - 不存在分阶段里程碑，或各阶段强耦合无法独立推进
 
-否则**必须**执行规模评估并输出候选拆分清单（即使最终判定不拆分，也需向用户呈现评估结论）。
+否则**必须**执行规模评估并输出候选拆分清单（即使最终判定不拆分，也须向用户呈现评估结论）。
 
 ---
 
@@ -101,7 +100,7 @@
 
 ## 4. 用户决策点（阻塞点）
 
-推荐拆分或处于边界情况时，**必须**按 `polaris/policies/decision-point.md` 暂停，呈现以下选项并等待用户选择：
+推荐拆分或处于边界情况时，**必须**按 `./policies/decision-point.md` 暂停，呈现以下选项并等待用户选择：
 
 ```
 请选择一个选项：
@@ -120,13 +119,13 @@
 
 | 选择 | 后续动作 |
 |------|---------|
-| A（创建多个） | 进入 **§5 批量拆分模式**；当前 `/polaris-clarify` 调用仅完成拆分确认与调度 |
+| A（创建多个） | 进入 **§5 批量拆分模式**；当前 `/{{SKILL_NAME_PREFIX}}clarify` 调用仅完成拆分确认与调度 |
 | B（保持单 change） | 记录「用户选择不拆分」及理由，跳过批量模式，继续 clarify 后续步骤（3.2 Reframe Check） |
 | C（调整方案） | 合并用户调整说明，重新输出 §3 候选拆分清单，再次呈现 §4 决策点（**最多 3 轮**） |
 
 > 用户回复未使用 A/B/C 但语义明确时按对应分支处理。语义不明确时必须重新呈现选项，禁止主观判定。
 
-**禁止**：未收到用户明确选择前创建任何 OpenSpec artifacts 或执行 `/polaris-clarify`。
+**禁止**：未收到用户明确选择前创建任何 OpenSpec artifacts 或执行 `/{{SKILL_NAME_PREFIX}}clarify`。
 
 ---
 
@@ -136,14 +135,14 @@
 
 ### 5.1 创建规则
 
-- 每个被接受的拆分项**必须**通过 `/polaris-clarify` 创建独立 change
+- 每个被接受的拆分项**必须**通过 `/{{SKILL_NAME_PREFIX}}clarify` 创建独立 change
 - **禁止**直接调用 `/opsx:new`
-- 按用户确认的顺序（或推荐执行顺序）逐个调度 `/polaris-clarify`
-- 当前会话的 `/polaris-clarify` 调用**仅负责**拆分确认与调度，不推进 design 阶段
+- 按用户确认的顺序（或推荐执行顺序）逐个调度 `/{{SKILL_NAME_PREFIX}}clarify`
+- 当前会话的 `/{{SKILL_NAME_PREFIX}}clarify` 调用**仅负责**拆分确认与调度，不推进 design 阶段
 
-### 5.2 单个拆分项的 `/polaris-clarify` 调用要求
+### 5.2 单个拆分项的调用要求
 
-进入每个拆分项的 `/polaris-clarify` 时，**必须**明确标注：
+进入每个拆分项的 `/{{SKILL_NAME_PREFIX}}clarify` 时，**必须**明确标注：
 
 ```
 [已确认拆分项] <change 名称>
@@ -159,7 +158,7 @@
 
 ### 5.3 批量完成后的暂停规则
 
-- 单个拆分项完成 open 阶段后，**不得**自动流转到 `/polaris-propose`
+- 单个拆分项完成 open 阶段后，**不得**自动流转到 `/{{SKILL_NAME_PREFIX}}propose`
 - 全部分拆项 open 完毕后，**必须**暂停并询问用户：
 
 ```
@@ -168,11 +167,11 @@
   · <change-2>
   · ...
 
-请选择要先推进 design 阶段的 change（回复名称或编号）：
+请选择要先推进 propose 阶段的 change（回复名称或编号）：
 ```
 
-- 用户选择后，**仅**推进该 change 进入 `/polaris-clarify`
-- 其他 change 保持 active，稍后通过 `/polaris` 恢复
+- 用户选择后，**仅**推进该 change 进入 `/{{SKILL_NAME_PREFIX}}clarify`
+- 其他 change 保持 active，稍后通过 `/polaris-flow` 恢复
 
 ---
 
@@ -182,16 +181,16 @@
 
 ### 6.1 恢复检查
 
-1. 扫描已创建的 active changes（含 `.comet.yaml` 的目录）
+1. 扫描已创建的 active changes（含 `state.yaml` 的目录）
 2. 与对话中已确认的拆分清单比对
 
 ### 6.2 恢复动作
 
 | 状态 | 动作 |
 |------|------|
-| 拆分项已存在且含 `.comet.yaml` | **不得**重复创建，标记为「已完成 open」 |
-| 拆分项尚未创建 | 按已确认清单继续通过 `/comet-open` 创建 |
-| 对话中已确认的拆分清单不可恢复 | **必须**重新向用户确认拆分清单（重新呈现 §3 + §4），确认后再继续 |
+| 拆分项已存在且含 `state.yaml` | **不得**重复创建，标记为「已完成 propose」 |
+| 拆分项尚未创建 | 按已确认清单继续通过 `/{{SKILL_NAME_PREFIX}}clarify` 创建 |
+| 对话中已确认的拆分清单不可恢复 | **必须**按 `./policies/ask-question-react.md` 重新向用户确认拆分清单（重新呈现 §3 + §4），确认后再继续 |
 
 ### 6.3 恢复后继续
 
@@ -204,7 +203,7 @@
 
 ### 7.1 选择不拆分时
 
-在 `pre_design.md` 的 `## 任务范围` 节记录：
+在 `intention.md` 的 `## 任务范围` 节记录：
 
 ```markdown
 ### 拆分决策
@@ -215,7 +214,7 @@
 
 ### 7.2 选择拆分时
 
-clarify 阶段**不**为各拆分项生成 `pre_design.md`；各拆分项的预设在 `/comet-open` 阶段落盘。当前 clarify draft 按以下处理：
+clarify 阶段**不**为各拆分项生成 `intention.md`；各拆分项的预设在 `/{{SKILL_NAME_PREFIX}}propose` 阶段落盘。当前 clarify draft 按以下处理：
 
 - 若 clarify draft 仅服务于调度拆分 → 拆分调度完成后归档或废弃该 draft
 - 若用户选择从某一拆分项继续 clarify 流程 → 以该拆分项的 change 为主体继续
@@ -228,6 +227,6 @@ clarify 阶段**不**为各拆分项生成 `pre_design.md`；各拆分项的预�
 |------|--------|------|
 | Step 3 澄清摘要形成 | **Step 3.5 拆分预检**（本文件） | Step 3.2 Reframe Check |
 | — | 用户选择 B（单 change） | 继续 clarify 3.2 → 3.4 → Step 4 |
-| — | 用户选择 A（多 change） | 批量 `/comet-open` → §5.3 暂停 → 用户选定 change 后进入 `/comet-design` |
+| — | 用户选择 A（多 change） | 批量 `/{{SKILL_NAME_PREFIX}}propose` → §5.3 暂停 → 用户选定 change 后进入 `/{{SKILL_NAME_PREFIX}}propose` |
 
 **硬门**：本步骤未完成（含批量模式下全部拆分项 open 未完成）前，禁止进入 Reframe Check、Premise Challenge 及 Step 4 产出。

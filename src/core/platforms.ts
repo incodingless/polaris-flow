@@ -48,7 +48,80 @@ export interface Platform {
    * 落盘目录以 `contextDir` / `skillsDir` / `commandsDir` 为准；若与 OpenSpec 原生目录不同，init 后会迁入平台目录。
    */
   openspecToolId: string;
+  /**
+   * 规范工具名（资产 frontmatter，Trae 风格）→ 该平台实际工具名；未列出的名保持原样。
+   */
+  agentToolMap: Record<string, string>;
 }
+
+/**
+ * Trae / Trae-CN：资产规范名
+ * 工具名列表
+ * Read	读取文件或目录。
+ * Edit	编辑或删除文件。
+ * Write 创建或覆写文件。
+ * Delete	删除文件
+ * Glob	按文件名模式搜索文件。
+ * Grep	按内容正则搜索。
+ * Bash	运行终端命令。
+ * SearchCodebase	搜索代码库。
+ * Skill 调用 Skill。
+ * TodoWrite 管理任务清单。
+ * WebFetch	抓取网页内容。
+ * WebSearch	在网络上搜索。
+ * LSP 通过 Language Server 检查语法问题。
+ * MCP 限定调用某个 MCP Server 下的指定工具，需配合 mcpServers 字段一起使用，例如 mcp__github__get_issue（限定调用 GitHub MCP 中的 get_issue 工具）。
+ */
+const TRAE_AGENT_TOOL_MAP: Record<string, string> = {
+  Read: 'Read',
+  Write: 'Write',
+  Delete: 'Delete',
+  Edit: 'Edit',
+  Glob: 'Glob',
+  Grep: 'Grep',
+  Bash: 'Bash',
+  Skill: 'Skill',
+  WebFetch: 'WebFetch',
+  WebSearch: 'WebSearch',
+  LSP: 'LSP',
+  MCP: 'MCP',
+  Ask: 'AskUserQuestion',
+};
+
+/** Claude Code agent tools allowlist 名 */
+const CLAUDE_AGENT_TOOL_MAP: Record<string, string> = {
+  Read: 'read',
+  Write: 'write',
+  Delete: 'delete',
+  Edit: 'edit',
+  Glob: 'glob',
+  Grep: 'grep',
+  Bash: 'bash',
+  Skill: 'use_skill',
+  TodoWrite: 'manage_todo',
+  WebFetch: 'web_fetch',
+  WebSearch: 'web_search',
+  LSP: '',
+  MCP: 'mcp_call',
+  Ask: 'ask_user_question',
+};
+
+/** Cursor agent tools allowlist 名 */
+const CURSOR_AGENT_TOOL_MAP: Record<string, string> = {
+  Read: 'Read',
+  Write: 'Write',
+  Delete: 'Delete',
+  Edit: 'Edit',
+  Glob: 'Glob',
+  Grep: 'Grep',
+  Bash: 'Bash',
+  Skill: 'Skill',
+  WebFetch: 'WebFetch',
+  WebSearch: 'WebSearch',
+  LSP: 'LSP',
+  MCP: 'MCP',
+  Ask: 'AskUserQuestion',
+};
 
 /** 返回平台技能布局，缺省为 nested */
 export function getSkillsLayout(platform: Platform): SkillsLayout {
@@ -186,6 +259,7 @@ export const PLATFORMS: Platform[] = [
     hookFormat: 'claude-code',
     detectionPaths: ['/Users/jason/.claude/v1/history.json'],
     openspecToolId: 'claude',
+    agentToolMap: CLAUDE_AGENT_TOOL_MAP,
   },
   {
     id: 'cursor',
@@ -204,6 +278,7 @@ export const PLATFORMS: Platform[] = [
     hookFormat: 'claude-code',
     detectionPaths: ['/Users/jason/.cursor/v1/history.json'],
     openspecToolId: 'cursor',
+    agentToolMap: CURSOR_AGENT_TOOL_MAP,
   },
   {
     id: 'trae',
@@ -221,6 +296,7 @@ export const PLATFORMS: Platform[] = [
     hookFormat: 'claude-code',
     detectionPaths: ['/Users/jason/.trae/v1/history.json'],
     openspecToolId: 'trae',
+    agentToolMap: TRAE_AGENT_TOOL_MAP,
   },
   {
     id: 'trae-cn',
@@ -238,5 +314,6 @@ export const PLATFORMS: Platform[] = [
     hookFormat: 'trae',
     detectionPaths: ['/Users/jason/.trae-cn/v1/history.json'],
     openspecToolId: 'trae',
+    agentToolMap: TRAE_AGENT_TOOL_MAP,
   },
 ];

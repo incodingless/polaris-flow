@@ -1,13 +1,6 @@
-<!--
-  简要说明：
-  - 职责：经结构化探索与确认，把用户需求落地为 intention.md（本阶段不写 OpenSpec；intention 暂存于 .polaris，propose 后再迁入）。
-  - 主产物：`.polaris/tasks/<task_id>/intention.md`（暂存）+ state / workflow 游标。
-  - 上游 / 下游：新建 change → 本阶段 → propose。
--->
-
 ---
-name: polaris-flow-clarify
-description: "用户触发 /polaris-flow-clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
+name: {{SKILL_NAME_PREFIX}}clarify
+description: "经结构化探索与确认，把用户需求落地为 intention.md。用户触发 /{{SKILL_NAME_PREFIX}}clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
 ---
 # Polaris 工作流 - 阶段1：澄清
 
@@ -17,15 +10,15 @@ description: "用户触发 /polaris-flow-clarify 或 要求进入需求澄清 �
 - **禁止**跳过 openspec-explore 强制交互（≥3 个探索性问题 + 等待用户回答 + 覆盖 ≥3 类）
 - **禁止**跳过 Reframe Check（`./policies/reframe-check.md` 第 1 节）
 - **禁止**跳过设计决策 Options（`./policies/reframe-check.md` 第 2 节）
-- **禁止**跳过 Premise Challenge（`./policies/premise-challenge.md`）
+- **禁止**跳过 Premise Challenge（`policies/premise-challenge.md`）
 - **禁止**未拿到用户对 **intention.md 全文** 的整体确认就标记本阶段完成
-- **禁止**未 `read_file templates/intention-template.md` 就生成 `intention.md`（Step 4 强制前置）
+- **禁止**未读取 `./templates/intention-template.md` 就生成 `intention.md`（Step 4 强制前置）
 - **禁止**在本阶段创建 `proposal.md` / `design.md` / `tasks.md`，或调用 `/opsx:new` / 加载 `openspec-propose`
 - **禁止**使用未基于探索摘要提炼的随机 slug——推荐的 `task_id` 必须从用户回答中取核心 2–3 个名词关键词，保证可解释性
 
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 澄清目标及需求 — 使用 polaris-flow-clarify 技能。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: 澄清需求 — 使用 {{SKILL_NAME_PREFIX}}clarify 技能。`
 
 ## 状态布局
 
@@ -42,7 +35,7 @@ description: "用户触发 /polaris-flow-clarify 或 要求进入需求澄清 �
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：产物语言
+### Step 0：设置产物语言
 
 读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`中文`）。无配置时回退到当前用户请求语言。
 
@@ -52,14 +45,11 @@ description: "用户触发 /polaris-flow-clarify 或 要求进入需求澄清 �
 
 使用 SessionStart 注入的路径（本 skill 内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
 
-- 优先：环境变量 `PLUGIN_ROOT` / `REPO_ROOT`（Trae `env`、 Cursor `env`、Claude `CLAUDE_ENV_FILE`，或 Agent 上下文中的同名赋值）
+- 优先：环境变量 `$PLUGIN_ROOT` / `$REPO_ROOT`（Trae `env`、 Cursor `env`、Claude `CLAUDE_ENV_FILE`，或 Agent 上下文中的同名赋值）
 - 兜底：source `.polaris/.cache/runtime-env`（SessionStart 落盘）
-- 仍无 `PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
+- 仍无 `$PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
 
 ```bash
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
-REPO_ROOT="${REPO_ROOT:-$PWD}"
-PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
 if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/hooks/clarify-init.sh" ]; then
   echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
   exit 2
@@ -75,14 +65,15 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 | `INIT_EXIT` | `status` | 含义 | 后续动作 |
 | ----------- | -------- | ---- | -------- |
 | 0 | `"ok"` | 成功 | 取 `draft_name`，进入 Step 1.5 |
-| 1 | `"existing"` | 已有未完成 draft | 按决策点协议询问 A/B/C（见下） |
+| 1 | `"existing"` | 存在未完成 draft | 按决策点协议询问 A/B/C（见下） |
 | 2 | —（stderr）  | 参数/环境错误     | 按 H12 阻断 |
 | 3 | —（stderr）  | workflow 写入失败 | 按 H12 阻断 |
 
-`status="existing"` 时，`existing` 含已有 draft 目录列表。**必须**按 `.polaris/reference/decision-point.md` 暂停询问：
+`status="existing"` 时且 `existing` 含已有 draft 目录列表，**必须**按 `./policies/decision-point.md` 暂停询问：
 
 - **A. 续写最新一个**：`draft_name` = 列表最后一项 → 进入 Step 2
-- **B. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `clarify-init.sh`，再进入 Step 1.5：
+- **B. 选择一个**：列出所有的 `draft_name` 候选让用户选择之后，再进入 Step 2
+- **C. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `clarify-init.sh`，再进入 Step 1.5：
 
 ```bash
 for d in <existing 列表>; do
@@ -92,11 +83,11 @@ for d in <existing 列表>; do
 done
 ```
 
-- **C. 取消退出**：结束本 skill
+- **D. 取消退出**：结束本 skill
 
 #### 1.5 状态行输出（H8）
 
-输出：`[polaris-flow] clarify draft: .polaris/tasks/<draft_name>/ ; workflow: appended entry phase=clarify`
+输出：`[polaris-flow] clarify draft: .polaris/tasks/<draft_name>/; workflow: appended entry phase=clarify`
 
 ### Step 2：加载宪法（注入点 A）
 
@@ -120,7 +111,7 @@ done
 | ---- | ---- |
 | 提问数量 | **≥ 3** 个探索性问题 |
 | 覆盖类型数 | **≥ 3** 类（禁止同类刷数） |
-| 提问范式 | `./policies/response-posture.md` 第四节 Exploratory Question Patterns（E1–E5） |
+| 提问范式 | `response-posture.md` 第四节 Exploratory Question Patterns（E1–E5） |
 | 等待行为 | 用户回答**全部** ≥3 个问题后才能进入 3.1 |
 | 模糊回答 | 按 response-posture.md 第二节 Pushback Patterns 推回；**不**计入提问达成 |
 
@@ -136,7 +127,7 @@ done
 
 1. 按 §1 判定是否触发；可跳过则说明理由后进入 3.2
 2. 触发时按 §2–§3 评估并输出候选拆分清单
-3. 推荐拆分或边界情况时，按 §4 + `.polaris/reference/decision-point.md` **阻塞等待**
+3. 推荐拆分或边界情况时，按 §4 + `./policies/decision-point.md` **阻塞等待**
 4. 用户选 A → 批量拆分模式（§5），全部 open 后按 §5.3 暂停；选 B → 记录不拆分原因后进入 3.2；选 C → 调整后重新呈现清单
 
 **禁止**在本步骤完成前创建 OpenSpec artifacts 或调用 `/opsx:new`。
@@ -145,25 +136,23 @@ done
 
 `read_file ./policies/reframe-check.md`，按 **第 1 节**执行：满足跳过条件则跳过并说明理由；否则输出 1 个 Reframe 候选，等用户在 ✅ / ✏️ / ❌ 间选择（✏️ 最多 2 轮；❌ 保留原始 framing）。完成后进入 3.3。
 
-#### 3.3 设计决策方案 Options
+#### 3.3 决策方案 Options
 
-继续按 `reframe-check.md` **第 2 节**：每个实现层决策点给出 2–3 个方案 + 优劣权衡，等用户选择（按决策点逐个让用户选择）；未选方案与拒绝理由记入后续 `intention.md`「备选方案」节。完成后进入 3.4。
+继续按 `reframe-check.md` **第 2 节**：每个实现层决策点给出 2–3 个方案 + 优劣权衡，按`./policies/ask-question-react.md`的方式发起提问并等用户选择；未选方案与拒绝理由记入后续 `intention.md`「备选方案」节。完成后进入 3.4。
 
 #### 3.4 Premise Challenge
 
-`read_file ./policies/premise-challenge.md` 并按其执行：基于 3.0–3.3 提炼 3–5 条前提（覆盖 ≥3 类）→ 用户对每条 agree / disagree / unsure（disagree 最多重生成 3 轮；unsure 追问）→ **全部 agree** 后进入 3.5。
+`read_file ./policies/premise-challenge.md` 并按其执行：基于 3.0–3.3 提炼 3–5 条前提（覆盖 ≥3 类）→ 用户对每条作出 “认可” / “不认可” / “不确定” 选择（选“不认可”时最多重生成 3 轮；不确定发起追问）→ **全部认可** 后进入 3.5。
 
 #### 3.5 需求澄清完成确认（阻塞点）
 
-按 `.polaris/reference/decision-point.md` 暂停，展示澄清摘要（目标、非目标、范围边界、关键未知项、验收场景草案），等待用户确认澄清完成。
-
-确认前不得创建 OpenSpec artifacts，不得加载 `openspec-propose`。确认后进入 3.6。
+按 `./policies/decision-point.md` 暂停，展示澄清摘要（目标、非目标、范围边界、关键未知项、验收场景草案），等待用户确认澄清完成。
+确认前不得创建 OpenSpec artifacts，不得加载 `opsx:propose`。确认后进入 3.6。
 
 #### 3.6 任务名称确认（阻塞点）→ 得到 `task_id`
 
-按 `.polaris/reference/decision-point.md` 暂停，让用户决定任务名（即后续目录名 / `task_id`）。**禁止**静默推断或自动落盘。
-
-约束：`task_id` 必须是 **kebab-case 英文**（小写字母、数字、连字符），如 `refine-requirements-doc`）。
+按 `./policies/decision-point.md` 暂停，让用户决定任务名（即后续目录名 / `task_id`）。**禁止**静默推断或自动落盘。
+约束：`task_id` 必须是 **kebab-case 英文**（小写字母、数字、连字符），如 `refine-requirements-doc`。
 
 暂停时必须展示：
 
@@ -171,17 +160,15 @@ done
 - 「自行输入名称」选项
 - 提示：非合规输入（含中文）会转换为 kebab-case，**转换结果须回显并再次确认**
 
-名称与已有 `.polaris/tasks/` 目录冲突时，报告冲突并请用户另选。
+名称与已有 `$REPO_ROOT/.polaris/tasks/` 目录冲突时，报告冲突并请用户另选。
 
 用户确认后，将 `task_id` 记入会话上下文（此时 **尚未** `mv` 目录）。进入 Step 4。
 
 ### Step 4：写入 `intention.md`（仍在 draft 目录）
 
-落盘路径：`.polaris/tasks/<draft_name>/intention.md`
+落盘路径：`$REPO_ROOT/.polaris/tasks/<draft_name>/intention.md`
 
-**强制前置**：写入前必须 `read_file templates/intention-template.md`，并输出：
-
-`[polaris-flow clarify] 已 read_file templates/intention-template.md`
+**强制前置**：写入前必须 `read_file ./templates/intention-template.md`，并输出：`[polaris-flow clarify] 已读取模板 intention-template.md`
 
 **禁止**未读模板就生成内容。
 
@@ -210,9 +197,9 @@ done
 
 #### 5.2 用户整体确认 `intention.md`（阻塞点）
 
-向用户输出全文预览并询问：
+按 `./policies/decision-point.md` 暂停并发起问答询问：
 
-> 以上是完整意图文档（含目标、前提、结论/选型、范围与验收），请 review 并确认是否可以进入下一阶段？
+> 请**仔细**阅读完整意图文档（含目标、前提、结论/选型、范围与验收），**审查**后确认是否可以进入下一阶段？
 >
 > （请回复「确认 / ok / 同意」等明确整体确认；若仅对某条目有意见，请直接指出以便修改）
 
@@ -248,14 +235,12 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 
 ## 自动衔接下一阶段
 
-按 `polaris/reference/auto-transition.md` 执行。关键命令：
+按 `./policies/auto-transition.md` 执行。关键命令：
 
 ```bash
-node "$POLARIS_FLOW" next <change-name>
+node polaris-flow state next <change-name>
 ```
 
 - `NEXT: auto` → 调用 `SKILL` 指向的 skill 进入下一阶段
 - `NEXT: manual` → 不要调用下一 skill，按 `HINT` 提示用户手动运行 `/<SKILL>`
 - `NEXT: done` → 流程已完成，无需继续
-
-注意：无论 `NEXT` 为 `auto` 还是 `manual`，`polaris-flow-clarify` 进入后必须先执行归档前最终确认阻塞点，等待用户明确选择「确认归档」后才允许运行归档脚本。不得因为验证已通过就自动归档。

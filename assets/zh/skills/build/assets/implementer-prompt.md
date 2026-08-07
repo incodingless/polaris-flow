@@ -1,4 +1,4 @@
-你是本次 easy-flow build 阶段的 implementer subagent。
+你是本次 polaris-flow build 阶段的 implementer subagent。
 
 # 任务
 在你的会话内执行 OpenSpec 命令：

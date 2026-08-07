@@ -1,18 +1,6 @@
-<!--
-  简要说明：
-  - 职责：只读聚合 `.polaris/metrics/` 与 overrides，输出可追溯复盘报告与改进建议。
-  - 主产物：回顾报告（不写业务代码、不推进 workflow phase）。
-  - 上游 / 下游：delivery 之后的旁路；不占用主链路游标。
-
-  已知外部债（本修订稿约定目标态，晋升前须另补或另改）：
-  - overrides.log 行级 schema 在 verify 侧尚未固化；本稿按「一行一条、尽力解析」处理。
-  - metrics JSON 顶层字段名 `audit`（violations/total_checks）为历史兼容，≠ 阶段名 audit。
-  - 英文 skill（assets/en/skills/retro/）：中文确认并晋升 SKILL.md 后再同步。
--->
-
 ---
-name: polaris-flow-retro
-description: "用户触发 /polaris-flow-retro、/retro，或要求查看度量趋势 / overrides 分布 / 阶段复盘 / 改进建议时必须使用本 skill。不要用于：伪造尚未存在的 metrics、在本阶段写业务实现、或替代 verify/delivery 做验收与交付。"
+name: {{SKILL_NAME_PREFIX}}retro
+description: "输出可追溯复盘报告与改进建议。用户触发 /{{SKILL_NAME_PREFIX}}retro，或要求查看度量趋势 / overrides 分布 / 阶段复盘 / 改进建议时必须使用本 skill。不要用于：伪造尚未存在的 metrics、在本阶段写业务实现、或替代 verify /delivery 做验收与交付。"
 ---
 
 # Polaris 工作流 - 阶段：复盘（retro）
@@ -28,7 +16,7 @@ description: "用户触发 /polaris-flow-retro、/retro，或要求查看度量�
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow] 进入 retro Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 复盘 — 使用 polaris-flow-retro 技能。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: 复盘 — 使用 {{SKILL_NAME_PREFIX}}retro 技能。`
 
 ## 标识约定
 
@@ -49,8 +37,8 @@ description: "用户触发 /polaris-flow-retro、/retro，或要求查看度量�
 
 | 触发 | 范围 |
 |------|------|
-| `/polaris-flow-retro` 或「看度量 / 复盘」 | **overview**：全部历史 metrics（默认最近 20 次；可按用户要求改 N） |
-| `/polaris-flow-retro monthly` 或「月度回顾」 | **monthly**：`timestamp`（或文件名时间戳）落在**当前 UTC 自然月**内的记录 |
+| `/{{SKILL_NAME_PREFIX}}retro` 或「看度量 / 复盘」 | **overview**：全部历史 metrics（默认最近 20 次；可按用户要求改 N） |
+| `/{{SKILL_NAME_PREFIX}}retro monthly` 或「月度回顾」 | **monthly**：`timestamp`（或文件名时间戳）落在**当前 UTC 自然月**内的记录 |
 | 用户指定 `change_id` / 「回顾某次变更」 | **by-change**：顶层 metrics 中 `change_id` 等于该值的记录；可辅读 `tasks/` 或 `archive/` 的 state |
 
 用户未说明时默认 overview。多种意图并存时按 decision-point 确认范围，再进入 Step 1。
@@ -100,7 +88,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 | 情况 | 动作 |
 |------|------|
-| 零个 `*-metrics.json` | **停止**。告知：「尚无 verify 度量（`.polaris/metrics/*-metrics.json` 为空）。请先对至少一个 change 跑完 `/polaris-flow-verify`（若在 worktree 内验证，还需 `/polaris-flow-delivery` 合回主仓）。」**禁止**编造报告正文 |
+| 零个 `*-metrics.json` | **停止**。告知：「尚无 verify 度量（`.polaris/metrics/*-metrics.json` 为空）。请先对至少一个 change 跑完 `/{{SKILL_NAME_PREFIX}}verify`（若在 worktree 内验证，还需 `/{{SKILL_NAME_PREFIX}}delivery` 合回主仓）。」**禁止**编造报告正文 |
 | 有 metrics，无 overrides | 继续；Override 节写「无记录」 |
 | monthly 筛选后为零 | **停止**。告知本月无度量文件，可建议改跑 overview |
 | by-change 筛选后为零 | **停止**。列出顶层 metrics 中出现过的 `change_id`（及「未归因」），请用户重选 |
@@ -140,7 +128,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 - 必须能指回具体低分 scorer、违规计数或 override 聚类  
 - 禁止与数据矛盾的空话（如数据全绿却写「测试覆盖急需提升」）  
-- 建议指向流程动作时用现行命令：`/polaris-flow-verify`、`/polaris-flow-build`、`/polaris-flow-clarify` 等
+- 建议指向流程动作时用现行命令：`/{{SKILL_NAME_PREFIX}}verify`、`/{{SKILL_NAME_PREFIX}}build`、`/{{SKILL_NAME_PREFIX}}clarify` 等
 
 ### Step 5：输出报告
 
@@ -184,8 +172,8 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 ## 5. 后续
 
-- 继续度量：对进行中 change 跑 `/polaris-flow-verify`（worktree 场景需经 `/polaris-flow-delivery` 合回）
-- 新变更：`/polaris-flow-clarify` 或 `/polaris-flow-propose`
+- 继续度量：对进行中 change 跑 `/{{SKILL_NAME_PREFIX}}verify`（worktree 场景需经 `/{{SKILL_NAME_PREFIX}}delivery` 合回）
+- 新变更：`/{{SKILL_NAME_PREFIX}}clarify` 或 `/{{SKILL_NAME_PREFIX}}propose`
 ```
 
 ## 约束速查

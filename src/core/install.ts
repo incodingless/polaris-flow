@@ -9,7 +9,12 @@ import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
 import { parseDocument } from 'yaml';
 import { getPlatformSkillsDir, type Platform } from './platforms.js';
-import { type InstallScope, type Language } from './config/polaris-project-config.js';
+import {
+  type InstallScope,
+  type Languages,
+  loadPolarisConfig,
+  resolveReviewAgentModel,
+} from './config/polaris-project-config.js';
 
 import {
   getPolarisConfigPath,
@@ -66,7 +71,7 @@ export type PlatformInstallResult = {
  */
 export async function initPolarisConfig(
   projectPath: string,
-  language: Language,
+  language: Languages,
   scope: InstallScope,
   platforms: Platform[],
   overwrite: boolean = false,
@@ -87,7 +92,7 @@ export async function installPolarisForPlatform(
   baseDir: string,
   platform: Platform,
   overwrite: boolean,
-  language: Language = 'zh',
+  language: Languages = 'zh',
   scope: InstallScope = 'project',
   projectPath: string = baseDir,
 ): Promise<PolarisInstallResult> {
@@ -118,8 +123,14 @@ export async function installPolarisForPlatform(
     asset,
   );
 
-  // 3.3 复制代理
-  const agents = await copyPolarisAgents(platformLayout.agentsDir, overwrite, asset);
+  // 3.3 复制代理（按平台映射 tools，写入 config 解析的 model）
+  const agents = await copyPolarisAgents(
+    projectPath,
+    platformLayout.agentsDir,
+    overwrite,
+    asset,
+    platform,
+  );
 
   // 3.4 复制规则
   const rules = await copyPolarisRules(
@@ -149,7 +160,7 @@ export async function installPolarisForPlatform(
  */
 export async function generatePolarisConfig(
   projectPath: string,
-  language: Language,
+  language: Languages,
   scope: InstallScope,
   platforms: Platform[],
   overwrite: boolean = false,

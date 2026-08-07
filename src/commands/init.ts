@@ -30,7 +30,7 @@ import { getAssetsDir, getGlobalPolarisConfigSrc } from '../core/assets/manifest
 import { getGlobalPolarisConfigPath } from '../core/assets/polaris-paths.js';
 import { getSettingsFilePath } from '../core/platforms.js';
 import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
-import type { InstallScope, Language } from '../core/config/polaris-project-config.js';
+import type { InstallScope, Languages } from '../core/config/polaris-project-config.js';
 import { initializePolarisCommonLayout } from '../core/install/layout.js';
 import { installCodegraph } from '../core/integration/codegraph.js';
 import { ensureDir, fileExists } from '../utils/file-system.js';
@@ -63,7 +63,7 @@ export type InitPlatformResult = {
 export type InitResult = {
   projectPath: string;
   scope: InstallScope;
-  language: Language;
+  language: Languages;
   platforms: string[];
   results: InitPlatformResult[];
 };
@@ -96,13 +96,13 @@ function statusSymbol(status: InstallStatus): string {
   return red('✗');
 }
 
-function statusLabel(status: InstallStatus, lang: Language): string {
+function statusLabel(status: InstallStatus, lang: Languages): string {
   if (status === 'installed') return green('installed');
   if (status === 'skipped') return dim(t(lang, 'skip'));
   return red(t(lang, 'failedStatus'));
 }
 
-function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang: Language): void {
+function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang: Languages): void {
   const scopeLabel = scope === 'global' ? os.homedir() : 'project';
 
   console.log(

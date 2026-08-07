@@ -1,13 +1,6 @@
-<!--
-  简要说明：
-  - 职责：按已评审的 tasks.md 调用 /opsx:apply 实施；主代理编排，优先 implementer subagent。
-  - 主产物：工作区 / worktree 中的实现改动；推进 phase 至 verify。
-  - 上游 / 下游：plan → 本阶段 → verify。
--->
-
 ---
-name: polaris-flow-build
-description: "用户触发 /polaris-flow-build、/build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。主代理编排；优先由 implementer subagent 执行 apply；仅当 subagent-probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"
+name: {{SKILL_NAME_PREFIX}}build
+description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户触发 /{{SKILL_NAME_PREFIX}}build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。优先由 implementer subagent 执行 apply；仅当 subagent-probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"
 ---
 
 # Polaris 工作流 - 阶段：构建（build）
@@ -27,7 +20,7 @@ description: "用户触发 /polaris-flow-build、/build，或要求按已评审�
 **允许的例外**：`build_mode=inline`，或 probe 返回 `degradation=inline|unsupported` 时，主代理**可以**在本会话执行 `/opsx:apply`（仍须注入点 C，仍禁止在 apply 之外手写实现）。
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: build — 使用 polaris-flow-build 技能。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: build — 使用 {{SKILL_NAME_PREFIX}}build 技能。`
 
 ## 标识约定
 
@@ -39,7 +32,7 @@ description: "用户触发 /polaris-flow-build、/build，或要求按已评审�
 | 深度设计（只读） | `openspec/changes/<change_id>/detailed-design.md` |
 | 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `hooks/workflow-entry.sh`） |
-| implementer prompt 模板 | `$PLUGIN_ROOT/skills/build/assets/implementer-prompt.md` |
+| implementer prompt 模板 | `./assets/implementer-prompt.md` |
 
 > **链路**：`clarify → propose → design → plan → **build** → verify → delivery`。  
 > 本阶段不写计划、不审设计；只执行已评审的 `tasks.md`。  
@@ -54,20 +47,55 @@ description: "用户触发 /polaris-flow-build、/build，或要求按已评审�
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
 ### Step 0：定位 change_id + 入口校验
+用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
-REPO_ROOT="${REPO_ROOT:-$PWD}"
-PLUGIN_ROOT="$REPO_ROOT/$PLATFORM_ID/polaris-flow"
+WORK_FLOW_CONFIG="${WORK_FLOW_CONFIG:-$REPO_ROOT/.polaris/workflow.yaml}"
 
-CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
+Entries=$(node -e '
+const fs = require("fs");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const strip = (s) => s.trim().replace(/^"(.*)"$/, "$1");
+const ids = [];
+let inList = false;
+let changeId = null;
+let phase = null;
+const flush = () => {
+  if (changeId && phase === "clarify") ids.push(changeId);
+  changeId = null;
+  phase = null;
+};
+for (const raw of text.split(/\r?\n/)) {
+  const line = raw.replace(/\t/g, "  ");
+  if (/^active_changes:\s*\[\s*\]\s*$/.test(line)) break;
+  if (/^active_changes:\s*$/.test(line)) { inList = true; continue; }
+  if (inList && /^[^\s#]/.test(line)) break;
+  if (!inList) continue;
+  const itemStart = line.match(/^\s*-\s+change_id:\s*(.+?)\s*$/);
+  if (itemStart) {
+    flush();
+    changeId = strip(itemStart[1]);
+    continue;
+  }
+  const cid = line.match(/^\s+change_id:\s*(.+?)\s*$/);
+  if (cid) {
+    flush();
+    changeId = strip(cid[1]);
+    continue;
+  }
+  const ph = line.match(/^\s+phase:\s*(.+?)\s*$/);
+  if (ph) phase = strip(ph[1]);
+}
+flush();
+process.stdout.write(ids.join("\n"));
+' "$WORK_FLOW_CONFIG")
 ```
 
-读取 `.polaris/workflow.yaml: active_changes`，筛选 `phase=build` 的 entry：
+按 `$Entries` 行数解读：
 
 - **唯一匹配**：取其 `change_id`（及 `worktree_path`，若非空）
-- **多个匹配**：按 `.polaris/reference/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 phase=build 的 active change，请先执行 /polaris-flow-plan」
+- **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
+- **零匹配**：阻断，提示「未找到 phase=build 的 active change，请先执行 /{{SKILL_NAME_PREFIX}}plan」
 
 > 若上次中断在 build 中（`build.status=in_progress` / apply paused），从中断点续跑；不得因「已是 build」而报零匹配。
 
@@ -84,7 +112,7 @@ CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
 
 ### Step 1：选择执行方式与审查模式（用户决策点）
 
-**一次性**按 `.polaris/reference/decision-point.md` 询问两项（可同一轮多问）。推荐规则**只能说明，不能代选**。
+**一次性**按 `./reference/decision-point.md` 询问两项（可同一轮多问）。推荐规则**只能说明，不能代选**。
 
 #### 1.1 执行方式 `build_mode`
 
@@ -122,7 +150,7 @@ CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
 
 若 `build_mode=subagent_dispatch`：
 
-1. **必须** `use_skill("polaris-flow:subagent-probe")`，传入 `platform="$PLATFORM"`
+1. **必须** `use_skill("{{SKILL_NAME_PREFIX}}subagent-probe")`，传入 `platform="$PLATFORM"`
 2. 按 `subagent-probe/policies/degradation.md` 消费返回值：
 
 | `degradation` | 动作 |
@@ -137,7 +165,7 @@ CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
 
 **组装启动 prompt**（subagent 分支必做；inline 可把同一约束当作自检清单）：
 
-1. `read_file "$PLUGIN_ROOT/skills/build/assets/implementer-prompt.md"`
+1. `read_file "./assets/implementer-prompt.md"`
 2. 将 `<change_id 或省略>` 替换为 Step 0 的 `change_id`（方括号命令写成 `/opsx:apply <change_id>`）
 3. 运行时自填占位符（如 `<N.M>`）**保持原样**
 4. 在 prompt 末尾追加（若模板未含）：

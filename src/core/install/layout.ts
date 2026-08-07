@@ -11,14 +11,14 @@ import {
   getWorktreeRoot,
   type InstallScope,
 } from '../assets/polaris-paths.js';
-import { type Language } from '../config/polaris-project-config.js';
+import { type Languages } from '../config/polaris-project-config.js';
 import { getPlatformContextDir, type Platform } from '../platforms.js';
 
 const POLARIS_FLOW_PLUGIN_NAME = 'polaris-flow';
 
 export type ProjectLayoutOption = {
   /** 技能语言，写入 config.yaml */
-  language: Language;
+  language: Languages;
   /** 安装作用域：影响技能根与 worktree 落盘位置 */
   scope: InstallScope;
   /** 技能安装根目录（project→项目路径，global→用户主目录） */
