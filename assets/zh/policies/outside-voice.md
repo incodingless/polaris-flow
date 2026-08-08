@@ -1,7 +1,5 @@
 # Outside Voice 协议
 
-规范路径：`reference/outside-voice.md`
-
 由 **propose** / **design** / **plan** 在主审 subagent 报告落盘后执行。挑战主审结论的 subagent 固定为 `openspec-review-agent`。
 
 ## 核心定位

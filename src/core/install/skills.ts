@@ -1,7 +1,11 @@
 /**
  * 拷贝 Polaris skills 与包内公共内容（adapters/policies/templates/hooks 脚本）到平台目录。
  * 不负责 commands / agents / rules / hooks 注册——由 installPolarisForPlatform 显式编排。
- * 安装 SKILL.md 时按落盘目录改写 frontmatter `name` 为 `polaris-flow-<skill>`。
+ *
+ * 安装流水线：
+ * 1. 按 nested/flat 复制技能目录（源为短名）
+ * 2. 替换 {{SKILL_NAME_PREFIX}}（nested → polaris-flow: ；flat → polaris-flow-）
+ * 3. 将语言包顶层 policies 注入每个子技能的 policies/（同名按 overwrite 覆盖）
  */
 import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
@@ -16,6 +20,9 @@ import {
 } from '../../utils/file-system.js';
 import { Assets } from '../assets/manifest.js';
 import { POLARIS_FLOW_PLUGIN_NAME } from '../config/polaris-constants.js';
+
+/** 技能资产中的名称前缀占位符 */
+export const SKILL_NAME_PREFIX_PLACEHOLDER = '{{SKILL_NAME_PREFIX}}';
 
 /**
  * 从 skills 资产相对路径取出顶层 skill 目录名。
@@ -32,29 +39,42 @@ export function getSkillDirNameFromShortPath(shortPath: string): string | null {
 }
 
 /**
- * 根据布局得到 skill 的规范 name（与落盘目录名对齐）。
- * flat / nested 均为 `polaris-flow-<skillDir>`。
+ * 按布局解析 {{SKILL_NAME_PREFIX}} 的替换值。
+ * nested 用冒号命名空间；flat 用连字符前缀（与落盘目录 polaris-flow-<skill> 对齐）。
  */
-export function resolveInstalledSkillName(skillDirName: string): string {
-  if (skillDirName.startsWith(`${POLARIS_FLOW_PLUGIN_NAME}-`)) {
-    return skillDirName;
-  }
-  return `${POLARIS_FLOW_PLUGIN_NAME}-${skillDirName}`;
+export function resolveSkillNamePrefix(skillsLayout: SkillsLayout): string {
+  return skillsLayout === 'nested'
+    ? `${POLARIS_FLOW_PLUGIN_NAME}:`
+    : `${POLARIS_FLOW_PLUGIN_NAME}-`;
 }
 
 /**
- * 改写 SKILL.md frontmatter 的 name 行（不触碰正文）。
+ * 将文本中的 {{SKILL_NAME_PREFIX}} 全部替换为给定前缀。
  */
-export function rewriteSkillFrontmatterName(raw: string, name: string): string {
-  if (/^name:\s*/m.test(raw)) {
-    return raw.replace(/^name:.*$/m, `name: ${name}`);
-  }
-  // 无 name 行时插入到 frontmatter 开头（`---` 之后）
-  return raw.replace(/^---\s*\n/, `---\nname: ${name}\n`);
+export function applySkillNamePrefix(raw: string, prefix: string): string {
+  return raw.split(SKILL_NAME_PREFIX_PLACEHOLDER).join(prefix);
 }
 
 /**
- * 解析 skill 文件落盘绝对路径。
+ * 解析已安装技能根目录（不含文件相对路径）。
+ */
+export function resolveInstalledSkillRoot(
+  polarisFlowSkillsBaseDir: string,
+  platformSkillsDir: string,
+  skillsLayout: SkillsLayout,
+  skillDir: string,
+): string {
+  if (skillsLayout === 'nested') {
+    return path.join(polarisFlowSkillsBaseDir, skillDir);
+  }
+  return path.join(platformSkillsDir, `${POLARIS_FLOW_PLUGIN_NAME}-${skillDir}`);
+}
+
+/**
+ * 解析 skills 资产文件落盘绝对路径。
+ * - skills 根下裸文件（如 README.md）：始终落在 polarisFlowSkillsBaseDir（skills/polaris-flow/）
+ * - nested 子技能：polarisFlowSkillsBaseDir/<skill>/…
+ * - flat 子技能：platformSkillsDir/polaris-flow-<skill>/…
  */
 function resolveSkillDestPath(
   polarisFlowSkillsBaseDir: string,
@@ -62,40 +82,80 @@ function resolveSkillDestPath(
   skillsLayout: SkillsLayout,
   shortPath: string,
 ): string {
-  if (skillsLayout !== 'flat') {
+  const normalized = shortPath.replace(/\\/g, '/');
+
+  // skills 根下的裸文件不是子 skill，两种布局都进插件根
+  if (!normalized.includes('/')) {
+    return path.join(polarisFlowSkillsBaseDir, normalized);
+  }
+
+  if (skillsLayout === 'nested') {
     return path.join(polarisFlowSkillsBaseDir, shortPath);
   }
-  const normalized = shortPath.replace(/\\/g, '/');
-  if (!normalized.includes('/')) {
-    return path.join(platformSkillsDir, shortPath);
-  }
+
   const skillDir = getSkillDirNameFromShortPath(normalized);
   if (!skillDir) {
-    return path.join(platformSkillsDir, shortPath);
+    return path.join(polarisFlowSkillsBaseDir, shortPath);
   }
   const underSkill = normalized.slice(skillDir.length + 1);
-  const flatRoot = path.join(platformSkillsDir, resolveInstalledSkillName(skillDir));
-  return underSkill ? path.join(flatRoot, underSkill) : flatRoot;
+  return path.join(platformSkillsDir, `${POLARIS_FLOW_PLUGIN_NAME}-${skillDir}`, underSkill);
 }
 
 /**
- * 写入单个 SKILL.md：覆盖策略 + frontmatter name 改写。
+ * 写出文本文件：覆盖策略 + {{SKILL_NAME_PREFIX}} 替换。
  */
-async function writeSkillMdJob(job: CopyJob, installedName: string): Promise<CopyResult> {
+async function writePrefixedTextJob(job: CopyJob, prefix: string): Promise<CopyResult> {
   const existed = await fileExists(job.dest);
   if (existed && !job.overwrite) {
     return { job, result: 'skipped' };
   }
   const raw = await readFile(job.src, 'utf-8');
-  const rewritten = rewriteSkillFrontmatterName(raw, installedName);
+  const rewritten = applySkillNamePrefix(raw, prefix);
   await ensureDir(path.dirname(job.dest));
   await writeFile(job.dest, rewritten, 'utf-8');
   return { job, result: 'copied' };
 }
 
 /**
+ * 构造带前缀替换的拷贝任务。
+ */
+function makePrefixedCopyJob(
+  label: string,
+  src: string,
+  dest: string,
+  overwrite: boolean,
+  prefix: string,
+): CopyJob {
+  const job: CopyJob = {
+    label,
+    src,
+    dest,
+    type: 'file',
+    overwrite,
+  };
+  job.write = () => writePrefixedTextJob(job, prefix);
+  return job;
+}
+
+/**
+ * 从 skills 资产收集唯一顶层 skill 目录名。
+ */
+function collectSkillDirNames(assets: Assets): string[] {
+  const names = new Set<string>();
+  for (const skillAsset of assets.langDirAssets.filter((a) => a.dir === 'skills')) {
+    for (const file of skillAsset.files) {
+      const name = getSkillDirNameFromShortPath(file.shortPath);
+      if (name) {
+        names.add(name);
+      }
+    }
+  }
+  return [...names].sort();
+}
+
+/**
  * 拷贝 Polaris skills 与包内公共内容到指定平台。
- * 目标路径按 nested/flat 布局决定；SKILL.md 的 frontmatter name 与落盘 skill 目录对齐。
+ * 目标路径按 nested/flat 布局决定；文本中的 {{SKILL_NAME_PREFIX}} 按布局替换。
  */
 export async function copyPolarisSkillsForPlatform(
   polarisFlowSkillsBaseDir: string,
@@ -105,11 +165,12 @@ export async function copyPolarisSkillsForPlatform(
   assets: Assets,
 ): Promise<{ copied: number; skipped: number }> {
   const jobs: CopyJob[] = [];
+  const prefix = resolveSkillNamePrefix(skillsLayout);
 
+  // Step 0：插件根公共内容（shared 原样拷贝；lang policies/templates/adapters 做前缀替换）
   const sharedDirs = assets.sharedAssets.filter((asset) =>
     ['hooks', 'scorers', 'templates'].includes(asset.dir),
   );
-
   for (const sharedDir of sharedDirs) {
     for (const file of sharedDir.files) {
       jobs.push({
@@ -117,58 +178,71 @@ export async function copyPolarisSkillsForPlatform(
         src: file.fullPath,
         dest: path.join(polarisFlowSkillsBaseDir, sharedDir.dir, file.shortPath),
         type: 'file',
-        overwrite: overwrite,
+        overwrite,
       });
     }
   }
 
   const contentDirs = assets.langDirAssets.filter((asset) =>
-    ['adapters', 'policies', 'templates'].includes(asset.dir),
+    ['adapters', 'templates'].includes(asset.dir),
   );
   for (const contentDir of contentDirs) {
     for (const file of contentDir.files) {
-      jobs.push({
-        label: contentDir.dir,
-        src: file.fullPath,
-        dest: path.join(polarisFlowSkillsBaseDir, contentDir.dir, file.shortPath),
-        type: 'file',
-        overwrite: overwrite,
-      });
+      jobs.push(
+        makePrefixedCopyJob(
+          contentDir.dir,
+          file.fullPath,
+          path.join(polarisFlowSkillsBaseDir, contentDir.dir, file.shortPath),
+          overwrite,
+          prefix,
+        ),
+      );
     }
   }
 
-  const skillDirs = assets.langDirAssets.filter((asset) => ['skills'].includes(asset.dir));
-
-  for (const skillDir of skillDirs) {
-    for (const skillFile of skillDir.files) {
+  // Step 1 + 2：按布局复制技能树，并替换占位符
+  const skillAssets = assets.langDirAssets.filter((asset) => asset.dir === 'skills');
+  for (const skillAsset of skillAssets) {
+    for (const skillFile of skillAsset.files) {
+      // README.md 文件不复制
+      if (skillFile.shortPath === 'README.md') {
+        continue;
+      }
+      
       const dest = resolveSkillDestPath(
         polarisFlowSkillsBaseDir,
         platformSkillsDir,
         skillsLayout,
         skillFile.shortPath,
       );
-      const baseName = path.posix.basename(skillFile.shortPath.replace(/\\/g, '/'));
-      const skillDirName = getSkillDirNameFromShortPath(skillFile.shortPath);
+      jobs.push(makePrefixedCopyJob('skill', skillFile.fullPath, dest, overwrite, prefix));
+    }
+  }
 
-      if (baseName === 'SKILL.md' && skillDirName) {
-        const installedName = resolveInstalledSkillName(skillDirName);
-        const job: CopyJob = {
-          label: 'skill',
-          src: skillFile.fullPath,
-          dest,
-          type: 'file',
-          overwrite,
-        };
-        job.write = () => writeSkillMdJob(job, installedName);
-        jobs.push(job);
-      } else {
-        jobs.push({
-          label: 'skill',
-          src: skillFile.fullPath,
-          dest,
-          type: 'file',
-          overwrite,
-        });
+  // Step 3：顶层 policies 注入每个子技能的 policies/
+  const policyAsset = assets.langDirAssets.find((asset) => asset.dir === 'policies');
+  if (policyAsset) {
+    for (const skillDir of collectSkillDirNames(assets)) {
+      // 跳过 subagent-probe 技能，该技能不需要公用的 policies。
+      if (skillDir === 'subagent-probe') {
+        continue;
+      }
+      const skillRoot = resolveInstalledSkillRoot(
+        polarisFlowSkillsBaseDir,
+        platformSkillsDir,
+        skillsLayout,
+        skillDir,
+      );
+      for (const policyFile of policyAsset.files) {
+        jobs.push(
+          makePrefixedCopyJob(
+            'skill_policy_inject',
+            policyFile.fullPath,
+            path.join(skillRoot, 'policies', policyFile.shortPath),
+            overwrite,
+            prefix,
+          ),
+        );
       }
     }
   }

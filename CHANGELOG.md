@@ -16,7 +16,7 @@
 
 ### Changed
 
-- **skills 安装改写 name**: 安装 `SKILL.md` 时将 frontmatter `name` 统一为 `polaris-flow-<skill>`（与 flat 落盘目录对齐；裸名如 `idea-discovery` 也会补前缀）
+- **skills 安装流水线**: 源技能保持短目录名 + `{{SKILL_NAME_PREFIX}}`；安装时 nested 替换为 `polaris-flow:`、flat 替换为 `polaris-flow-`；flat 落盘为 `polaris-flow-<skill>/`；语言包顶层 `policies/` 注入每个子技能的 `policies/`（同名覆盖）；`skills/README.md` 等根下裸文件始终装到 `skills/polaris-flow/`，不按 flat 重命名
 - **agent 安装按平台改写**: init 安装 agents 时按 `Platform.agentToolMap` 改写 frontmatter `tools`，并用 `resolveReviewAgentModel` 写入 `model`；SessionStart 对全部已注册平台刷新 model
 - **platform 解析**: 无效 `--platform` 回退 `.polaris/config.yaml`，不再把未知字符串当有效 id
 

@@ -1,5 +1,5 @@
 ---
-name: subagent-probe
+name: {{SKILL_NAME_PREFIX}}subagent-probe
 description: 在 subagent 派发前必须调用。接收 platform，按该平台专属扫描策略返回可用 subagent 列表与退化结论。凡派发点 skill 需要发现或选定宿主 subagent 时使用本 skill，替代已退役的 agent-selector。
 ---
 

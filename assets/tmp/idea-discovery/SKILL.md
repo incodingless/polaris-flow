@@ -1,5 +1,5 @@
 ---
-name: idea-discovery
+name: {{SKILL_NAME_PREFIX}}idea-discovery
 description: Use when the user brings a feature idea, change request, or reference materials and needs intent clarified before implementation — including vague ideas, partial plans, OpenSpec change exploration, or pre-proposal design alignment.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: explore-router
+name: {{SKILL_NAME_PREFIX}}explore-router
 description: "评估需求文档清晰度并路由 openspec-explore 深度（SKIP/LIGHT/FULL）。用户提供 PRD/需求文档、要求判断是否需要 explore、提及需求清晰度或跳过/轻量化 explore 时必须使用。不替代 clarify 的交互式讨论。"
 ---
 
