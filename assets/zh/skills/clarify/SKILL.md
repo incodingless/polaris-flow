@@ -10,7 +10,7 @@ description: "经结构化探索与确认，把用户需求落地为 intention.m
 - **禁止**跳过 openspec-explore 强制交互（≥3 个探索性问题 + 等待用户回答 + 覆盖 ≥3 类）
 - **禁止**跳过 Reframe Check（`./policies/reframe-check.md` 第 1 节）
 - **禁止**跳过设计决策 Options（`./policies/reframe-check.md` 第 2 节）
-- **禁止**跳过 Premise Challenge（`policies/premise-challenge.md`）
+- **禁止**跳过 Premise Challenge（`./policies/premise-challenge.md`）
 - **禁止**未拿到用户对 **intention.md 全文** 的整体确认就标记本阶段完成
 - **禁止**未读取 `./templates/intention-template.md` 就生成 `intention.md`（Step 4 强制前置）
 - **禁止**在本阶段创建 `proposal.md` / `design.md` / `tasks.md`，或调用 `/opsx:new` / 加载 `openspec-propose`
@@ -25,7 +25,7 @@ description: "经结构化探索与确认，把用户需求落地为 intention.m
 - 起草期间：`.polaris/tasks/draft-<session_suffix>-<unix_ts>/state.yaml`
 - Step 5.3 finalize 成功后：`mv` 为 `.polaris/tasks/<task_id>/`
 - `intention.md` 在 finalize 前位于 draft 目录；finalize 后位于正式 `task_id` 目录
-- 同步维护 `.polaris/workflow.yaml` 的 active 游标（写入一律走 `hooks/workflow-entry.sh`；失败按 H12 阻断）
+- 同步维护 `.polaris/workflow.yaml` 的 active 游标（写入一律走 `$PLUGIN_ROOT/hooks/workflow-entry.sh`；失败按 H12 阻断）
 
 ---
 
@@ -87,50 +87,45 @@ done
 
 #### 1.5 状态行输出（H8）
 
-输出：`[polaris-flow] clarify draft: .polaris/tasks/<draft_name>/; workflow: appended entry phase=clarify`
+输出：`[polaris-flow] 需求(意图)澄清草稿: .polaris/tasks/<draft_name>/; workflow: appended entry phase=clarify`
 
 ### Step 2：加载宪法（注入点 A）
 
 读取 `openspec/memory/constitution.md`（若存在且无占位符）。后续写入 `intention.md`「宪法对齐」节时使用。
 
-### Step 3：探索、收敛与命名（核心）
+### Step 3：探索、收敛（核心）
 
-**立即执行：** 使用 Skill 工具加载 `openspec-explore`。禁止跳过。
+进入本子流程前必须 `read_file ./policies/response-posture.md`，并按其行为对照表、Pushback Patterns推回、回复前自检执行。
 
-按其指引探索问题空间；不得把一次问答视为足够。必须形成澄清摘要，至少包含：
+#### 3.0 探索想法与需求澄清（强制硬门）
 
+**立即执行：** 使用 Skill 工具加载 `openspec-explore` 或 `opsx:explore`。禁止跳过此步骤。
+
+<!-- external-openspec-skill-override -->
+**外部 OpenSpec Skill 覆写：** 加载后只采用其探索方法；其中任何直接运行官方 CLI、切换到固定 cwd 或读写固定物理 OpenSpec 路径的指令都不得执行。
+
+技能加载后，按其指引探索问题空间，但不得把一次问答视为足够澄清。必须围绕下列内容继续提问、对齐并形成澄清摘要：
 - 目标：用户真正要解决的问题和期望结果
 - 非目标：本次明确不做的内容
 - 范围边界：涉及/不涉及的模块、用户、平台或数据
 - 关键未知项：仍不确定的假设、风险或依赖
 - 验收场景草案：核心成功场景 + 关键边界场景
 
-#### 3.0 讨论（强制硬门）
+澄清摘要必须包含：目标、非目标、范围边界、关键未知项、验收场景草案，过程中至少满足以下要求：
 
 | 维度 | 下限 |
 | ---- | ---- |
 | 提问数量 | **≥ 3** 个探索性问题 |
 | 覆盖类型数 | **≥ 3** 类（禁止同类刷数） |
-| 提问范式 | `response-posture.md` 第四节 Exploratory Question Patterns（E1–E5） |
+| 提问范式 | 按 response-posture.md 第四节 Exploratory Question Patterns（E1–E5） |
 | 等待行为 | 用户回答**全部** ≥3 个问题后才能进入 3.1 |
 | 模糊回答 | 按 response-posture.md 第二节 Pushback Patterns 推回；**不**计入提问达成 |
 
-进入本子流程前必须 `read_file ./policies/response-posture.md`，并按其行为对照表、Pushback Patterns、回复前自检执行。
-
 **3.0 自检**：已提出 ≥3 问、覆盖 ≥3 类、且收到具体回答？未达成 → 继续提问。通过 → 进入 3.1。
 
-#### 3.1 需求目标拆分预检（阻塞点）
+#### 3.1 需求拆分预检（阻塞点）
 
-须在澄清摘要已形成、且 **Reframe 之前** 执行（对齐 `./policies/task-split-precheck.md`）。
-
-`read_file ./policies/task-split-precheck.md` 并按其执行：
-
-1. 按 §1 判定是否触发；可跳过则说明理由后进入 3.2
-2. 触发时按 §2–§3 评估并输出候选拆分清单
-3. 推荐拆分或边界情况时，按 §4 + `./policies/decision-point.md` **阻塞等待**
-4. 用户选 A → 批量拆分模式（§5），全部 open 后按 §5.3 暂停；选 B → 记录不拆分原因后进入 3.2；选 C → 调整后重新呈现清单
-
-**禁止**在本步骤完成前创建 OpenSpec artifacts 或调用 `/opsx:new`。
+须在澄清摘要已形成、且 **Reframe 之前** `read_file ./policies/task-split-precheck.md` 并按其执行。**禁止**在本步骤完成前创建 OpenSpec artifacts 或调用 `/opsx:new`。
 
 #### 3.2 Reframe Check
 
@@ -142,14 +137,11 @@ done
 
 #### 3.4 Premise Challenge
 
-`read_file ./policies/premise-challenge.md` 并按其执行：基于 3.0–3.3 提炼 3–5 条前提（覆盖 ≥3 类）→ 用户对每条作出 “认可” / “不认可” / “不确定” 选择（选“不认可”时最多重生成 3 轮；不确定发起追问）→ **全部认可** 后进入 3.5。
+`read_file ./policies/premise-challenge.md` 并按其执行：基于 3.0–3.3 提炼 3–5 条前提（覆盖 ≥3 类）→ 用户对每条作出 “认可” / “不认可” / “不确定” 选择（选“不认可”时最多重生成 3 轮；不确定发起追问）→ **全部认可** 后进入 Step 4。
 
-#### 3.5 需求澄清完成确认（阻塞点）
+### Step 4: 命名 + 落盘意图文档
 
-按 `./policies/decision-point.md` 暂停，展示澄清摘要（目标、非目标、范围边界、关键未知项、验收场景草案），等待用户确认澄清完成。
-确认前不得创建 OpenSpec artifacts，不得加载 `opsx:propose`。确认后进入 3.6。
-
-#### 3.6 任务名称确认（阻塞点）→ 得到 `task_id`
+#### 4.1 任务名称确认（阻塞点）→ 得到 `task_id`
 
 按 `./policies/decision-point.md` 暂停，让用户决定任务名（即后续目录名 / `task_id`）。**禁止**静默推断或自动落盘。
 约束：`task_id` 必须是 **kebab-case 英文**（小写字母、数字、连字符），如 `refine-requirements-doc`。
@@ -162,13 +154,13 @@ done
 
 名称与已有 `$REPO_ROOT/.polaris/tasks/` 目录冲突时，报告冲突并请用户另选。
 
-用户确认后，将 `task_id` 记入会话上下文（此时 **尚未** `mv` 目录）。进入 Step 4。
+用户确认后，将 `task_id` 记入会话上下文（此时 **尚未** `mv` 目录）。进入 4.2。
 
-### Step 4：写入 `intention.md`（仍在 draft 目录）
+#### 4.2 写入 `intention.md`（仍在 draft 目录）：
 
 落盘路径：`$REPO_ROOT/.polaris/tasks/<draft_name>/intention.md`
 
-**强制前置**：写入前必须 `read_file ./templates/intention-template.md`，并输出：`[polaris-flow clarify] 已读取模板 intention-template.md`
+**强制前置**：写入前必须 `read_file ./templates/intention-template.md`，并输出：`[polaris-flow clarify] 已读取意图探索模板 intention-template.md`
 
 **禁止**未读模板就生成内容。
 
@@ -210,7 +202,7 @@ done
 | 模糊回复（「差不多」「可以吧」） | **不算确认** | 必须再问一次明确确认 |
 | 沉默 / 无回复 | **不算确认** | 同上 |
 
-**禁止**把 3.2–3.6 中任何局部「同意」当作本步整体确认。
+**禁止**把 3.2–3.4 中任何局部「同意」当作本步整体确认。
 
 #### 5.3 敲定目录名并更新 state（finalize）
 

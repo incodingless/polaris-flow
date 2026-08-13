@@ -44,6 +44,12 @@ current_tier: ""
 # 可选值: sdd-需求开发 | tweak-需求优化 | bugfix-缺陷修复 | full-全栈开发
 workflow: sdd
 
+# 制品审查模式
+# 可选值: after_all -全部生成后审查 | per_batch -每批次生成后审查
+artifact_review_mode: "per_batch"
+# 制品审查最大轮次，默认5轮
+artifact_max_round: 5
+
 # 验证模式
 # 可选值: light-轻量验证 | heavy-重量验证
 verify_mode: "light"
@@ -102,6 +108,10 @@ propose:
   # 提案状态
   # 可选值: ok-成功 | failed-失败 | n/a-未执行
   opsx_propose_status: ""
+  # 审查轮次
+  # 可选值: 0-第一轮 | 1-第二轮 | 2-第三轮 | ...
+  review_round: 0
+  review_log_file: "openspec/changes/<change_id>/review-log.md"
   # 审查报告
   # 可选值: openspec/changes/<change_id>/reviews/propose-review-report.md 或 skipped:<reason>
   review_report: ""
@@ -113,7 +123,7 @@ propose:
   outside_voice_report: ""
   # 完成时间
   # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-  finished_at: ""    
+  finished_at: ""
 
 ####### 设计信息 #############
 design:

@@ -9,6 +9,7 @@ description: "把 propose 的高层 design.md 深化为可实施的详细技术�
 本 skill **仅**负责把 propose 阶段的高层 `design.md` **深化**为 `openspec/changes/<change_id>/detailed-design.md`。
 
 - **禁止**跳过 Superpowers `brainstorming`（不可用则阻断，禁止用普通对话替代）
+- **禁止**跳过专项设计补充预检（`./policies/detailed-design-precheck.md`）：`detailed-design.md` 落盘后必须基于 proposal / design / detailed-design 给出专项建议，并经 decision-point 确认
 - **禁止**未按 `./policies/decision-point.md` 获得用户对设计方案的明确确认，就落盘 `detailed-design.md`
 - **禁止**重写 OpenSpec `proposal.md` / 高层 `design.md` / `tasks.md` 的结构或范围（深化 ≠ 替代）
 - **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<change_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
@@ -45,52 +46,18 @@ description: "把 propose 的高层 design.md 深化为可实施的详细技术�
 用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-WORK_FLOW_CONFIG="${WORK_FLOW_CONFIG:-$REPO_ROOT/.polaris/workflow.yaml}"
-
-Entries=$(node -e '
-const fs = require("fs");
-const text = fs.readFileSync(process.argv[1], "utf8");
-const strip = (s) => s.trim().replace(/^"(.*)"$/, "$1");
-const ids = [];
-let inList = false;
-let changeId = null;
-let phase = null;
-const flush = () => {
-  if (changeId && phase === "clarify") ids.push(changeId);
-  changeId = null;
-  phase = null;
-};
-for (const raw of text.split(/\r?\n/)) {
-  const line = raw.replace(/\t/g, "  ");
-  if (/^active_changes:\s*\[\s*\]\s*$/.test(line)) break;
-  if (/^active_changes:\s*$/.test(line)) { inList = true; continue; }
-  if (inList && /^[^\s#]/.test(line)) break;
-  if (!inList) continue;
-  const itemStart = line.match(/^\s*-\s+change_id:\s*(.+?)\s*$/);
-  if (itemStart) {
-    flush();
-    changeId = strip(itemStart[1]);
-    continue;
-  }
-  const cid = line.match(/^\s+change_id:\s*(.+?)\s*$/);
-  if (cid) {
-    flush();
-    changeId = strip(cid[1]);
-    continue;
-  }
-  const ph = line.match(/^\s+phase:\s*(.+?)\s*$/);
-  if (ph) phase = strip(ph[1]);
-}
-flush();
-process.stdout.write(ids.join("\n"));
-' "$WORK_FLOW_CONFIG")
+TASK_IDS=$(bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" get-active-changes --skill propose --repo-root "$REPO_ROOT" --phase clarify)
+RTID_EXIT=$?
 ```
 
-按 `$Entries` 行数解读：
+- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
+- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-- **唯一匹配**：取其 `change_id`
-- **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 propose 阶段的 active change，请先执行 /{{SKILL_NAME_PREFIX}}propose」
+按 `$TASK_IDS` 数组长度解读：
+
+- **唯一匹配**（恰好 1 个 id）→ 直接取该 `task_id`
+- **多个匹配** → 按 `./policies/decision-point.md` 列出候选让用户选择
+- **零匹配** → 阻断，提示「未找到 clarify 阶段的 active change，请先执行 /{{SKILL_NAME_PREFIX}}clarify」
 
 > 若 entry 已是 `phase=design`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
 
@@ -172,19 +139,28 @@ canonical_spec: openspec
 有 Spec Patch 则同时改 `specs/*/spec.md`。  
 输出：`[polaris-flow] design: wrote openspec/changes/<change_id>/detailed-design.md`
 
-#### 3.2 专项设计（可选）
+#### 3.2 专项设计补充预检 + 落盘（阻塞点）
 
-按 decision-point 询问是否需要专项文档（不涉及的类别不展示）。选否 → 3.3；多选则按 slug 表写入变更**根目录**（扁平，禁止子目录）后进 3.3。
+**前置**：Step 3.1 的 `detailed-design.md` 已成功落盘。
 
-| 用户选项 | 文件名 |
+`read_file ./policies/detailed-design-precheck.md` 并按其执行：
+
+1. 对照 proposal / 高层 `design.md` / `detailed-design.md`，判断是否需补充专项、建议哪些、各自范围内外
+2. 按 policy §4 输出预检结论与建议专项清单
+3. 按 policy §5 + `./policies/decision-point.md` **阻塞等待**：将推荐项的「范围内/范围外」逐条呈现给用户多选（强烈建议/建议默认勾选；可选默认不勾）；也可选「不补充」或「自定义」
+
+- 用户确认清单为空或不补充 → 跳过专项落盘，进 3.3
+- 清单非空 → 按用户勾选的文件名与范围内外写入变更**根目录**（扁平，禁止子目录），模板见 policy §3
+
+| 专项（预检推荐名） | 文件名 |
 |----------|--------|
 | 领域 / 领域模型 | `domain-model-design.md` |
 | 仓储服务 | `repository-design.md` |
 | 数据模型 | `data-model-design.md` |
-| Rest API | `rest-api-design.md` |
+| Rest API | `restful-api-design.md` |
 | 其他 | 用户确认英文 kebab `slug` → `<slug>-design.md` |
 
-**禁止**：文件名 `design.md`（与四件套冲突）；写入 `design/` 或任何子目录。
+**禁止**：文件名 `design.md`（与四件套冲突）；写入 `design/` 或任何子目录；在 3.1 完成前跑本预检；确认后再发明另一套专项菜单。
 
 #### 3.3 主动式上下文压缩
 若配置 `context-compression: on`，且在 **`detailed-design.md`、专项设计（若有）、状态证据均已成功持久化落盘后** 考虑主动式压缩。这样压缩后可从文件恢复，不会丢失尚未写入的设计判断。

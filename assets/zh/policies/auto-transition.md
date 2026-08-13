@@ -4,7 +4,7 @@
 
 ## 术语区分
 
-「阶段守卫推进」由 guard `--apply` 完成，更新 `.polaris.yaml` 的 `phase` 字段——这一步**始终发生**，与 `auto_transition` 无关。本协议的「自动衔接」只决定**是否自动调用下一个 skill**，由 `auto_transition` 控制。
+「阶段守卫推进」由 guard `--apply` 完成，更新 `.polaris/workflow.yaml` 和 `.polaris/<change_id>/state.yaml` 的 `phase` 字段——这一步**始终发生**，与 `auto_transition` 无关。本协议的「自动衔接」只决定**是否自动调用下一个 skill**，由 `auto_transition` 控制。
 
 ## 执行方式
 
@@ -22,4 +22,4 @@ node polaris-flow state next <change-name>
 
 ## 预设路由
 
-`workflow: hotfix` 时，`phase: build` 返回 `polaris-flow-hotfix`；`{{SKILL_NAME_PREFIX}}tweak` 时返回 `polaris-flow-tweak`。其余 phase（`verify`、`archive`）按标准 Skill 名称返回（`polaris-flow-verify`、`polaris-flow-archive`），不受 workflow 类型影响。预设 Skill 内部的"连续执行模式"可能覆盖 `auto_transition` 行为——详见对应预设的 `<IMPORTANT>` 块。
+`polaris-flow:hotfix` 时，`phase: build` 返回 `{{SKILL_NAME_PREFIX}}hotfix`；`polairs-flow:tweak` 时返回 `{{SKILL_NAME_PREFIX}}tweak`。其余 phase（`verify`、`archive`）按标准 Skill 名称返回（`{{SKILL_NAME_PREFIX}}verify`、`{{SKILL_NAME_PREFIX}}archive`），不受 workflow 类型影响。预设 Skill 内部的"连续执行模式"可能覆盖 `auto_transition` 行为——详见对应预设的 `<IMPORTANT>` 块。

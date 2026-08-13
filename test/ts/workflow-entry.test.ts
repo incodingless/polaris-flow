@@ -135,6 +135,52 @@ describe('runWorkflowEntry', () => {
       held.release();
     }
   });
+
+  it('get-active-changes 只读返回 JSON，可按 phase 过滤', async () => {
+    const repo = await tmpRepo();
+    await runWorkflowEntry({
+      op: 'append-active',
+      skill: 'test',
+      repoRoot: repo,
+      changeId: 'c1',
+      phase: 'clarify',
+      startedAt: '2026-07-21T00:00:00Z',
+    });
+    await runWorkflowEntry({
+      op: 'append-active',
+      skill: 'test',
+      repoRoot: repo,
+      changeId: 'p1',
+      phase: 'propose',
+      startedAt: '2026-07-21T01:00:00Z',
+    });
+
+    const all = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'test',
+      repoRoot: repo,
+    });
+    expect(all.exitCode).toBe(0);
+    expect(all.activeChanges).toHaveLength(2);
+    expect(all.changeIds).toEqual(['c1', 'p1']);
+
+    const clarifyOnly = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'test',
+      repoRoot: repo,
+      phase: 'clarify',
+    });
+    expect(clarifyOnly.exitCode).toBe(0);
+    expect(clarifyOnly.changeIds).toEqual(['c1']);
+    expect(clarifyOnly.activeChanges).toEqual([
+      makeActiveEntry({
+        change_id: 'c1',
+        phase: 'clarify',
+        worktree_path: '',
+        started_at: '2026-07-21T00:00:00Z',
+      }),
+    ]);
+  });
 });
 
 describe('workflow-lock stale', () => {

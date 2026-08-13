@@ -4,6 +4,7 @@
 
 ### Added
 
+- **workflow-entry get-active-changes**: 只读加载 `.polaris/workflow.yaml` 的 `active_changes`（可选 `--phase` 过滤），stdout 输出 `change_id` JSON 数组；不持 workflow.lock
 - **SessionStart 路径注入**: core `runSessionStart` 返回 `paths`（repoRoot / platformId / pluginRoot）；commands 映射为 `PLUGIN_ROOT` 等，经 `additionalContext` / Cursor `env` / `CLAUDE_ENV_FILE` / `.polaris/.cache/runtime-env` 注入会话
 - **宿主 hook stdout 协议**: 分发器按平台序列化 JSON（Claude/Trae `hookSpecificOutput`，Cursor `additional_context`/`env`）；过程日志改走 TTY，避免污染宿主 stdout
 - **宿主 hook stdin 归一**: Claude/Cursor/Trae 字段别名与事件判别联合；`HostHookHandler` 为分发器（读 stdin / 写 stdout / 按 event 派发），事件实现为 `HostHookEventHandler`；宿主 `.sh` 统一 `polaris-flow host-hook`

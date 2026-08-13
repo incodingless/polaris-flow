@@ -156,7 +156,7 @@ program
   .description('RMW .polaris/workflow.yaml under workflow.lock (H12)')
   .argument(
     '<op>',
-    'append-active|update-active|rename-active|delete-active|upsert-pending-triage|delete-pending-triage',
+    'append-active|update-active|rename-active|delete-active|get-active-changes|upsert-pending-triage|delete-pending-triage',
   )
   .requiredOption('--skill <name>', 'lock writer id')
   .option('--repo-root <path>', 'main repo root')

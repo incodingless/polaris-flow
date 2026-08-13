@@ -3,20 +3,6 @@
 > **重要**：
 > - **propose** 阶段调用 `/opsx:propose` 生成四件套前，必须 `read_file` 重读本文件（产出**粗骨架** tasks）。
 > - **plan** 阶段（`/{{SKILL_NAME_PREFIX}}plan`）在 design 完成后**覆写**同一路径的 `tasks.md` 为可执行细计划；每次覆写前必须再次 `read_file` 本文件。
-> - 最终供 build / verify 消费的，以 **plan 覆写后** 的版本为准。
-
-## 任务粒度规则
-
-tasks.md 支持两类任务：
-
-| 类型 | 适用场景 | 子任务步数 |
-|------|---------|-----------|
-| **TDD 任务** | 新功能、Bug 修复、含分支逻辑的实现 | 5 步（写失败测试 → RED → 写最小实现 → GREEN → REFACTOR） |
-| **非 TDD 任务** | 配置修改、重命名、文档更新、依赖升级、构建脚本、纯模板/脚手架 | 3 步（执行变更 → 验证无回归 → 检查完整性） |
-
-**判定原则**：无法判断时**默认按 TDD 任务处理**。该判定结果以 HTML 注释形式标注在每条 task 后（`<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->`），供 `/opsx:apply` 在 implementer subagent 内识别子步骤顺序。
-
----
 
 ## 模板正文（propose 初稿 / plan 覆写须按此格式）
 
@@ -27,11 +13,11 @@ tasks.md 支持两类任务：
 > **规划入口**：细计划由 `/{{SKILL_NAME_PREFIX}}plan` 按 writing-plans（骨架模式）覆写；propose 仅提供粗骨架。
 
 
-**Goal**：{{GOAL_ONE_SENTENCE}}
+**目标**：{{GOAL_ONE_SENTENCE}}
 
-**Architecture**：{{ARCHITECTURE_2_3_SENTENCES}}
+**架构**：{{ARCHITECTURE_2_3_SENTENCES}}
 
-**Tech Stack**：{{TECH_STACK}}
+**技术栈**：{{TECH_STACK}}
 
 ---
 
@@ -39,13 +25,13 @@ tasks.md 支持两类任务：
 
 - [ ] 1.1 {{TASK_NAME}}  <!-- TDD 任务 -->
 
-  **Files**:
-  - Create / Modify: `{{IMPL_PATH}}`
-  - Test: `{{TEST_PATH}}`
+  **文件**:
+  - 创建 / 修改: `{{IMPL_PATH}}`
+  - 单元测试: `{{TEST_PATH}}`
 
-  **Interfaces**:
-  - Consumes: {{PRIOR_SYMBOLS_OR_NONE}}
-  - Produces: {{EXPORTS_FOR_LATER_TASKS}}
+  **接口**:
+  - 调用方: {{PRIOR_SYMBOLS_OR_NONE}}
+  - 提供方: {{EXPORTS_FOR_LATER_TASKS}}
 
   - [ ] 1.1.1 写失败测试：`{{TEST_PATH}}`
   - [ ] 1.1.2 验证测试失败（运行：`{{TEST_COMMAND}}`，确认失败原因是缺少功能）
@@ -55,12 +41,12 @@ tasks.md 支持两类任务：
 
 - [ ] 1.2 {{TASK_NAME}}  <!-- 非 TDD 任务 -->
 
-  **Files**:
-  - Modify: `{{PATH}}`
+  **文件**:
+  - 修改: `{{PATH}}`
 
-  **Interfaces**:
-  - Consumes: {{PRIOR_SYMBOLS_OR_NONE}}
-  - Produces: {{EXPORTS_OR_N_A}}
+  **接口**:
+  - 调用方: {{PRIOR_SYMBOLS_OR_NONE}}
+  - 提供方: {{EXPORTS_OR_N_A}}
 
   - [ ] 1.2.1 执行变更：`{{PATH}}`
   - [ ] 1.2.2 验证无回归（运行：`{{VERIFY_COMMAND}}`，确认输出干净）
@@ -72,7 +58,7 @@ tasks.md 支持两类任务：
 
 ---
 
-## N. Documentation Sync (REQUIRED — 必须为最后一组)
+## N. 文档同步 (REQUIRED — 必须为最后一组)
 
 - [ ] N.1 同步 `openspec/changes/<change-id>/design.md`：记录实施过程中的技术决策、与设计的偏差、关键实现细节
 - [ ] N.2 同步本 `tasks.md`：检查所有顶层任务及子任务的 checkbox 状态；将已完成但仍为 `[ ]` 的条目标记为 `[x]`（每次更新只改 `[ ]` → `[x]`，禁止修改任务描述文字）

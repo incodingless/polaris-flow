@@ -1,7 +1,5 @@
 # Subagent 派发策略
 
-规范路径：`polaris-flow/references/subagent-delegate-policy.md`
-
 本文件是 **所有派发点 skill 共用** 的通用派发机制。当 `subagent-probe` 返回 `degradation=null`（选定 `agents[i]`）后，调用方必须按本文件执行派发；不得在各自 SKILL 内重写派发分支逻辑。
 
 本文件 **不包含** 各 SKILL 的材料清单——材料清单由调用方 SKILL 作为参数传入本机制。本文件只定义：判定规则 + prompt 模板 + Materials 拼接格式 + 通用约束。

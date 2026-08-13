@@ -1,6 +1,7 @@
 /**
  * workflow.yaml RMW 入口（对齐 assets/shared/hooks/workflow-entry.sh）。
  * 持锁 → 解析 → 修改 → 写回 → 写后校验；由 `polaris workflow-entry` 调用。
+ * `get-active-changes` 为只读：不持锁、不写盘，stdout 输出 JSON 数组。
  */
 import { execFileSync } from 'child_process';
 import path from 'path';
@@ -17,6 +18,7 @@ import {
 import { acquireWorkflowLock, WorkflowLockError } from './workflow-lock.js';
 
 export type WorkflowEntryOp =
+  | 'get-active-changes'
   | 'append-active'
   | 'update-active'
   | 'rename-active'
@@ -54,6 +56,10 @@ export type WorkflowEntryArgs = {
 export type WorkflowEntryResult = {
   exitCode: number;
   message?: string;
+  /** get-active-changes：完整条目 */
+  activeChanges?: ActiveChangeEntry[];
+  /** get-active-changes：仅 change_id 列表 */
+  changeIds?: string[];
 };
 
 type VerifySpec = {
@@ -77,7 +83,21 @@ export function resolveRepoRoot(explicit?: string, cwd: string = process.cwd()):
 }
 
 /**
- * 应用 op 到 workflow state（纯函数，不写盘）。
+ * 从 state 读取 active_changes；可选按 phase 过滤。
+ */
+export function listActiveChanges(
+  state: WorkflowState,
+  phaseFilter?: string,
+): ActiveChangeEntry[] {
+  const entries = state.active_changes ?? [];
+  if (!phaseFilter) {
+    return [...entries];
+  }
+  return entries.filter((e) => e.phase === phaseFilter);
+}
+
+/**
+ * 应用写 op 到 workflow state（纯函数，不写盘）。
  */
 export function applyWorkflowOp(
   state: WorkflowState,
@@ -214,16 +234,39 @@ export async function verifyWorkflowFile(repoRoot: string, spec: VerifySpec): Pr
 }
 
 /**
- * 执行完整 RMW；返回 exitCode（不 process.exit）。
+ * 只读：加载 workflow.yaml 的 active_changes，可选 `--phase` 过滤。
+ * stdout 输出 change_id 的 JSON 数组，例如 `["foo","bar"]`。
+ */
+async function runGetActiveChanges(args: WorkflowEntryArgs): Promise<WorkflowEntryResult> {
+  const repoRoot = resolveRepoRoot(args.repoRoot);
+  if (!repoRoot) {
+    return { exitCode: 3, message: '无法解析主仓根' };
+  }
+
+  const loaded = await loadWorkflowState(repoRoot);
+  const activeChanges = listActiveChanges(loaded, args.phase);
+  const changeIds = activeChanges.map((e) => e.change_id).filter((id) => id.length > 0);
+  console.log(JSON.stringify(changeIds));
+  return { exitCode: 0, activeChanges, changeIds };
+}
+
+/**
+ * 执行 workflow-entry；写 op 走完整 RMW，get-active-changes 只读。
+ * 返回 exitCode（不 process.exit）。
  */
 export async function runWorkflowEntry(args: WorkflowEntryArgs): Promise<WorkflowEntryResult> {
   if (!args.op) {
     return {
       exitCode: 3,
       message:
-        '缺少 op(append-active/update-active/rename-active/delete-active/upsert-pending-triage/delete-pending-triage)',
+        '缺少 op(get-active-changes/append-active/update-active/rename-active/delete-active/upsert-pending-triage/delete-pending-triage)',
     };
   }
+
+  if (args.op === 'get-active-changes') {
+    return runGetActiveChanges(args);
+  }
+
   if (!args.skill) {
     return { exitCode: 3, message: '缺少 --skill <name>(用于锁文件写者标识)' };
   }
