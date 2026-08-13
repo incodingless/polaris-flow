@@ -7,9 +7,10 @@
 - 四件套**必须按批次顺序生成**，默认顺序：`proposal` → `specs` → `design` → `tasks`（以 `openspec status --change "<change_id>"` 给出的可创建顺序为准；冲突时以 status 为准）
 - **禁止**未读 `openspec instructions` 返回的 `template` / `instruction` 就硬编码文档结构
 - `artifact_review_mode` 只改变**批内审查是否发生**，不改变批次顺序，不绕过 OpenSpec instructions
-- **Mode A（`per_batch`）**：每批生成后必须走 §4 反思循环（intention / explore 基线 + `review-log.md`）→ 冻结 → 下一批
-- **Mode B（`after_all`）**：只跑 §3 生成 + §5 机械终检；**禁止**在本 policy 内跑 §4 / `Batch: all`。制品主审出口是 skill **Step 4.1**
-- 批内审查派发 `propose-review-agent`；主代理**禁止**自审冒充通过
+- **Mode A（`per_batch`）**：每批生成后必须走 §4 反思循环（intention / explore 基线 + `review-log.md`）→ 冻结 → 下一批；全部批次完成后返回 skill
+- **Mode B（`after_all`）**：只跑 §3 生成后返回 skill；**禁止**在本 policy 内跑 §4 / `Batch: all`。制品主审出口是 skill **Step 4.2**
+- 批内审查派发 `propose-reviewer`；主代理**禁止**自审冒充通过
+- **机械终检**不在本 policy：由 skill **Step 4.1** 执行
 
 ---
 
@@ -25,8 +26,8 @@ artifact_review_mode: per_batch   # 或 after_all
 
 | 值 | 本 policy 路径 |
 |----|----------------|
-| `per_batch` | §3 →（每批）§4 → 全部批次后 §5 → 返回 skill |
-| `after_all` | §3 连续四批 → §5 → 返回 skill（**跳过 §4**） |
+| `per_batch` | §3 →（每批）§4 → 返回 skill（机械终检见 skill 4.1） |
+| `after_all` | §3 连续四批 → 返回 skill（**跳过 §4**；机械终检见 skill 4.1） |
 
 若字段缺失、空或非上述枚举 → **停止**，回 skill Step 3.3 补选；**禁止** AI 代选或默认为某一模式。
 
@@ -87,8 +88,8 @@ openspec/changes/<change_id>/
 
 ### 3.2 模式分支
 
-- **`per_batch`（Mode A）**：本批 §3 成功 → 立即进入 **§4**（对本批）→ 按 4a 冻结后，才对下一批重复 §3；四批均完成后 → **§5** → 返回 skill
-- **`after_all`（Mode B）**：本批 §3 成功 → 直接下一批 §3；四批均成功 → **§5** → 返回 skill；**不得**进入 §4
+- **`per_batch`（Mode A）**：本批 §3 成功 → 立即进入 **§4**（对本批）→ 按 4a 冻结后，才对下一批重复 §3；四批均完成后 → **返回 skill**（勿在本 policy 内做机械终检）
+- **`after_all`（Mode B）**：本批 §3 成功 → 直接下一批 §3；四批均成功 → **返回 skill**；**不得**进入 §4
 
 可用 `/opsx:propose <change_id>` 作为会话入口/上下文，但**不得**用其替代逐步 `instructions` 循环；真实落盘仍以本 §3 为准。
 
@@ -98,7 +99,7 @@ openspec/changes/<change_id>/
 
 **仅当** `artifact_review_mode == per_batch` 时执行。Mode B **禁止**进入本节。
 
-对本批制品跑完整反思循环。审查智能体为 `propose-review-agent`（下文称 **批内审查者**）。
+对本批制品跑完整反思循环。审查智能体为 `propose-reviewer`（下文称 **批内审查者**）。
 
 ### 4.0 审查基线（每次派发必附）
 
@@ -120,7 +121,7 @@ openspec/changes/<change_id>/
 
 ### 4.2 派发批内审查者（计一轮）
 
-- Agent：`propose-review-agent`（须已安装；缺失 → 阻断，提示 `polaris-flow init/update`）
+- Agent：`propose-reviewer`（须已安装；缺失 → 阻断，提示 `polaris-flow init/update`）
 - 按 `subagent-delegate-policy.md`：D-0 → D-1 / D-2
 
 **调用时必须告知审查者：**
@@ -184,8 +185,8 @@ ReviewMode: per_batch
 
 根据本轮审查反馈：
 
-1. **只修改当前批次**（及按 §6 已解冻的批次）制品文件
-2. **不碰**已冻结文件的决策性内容；声明性追加规则见 §6.1
+1. **只修改当前批次**（及按 §5 已解冻的批次）制品文件
+2. **不碰**已冻结文件的决策性内容；声明性追加规则见 §5.1
 3. 修复完成后 → **再次**执行 4.2–4.3（再审），审查范围仍是当前批次，并继续对照已冻结前序制品
 
 ### 4.5 通过标准与循环
@@ -196,7 +197,7 @@ ReviewMode: per_batch
 
 当前轮次审查后，读取 `review-log.md` 中该批**本轮**条目：
 
-- 若 `### 🔴 遗留` **不存在或为空** → **该批次冻结**（§6.1），进入下一批次
+- 若 `### 🔴 遗留` **不存在或为空** → **该批次冻结**（§5.1），进入下一批次
 - **不再要求**连续两轮 clean
 
 理由：本轮已无严重问题即视为合格；修复后以最新一轮审查结果为准，无需额外确认轮。
@@ -213,7 +214,7 @@ ReviewMode: per_batch
 2. 读取顶层字段 `artifact_max_round`（正整数）作为本批 **MAX_ROUNDS**
 3. 若字段缺失、非正整数或无法解析 → **回退默认 `MAX_ROUNDS = 5`**，并在摘要中标注 `(artifact_max_round defaulted)`
 
-> `artifact_max_round` **仅约束 Mode A 批内 §4**；不约束 skill Step 4.1 整体主审消化轮次。
+> `artifact_max_round` **仅约束 Mode A 批内 §4**；不约束 skill Step 4.2 整体主审消化轮次。
 
 同一批次累计审查轮次达到 **MAX_ROUNDS** 仍未按 4a 通过 → **停止循环**，按 `./policies/decision-point.md` 交人工：
 
@@ -237,7 +238,7 @@ ReviewMode: per_batch
 
 ```text
 §3 生成本批
-  → 4.2 派发 propose-review-agent（附 Frozen / NewlyCreated + intention/explore 基线）
+  → 4.2 派发 propose-reviewer（附 Frozen / NewlyCreated + intention/explore 基线）
   → 4.3 追加 review-log
   → 4a？通过 → 冻结 → 下一批
   → 否则 4.4 修复 → 再 4.2…（4b）
@@ -246,32 +247,11 @@ ReviewMode: per_batch
 
 ---
 
-## 5. 机械终检（两种模式共用）
-
-四批均按 §3 落盘后（Mode A 另须批内 §4/冻结流程结束），做机械校验（**禁止脑补替代**）。通过后**返回 skill**（迁入 intention → Step 4 整体主审）；**禁止**在本步后再跑 §4。
-
-1. **四件套存在且非空**：`proposal.md`、`design.md`、`tasks.md` 非空；`specs/` 为目录且含至少一个非空文件。任一失败 → 回 §3 补齐，不得返回 skill
-2. **`proposal.md`**：含问题背景、目标、范围、非目标
-3. **`design.md`**：含高层架构决策、方案选型，且含  
-   `## Constitution Alignment`、`## Alternatives`、`## Premises`
-4. **`tasks.md`**：任务有明确描述；必须跑：
-   ```bash
-   LINT_RESULT=$(bash "$PLUGIN_ROOT/hooks/tasks-lint.sh" "openspec/changes/$change_id/tasks.md")
-   LINT_EXIT=$?
-   ```
-   - exit 0 → 通过  
-   - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑
-5. 生成 `tasks.md` 前已显式输出：`[已 read_file templates/tasks-template.md]`
-
-> **fallback**（无 intention、仅用户原始 prompt）：若 proposal/design 缺第 2/3 项部分节，可放宽不阻断，仅在摘要标 `(fallback)`；**四件套存在性与 `tasks-lint` 仍必须通过**。
-
----
-
-## 6. 冻结与解冻（仅 Mode A）
+## 5. 冻结与解冻（仅 Mode A）
 
 修复审查问题时修改当前批次和已解冻的文件，对已冻结的制品只允许声明性追加，绝不动手修改决策性内容。
 
-### 6.1 冻结
+### 5.1 冻结
 
 某批次制品按 §4.5 **4a** 通过（或用户选 4c-A 强制冻结）→ 标记该批**冻结**。
 后续制品的审查必须以冻结制品为基准做一致性检查。
@@ -281,7 +261,7 @@ ReviewMode: per_batch
 | 对冻结批做**声明性追加**。（缺失的映射表/关键词/完整列表、修正拼写错误、遗漏场景/示例、不改变需求语义的边界描述、不改变决策的澄清） | 改 scope / Non-goals / 选型结论 / 需求语义等**决策性**内容 |
 | 在未冻结的当前批内修改 | 静默改已冻结批的决策性段落 |
 
-### 6.2 解冻
+### 5.2 解冻
 
 审查认定已冻结批存在**决策性**问题（或与新批决策性矛盾）→：
 
@@ -291,7 +271,7 @@ ReviewMode: per_batch
 
 声明性遗漏 → **不解冻**，允许软补充后继续。
 
-### 6.3 模式 A 批次流水线（必须）
+### 5.3 模式 A 批次流水线（必须）
 
 ```text
 proposal: 生成 → §4 反思循环（4a）→ 冻结
@@ -302,17 +282,16 @@ design:   生成（对照已冻结 proposal + specs）→ §4 → 冻结
    ↓
 tasks:    生成（对照全部已冻结前序）→ §4 → 通过/冻结
    ↓
-§5 机械终检 → 返回 skill
+返回 skill → Step 4.1 机械终检 → …
 ```
 
 每轮只推进一批；未冻结不得开下一批。
 
 ---
 
-## 7. 完成条件（返回 skill 前）
+## 6. 完成条件（返回 skill 前）
 
-- 四件套路径齐全且非空（§2 / §5）
-- §5 机械终检已通过
+- 四件套路径已按 §2 / §3 落盘（存在性的机械终检由 skill Step 4.1 负责，本 policy 不重复）
 - **Mode A**：各批 §4 已按 4a 完成（或 4c 人工决策已落地），或经 decision-point 明确接受「本批审查 SKIPPED」；无「应冻结未冻结」的中间批；`review-log.md` 已记录各批有效审查轮次（若未整段跳过审查）
-- **Mode B**：不要求 `review-log.md`；**不得**在本 policy 内声称已完成制品主审
-- 方可返回 skill 后续步骤（intention 迁入 → Step 4.1 整体主审）
+- **Mode B**：不要求 `review-log.md`；**不得**在本 policy 内声称已完成制品主审或机械终检
+- 方可返回 skill 后续步骤（intention 迁入 → Step 4.1 机械终检 → Step 4.2 整体主审）

@@ -1,6 +1,6 @@
 ---
 name: {{SKILL_NAME_PREFIX}}propose
-description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /{{SKILL_NAME_PREFIX}}propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 propose-review-agent 独立主审（可选 Outside Voice）后方可进入 design。"
+description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /{{SKILL_NAME_PREFIX}}propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 propose-reviewer 独立主审（可选 Outside Voice）后方可进入 design。"
 ---
 
 # Polaris 工作流 - 阶段：提案（propose）
@@ -14,8 +14,9 @@ description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户
 - **禁止**跳过 Step 3.3 审查模式选择（AI 不得代选）；禁止未写 `artifact_review_mode` 就进入 3.4
 - **禁止**跳过 `./policies/artifact-batch-generation.md`：须按 3.3 已选模式执行分批生成（Mode A 含批内 §4；Mode B 跳过 §4）；禁止硬编码四件套结构；禁止主代理自审冒充制品审查
 - **禁止**通过 `superpowers:using-git-worktrees` 创建 worktree——必须由本 skill Step 1.3.A 直接执行 git / hooks 完成
-- **禁止**跳过 Step 4.1 主审：必须派发 `propose-review-agent`（或 subagent 不可用时经 decision-point 接受跳过）；禁止主代理自审冒充
-- **禁止**跳过 Step 4.2 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，AI 不得代为决定）
+- **禁止**跳过 Step 4.1 机械终检（四件套存在性 / 关键节 / `tasks-lint`）；禁止脑补替代
+- **禁止**跳过 Step 4.2 主审：必须派发 `propose-reviewer`（或 subagent 不可用时经 decision-point 接受跳过）；禁止主代理自审冒充
+- **禁止**跳过 Step 4.3 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，AI 不得代为决定）
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow] 进入提案阶段: 使用 {{SKILL_NAME_PREFIX}}propose 技能。`
@@ -28,7 +29,7 @@ description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户
 - 意图文档（迁入后唯一真相）：`openspec/changes/<change_id>/intention.md`
 - OpenSpec 四件套：`openspec/changes/<change_id>/`
 - 批内审查日志（Mode A）：`openspec/changes/<change_id>/review-log.md`
-- 提案主审报告：`openspec/changes/<change_id>/reviews/propose-review-report.md`（Step 4.1）
+- 提案主审报告：`openspec/changes/<change_id>/reviews/propose-review-report.md`（Step 4.2）
 - Outside Voice 报告（若运行）：`openspec/changes/<change_id>/reviews/openspec-review-report.md`
 - workflow 游标：`.polaris/workflow.yaml` → `active_changes[].change_id`（写入一律走 `hooks/workflow-entry.sh`）
 
@@ -181,22 +182,58 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 
 #### 3.3 审查模式选择（阻塞）
 
-在创建任一制品前，按 `./policies/decision-point.md` 暂停，询问：
+##### 3.3.1 先判定推荐（不得代选）
+
+在发问前，基于已读的 `intention.md`（或 fallback 原始 prompt）与 `state.yaml`（若有 `current_tier` / `triage`）做一次**推荐判定**，并在决策点中写明建议与依据。**禁止**用推荐直接写入 `artifact_review_mode` 或跳过询问。
+
+**推荐 A（`per_batch`）— 每批生成后立即审查**，满足任一即倾向 A：
+
+| 信号 | 说明 |
+|------|------|
+| 范围大 / 多模块 | Scope 跨 2+ 模块或子系统；或涉及多 capability / 多份 spec 预期 |
+| 需求与选型仍脆 | intention 中待决问题多、备选方案争议大、或结论依赖未验证假设 |
+| 高返工成本 | 后续批次强依赖前序决策（specs/design 易被 proposal 边界牵动）；希望尽早冻结，避免四件套齐了再大面积回滚 |
+| 复杂 / 关键变更 | `current_tier` 为 `critical`，或涉及权限、数据迁移、对外 API 契约、合规 |
+| 作者经验不足该域 | 主代理或用户对该领域不熟，需要分批纠偏 |
+
+**推荐 B（`after_all`）— 生成完成后再整体审查**，在**未命中上表强信号**且同时满足多项时倾向 B：
+
+| 信号 | 说明 |
+|------|------|
+| 变更小而清晰 | 单模块、目标与 Non-goals 清楚、待决问题少或已关闭 |
+| 低耦合四件套 | proposal→specs→design→tasks 预期改动面窄，跨批矛盾概率低 |
+| 速度优先且可接受一次齐套返工 | 用户明确要快推；或 trivial / 文档型 / 配置型变更 |
+| `current_tier` 为 `trivial` 或明确的小改 | 与上列一致时加强 B |
+
+**默认推荐**：说不清或信号冲突 → **推荐 A**（分批审查成本高于事后大返工时更可控）。
+
+判定输出格式（发问前必须写出）：
+
+```text
+[polaris-flow] 审查模式推荐: A|B（per_batch|after_all）
+依据: <1–3 条命中信号>
+```
+
+##### 3.3.2 用户决策点
+
+按 `./policies/decision-point.md` 暂停，询问（须带上 3.3.1 的推荐）：
 
 ```text
 即将按批次创建 OpenSpec 制品（顺序：proposal → specs → design → tasks）。
 是否在每一批生成后立即审查该批内容？
 
-A. 是（推荐）— 每批生成后立即审查
-B. 否 — 四件套全部生成完毕后
+建议: <A 或 B>（依据见上方）
+
+A. 是 — 每批生成后立即审查并冻结，再生成下一批（per_batch）
+B. 否 — 四件套全部生成完毕后，再在 Step 4.2 统一整体主审（after_all）
 ```
 
 | 选项 | 写入 `state.yaml` | 后续 |
 |------|-------------------|------|
-| A | `artifact_review_mode: per_batch` | Step 3.4 走 policy Mode A（§3+§4+§5）→ 3.5 → **仍进** Step 4.1 齐套主审 |
-| B | `artifact_review_mode: after_all` | Step 3.4 走 policy Mode B（§3+§5，**跳过 §4**）→ 3.5 → Step 4.1 为**唯一**制品主审 |
+| A | `artifact_review_mode: per_batch` | Step 3.4 走 policy Mode A（§3+§4）→ 3.5 → 4.1 机械终检 → **仍进** Step 4.2 齐套主审 |
+| B | `artifact_review_mode: after_all` | Step 3.4 走 policy Mode B（仅 §3，**跳过 §4**）→ 3.5 → 4.1 机械终检 → Step 4.2 为**唯一**制品主审 |
 
-写入 `.polaris/tasks/<change_id>/state.yaml` 顶层 `artifact_review_mode`。**禁止** AI 代选或跳过本步。
+写入 `.polaris/tasks/<change_id>/state.yaml` 顶层 `artifact_review_mode`。**禁止** AI 代选或跳过本步；用户选择优先于 3.3.1 推荐。
 
 #### 3.4 按模式执行分批生成
 
@@ -204,16 +241,16 @@ B. 否 — 四件套全部生成完毕后
 
 | 模式 | 执行范围 |
 |------|----------|
-| `per_batch` | policy §3 + §4（批内反思/冻结，`artifact_max_round`）+ §5 机械终检 |
-| `after_all` | policy §3 + §5 机械终检；**禁止**跑 policy §4 |
+| `per_batch` | policy §3 + §4（批内反思/冻结，`artifact_max_round`） |
+| `after_all` | policy §3；**禁止**跑 policy §4 |
 
-完成条件见 policy §7；通过后方可进入 Step 3.5。
+完成条件见 policy §6；通过后方可进入 Step 3.5。机械终检在 **Step 4.1**，不在本步 / 不在 policy。
 
-**禁止**：跳过 `openspec instructions` 硬编码结构；主代理自审冒充；Mode A 下未按 4a/4c 冻结就开下一批；Mode A 派发批内审查时不附 intention（或无 intention 时不附 explore 背景）；Mode A 审查后不追加 `review-log.md`；Mode B 在 policy 内再跑一遍整体 §4（与 Step 4.1 重复）。
+**禁止**：跳过 `openspec instructions` 硬编码结构；主代理自审冒充；Mode A 下未按 4a/4c 冻结就开下一批；Mode A 派发批内审查时不附 intention（或无 intention 时不附 explore 背景）；Mode A 审查后不追加 `review-log.md`；Mode B 在 policy 内再跑一遍整体 §4（与 Step 4.2 重复）。
 
 #### 3.5 迁入 `intention.md`（唯一真相）
 
-§5 机械终检通过后执行。**禁止**在 `.polaris` 保留 intention 副本。
+Step 3.4 生成完成（Mode A 含批内审查）后执行。**禁止**在 `.polaris` 保留 intention 副本。
 
 1. 确认 `openspec/changes/<change_id>/` 目录存在。
 2. 若 `.polaris/tasks/<change_id>/intention.md` 存在：
@@ -230,17 +267,36 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
 
 输出：`[polaris-flow] intention: moved to openspec/changes/<change_id>/intention.md（.polaris 无备份）`
 
-### Step 4：提案整体评审（阻塞点）
+### Step 4：机械终检 + 提案整体评审（阻塞点）
 
-本步派发主审 subagent，再按 Outside Voice 协议询问是否交叉评审。评审对象是**四件套 + intention**；禁止内联重写评审标准。
+#### 4.1 机械终检（两种模式共用）
+
+四件套已按 Step 3.4 落盘后（Mode A 另须批内 §4/冻结流程结束），做机械校验（**禁止脑补替代**）。通过后方可进入 4.2。
+
+1. **四件套存在且非空**：`proposal.md`、`design.md`、`tasks.md` 非空；`specs/` 为目录且含至少一个非空文件。任一失败 → 回 Step 3.4 / policy §3 补齐，不得进入 4.2
+2. **`proposal.md`**：含问题背景、目标、范围、非目标
+3. **`design.md`**：含高层架构决策、方案选型，且含  
+   `## Constitution Alignment`、`## Alternatives`、`## Premises`
+4. **`tasks.md`**：任务有明确描述；必须跑：
+   ```bash
+   LINT_RESULT=$(bash "$PLUGIN_ROOT/hooks/tasks-lint.sh" "openspec/changes/$change_id/tasks.md")
+   LINT_EXIT=$?
+   ```
+   - exit 0 → 通过  
+   - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑
+5. 生成 `tasks.md` 前已显式输出：`[已 read_file templates/tasks-template.md]`
+
+> **fallback**（无 intention、仅用户原始 prompt）：若 proposal/design 缺第 2/3 项部分节，可放宽不阻断，仅在摘要标 `(fallback)`；**四件套存在性与 `tasks-lint` 仍必须通过**。
+
+#### 4.2 主审 — `propose-reviewer`
+
+本步派发主审 subagent。评审对象是**四件套 + intention**；禁止内联重写评审标准。
 
 - **Mode A**：批内 §4 已完成；本步做**齐套跨批 Verdict**（喂给 OV），不是重跑批内细则。
 - **Mode B**：本步为**唯一**制品主审出口（policy 未跑 §4）。
 
-#### 4.1 主审 — `propose-review-agent`
-
 1. **`subagent-probe`**：加载 `{{SKILL_NAME_PREFIX}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → 标注并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。
-2. **派发**：`propose-review-agent`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。
+2. **派发**：`propose-reviewer`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。
 
    **按 `subagent-delegate-policy.md` 执行派发**（D-0 工具可用性判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
 
@@ -259,13 +315,13 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
      5. 若有：`openspec/changes/<change_id>/intention.md`
      6. 若有（Mode A 常见）：`openspec/changes/<change_id>/review-log.md`
 
-   D-1 下 agent 按 `propose-review-agent.md` 自读上述路径；D-2 下主代理 Read 全部全文拼入 `Materials:` 段。
+   D-1 下 agent 按 `propose-reviewer.md` 自读上述路径；D-2 下主代理 Read 全部全文拼入 `Materials:` 段。
 
 3. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；写入 `openspec/changes/<change_id>/reviews/propose-review-report.md`。
 
-> 整体主审消化上限为 **最多 3 轮**（见 4.3）；与 Mode A 批内 `artifact_max_round` 无关。
+> 整体主审消化上限为 **最多 3 轮**（见 4.4）；与 Mode A 批内 `artifact_max_round` 无关。
 
-#### 4.2 Outside Voice（询问后可选）
+#### 4.3 Outside Voice（询问后可选）
 
 主审已落盘（未整步跳过）后：
 
@@ -291,16 +347,16 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
 4. 通过可信度门禁后写入 `openspec/changes/<change_id>/reviews/openspec-review-report.md`。
 5. 宿主无 subagent → 按协议跳过 OV 并标注。
 
-#### 4.3 消化
+#### 4.4 消化
 
-1. 主审 `Verdict`：`BLOCK` / 未消化 Critical → **禁止**进 Step 5；修订四件套（必要时回 Step 3.4）→ **重跑 4.1**（最多 3 轮）。
+1. 主审 `Verdict`：`BLOCK` / 未消化 Critical → **禁止**进 Step 5；修订四件套（必要时回 Step 3.4）→ **重跑 4.2**（最多 3 轮）；修订后若动过四件套须先重跑 **4.1** 机械终检。
 2. `APPROVE_WITH_CONCERNS` → decision-point 确认或修订。
 3. OV tension / P0/P1 → 按 outside-voice 用户主权逐条决策；**禁止**自动改四件套。
 4. 主审重跑后再询 OV。
 
 ### Step 5：完成 propose 阶段
 
-校验通过、Step 3.5 完成、且 Step 4.1 已派发主审（或用户接受 SKIPPED）且无未消化 Critical → 更新 `state.yaml`：
+校验通过、Step 3.5 完成、Step 4.1 机械终检通过、且 Step 4.2 已派发主审（或用户接受 SKIPPED）且无未消化 Critical → 更新 `state.yaml`：
 
 ```yaml
 propose:
@@ -323,16 +379,17 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill propose --wher
 
 ## 退出条件
 
-- 四件套存在且 Step 3.4/§5 出口校验通过（含 `tasks-lint`）
+- 四件套存在且 Step 4.1 机械终检通过（含 `tasks-lint`）
 - Step 3.5 intention 已迁入或合法跳过
-- Step 4.1 主审已派发（或用户接受 SKIPPED）且无未消化 Critical
+- Step 4.2 主审已派发（或用户接受 SKIPPED）且无未消化 Critical
 - Outside Voice 已询问并完成（ran / 用户跳过 / 宿主无法运行已标注）
 - `phase=design`
 
 ## 上下文压缩恢复
 
 重载：`change_id`、`artifact_review_mode`、四件套路径、`review-log.md`（若有）、`reviews/propose-review-report.md`、`reviews/openspec-review-report.md`（若有）、停在哪一步。
-若停在 4.1/4.3 未消化 → 先完成评审消化，勿无故重跑 `/opsx:propose` 或整段 3.4。
+若停在 4.2/4.4 未消化 → 先完成评审消化，勿无故重跑 `/opsx:propose` 或整段 3.4。
+若停在 4.1 未通过 → 先补齐四件套 / 修 lint，再进 4.2。
 
 ## 自动衔接下一阶段
 

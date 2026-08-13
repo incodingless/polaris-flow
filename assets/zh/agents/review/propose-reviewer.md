@@ -1,5 +1,5 @@
 ---
-name: propose-review-agent
+name: propose-reviewer
 description: 提案主审 subagent。对 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）与 intention 做独立一致性与完整性评审，输出可判定 Verdict。不修改任何文件，不执行命令，不与用户对话。
 tools: Read, SearchCodebase, Grep, Glob, LS
 model: DeepSeek-V4-Flash
