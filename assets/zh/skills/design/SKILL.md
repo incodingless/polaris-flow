@@ -72,8 +72,7 @@ RTID_EXIT=$?
 通过后：
 
 ```bash
-bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill design \
-  --where-change-id "$change_id" --set phase=design
+bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill design --where-change-id "$change_id" --set phase=design
 ```
 
 更新 `state.yaml`：`current_verb: design`，`design.status: in_progress`。  
@@ -152,13 +151,13 @@ canonical_spec: openspec
 - 用户确认清单为空或不补充 → 跳过专项落盘，进 3.3
 - 清单非空 → 按用户勾选的文件名与范围内外写入变更**根目录**（扁平，禁止子目录），模板见 policy §3
 
-| 专项（预检推荐名） | 文件名 |
-|----------|--------|
-| 领域 / 领域模型 | `domain-model-design.md` |
-| 仓储服务 | `repository-design.md` |
-| 数据模型 | `data-model-design.md` |
-| Rest API | `restful-api-design.md` |
-| 其他 | 用户确认英文 kebab `slug` → `<slug>-design.md` |
+| 专项（预检推荐名）| 生成策略 | 文件名 |
+|----------------|-----------------|-------------------|
+| 领域 / 领域模型 | `./policies/design-domain-model-policy.md` | `domain-model-design.md` |
+| 仓储服务 | `./policies/design-repository-policy.md` | `repository-design.md` |
+| 数据模型 | `./policies/design-data-model-policy.md` | `data-model-design.md` |
+| Rest API | `./policies/design-restful-api-policy.md` | `restful-api-design.md` |
+| 其他 | - |用户确认英文 kebab `slug` → `<slug>-design.md` |
 
 **禁止**：文件名 `design.md`（与四件套冲突）；写入 `design/` 或任何子目录；在 3.1 完成前跑本预检；确认后再发明另一套专项菜单。
 

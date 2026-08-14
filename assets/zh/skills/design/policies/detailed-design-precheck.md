@@ -46,10 +46,10 @@
 
 | 专项文件 | 模板（相对本 skill） | 推荐条件 |
 |----------|----------------------|----------|
-| `domain-model-design.md` | `./templates/domain-tech-template.md` | 新/改聚合根或实体关系；状态机；限界上下文；detailed-design 仅列模块名未给模型表/关系图 |
-| `data-model-design.md` | `./templates/datamodel-tech-template.md` | 新表/改表/索引/迁移；detailed-design 未给 ER 或表结构 |
-| `repository-design.md` | `./templates/storage-tech-template.md` | 仓储抽象、读写路径、缓存与一致性；detailed-design 未划仓储边界 |
-| `restful-api-design.md` | `./templates/restfulapi-tech-template.md` | 新增或破坏性 API 契约；design 有清单但缺请求/响应/错误码；联调依赖契约 |
+| `domain-model-design.md` | `./templates/domain-model-disign-template.md` | 新/改聚合根或实体关系；状态机；限界上下文；detailed-design 仅列模块名未给模型表/关系图 |
+| `data-model-design.md` | `./templates/data-model-design-template.md` | 新表/改表/索引/迁移；detailed-design 未给 ER 或表结构 |
+| `repository-design.md` | `./templates/repository-design-template.md` | 仓储抽象、读写路径、缓存与一致性；detailed-design 未划仓储边界 |
+| `restful-api-design.md` | `./templates/restful-api-design-template.md` | 新增或破坏性 API 契约；design 有清单但缺请求/响应/错误码；联调依赖契约 |
 
 「其他」：上述四类盖不住、且文档明确点名某技术面（鉴权协议、消息拓扑、批处理编排等）→ 用户确认英文 kebab `slug` → `<slug>-design.md`。
 
