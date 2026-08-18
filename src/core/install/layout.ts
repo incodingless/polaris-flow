@@ -12,7 +12,7 @@ import {
   type InstallScope,
 } from '../assets/polaris-paths.js';
 import { type Languages } from '../config/polaris-project-config.js';
-import { getPlatformContextDir, type Platform } from '../platforms.js';
+import { getPlatformContextDir, type Platform } from '../domain/platforms.js';
 
 const POLARIS_FLOW_PLUGIN_NAME = 'polaris-flow';
 

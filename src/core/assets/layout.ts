@@ -5,7 +5,7 @@
  */
 import path from 'path';
 
-import { getSkillsLayout, type Platform } from '../platforms.js';
+import { getSkillsLayout, type Platform } from '../domain/platforms.js';
 import type { InstallScope } from './polaris-paths.js';
 import { loadPolarisConfig } from '../config/polaris-project-config.js';
 

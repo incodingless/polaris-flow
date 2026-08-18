@@ -8,9 +8,9 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 
 import { fileExists, readDir } from '../../utils/file-system.js';
-import { PLATFORMS, type Platform } from '../platforms.js';
+import { PLATFORMS, type Platform } from '../domain/platforms.js';
 import type { InstallScope } from '../config/polaris-project-config.js';
-import { getPlatformContextDir } from '../platforms.js';
+import { getPlatformContextDir } from '../domain/platforms.js';
 import { POLARIS_FLOW_PLUGIN_NAME, POLARIS_PLUGIN_PREFIX } from '../config/polaris-constants.js';
 
 /** superpowers 特征 skill（命中任一即视为已装） */

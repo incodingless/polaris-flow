@@ -46,7 +46,7 @@ description: "把 propose 的高层 design.md 深化为可实施的详细技术�
 用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" get-active-changes --skill propose --repo-root "$REPO_ROOT" --phase clarify)
+TASK_IDS=$(bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" get-active-changes --skill design --repo-root "$REPO_ROOT" --phase design)
 RTID_EXIT=$?
 ```
 
@@ -238,9 +238,10 @@ design:
   outside_voice_report: openspec/changes/<change_id>/reviews/openspec-review-report.md  # 若 ran
 ```
 
+workflow阶段推进至规划阶段：
+
 ```bash
-bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill design \
-  --where-change-id "$change_id" --set phase=plan
+bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill design --where-change-id "$task_id" --set phase=plan
 ```
 
 输出：`[polaris-flow] design 阶段完成：openspec/changes/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris-flow-plan。`

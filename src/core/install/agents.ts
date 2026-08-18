@@ -6,7 +6,7 @@ import { readFile, writeFile } from 'fs/promises';
 
 import { ensureDir, fileExists } from '../../utils/file-system.js';
 import { Assets } from '../assets/manifest.js';
-import { type Platform } from '../platforms.js';
+import { type Platform } from '../domain/platforms.js';
 import { loadPolarisConfig, resolveAgentModel } from '../config/polaris-project-config.js';
 
 /** 资产相对路径中的 agent 分组 → 平台 agents 目录下的文件名 */

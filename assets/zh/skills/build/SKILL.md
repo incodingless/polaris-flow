@@ -47,57 +47,22 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
 ### Step 0：定位 change_id + 入口校验
-用 bash 读取工作流配置中有效变更的`change_id`：
-
 ```bash
-WORK_FLOW_CONFIG="${WORK_FLOW_CONFIG:-$REPO_ROOT/.polaris/workflow.yaml}"
-
-Entries=$(node -e '
-const fs = require("fs");
-const text = fs.readFileSync(process.argv[1], "utf8");
-const strip = (s) => s.trim().replace(/^"(.*)"$/, "$1");
-const ids = [];
-let inList = false;
-let changeId = null;
-let phase = null;
-const flush = () => {
-  if (changeId && phase === "clarify") ids.push(changeId);
-  changeId = null;
-  phase = null;
-};
-for (const raw of text.split(/\r?\n/)) {
-  const line = raw.replace(/\t/g, "  ");
-  if (/^active_changes:\s*\[\s*\]\s*$/.test(line)) break;
-  if (/^active_changes:\s*$/.test(line)) { inList = true; continue; }
-  if (inList && /^[^\s#]/.test(line)) break;
-  if (!inList) continue;
-  const itemStart = line.match(/^\s*-\s+change_id:\s*(.+?)\s*$/);
-  if (itemStart) {
-    flush();
-    changeId = strip(itemStart[1]);
-    continue;
-  }
-  const cid = line.match(/^\s+change_id:\s*(.+?)\s*$/);
-  if (cid) {
-    flush();
-    changeId = strip(cid[1]);
-    continue;
-  }
-  const ph = line.match(/^\s+phase:\s*(.+?)\s*$/);
-  if (ph) phase = strip(ph[1]);
-}
-flush();
-process.stdout.write(ids.join("\n"));
-' "$WORK_FLOW_CONFIG")
+TASK_IDS=$(bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" get-active-changes --skill build --repo-root "$REPO_ROOT" --phase build)
+RTID_EXIT=$?
 ```
 
-按 `$Entries` 行数解读：
+- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
+- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-- **唯一匹配**：取其 `change_id`（及 `worktree_path`，若非空）
+按 `$TASK_IDS` 数组长度解读：
+
+- **唯一匹配**：直接读取 `change_id`
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 phase=build 的 active change，请先执行 /{{SKILL_NAME_PREFIX}}plan」
+- **零匹配**：阻断，提示「未找到 plan 阶段的 active change，请先执行 /{{SKILL_NAME_PREFIX}}plan」
 
-> 若上次中断在 build 中（`build.status=in_progress` / apply paused），从中断点续跑；不得因「已是 build」而报零匹配。
+> 若 选择的任务已是 `phase=plan`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+> 若上次中断在 plan 中（`plan.status=in_progress` / apply paused），从中断点续跑；不得因「已是 build」而报零匹配。
 
 **入口校验**（失败 → 阻断）：
 
@@ -107,7 +72,7 @@ process.stdout.write(ids.join("\n"));
 | tasks 可执行 | `openspec/changes/<change_id>/tasks.md` 非空，且含至少一个 `- [ ]` 或（续跑时）未完成项可定位 |
 | 工作目录 | 若 `worktree_path` 非空 → 后续 apply / 读 tasks **以该 worktree 为仓库根**；否则用主仓 |
 
-通过后更新 `state.yaml`：`current_verb: build`，`build.status: in_progress`。  
+通过后更新 `state.yaml`：`current_verb: build`，`build.status: in_progress`。
 输出：`[polaris-flow] build: change_id=<change_id> ; worktree=<path|main>`
 
 ### Step 1：选择执行方式与审查模式（用户决策点）
@@ -250,9 +215,10 @@ build:
 current_verb: idle
 ```
 
+workflow阶段推进至验收阶段：
+
 ```bash
-bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill build \
-  --where-change-id "$change_id" --set phase=verify
+bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill build --where-change-id "$task_id" --set phase=verify
 ```
 
 输出：

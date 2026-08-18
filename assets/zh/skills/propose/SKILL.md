@@ -9,14 +9,12 @@ description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户
 - **禁止**未检查 `intention.md` 存在性就调用 `/opsx:propose` / 开始生成四件套
   - 文件存在 → 必须读取全文后再调用
   - 文件不存在 → 必须先走 Step 2.2 fallback 声明，方可继续（不得静默跳过检查）
-- **禁止**跳过 worktree 提示直接进入 propose 主流程（提示非阻断：用户可选不创建并继续，但**不能不问**）
 - **禁止**主代理在调用 `/opsx:propose` / 生成 `tasks.md` 之前未读取 `./templates/tasks-template.md`
 - **禁止**跳过 Step 3.3 审查模式选择（AI 不得代选）；禁止未写 `artifact_review_mode` 就进入 3.4
 - **禁止**跳过 `./policies/artifact-batch-generation.md`：须按 3.3 已选模式执行分批生成（Mode A 含批内 §4；Mode B 跳过 §4）；禁止硬编码四件套结构；禁止主代理自审冒充制品审查
 - **禁止**通过 `superpowers:using-git-worktrees` 创建 worktree——必须由本 skill Step 1.3.A 直接执行 git / hooks 完成
 - **禁止**跳过 Step 4.1 机械终检（四件套存在性 / 关键节 / `tasks-lint`）；禁止脑补替代
 - **禁止**跳过 Step 4.2 主审：必须派发 `propose-reviewer`（或 subagent 不可用时经 decision-point 接受跳过）；禁止主代理自审冒充
-- **禁止**跳过 Step 4.3 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，AI 不得代为决定）
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow] 进入提案阶段: 使用 {{SKILL_NAME_PREFIX}}propose 技能。`
@@ -367,8 +365,10 @@ propose:
   finished_at: "<ISO>"
 ```
 
+workflow阶段推进至详细设计阶段：
+
 ```bash
-bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill propose --where-change-id "$change_id" --set phase=design
+bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill propose --where-change-id "$task_id" --set phase=design
 ```
 
 输出：

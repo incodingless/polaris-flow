@@ -1,8 +1,8 @@
 {
   "version": "0.1.0",
   "languages": [
-    { "id": "zh", "name": "中文" },
-    { "id": "en", "name": "English" }
+    { "id": "zh", "name": "中文", "artifactDir": "zh", "artifactLanguage": "zh-CN"},
+    { "id": "en", "name": "English", "artifactDir": "en", "artifactLanguage": "en"}
   ],
 
   "langContentDirs": ["skills", "commands", "templates", "adapters", "policies", "agents"],

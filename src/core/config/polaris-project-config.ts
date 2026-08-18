@@ -8,7 +8,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists, ensureDir } from '../../utils/file-system.js';
 import { getPolarisConfigPath, getPolarisDir, type InstallScope } from '../assets/polaris-paths.js';
-import { HarnessType, Platform } from '../platforms.js';
+import { HarnessType, Platform } from '../domain/platforms.js';
 import os from 'os';
 
 export { getPolarisConfigPath } from '../assets/polaris-paths.js';

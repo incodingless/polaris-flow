@@ -4,7 +4,7 @@ type ArtifactLanguageId = 'en' | 'zh-CN';
 type LanguageConfig = {
   id: SkillLanguageId;
   name: string;
-  skillsDir: string;
+  artifactDir: string;
   artifactLanguage: ArtifactLanguageId;
 };
 
@@ -19,8 +19,8 @@ const ARTIFACT_LANGUAGES: ArtifactLanguageConfig[] = [
 ];
 
 const LANGUAGES: LanguageConfig[] = [
-  { id: 'en', name: 'English', skillsDir: 'skills', artifactLanguage: 'en' },
-  { id: 'zh', name: '中文', skillsDir: 'skills-zh', artifactLanguage: 'zh-CN' },
+  { id: 'en', name: 'English', artifactDir: 'en', artifactLanguage: 'en' },
+  { id: 'zh', name: '中文', artifactDir: 'zh', artifactLanguage: 'zh-CN' },
 ];
 
 function formatSupportedArtifactLanguages(): string {

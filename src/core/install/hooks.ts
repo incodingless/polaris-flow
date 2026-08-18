@@ -10,7 +10,7 @@ import { fileExists } from '../../utils/file-system.js';
 import { getSharedDir } from '../assets/manifest.js';
 import type { Assets } from '../assets/manifest.js';
 import type { InstallScope } from '../config/polaris-project-config.js';
-import type { Platform } from '../platforms.js';
+import type { Platform } from '../domain/platforms.js';
 
 /** 模板 hooks.json 源路径：`assets/shared/hooks.json` */
 export function getHooksJsonSrc(): string {

@@ -4,7 +4,7 @@
  */
 import path from 'path';
 import os from 'os';
-import type { InstallScope } from './assets/polaris-paths.js';
+import type { InstallScope } from '../assets/polaris-paths.js';
 
 /** polaris-flow 插件根下的公共子目录名 */
 export const PLUGIN_SUBDIR_NAMES = [

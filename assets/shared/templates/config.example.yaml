@@ -12,19 +12,15 @@ platform:
 
 # 范围
 # 可选值: global-全局 | project-项目
-
 scope: "project"
+
 # 安装时间
-
 install-time: "2026-06-25T02:05:29.066Z"
+
 # 仓库根目录
-
 main-repo-root: "<project_root>"
-# 插件根目录
 
-plugin-root: "<project_root>/.<platform_id>/skills/polaris-flow"
 # 工作树目录
-
 worktree-dir: "<project_root>/.worktrees"
 
 # 模型配置
@@ -48,8 +44,6 @@ context-compression: off
 # 协作模式
 # 可选值: solo-单人协作 | team-多人协作
 kind: "solo"
-
-
 
 ####################
 # 高级配置 

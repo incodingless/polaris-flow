@@ -48,12 +48,12 @@ export async function init(repoRoot: string): Promise<InitResult> {
   }
   const root = path.resolve(repoRoot);
   if (!(await fileExists(root))) {
-    return { exitCode: 2, message: '缺少或无效的 repo_root 参数' };
+    return { exitCode: 2, message: '项目路径不存在: ' + root };
   }
 
   const configPath = getPolarisConfigPath(root);
   if (!(await fileExists(configPath))) {
-    return { exitCode: 2, message: `${configPath} 不存在，请重启会话` };
+    return { exitCode: 2, message: `配置文件不存在，请重启会话。路径：${configPath}` };
   }
 
   const draft = await runDraftCreate(root);

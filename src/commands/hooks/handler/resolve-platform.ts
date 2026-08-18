@@ -3,7 +3,7 @@
  * 平台身份感知停在 commands，再把 platformId 传给 core。
  */
 import { loadPolarisConfig } from '../../../core/config/polaris-project-config.js';
-import { PLATFORMS } from '../../../core/platforms.js';
+import { PLATFORMS } from '../../../core/domain/platforms.js';
 import { hookDebug } from './debug-log.js';
 
 /**

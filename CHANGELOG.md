@@ -21,6 +21,7 @@
 - **agent 安装按平台改写**: init 安装 agents 时按 `Platform.agentToolMap` 改写 frontmatter `tools`，并用 `resolveReviewAgentModel` 写入 `model`；SessionStart 对全部已注册平台刷新 model
 - **platform 解析**: 无效 `--platform` 回退 `.polaris/config.yaml`，不再把未知字符串当有效 id
 
+- **intention-validate 分层**: 校验逻辑留在 core（返回 `missing` / `payload` / `message`，不写控制台）；`commands/hooks/intention-validate.ts` 薄包装负责 stdout JSON 与 stderr 阻断信息，与 task-init / draft-create 一致
 - **SessionStart I/O 与平台边界**: stdin 解析、platform resolve、成功摘要均在 `commands/hooks`；core 只消费已归一的 `projectPath` / `sessionId` / `platformId`，经注入 `HookIo` 写过程日志
 - **init 选择逻辑迁入 prompts**: `selectScope` / `selectLanguage` / `selectPlatforms` / `buildInstallPlans`（及 `PlatformPlan`）从 `init.ts` 迁入 `prompts.ts`；init 只保留安装编排与结果展示
 - **hooks CLI 入口**: hooks 薄包装 `_polaris-cli.sh` 只调用 `polaris-flow`；用户侧 init/status 等仍用 `polaris`（package.json 双 bin）
@@ -79,7 +80,7 @@
 - **agents-install**: 覆盖 `mapAgentTools`（trae 恒等、claude/cursor 映射去重）、安装落盘 tools/model、overwrite 跳过
 - **openspec relocate**: 覆盖 trae-cn 迁入 `.trae-cn`、trae 不迁入、trae+trae-cn 双保留
 - **install/layout**: 覆盖 `resolveWorktreeRoot` / `getInstallSkillBase` / `initializePolarisCommonLayout` / `initializeProjectLayout`
-- **hooks TS**: `workflow-entry`（锁/RMW/op）、`draft-create`/`task-init`/`task-finalize`、`tasks-lint`、`constitution-validity`、`harness-sync`/`ship-cleanup`、`intention-validate`（缺文件/缺节/空节/通过）；session-start / detect plugin 既有覆盖保留
+- **hooks TS**: `workflow-entry`（锁/RMW/op）、`draft-create`/`task-init`/`task-finalize`、`tasks-lint`、`constitution-validity`、`harness-sync`/`ship-cleanup`、`intention-validate`（缺文件/缺节/空节/通过，断言 `message`/`payload`）；session-start / detect plugin 既有覆盖保留
 - **config / task-state**: 覆盖 kebab↔snake 归一、旧 `lang` 兼容、`patchPolarisConfig` / `patchTaskState` 不丢字段、constitution 读 config.path
 - **session-start / detect**: 覆盖 hook IO 通道、依赖探测（可注入 HOME/PATH）、缺 `.polaris` FAIL、gitignore/workflow/session 物化、agent model 注入、WARN/FAIL exit 语义
 - **install-layout / skills-install**: 覆盖 nested/flat 落盘、hooks 命令路径、agents 与 config 字段；skills 步骤不再隐式安装 agents；断言 `plan-review-agent` / `openspec-review-agent` 落盘

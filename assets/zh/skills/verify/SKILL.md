@@ -56,53 +56,20 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-WORK_FLOW_CONFIG="${WORK_FLOW_CONFIG:-$REPO_ROOT/.polaris/workflow.yaml}"
-
-Entries=$(node -e '
-const fs = require("fs");
-const text = fs.readFileSync(process.argv[1], "utf8");
-const strip = (s) => s.trim().replace(/^"(.*)"$/, "$1");
-const ids = [];
-let inList = false;
-let changeId = null;
-let phase = null;
-const flush = () => {
-  if (changeId && phase === "clarify") ids.push(changeId);
-  changeId = null;
-  phase = null;
-};
-for (const raw of text.split(/\r?\n/)) {
-  const line = raw.replace(/\t/g, "  ");
-  if (/^active_changes:\s*\[\s*\]\s*$/.test(line)) break;
-  if (/^active_changes:\s*$/.test(line)) { inList = true; continue; }
-  if (inList && /^[^\s#]/.test(line)) break;
-  if (!inList) continue;
-  const itemStart = line.match(/^\s*-\s+change_id:\s*(.+?)\s*$/);
-  if (itemStart) {
-    flush();
-    changeId = strip(itemStart[1]);
-    continue;
-  }
-  const cid = line.match(/^\s+change_id:\s*(.+?)\s*$/);
-  if (cid) {
-    flush();
-    changeId = strip(cid[1]);
-    continue;
-  }
-  const ph = line.match(/^\s+phase:\s*(.+?)\s*$/);
-  if (ph) phase = strip(ph[1]);
-}
-flush();
-process.stdout.write(ids.join("\n"));
-' "$WORK_FLOW_CONFIG")
+TASK_IDS=$(bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" get-active-changes --skill verify --repo-root "$REPO_ROOT" --phase verify)
+RTID_EXIT=$?
 ```
 
-按 `$Entries` 行数解读：
+- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
+- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-- **唯一匹配**：取其 `change_id`（及 `worktree_path`，若非空）
+按 `$TASK_IDS` 数组长度解读：
+
+- **唯一匹配**：直接读取 `change_id`
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 phase=verify 的 active change，请先执行 /polaris-flow-build」
+- **零匹配**：阻断，提示「未找到 design 阶段的 active change，请先执行 /polaris-flow-design」
 
+> 若 entry 已是 `phase=plan`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
 > 若上次中断在 verify（`verify.status=in_progress`），从中断点续跑；不得因「已是 verify」而报零匹配。
 
 **入口校验**（失败 → 阻断）：
@@ -316,14 +283,12 @@ verify:
 current_verb: idle
 ```
 
-3. 推进 phase：
-
+4. 推进：
 ```bash
-bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill verify \
-  --where-change-id "$change_id" --set phase=delivery
+bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill verify --where-change-id "$change_id" --set phase=delivery
 ```
 
-4. 输出：
+3. 输出：
 
 ```
 [polaris-flow] verify 阶段完成：
@@ -331,7 +296,7 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill verify \
   mode      : <light|full>
   score     : <overall_score> (<score_level>)
   report    : openspec/changes/<change_id>/reviews/verify-report.md
-下一步建议 /polaris-flow-delivery。
+下一步建议 /{{SKILL_NAME_PREFIX}}delivery。
 ```
 
 **硬阻断（不得推进 phase）**：

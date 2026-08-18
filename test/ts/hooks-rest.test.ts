@@ -173,13 +173,18 @@ describe('intention-validate', () => {
     return INTENTION_REQUIRED_SECTIONS.map((h) => `${h}\n- content\n`).join('\n');
   }
 
-  it('缺文件 → exit 1', async () => {
+  it('缺文件 → exit 1 且返回 message', async () => {
     const root = await tmpDir('polaris-iv-');
-    const r = await runIntentionValidate(path.join(root, 'missing.md'));
+    const missingPath = path.join(root, 'missing.md');
+    const r = await runIntentionValidate(missingPath);
     expect(r.exitCode).toBe(1);
+    expect(r.missing).toEqual([]);
+    expect(r.payload).toBeUndefined();
+    expect(r.message).toContain('intention.md 不存在');
+    expect(r.message).toContain(missingPath);
   });
 
-  it('缺节 → exit 2 且 missing 非空', async () => {
+  it('缺节 → exit 2 且 missing / payload / message 齐备', async () => {
     const root = await tmpDir('polaris-iv-miss-');
     const file = path.join(root, 'intention.md');
     await writeFile(file, '## Reframe 历程\n- x\n\n## 目标\n- y\n', 'utf-8');
@@ -187,6 +192,9 @@ describe('intention-validate', () => {
     expect(r.exitCode).toBe(2);
     expect(r.missing.length).toBeGreaterThan(0);
     expect(r.missing).toContain('## 宪法对齐');
+    expect(r.payload).toEqual({ missing: r.missing });
+    expect(r.message).toContain('intention.md 不完整');
+    expect(r.message).toContain('## 宪法对齐');
   });
 
   it('仅有注释的空节 → exit 2', async () => {
@@ -200,6 +208,8 @@ describe('intention-validate', () => {
     const r = await runIntentionValidate(file);
     expect(r.exitCode).toBe(2);
     expect(r.missing).toContain('## 前提');
+    expect(r.payload).toEqual({ missing: r.missing });
+    expect(r.message).toContain('## 前提');
   });
 
   it('齐全非空 → exit 0', async () => {
@@ -209,5 +219,7 @@ describe('intention-validate', () => {
     const r = await runIntentionValidate(file);
     expect(r.exitCode).toBe(0);
     expect(r.missing).toEqual([]);
+    expect(r.payload).toBeUndefined();
+    expect(r.message).toBeUndefined();
   });
 });

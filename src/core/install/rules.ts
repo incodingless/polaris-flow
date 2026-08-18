@@ -4,7 +4,7 @@
 import path from 'path';
 
 import { Assets } from '../assets/manifest.js';
-import { type Platform } from '../platforms.js';
+import { type Platform } from '../domain/platforms.js';
 import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
 import { Languages } from '../config/polaris-project-config.js';
 import { getAssetsDir } from '../assets/manifest.js';

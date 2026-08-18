@@ -1,6 +1,6 @@
 /**
  * intention.md 必含节完整性校验（对齐 propose Step 2.2 / intention-template）。
- * 由 `polaris intention-validate` 与薄包装 intention-validate.sh 调用。
+ * 由 `polaris intention-validate` 调用；本层只返回结果，不写 stdout/stderr。
  */
 import { readFile } from 'fs/promises';
 
@@ -22,6 +22,9 @@ export const INTENTION_REQUIRED_SECTIONS = [
 export type IntentionValidateResult = {
   exitCode: number;
   missing: string[];
+  /** 不完整时供命令层 stdout JSON */
+  payload?: { missing: string[] };
+  message?: string;
 };
 
 /**
@@ -67,8 +70,11 @@ export function splitMarkdownSections(text: string): Map<string, string> {
  */
 export async function runIntentionValidate(filePath: string): Promise<IntentionValidateResult> {
   if (!filePath || !(await fileExists(filePath))) {
-    console.error(`[polaris-flow] intention.md 不存在: ${filePath || '<empty>'}`);
-    return { exitCode: 1, missing: [] };
+    return {
+      exitCode: 1,
+      missing: [],
+      message: `intention.md 不存在: ${filePath || '<empty>'}`,
+    };
   }
 
   const text = await readFile(filePath, 'utf-8');
@@ -89,9 +95,10 @@ export async function runIntentionValidate(filePath: string): Promise<IntentionV
     return { exitCode: 0, missing: [] };
   }
 
-  console.log(JSON.stringify({ missing }));
-  console.error(
-    `[polaris-flow] 阻断：intention.md 不完整，缺失节 ${missing.join(' ')}，请回到 /polaris-flow-clarify 补齐。`,
-  );
-  return { exitCode: 2, missing };
+  return {
+    exitCode: 2,
+    missing,
+    payload: { missing },
+    message: `intention.md 不完整，缺失节 ${missing.join(' ')}，请回到 /polaris-flow-clarify 补齐。`,
+  };
 }

@@ -13,12 +13,12 @@ import {
   selectPlatforms,
   selectScope,
 } from './prompts.js';
-import { detectPlatforms, getBaseDir } from '../core/integration/detect.js';
-import { installOpenSpec } from '../core/integration/openspec.js';
+import { detectPlatforms, getBaseDir } from '../core/integrations/detect.js';
+import { installOpenSpec } from '../core/integrations/openspec.js';
 import {
   installSuperpowersForPlatforms,
   SUPERPOWERS_MIN_VERSION,
-} from '../core/integration/superpowers.js';
+} from '../core/integrations/superpowers.js';
 import {
   writeLockFile,
   type LockSourceEntry,
@@ -28,11 +28,11 @@ import {
 import { getNpmPackageVersion } from '../core/deps/npm.js';
 import { getAssetsDir, getGlobalPolarisConfigSrc } from '../core/assets/manifest.js';
 import { getGlobalPolarisConfigPath } from '../core/assets/polaris-paths.js';
-import { getSettingsFilePath } from '../core/platforms.js';
+import { getSettingsFilePath } from '../core/domain/platforms.js';
 import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
 import type { InstallScope, Languages } from '../core/config/polaris-project-config.js';
 import { initializePolarisCommonLayout } from '../core/install/layout.js';
-import { installCodegraph } from '../core/integration/codegraph.js';
+import { installCodegraph } from '../core/integrations/codegraph.js';
 import { ensureDir, fileExists } from '../utils/file-system.js';
 import { readFile, writeFile } from 'fs/promises';
 import { parseDocument } from 'yaml';

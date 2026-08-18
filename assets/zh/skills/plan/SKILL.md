@@ -22,7 +22,7 @@ description: "用户触发 /{{SKILL_NAME_PREFIX}}plan 或要求在 design 完成
 - **禁止**未按 `./reference/decision-point.md` 获得用户对 **TDD 策略**（Step 2）的明确选择，就进入 Step 4 覆写 `tasks.md`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: plan — 使用 {{SKILL_NAME_PREFIX}}plan 技能。`
+**启动时必须先输出**：`[polaris-flow] 进入阶段: 规划 — 使用 {{SKILL_NAME_PREFIX}}plan 技能。`
 
 ## 标识约定
 
@@ -78,50 +78,16 @@ TODO 待补充内部流程过程
 用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-WORK_FLOW_CONFIG="${WORK_FLOW_CONFIG:-$REPO_ROOT/.polaris/workflow.yaml}"
-
-Entries=$(node -e '
-const fs = require("fs");
-const text = fs.readFileSync(process.argv[1], "utf8");
-const strip = (s) => s.trim().replace(/^"(.*)"$/, "$1");
-const ids = [];
-let inList = false;
-let changeId = null;
-let phase = null;
-const flush = () => {
-  if (changeId && phase === "clarify") ids.push(changeId);
-  changeId = null;
-  phase = null;
-};
-for (const raw of text.split(/\r?\n/)) {
-  const line = raw.replace(/\t/g, "  ");
-  if (/^active_changes:\s*\[\s*\]\s*$/.test(line)) break;
-  if (/^active_changes:\s*$/.test(line)) { inList = true; continue; }
-  if (inList && /^[^\s#]/.test(line)) break;
-  if (!inList) continue;
-  const itemStart = line.match(/^\s*-\s+change_id:\s*(.+?)\s*$/);
-  if (itemStart) {
-    flush();
-    changeId = strip(itemStart[1]);
-    continue;
-  }
-  const cid = line.match(/^\s+change_id:\s*(.+?)\s*$/);
-  if (cid) {
-    flush();
-    changeId = strip(cid[1]);
-    continue;
-  }
-  const ph = line.match(/^\s+phase:\s*(.+?)\s*$/);
-  if (ph) phase = strip(ph[1]);
-}
-flush();
-process.stdout.write(ids.join("\n"));
-' "$WORK_FLOW_CONFIG")
+TASK_IDS=$(bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" get-active-changes --skill plan --repo-root "$REPO_ROOT" --phase plan)
+RTID_EXIT=$?
 ```
 
-按 `$Entries` 行数解读：
+- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
+- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-- **唯一匹配**：取其 `change_id`
+按 `$TASK_IDS` 数组长度解读：
+
+- **唯一匹配**：直接读取 `change_id`
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 design 阶段的 active change，请先执行 /polaris-flow-design」
 
@@ -136,15 +102,7 @@ process.stdout.write(ids.join("\n"));
 | 设计评审 | 若存在 `reviews/design-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 design |
 | 已有细计划 | 若 `plan.status=completed` 且 `tasks.md` 已细计划 → 询问 A 修订覆写 / B 退出（禁止静默覆盖） |
 
-通过后：
-
-```bash
-CONFIG_FILE="$REPO_ROOT/.polaris/config.yaml"
-bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
-  --where-change-id "$change_id" --set phase=plan
-```
-
-更新 `state.yaml`：`current_verb: plan`，`plan.status: in_progress`。  
+通过后更新 `state.yaml`：`current_verb: plan`，`plan.status: in_progress`。  
 输出：`[polaris-flow] plan: change_id=<change_id> ; phase=plan`
 
 ### Step 1：读取规划依据（OpenSpec 四件套 + detailed-design）
@@ -404,9 +362,10 @@ plan:
 current_verb: idle
 ```
 
+workflow阶段推进至详细构建阶段：
+
 ```bash
-bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan \
-  --where-change-id "$change_id" --set phase=build
+bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill plan --where-change-id "$task_id" --set phase=build
 ```
 
 输出：

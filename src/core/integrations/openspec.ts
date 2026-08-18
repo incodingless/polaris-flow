@@ -8,7 +8,7 @@ import fs from 'fs';
 import { rm, readdir, stat } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { PLATFORMS, type Platform, getPlatformContextDir } from '../platforms.js';
+import { PLATFORMS, type Platform, getPlatformContextDir } from '../domain/platforms.js';
 import { printCommandErrorDetails } from '../command-error.js';
 import { copyDirContents, copyFile, ensureDir, fileExists } from '../../utils/file-system.js';
 import { readJsonObjectOrEmpty } from '../../utils/json-io.js';

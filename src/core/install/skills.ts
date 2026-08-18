@@ -10,7 +10,7 @@
 import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
 
-import type { SkillsLayout } from '../platforms.js';
+import type { SkillsLayout } from '../domain/platforms.js';
 import {
   ensureDir,
   fileExists,

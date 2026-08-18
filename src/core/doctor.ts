@@ -6,9 +6,9 @@ import { createRequire } from 'module';
 
 import { fileExists } from '../utils/file-system.js';
 import { readJsonObjectOrEmpty } from '../utils/json-io.js';
-import { isCommandAvailable } from './integration/openspec.js';
-import { detectPlatforms, getBaseDir, hasSkills } from './integration/detect.js';
-import { PLATFORMS, getPlatformSkillsDir } from './platforms.js';
+import { isCommandAvailable } from './integrations/openspec.js';
+import { detectPlatforms, getBaseDir, hasSkills } from './integrations/detect.js';
+import { PLATFORMS, getPlatformSkillsDir } from './domain/platforms.js';
 import type { InstallScope } from './config/polaris-project-config.js';
 
 const require = createRequire(import.meta.url);

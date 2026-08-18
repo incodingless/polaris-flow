@@ -13,9 +13,6 @@ description: "经结构化探索与确认，把用户需求落地为 intention.m
 - **禁止**跳过 Premise Challenge（`./policies/premise-challenge.md`）
 - **禁止**未拿到用户对 **intention.md 全文** 的整体确认就标记本阶段完成
 - **禁止**未读取 `./templates/intention-template.md` 就生成 `intention.md`（Step 4 强制前置）
-- **禁止**在本阶段创建 `proposal.md` / `design.md` / `tasks.md`，或调用 `/opsx:new` / 加载 `openspec-propose`
-- **禁止**使用未基于探索摘要提炼的随机 slug——推荐的 `task_id` 必须从用户回答中取核心 2–3 个名词关键词，保证可解释性
-
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow] 进入阶段: 澄清需求 — 使用 {{SKILL_NAME_PREFIX}}clarify 技能。`
@@ -50,12 +47,12 @@ description: "经结构化探索与确认，把用户需求落地为 intention.m
 - 仍无 `$PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
 
 ```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/hooks/clarify-init.sh" ]; then
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/hooks/task-init.sh" ]; then
   echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
   exit 2
 fi
 
-INIT_RESULT=$(bash "$PLUGIN_ROOT/hooks/clarify-init.sh" "$REPO_ROOT")
+INIT_RESULT=$(bash "$PLUGIN_ROOT/hooks/task-init.sh" "$REPO_ROOT")
 INIT_EXIT=$?
 echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```
@@ -78,8 +75,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```bash
 for d in <existing 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" delete-active --skill clarify \
-    --repo-root "$REPO_ROOT" --where-change-id "$d"
+  bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" delete-active --skill clarify --repo-root "$REPO_ROOT" --where-change-id "$d"
 done
 ```
 
@@ -186,6 +182,15 @@ done
 #### 5.1 意图评审
 
 输出：`[polaris-flow clarify] 意图评审暂未实现，请人工评审文档（务必确保该文档的准确性）。通过后作为后续生成 OpenSpec 规格文档的唯一依据。`
+
+#### 5.2 意图Lint评审
+
+```bash
+LINT_RESULT=$(bash "$PLUGIN_ROOT/hooks/intention-validate.sh" "$REPO_ROOT/.polaris/tasks/$change_id/intention.md")
+LINT_EXIT=$?
+```
+- exit 0 → 通过  
+- exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑
 
 #### 5.2 用户整体确认 `intention.md`（阻塞点）
 

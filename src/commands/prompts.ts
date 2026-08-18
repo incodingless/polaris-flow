@@ -17,8 +17,8 @@ import { checkbox, select } from '@inquirer/prompts';
 
 import { t } from './i18n/index.js';
 import type { InstallScope, Languages } from '../core/config/polaris-project-config.js';
-import { hasSkills } from '../core/integration/detect.js';
-import { PLATFORMS, getPlatformSkillsDir, type Platform } from '../core/platforms.js';
+import { hasSkills } from '../core/integrations/detect.js';
+import { PLATFORMS, getPlatformSkillsDir, type Platform } from '../core/domain/platforms.js';
 
 export type ComponentAction = 'install' | 'overwrite' | 'skip';
 export type BulkOverwriteChoice = 'overwrite-all' | 'skip-all' | 'choose';

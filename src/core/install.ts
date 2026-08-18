@@ -8,7 +8,7 @@
 import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
 import { parseDocument } from 'yaml';
-import { getPlatformSkillsDir, type Platform } from './platforms.js';
+import { getPlatformSkillsDir, type Platform } from './domain/platforms.js';
 import {
   type InstallScope,
   type Languages,

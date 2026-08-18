@@ -25,8 +25,8 @@ import {
   checkPluginPresence,
   getInstallHints,
   type PluginPresenceOptions,
-} from '../integration/detect.js';
-import { PLATFORMS, Platform } from '../platforms.js';
+} from '../integrations/detect.js';
+import { PLATFORMS, Platform } from '../domain/platforms.js';
 import { getPolarisPluginRootPath } from '../assets/layout.js';
 
 export { resolveReviewAgentModel } from '../config/polaris-project-config.js';

@@ -68,7 +68,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /{{SKILL
 
 ### Step 0：解析范围 + 工作目录
 
-输出：`[polaris-flow] 进入 retro Step 0: 解析范围`
+输出：`[polaris-flow 复盘] 0.确定复盘范围`
 
 - 确认范围：overview / monthly / by-change  
 - 以**主仓**为数据根（metrics / overrides 合回后在主仓；勿只在已删 worktree 里找）  
@@ -78,7 +78,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /{{SKILL
 
 ### Step 1：数据盘点（空则退出）
 
-输出：`[polaris-flow] 进入 retro Step 1: 数据盘点`
+输出：`[polaris-flow 复盘] 1.数据盘点`
 
 ```bash
 ls -1 .polaris/metrics/*-metrics.json 2>/dev/null | wc -l
@@ -97,7 +97,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 ### Step 2：聚合 Scorer 与 Constitution
 
-输出：`[polaris-flow] 进入 retro Step 2: 聚合 scorer`
+输出：`[polaris-flow 复盘] 2.聚合评分`
 
 对范围内每个 metrics 文件解析 JSON（坏文件：记入「解析失败」列表，跳过该文件，**不**填假分）：
 
@@ -108,9 +108,9 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 全部表格与数字标记 `[MACHINE_VERIFIED]`。缺字段写「字段缺失」，不得默认 0 除非 JSON 里真是 0。
 
-### Step 3：Override 分析
+### Step 3：综合分析
 
-输出：`[polaris-flow] 进入 retro Step 3: override 分析`
+输出：`[polaris-flow 复盘] 3.综合分析`
 
 读 `.polaris/overrides.log`（若存在）：
 
@@ -122,7 +122,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 ### Step 4：改进建议
 
-输出：`[polaris-flow] 进入 retro Step 4: 改进建议`
+输出：`[polaris-flow 复盘] 4.改进建议`
 
 基于 Step 2–3 给出 **2–3 条**可操作建议，标记 `[LLM_SELF_CHECK]`：
 
@@ -132,56 +132,11 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 ### Step 5：输出报告
 
-输出：`[polaris-flow] 进入 retro Step 5: 输出报告`
+输出：`[polaris-flow 复盘] 5.输出复盘报告`
 
-按下方模板输出（可直接贴给用户；**默认不落盘**；用户要求保存时再写入例如 `.polaris/retro/<UTC>-report.md`）。
-
-## 报告模板
-
-```markdown
-# Polaris Flow 复盘报告
-
-- 范围：<overview|monthly|by-change> <补充：N 次 / YYYY-MM / change_id=…>
-- 生成时间：<ISO8601>
-- 配置 mode：<solo|team|未配置>
-- 数据：metrics=<n> 文件；overrides=<n> 行；解析失败=<n>  [MACHINE_VERIFIED]
-
-## 1. Scorer 趋势 [MACHINE_VERIFIED]
-
-| 时间 | change_id | overall | audit-violation-rate | constitution-violation-count | test-coverage | complexity | doc-sync |
-|------|-----------|---------|----------------------|------------------------------|---------------|------------|---------|
-| … | … | … | … | … | … | … | … |
-
-（overview：最近 N 行；可另附「按 change_id 桶」均值表）
-
-## 2. Constitution 合规 [MACHINE_VERIFIED]
-
-- 范围内 violations 合计 / checks 合计
-- 按 change_id 分布（含「未归因」）
-
-## 3. Override 分析 [MACHINE_VERIFIED]
-
-- 总行数 / 可解析 / 未结构化
-- 理由分布与反复项（无则写「无记录」）
-
-## 4. 改进建议 [LLM_SELF_CHECK]
-
-1. …
-2. …
-3. …（可选）
-
-## 5. 后续
-
-- 继续度量：对进行中 change 跑 `/{{SKILL_NAME_PREFIX}}verify`（worktree 场景需经 `/{{SKILL_NAME_PREFIX}}delivery` 合回）
-- 新变更：`/{{SKILL_NAME_PREFIX}}clarify` 或 `/{{SKILL_NAME_PREFIX}}propose`
-```
-
-## 约束速查
-
-| 陈述类型 | 标记 |
-|----------|------|
-| 从 JSON / log 直接聚合的数字与表格 | `[MACHINE_VERIFIED]` |
-| 改进建议与因果解读 | `[LLM_SELF_CHECK]` |
-
-- 度量计算不得「估一个差不多的数」  
-- 改进建议不得脱离 Step 2–3 的证据
+先读取模板`read_file ./templates/retro-template.md`，生成复盘报告（直接输出，**默认不落盘**）；
+按 `./reference/decision-point.md` 列出候选让用户选择(单选)。
+> 复盘报告已经输出，是否需要保存到`.polaris/retro/<UTC>-report.md`中：
+> - 需要
+> - 不需要
+如果用户选择需要则将复盘报告写入到文件 `.polaris/retro/<UTC>-report.md`中。
