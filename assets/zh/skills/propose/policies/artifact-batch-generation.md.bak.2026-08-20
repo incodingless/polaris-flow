@@ -24,7 +24,10 @@
 artifact_review_mode: per_batch   # 或 after_all
 ```
 
-> 本字段只决定「批内 §4 是否发生」：批次顺序与行为见上方**核心原则**（`per_batch` → §3+§4；`after_all` → 仅 §3，跳过 §4）；机械终检统一在 skill Step 4.1。
+| 值 | 本 policy 路径 |
+|----|----------------|
+| `per_batch` | §3 →（每批）§4 → 返回 skill（机械终检见 skill 4.1） |
+| `after_all` | §3 连续四批 → 返回 skill（**跳过 §4**；机械终检见 skill 4.1） |
 
 若字段缺失、空或非上述枚举 → **停止**，回 skill Step 3.3 补选；**禁止** AI 代选或默认为某一模式。
 
@@ -85,7 +88,8 @@ openspec/changes/<change_id>/
 
 ### 3.2 模式分支
 
-- 批次执行范围严格遵循**核心原则**：`per_batch` 每批 §3 后走 §4 反思循环再冻结；`after_all` 连续四批 §3 后直接返回 skill，不进入 §4。
+- **`per_batch`（Mode A）**：本批 §3 成功 → 立即进入 **§4**（对本批）→ 按 4a 冻结后，才对下一批重复 §3；四批均完成后 → **返回 skill**（勿在本 policy 内做机械终检）
+- **`after_all`（Mode B）**：本批 §3 成功 → 直接下一批 §3；四批均成功 → **返回 skill**；**不得**进入 §4
 
 可用 `/opsx:propose <change_id>` 作为会话入口/上下文，但**不得**用其替代逐步 `instructions` 循环；真实落盘仍以本 §3 为准。
 
@@ -232,7 +236,14 @@ ReviewMode: per_batch
 
 ### 4.6 流程串（Mode A 单批）
 
-> 单批完整流程串（§3 → 4.2 → 4.3 → 4a/4b → 4c）见 **§5.3 模式 A 批次流水线**，本节不重复绘制。
+```text
+§3 生成本批
+  → 4.2 派发 propose-reviewer（附 Frozen / NewlyCreated + intention/explore 基线）
+  → 4.3 追加 review-log
+  → 4a？通过 → 冻结 → 下一批
+  → 否则 4.4 修复 → 再 4.2…（4b）
+  → round >= MAX_ROUNDS（state.yaml artifact_max_round，缺省 5）仍有 🔴 → 4c 人工决策
+```
 
 ---
 
@@ -283,4 +294,4 @@ tasks:    生成（对照全部已冻结前序）→ §4 → 通过/冻结
 - 四件套路径已按 §2 / §3 落盘（存在性的机械终检由 skill Step 4.1 负责，本 policy 不重复）
 - **Mode A**：各批 §4 已按 4a 完成（或 4c 人工决策已落地），或经 decision-point 明确接受「本批审查 SKIPPED」；无「应冻结未冻结」的中间批；`review-log.md` 已记录各批有效审查轮次（若未整段跳过审查）
 - **Mode B**：不要求 `review-log.md`；**不得**在本 policy 内声称已完成制品主审或机械终检
-- 满足上述后，方可返回 skill（intention 迁入 → Step 4.1 机械终检 → Step 4.2 整体主审）
+满足上述后，方可返回 skill 继续执行后续步骤（intention 迁入 → Step 4.1 机械终检 → Step 4.2 整体主审）

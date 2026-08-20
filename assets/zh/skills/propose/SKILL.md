@@ -1,6 +1,7 @@
 ---
 name: {{SKILL_NAME_PREFIX}}propose
 description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /{{SKILL_NAME_PREFIX}}propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 propose-reviewer 独立主审（可选 Outside Voice）后方可进入 design。"
+version: 0.1
 ---
 
 # Polaris 工作流 - 阶段：提案（propose）
@@ -10,11 +11,8 @@ description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户
   - 文件存在 → 必须读取全文后再调用
   - 文件不存在 → 必须先走 Step 2.2 fallback 声明，方可继续（不得静默跳过检查）
 - **禁止**主代理在调用 `/opsx:propose` / 生成 `tasks.md` 之前未读取 `./templates/tasks-template.md`
-- **禁止**跳过 Step 3.3 审查模式选择（AI 不得代选）；禁止未写 `artifact_review_mode` 就进入 3.4
 - **禁止**跳过 `./policies/artifact-batch-generation.md`：须按 3.3 已选模式执行分批生成（Mode A 含批内 §4；Mode B 跳过 §4）；禁止硬编码四件套结构；禁止主代理自审冒充制品审查
 - **禁止**通过 `superpowers:using-git-worktrees` 创建 worktree——必须由本 skill Step 1.3.A 直接执行 git / hooks 完成
-- **禁止**跳过 Step 4.1 机械终检（四件套存在性 / 关键节 / `tasks-lint`）；禁止脑补替代
-- **禁止**跳过 Step 4.2 主审：必须派发 `propose-reviewer`（或 subagent 不可用时经 decision-point 接受跳过）；禁止主代理自审冒充
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow] 进入提案阶段: 使用 {{SKILL_NAME_PREFIX}}propose 技能。`
@@ -133,20 +131,6 @@ bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" update-active --skill propose --wher
 | **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户调用 `/{{SKILL_NAME_PREFIX}}propose`（或 `/propose`）时的原始消息作为 propose 输入；输出 `[polaris-flow] 未找到 intention.md，使用用户原始 prompt 作为 propose 输入。` 后跳到 Step 3.2 |
 | **文件存在**（暂存或已迁入） | 对照 `./templates/intention-template.md` 检查下方**必含节**均存在且非空。缺节 → **阻断**，列出缺失节名，提示回到 clarify 补全 |
 
-**必含节**（节名必须与模板一致，勿用英文别名）：
-
-| 必含节 |
-|---|
-| `## Reframe 历程` |
-| `## 宪法对齐` |
-| `## 前提` |
-| `## 目标` |
-| `## 结论（架构 + 技术选型）` |
-| `## 备选方案` |
-| `## 任务范围（Scope）` |
-| `## 验收场景及标准` |
-| `## 待决问题` |
-
 #### 2.3 用户最终确认
 按 `./policies/ask-question-react.md` 询问 `A. 确认 / B. 暂停回到 clarify`，仅 A 进入 Step 3。
 
@@ -182,7 +166,8 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 
 ##### 3.3.1 先判定推荐（不得代选）
 
-在发问前，基于已读的 `intention.md`（或 fallback 原始 prompt）与 `state.yaml`（若有 `current_tier` / `triage`）做一次**推荐判定**，并在决策点中写明建议与依据。**禁止**用推荐直接写入 `artifact_review_mode` 或跳过询问。
+在发问前，基于已读的 `intention.md`（或 fallback 原始 prompt）与 `state.yaml`（若有 `current_tier` / `triage`）做一次**推荐判定**，并在决策点中写明建议与依据。
+**禁止**用推荐直接写入 `artifact_review_mode` 或跳过询问。
 
 **推荐 A（`per_batch`）— 每批生成后立即审查**，满足任一即倾向 A：
 
@@ -231,20 +216,11 @@ B. 否 — 四件套全部生成完毕后，再在 Step 4.2 统一整体主审�
 | A | `artifact_review_mode: per_batch` | Step 3.4 走 policy Mode A（§3+§4）→ 3.5 → 4.1 机械终检 → **仍进** Step 4.2 齐套主审 |
 | B | `artifact_review_mode: after_all` | Step 3.4 走 policy Mode B（仅 §3，**跳过 §4**）→ 3.5 → 4.1 机械终检 → Step 4.2 为**唯一**制品主审 |
 
-写入 `.polaris/tasks/<change_id>/state.yaml` 顶层 `artifact_review_mode`。**禁止** AI 代选或跳过本步；用户选择优先于 3.3.1 推荐。
+写入 `.polaris/tasks/<change_id>/state.yaml` 顶层 `artifact_review_mode`。
 
 #### 3.4 按模式执行分批生成
 
-`read_file ./policies/artifact-batch-generation.md`，按 3.3 已选模式执行（勿在本 skill 内另写一套循环）：
-
-| 模式 | 执行范围 |
-|------|----------|
-| `per_batch` | policy §3 + §4（批内反思/冻结，`artifact_max_round`） |
-| `after_all` | policy §3；**禁止**跑 policy §4 |
-
-完成条件见 policy §6；通过后方可进入 Step 3.5。机械终检在 **Step 4.1**，不在本步 / 不在 policy。
-
-**禁止**：跳过 `openspec instructions` 硬编码结构；主代理自审冒充；Mode A 下未按 4a/4c 冻结就开下一批；Mode A 派发批内审查时不附 intention（或无 intention 时不附 explore 背景）；Mode A 审查后不追加 `review-log.md`；Mode B 在 policy 内再跑一遍整体 §4（与 Step 4.2 重复）。
+`read_file ./policies/artifact-batch-generation.md`，按 3.3 已选模式执行（勿在本 skill 内另写一套循环)
 
 #### 3.5 迁入 `intention.md`（唯一真相）
 

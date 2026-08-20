@@ -1,6 +1,7 @@
 ---
 name: {{SKILL_NAME_PREFIX}}clarify
 description: "经结构化探索与确认，把用户需求落地为 intention.md。用户触发 /{{SKILL_NAME_PREFIX}}clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
+version: 0.1
 ---
 # Polaris 工作流 - 阶段1：澄清
 
@@ -17,13 +18,6 @@ description: "经结构化探索与确认，把用户需求落地为 intention.m
 
 **启动时必须先输出**：`[polaris-flow] 进入阶段: 澄清需求 — 使用 {{SKILL_NAME_PREFIX}}clarify 技能。`
 
-## 状态布局
-
-- 起草期间：`.polaris/tasks/draft-<session_suffix>-<unix_ts>/state.yaml`
-- Step 5.3 finalize 成功后：`mv` 为 `.polaris/tasks/<task_id>/`
-- `intention.md` 在 finalize 前位于 draft 目录；finalize 后位于正式 `task_id` 目录
-- 同步维护 `.polaris/workflow.yaml` 的 active 游标（写入一律走 `$PLUGIN_ROOT/hooks/workflow-entry.sh`；失败按 H12 阻断）
-
 ---
 
 ## 前置条件
@@ -34,7 +28,7 @@ description: "经结构化探索与确认，把用户需求落地为 intention.m
 
 ### Step 0：设置产物语言
 
-读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`中文`）。无配置时回退到当前用户请求语言。
+读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）。无配置时回退到当前用户请求语言。
 
 本阶段所有提问、澄清摘要、`intention.md` 均以该语言为主语言。OpenSpec 三件套语言由后续 propose 阶段继承同一配置，**本阶段不创建**那些文件。
 
@@ -173,7 +167,7 @@ done
 | 待决问题 | 探索中未关闭项 |
 | 下游约束 | 按模板固定条目 |
 
-首行任务标识暂用占位（与 finalize 脚本约定一致，如 `# intention: <TBD>`）；Step 5.3 回填为真实 `task_id`。
+首行任务标识暂用占位（与 finalize 脚本约定一致，如 `# intention: <TBD>`）；Step 5.4 回填为真实 `task_id`。
 
 写完进入 Step 5。
 
@@ -192,7 +186,7 @@ LINT_EXIT=$?
 - exit 0 → 通过  
 - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑
 
-#### 5.2 用户整体确认 `intention.md`（阻塞点）
+#### 5.3 用户整体确认 `intention.md`（阻塞点）
 
 按 `./policies/decision-point.md` 暂停并发起问答询问：
 
@@ -209,7 +203,7 @@ LINT_EXIT=$?
 
 **禁止**把 3.2–3.4 中任何局部「同意」当作本步整体确认。
 
-#### 5.3 敲定目录名并更新 state（finalize）
+#### 5.4 敲定目录名并更新 state（finalize）
 
 将 draft 目录 `mv` 为正式 `task_id`，回填 intention 首行，更新 state / workflow：
 
@@ -221,12 +215,12 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 
 | `FINAL_EXIT` | 含义 | 后续动作 |
 | ------------ | ---- | -------- |
-| 0 | 成功 | 进入 5.4 |
+| 0 | 成功 | 进入 5.5 |
 | 1 | 目标目录已存在 | 按 H12 阻断 |
 | 2 | 参数/环境错误 | 按 H12 阻断 |
 | 3 | workflow rename 失败 | 按 H12 阻断 |
 
-#### 5.4 完成状态行
+#### 5.5 完成状态行
 
 输出：`[polaris-flow] 澄清阶段完成：.polaris/tasks/<task_id>/intention.md 已锁定；state 已更新。`
 
