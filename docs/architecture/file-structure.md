@@ -5,7 +5,7 @@
 ```text
 
 your-project/
-├── .trae/                           # 平台配置目录（按 polaris init 选择的平台）
+├── .<platform>/                     # 平台配置目录（按 polaris init 选择的平台）
 │   ├── skills/                      # 技能目录
 │   │   ├── polaris-flow/            # polaris-flow 主目录（因平台差异在不同平台中上的内容不同）
 │   │   ├── brainstorming/           # Superpowers 技能
@@ -20,20 +20,20 @@ your-project/
 │   └── tasks
 │       └── <task_name>             # 任务目录
 │           ├── intention.md
-│           └── state.yaml          # 任务配置及状态 
+│           └── state.yaml          # 任务配置及状态
 │
-├── openspec/                       # OpenSpec 制品 - WHAT
+├── openspec/                       # OpenSpec 制品 - WHAT + HOW
 │   └── changes/<name>/
 │       ├── proposal.md
 │       ├── design.md
+│       ├── detail-design.md        # 设计文档（技术 RFC，归档时标注状态）
 │       ├── specs/
-│       └── tasks.md
+│       └── tasks.md                # 实施计划，TDD任务标注
 │
-├── docs/superpowers/                      # Superpowers — HOW
-│   ├── specs/YYYY-MM-DD-<topic>-design.md # 设计文档（技术 RFC，归档时标注状态）
-│   └── plans/YYYY-MM-DD-<feature>.md      # 实施计划（文件头含 change 关联元数据）
+├── docs/           
+│   └── prd                         # 产品需求文档目录
 │
-└── polaris-lock.json             # 版本锁定文件
+└── polaris-lock.json               # 版本锁定文件
 ```
 
 ** Trae平台 polaris-flow目录结构 **
@@ -49,7 +49,6 @@ your-project/
 │   │   │   ├── hooks/                      # hook + scorer 脚本
 │   │   │   ├── scorers/                    # 量化评估规则
 │   │   │   ├── policies/                   # 策略
-│   │   │   ├── templates/                  # 模板文件
 │   │   │   └── hard-stops.md               # 硬性停止点
 │   │   └── polaris-flow-*/SKILL.md     # polaris-flow子技能
 │   ├── commands/                    # 平台命令目录
@@ -70,7 +69,6 @@ your-project/
 │   │   │   ├── hooks/               # hook + scorer 脚本
 │   │   │   ├── scorers/             # 量化评估规则
 │   │   │   ├── policies/            # 策略
-│   │   │   ├── templates/           # 模板文件
 │   │   │   ├── hard-stops.md        # 硬性停止点
 │   │   │   ├── clarify/             # polaris-flow子技能-澄清技能
 │   │   │   │   └── SKILL.md

@@ -23,6 +23,30 @@ main-repo-root: "<project_root>"
 # 工作树目录
 worktree-dir: "<project_root>/.worktrees"
 
+# 布局配置
+layout:
+
+  # 工作树目录
+  worktree: "<project_root>/.worktrees"
+
+  # openspec目录
+  openspec: "<project_root>/openspec"
+
+  # 任务目录
+  tasks: 
+    root: "<project_root>/.polaris/tasks"
+    draft: "draft"
+
+  ##### 需求工程目录 #####
+  prd:
+
+    # 文档生成位置（每个需求独立子目录）
+    root: "<project_root>/.polaris/prd"
+    # 探索阶段目录名称
+    draft: "draft"
+    # 归档位置（终稿复制于此）
+    archive: "<project_root>/docs/prd"
+    
 # 模型配置
 model:
   # 提案模型
