@@ -113,8 +113,8 @@ export async function installPolarisForPlatform(
     asset,
   );
 
-  // 3.1.1 替换 hooks 薄包装中的平台占位符
-  await rewritePolarisCliPlatformId(path.join(platformLayout.skillsDir, 'hooks'), platform.id);
+  // 3.1.1 替换 scripts/_polaris-cli.sh 平台占位符，并为 hooks/scripts 设可执行位
+  await rewritePolarisCliPlatformId(platformLayout.skillsDir, platform.id);
 
   // 3.2 复制命令
   const commands = await installPolarisCommandsForPlatform(

@@ -1,8 +1,12 @@
-# 工作流 Hooks 脚本：调用顺序与作用
+# 工作流 Hooks / Scripts：调用顺序与作用
 
-本文档说明 Polaris Flow 主链路（clarify → … → delivery）中，插件内 `hooks/*.sh` 薄包装与 TypeScript 实现（`src/core/hooks/` + `polaris <name>`）的**谁调用谁、何时调用、做什么**。源码薄包装：`assets/shared/hooks/`（安装后位于 `$PLUGIN_ROOT/hooks/`）。
+本文档说明 Polaris Flow 主链路（clarify → … → delivery）中，插件内薄包装与 TypeScript 实现（`src/core/hooks/` + `polaris-flow <name>`）的**谁调用谁、何时调用、做什么**。
 
-> 约定：`.sh` **只驻留插件内**，不镜像到用户仓。Skill 仍 `bash "$PLUGIN_ROOT/hooks/<name>.sh"`；薄包装经 `_polaris-cli.sh` 转发到扁平 CLI。写 `.polaris/workflow.yaml` 一律走 `workflow-entry`（持锁 RMW，H12）。
+- **宿主注册入口**：`assets/shared/hooks/`（安装后 `$PLUGIN_ROOT/hooks/`）— 当前仅 `session-start.sh`
+- **Skill 调用薄包装**：`assets/shared/scripts/`（安装后 `$PLUGIN_ROOT/scripts/`）— workflow / worktree / lint 等
+- **共用库**：`scripts/_polaris-cli.sh`（`hooks/session-start.sh` 通过相对路径 source）
+
+> 约定：`.sh` **只驻留插件内**，不镜像到用户仓。Skill 调用 `bash "$PLUGIN_ROOT/scripts/<name>.sh"`；薄包装经 `_polaris-cli.sh` 转发到扁平 CLI。写 `.polaris/workflow.yaml` 一律走 `workflow-entry`（持锁 RMW，H12）。下文阶段表中的脚本名不加目录前缀时，默认位于 `scripts/`（`session-start` 除外，在 `hooks/`）。
 
 ---
 
@@ -71,14 +75,14 @@ flowchart TB
 ## 2. 路径解析（所有 Skill 共用）
 
 ```bash
-PLUGIN_ROOT="$(…从 .polaris/config.yaml 读 plugin_root…)"
-bash "$PLUGIN_ROOT/hooks/<script>.sh" [args…]
-# 薄包装 → polaris <script-basename> …
+PLUGIN_ROOT="$(…从 SessionStart 注入或 .polaris/config.yaml 读 plugin_root…)"
+bash "$PLUGIN_ROOT/scripts/<script>.sh" [args…]
+# 薄包装 → polaris-flow <script-basename> …
 ```
 
-主链路 hooks（除 `scorers/*.sh` 与遗留脚本）均已迁 TypeScript：`src/core/hooks/` + 扁平 CLI。共用 `_polaris-cli.sh`。
+主链路业务脚本（除 `scorers/*.sh`）均已迁 TypeScript：`src/core/hooks/` + 扁平 CLI。共用 `scripts/_polaris-cli.sh`。
 
-宿主 SessionStart（Claude 等）配置见 `assets/shared/hooks/hooks.json` 与 `assets/zh/adapters/hook-registration.md`。
+宿主 SessionStart（Claude 等）配置见 `assets/shared/hooks.json` 与 `assets/zh/adapters/hook-registration.md`（命令仍指向 `hooks/session-start.sh`）。
 
 ---
 
@@ -254,25 +258,22 @@ workflow-entry.sh → polaris workflow-entry
 
 ## 6. 仓库内脚本清单与归属
 
-| 文件 | 主链路是否调用 | 说明 |
-|------|----------------|------|
-| `session-start.sh` | 是（宿主） | → `polaris session-start` |
-| `workflow-entry.sh` | 是 | → `polaris workflow-entry`（H12） |
-| `draft-create.sh` | 间接 | → `polaris draft-create`；亦被 task-init core 调用 |
-| `task-init.sh` / `task-finalize.sh` | 是 | → `polaris task-init` / `task-finalize` |
-| `clarify-init.sh` / `clarify-finalize.sh` | 是（Skill 旧名） | 兼容别名，转发同上 |
-| `tasks-lint.sh` | 是 | → `polaris tasks-lint` |
-| `constitution-validity.sh` | 是 | → `polaris constitution-validity` |
-| `worktree-create.sh` | 是 | → `polaris worktree-create` |
-| `worktree-merge-status.sh` / `worktree-rebase-ff.sh` | 是 | → 对应 CLI |
-| `harness-sync.sh` | 是 | → `polaris harness-sync`（skill 或写 polaris-sync 名） |
-| `ship-cleanup.sh` | 是 | → `polaris ship-cleanup` |
-| `_polaris-cli.sh` | 间接 | 薄包装共用 |
-| `plugin-check.sh` | **否（遗留）** | 语义在 `integration/detect.ts` |
-| `pre-design-validate.sh` | 别名 | → `intention-validate` |
-| `structure-create.sh` | 别名 | → `draft-create`（废弃 `.harness/changes`） |
-| `intention-validate.sh` | 是（可选） | → `polaris intention-validate`；propose 完整性门禁脚本 |
-| `scorers/*.sh` | verify | **未迁** TS |
+| 文件 | 目录 | 主链路是否调用 | 说明 |
+|------|------|----------------|------|
+| `session-start.sh` | `hooks/` | 是（宿主） | → `polaris-flow host-hook` / session-start |
+| `workflow-entry.sh` | `scripts/` | 是 | → `polaris-flow workflow-entry`（H12） |
+| `task-init.sh` / `clarify-finalize.sh` | `scripts/` | 是 | → `task-init` / `task-finalize` |
+| `tasks-lint.sh` | `scripts/` | 是 | → `polaris-flow tasks-lint` |
+| `constitution-validity.sh` | `scripts/` | 是 | → `polaris-flow constitution-validity` |
+| `worktree-create.sh` | `scripts/` | 是 | → `polaris-flow worktree-create` |
+| `worktree-merge-status.sh` / `worktree-rebase-ff.sh` | `scripts/` | 是 | → 对应 CLI |
+| `harness-sync.sh` | `scripts/` | 是 | → `polaris-flow harness-sync`（旧名 polaris-sync） |
+| `ship-cleanup.sh` | `scripts/` | 是 | → `polaris-flow ship-cleanup` |
+| `intention-validate.sh` | `scripts/` | 是（可选） | → `polaris-flow intention-validate` |
+| `structure-create.sh` | `scripts/` | 别名 | → `draft-create` |
+| `get-language-name.sh` | `scripts/` | 辅助 | 读 config 返回语言显示名 |
+| `_polaris-cli.sh` | `scripts/` | 间接 | CRLF 自愈 + CLI 查找 |
+| `scorers/*.sh` | `scorers/` | verify | **未迁** TS |
 
 ---
 
@@ -280,8 +281,7 @@ workflow-entry.sh → polaris workflow-entry
 
 | Skill / Policy 中的名字 | 仓库实际文件 | 处理建议 |
 |-------------------------|--------------|----------|
-| `hooks/polaris-sync.sh` | `harness-sync.sh` | 改名或加兼容包装后再改 skill |
-| `delivery/policies/polaris-sync.md` | `harness-sync.md` | 与上同步 |
+| `hooks/polaris-sync.sh` | `scripts/harness-sync.sh` | 已改路径；文案中残留旧名可忽略 |
 | `hooks/change-locate.sh` | 不存在 | delivery Step 0 内联定位；可删 policy 引用 |
 | `$PLUGIN_ROOT/scorers/*.sh` | 目录可能未随包发布 | verify 已有「脚本缺失 → decision-point」降级 |
 | 文案中的 `.harness/` / `easy-flow` / `/ezfl:` | 目标态为 `.polaris/` / polaris-flow | 脚本与 skill 迁移中，以当前 SKILL.md 为准 |
@@ -321,4 +321,4 @@ workflow-entry.sh → polaris workflow-entry
           ship-cleanup → workflow-entry(delete)
 ```
 
-维护 hooks 时：改退出码或 JSON 契约必须同步对应阶段的 `assets/zh/skills/<phase>/SKILL.md`（英文 skill 在中文确认后再同步）。
+维护 hooks/scripts 时：改退出码或 JSON 契约必须同步对应阶段的 `assets/zh/skills/<phase>/SKILL.md`（英文 skill 在中文确认后再同步）。

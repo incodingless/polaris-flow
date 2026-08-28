@@ -142,12 +142,14 @@ run_cli() {
 
 run_sh() {
   local hooks_dir="$ROOT/assets/shared/hooks"
+  local scripts_dir="$ROOT/assets/shared/scripts"
   local tmp
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/polaris-trae-ss.XXXXXX")"
+  mkdir -p "$tmp/hooks" "$tmp/scripts"
   awk -v pid="trae" '{ gsub(/@PLATFORM_ID@/, pid); print }' \
-    "$hooks_dir/_polaris-cli.sh" >"$tmp/_polaris-cli.sh"
-  cp "$hooks_dir/session-start.sh" "$tmp/session-start.sh"
-  chmod +x "$tmp/_polaris-cli.sh" "$tmp/session-start.sh"
+    "$scripts_dir/_polaris-cli.sh" >"$tmp/scripts/_polaris-cli.sh"
+  cp "$hooks_dir/session-start.sh" "$tmp/hooks/session-start.sh"
+  chmod +x "$tmp/scripts/_polaris-cli.sh" "$tmp/hooks/session-start.sh"
 
   local path_prefix=""
   if ! command -v polaris-flow >/dev/null 2>&1; then
@@ -162,7 +164,7 @@ EOF
     fi
   fi
 
-  printf '%s' "$PAYLOAD" | bash "$tmp/session-start.sh" "$PROJECT"
+  printf '%s' "$PAYLOAD" | bash "$tmp/hooks/session-start.sh" "$PROJECT"
   local ec=$?
   rm -rf "$tmp" ${path_prefix:+"$path_prefix"}
   return "$ec"

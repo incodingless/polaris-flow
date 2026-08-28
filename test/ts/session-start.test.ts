@@ -14,7 +14,7 @@ import {
   resolveReviewAgentModel,
   runSessionStart,
 } from '../../src/core/hooks/session-start.js';
-import { PLATFORMS } from '../../src/core/platforms.js';
+import { PLATFORMS } from '../../src/core/domain/platforms.js';
 
 const claudePlatform = PLATFORMS.find((p) => p.id === 'claude')!;
 

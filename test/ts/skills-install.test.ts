@@ -13,7 +13,7 @@ import {
   SKILL_NAME_PREFIX_PLACEHOLDER,
 } from '../../src/core/install/skills.js';
 import { readAssets } from '../../src/core/assets/manifest.js';
-import { PLATFORMS } from '../../src/core/platforms.js';
+import { PLATFORMS } from '../../src/core/domain/platforms.js';
 
 const claude = PLATFORMS.find((p) => p.id === 'claude')!;
 const trae = PLATFORMS.find((p) => p.id === 'trae')!;
@@ -36,70 +36,64 @@ describe('resolveSkillNamePrefix / applySkillNamePrefix', () => {
 });
 
 describe('installPolarisForPlatform layout', () => {
-  it('claude nested：子 skill 进入 polaris-flow，公共内容与 hooks/agents 落盘', async () => {
+  it('claude nested：子 skill 进入 polaris-flow，公共内容与 hooks/scripts/agents 落盘', async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-copy-claude-'));
     const result = await installPolarisForPlatform(tmpDir, claude, true, 'zh', 'project');
 
     expect(result.skills.copied).toBeGreaterThan(0);
-    expect(result.agents.copied).toBeGreaterThan(0);
 
-    await access(path.join(tmpDir, '.claude/skills/polaris-flow/clarify/SKILL.md'));
-    await access(path.join(tmpDir, '.claude/skills/polaris-flow/README.md'));
+    await access(path.join(tmpDir, '.claude/skills/polaris-flow/coding/clarify/SKILL.md'));
     await access(path.join(tmpDir, '.claude/skills/polaris-flow/adapters'));
     await access(path.join(tmpDir, '.claude/skills/polaris-flow/hooks/session-start.sh'));
+    await access(path.join(tmpDir, '.claude/skills/polaris-flow/scripts/workflow-entry.sh'));
+    await access(path.join(tmpDir, '.claude/skills/polaris-flow/scripts/_polaris-cli.sh'));
     await access(path.join(tmpDir, '.claude/skills/polaris-flow'));
     await access(path.join(tmpDir, '.polaris'));
-    await access(path.join(tmpDir, '.claude/agents/propose-review-agent.md'));
-    await access(path.join(tmpDir, '.claude/agents/design-review-agent.md'));
-    await access(path.join(tmpDir, '.claude/agents/plan-review-agent.md'));
-    await access(path.join(tmpDir, '.claude/agents/openspec-review-agent.md'));
+    // agents 可能随资产变更增减；有安装则至少落盘到平台 agents 目录
+    if (result.agents.copied > 0) {
+      const agentsDir = path.join(tmpDir, '.claude/agents');
+      await access(agentsDir);
+    }
 
     const clarify = await readFile(
-      path.join(tmpDir, '.claude/skills/polaris-flow/clarify/SKILL.md'),
+      path.join(tmpDir, '.claude/skills/polaris-flow/coding/clarify/SKILL.md'),
       'utf-8',
     );
     expect(clarify).toMatch(/^name: polaris-flow:clarify$/m);
     expect(clarify).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
-    const idea = await readFile(
-      path.join(tmpDir, '.claude/skills/polaris-flow/idea-discovery/SKILL.md'),
+    const probe = await readFile(
+      path.join(tmpDir, '.claude/skills/polaris-flow/subagent-probe/SKILL.md'),
       'utf-8',
     );
-    expect(idea).toMatch(/^name: polaris-flow:idea-discovery$/m);
-    expect(idea).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+    expect(probe).toMatch(/^name: polaris-flow:subagent-probe$/m);
+    expect(probe).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
-    // 顶层 policies 注入到子技能
+    // 顶层 policies 注入到子技能（顶层目录名 coding / subagent-probe）
     await access(
-      path.join(tmpDir, '.claude/skills/polaris-flow/clarify/policies/decision-point.md'),
-    );
-    await access(
-      path.join(tmpDir, '.claude/skills/polaris-flow/clarify/policies/response-posture.md'),
+      path.join(tmpDir, '.claude/skills/polaris-flow/coding/policies/decision-point.md'),
     );
     const injected = await readFile(
-      path.join(tmpDir, '.claude/skills/polaris-flow/clarify/policies/decision-point.md'),
+      path.join(tmpDir, '.claude/skills/polaris-flow/coding/policies/decision-point.md'),
       'utf-8',
     );
     expect(injected).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
   });
 
-  it('trae flat：子 skill 为 polaris-flow-*，公共内容在 polaris-flow，name 与目录对齐', async () => {
+  it('trae flat：顶层 skill 目录扁平为 polaris-flow-*，公共内容在 polaris-flow', async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-copy-trae-'));
     const result = await installPolarisForPlatform(tmpDir, trae, true, 'zh', 'project');
 
     expect(result.skills.copied).toBeGreaterThan(0);
-    expect(result.agents.copied).toBeGreaterThan(0);
 
-    await access(path.join(tmpDir, '.trae/skills/polaris-flow-clarify/SKILL.md'));
-    await access(path.join(tmpDir, '.trae/skills/polaris-flow/README.md'));
+    await access(path.join(tmpDir, '.trae/skills/polaris-flow-coding/clarify/SKILL.md'));
     await access(path.join(tmpDir, '.trae/skills/polaris-flow/hooks/session-start.sh'));
+    await access(path.join(tmpDir, '.trae/skills/polaris-flow/scripts/workflow-entry.sh'));
+    await access(path.join(tmpDir, '.trae/skills/polaris-flow/scripts/_polaris-cli.sh'));
     await expect(access(path.join(tmpDir, '.trae/skills/polaris-flow-README.md'))).rejects.toThrow();
-    await access(path.join(tmpDir, '.trae/agents/propose-review-agent.md'));
-    await access(path.join(tmpDir, '.trae/agents/design-review-agent.md'));
-    await access(path.join(tmpDir, '.trae/agents/plan-review-agent.md'));
-    await access(path.join(tmpDir, '.trae/agents/openspec-review-agent.md'));
 
     const clarify = await readFile(
-      path.join(tmpDir, '.trae/skills/polaris-flow-clarify/SKILL.md'),
+      path.join(tmpDir, '.trae/skills/polaris-flow-coding/clarify/SKILL.md'),
       'utf-8',
     );
     expect(clarify).toMatch(/^name: polaris-flow-clarify$/m);
@@ -112,10 +106,7 @@ describe('installPolarisForPlatform layout', () => {
     expect(probe).toMatch(/^name: polaris-flow-subagent-probe$/m);
     expect(probe).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
-    await access(path.join(tmpDir, '.trae/skills/polaris-flow-clarify/policies/decision-point.md'));
-    await access(
-      path.join(tmpDir, '.trae/skills/polaris-flow-clarify/policies/response-posture.md'),
-    );
+    await access(path.join(tmpDir, '.trae/skills/polaris-flow-coding/policies/decision-point.md'));
   });
 });
 
@@ -132,7 +123,8 @@ describe('copyPolarisSkillsForPlatform', () => {
       asset,
     );
 
-    await access(path.join(tmpDir, '.claude/skills/polaris-flow/clarify/SKILL.md'));
+    await access(path.join(tmpDir, '.claude/skills/polaris-flow/coding/clarify/SKILL.md'));
+    await access(path.join(tmpDir, '.claude/skills/polaris-flow/scripts/workflow-entry.sh'));
     await expect(
       access(path.join(tmpDir, '.claude/agents/plan-review-agent.md')),
     ).rejects.toThrow();

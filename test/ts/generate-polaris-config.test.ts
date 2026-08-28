@@ -10,7 +10,7 @@ import { parse as parseYaml } from 'yaml';
 import { generatePolarisConfig } from '../../src/core/install.js';
 import { getPolarisConfigPath } from '../../src/core/assets/polaris-paths.js';
 import { resolveWorktreeRoot } from '../../src/core/install/layout.js';
-import { PLATFORMS } from '../../src/core/platforms.js';
+import { PLATFORMS } from '../../src/core/domain/platforms.js';
 
 function platformById(id: string) {
   const p = PLATFORMS.find((x) => x.id === id);

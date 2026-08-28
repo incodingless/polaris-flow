@@ -7,5 +7,5 @@
 
   "langContentDirs": ["skills", "commands", "templates", "adapters", "policies", "agents"],
   "langFiles": [".gitignore", "hooks.json"],
-  "sharedDirs": ["hooks", "scorers", "templates"]
+  "sharedDirs": ["hooks", "scorers", "templates", "scripts"]
 }

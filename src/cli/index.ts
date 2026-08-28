@@ -6,6 +6,7 @@ import { initCommand } from '../commands/init.js';
 import { updateCommand } from '../commands/update.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { statusCommand } from '../commands/status.js';
+import { configGetCommand } from '../commands/config.js';
 import { hostHookCommand, sessionStartCommand } from '../commands/hooks/host-hook.js';
 import { workflowEntryCommand } from '../commands/hooks/workflow-entry.js';
 import {
@@ -116,6 +117,17 @@ program
   .option('--json', 'output JSON')
   .action(async (path: string, options) => {
     await statusCommand(path, { json: options.json });
+  });
+
+const configProgram = program.command('config').description('Read .polaris/config.yaml values');
+
+configProgram
+  .command('get <key>')
+  .description('Get a config value (currently supports: language)')
+  .argument('[path]', 'project root', process.cwd())
+  .option('--json', 'output JSON (language includes language_name)')
+  .action(async (key: string, path: string, options: { json?: boolean }) => {
+    await configGetCommand(key, path, { json: options.json });
   });
 
 /** hooks 薄包装经 `_polaris-cli.sh` 追加的平台选项；多数子命令仅接受以免 unknown option */

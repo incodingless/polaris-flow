@@ -10,7 +10,7 @@ import type { InstallScope } from './polaris-paths.js';
 import { loadPolarisConfig } from '../config/polaris-project-config.js';
 
 /** 包内公共目录前缀（装入 polaris-flow 插件根，两种 layout 相同） */
-const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/'] as const;
+const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/', 'scripts/'] as const;
 
 /** 应忽略的空壳路径前缀 */
 const SKIP_PREFIXES = ['skills/polaris/'] as const;

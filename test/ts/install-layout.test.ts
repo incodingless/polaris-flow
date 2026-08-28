@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { PLATFORMS } from '../../src/core/platforms.js';
+import { PLATFORMS } from '../../src/core/domain/platforms.js';
 import {
   getPluginRootRel,
   getTopLevelSkillName,
@@ -32,6 +32,7 @@ describe('install-layout', () => {
     expect(isPackageCommonAsset('policies/decision-point.md')).toBe(true);
     expect(isPackageCommonAsset('templates/intention-template.md')).toBe(true);
     expect(isPackageCommonAsset('hooks/session-start.sh')).toBe(true);
+    expect(isPackageCommonAsset('scripts/get-language-name.sh')).toBe(true);
     expect(isPackageCommonAsset('skills/hard-stops.md')).toBe(true);
     expect(isPackageCommonAsset('skills/clarify/SKILL.md')).toBe(false);
   });
@@ -52,6 +53,9 @@ describe('install-layout', () => {
     );
     expect(resolveInstallDest('hooks/session-start.sh', claude)).toBe(
       '.claude/skills/polaris-flow/hooks/session-start.sh',
+    );
+    expect(resolveInstallDest('scripts/workflow-entry.sh', claude)).toBe(
+      '.claude/skills/polaris-flow/scripts/workflow-entry.sh',
     );
     expect(resolveInstallDest('skills/hard-stops.md', claude)).toBe(
       '.claude/skills/polaris-flow/hard-stops.md',

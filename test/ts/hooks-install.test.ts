@@ -11,7 +11,7 @@ import {
   resolveHooksConfigPath,
 } from '../../src/core/install/hooks.js';
 import { readAssets } from '../../src/core/assets/manifest.js';
-import { PLATFORMS } from '../../src/core/platforms.js';
+import { PLATFORMS } from '../../src/core/domain/platforms.js';
 
 const claude = PLATFORMS.find((p) => p.id === 'claude')!;
 const trae = PLATFORMS.find((p) => p.id === 'trae')!;

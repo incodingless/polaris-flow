@@ -1,5 +1,5 @@
 /**
- * workflow.yaml RMW 入口（对齐 assets/shared/hooks/workflow-entry.sh）。
+ * workflow.yaml RMW 入口（对齐 assets/shared/scripts/workflow-entry.sh）。
  * 持锁 → 解析 → 修改 → 写回 → 写后校验；由 `polaris workflow-entry` 调用。
  * `get-active-changes` 为只读：不持锁、不写盘，stdout 输出 JSON 数组。
  */

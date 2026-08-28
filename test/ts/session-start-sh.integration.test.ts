@@ -11,22 +11,27 @@ import { describe, expect, it } from 'vitest';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
 const assetsHooks = path.join(projectRoot, 'assets/shared/hooks');
+const assetsScripts = path.join(projectRoot, 'assets/shared/scripts');
 const polarisFlowJs = path.join(projectRoot, 'bin/polaris-flow.js');
 
 /**
- * 在临时 hooks 目录落盘 session-start.sh + 已替换 platform 的 _polaris-cli.sh。
+ * 在临时插件根落盘 hooks/session-start.sh + scripts/_polaris-cli.sh（与安装布局一致）。
  */
 async function materializeHooks(platformId: string): Promise<string> {
-  const hooksDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-ss-hooks-'));
+  const pluginRoot = await mkdtemp(path.join(os.tmpdir(), 'polaris-ss-plugin-'));
+  const hooksDir = path.join(pluginRoot, 'hooks');
+  const scriptsDir = path.join(pluginRoot, 'scripts');
+  await mkdir(hooksDir, { recursive: true });
+  await mkdir(scriptsDir, { recursive: true });
   await copyFile(path.join(assetsHooks, 'session-start.sh'), path.join(hooksDir, 'session-start.sh'));
-  const cliSrc = await readFile(path.join(assetsHooks, '_polaris-cli.sh'), 'utf-8');
+  const cliSrc = await readFile(path.join(assetsScripts, '_polaris-cli.sh'), 'utf-8');
   await writeFile(
-    path.join(hooksDir, '_polaris-cli.sh'),
+    path.join(scriptsDir, '_polaris-cli.sh'),
     cliSrc.split('@PLATFORM_ID@').join(platformId),
     'utf-8',
   );
   await chmod(path.join(hooksDir, 'session-start.sh'), 0o755);
-  await chmod(path.join(hooksDir, '_polaris-cli.sh'), 0o755);
+  await chmod(path.join(scriptsDir, '_polaris-cli.sh'), 0o755);
   return hooksDir;
 }
 

@@ -1,112 +1,218 @@
 ---
 name: polaris-flow{{SKILL_NAME_SPLITTER}}prd-draft
-description: "This skill should be used when the user wants to author product requirement documents (PRD) from user stories through a staged, resumable workflow. It supports per-requirement directory isolation, stage tracking, and breakpoint resume, with a config file defining where documents are generated and where they are archived. Trigger when the user says things like 写产品需求, 根据用户故事生成需求文档, PRD, 需求规格, 把用户故事展开成需求, or asks to clarify, draft, review, or archive a requirement. Six stages: clarify, draft, detail, review, archive."
-version: 0.1
+description: 触发场景：用户持有「需求基线 Baseline」与「需求澄清纪要」，需要人机协同逐章产出 PRD 初稿（如「写产品需求」「根据需求基线生成PRD初稿」「结合澄清纪要写需求文档」「PRD初稿」「需求规格初稿」「把基线展开成需求文档」）。本技能覆盖单个阶段：基于基线 + 澄清纪要，逐章生成 PRD 初稿并交叉校验。内置 B 端 PRD 人工编写最佳实践：复杂度分级裁剪、问题‑方案‑目标逻辑、架构图+流程图视觉语言、MoSCoW 优先级、风险前置、重点突出与无歧义语言、初稿边界检查。
+version: 0.3
 ---
 
-# 编写产品需求-探索并澄清需求
+# 编写产品需求-编写PRD初稿
 
 <HARD-GATE>
-
+- **需求源唯一性**：仅以《需求基线》为唯一功能需求来源；澄清纪要仅作权威补充需求源与风险输入，参考文档只控制写作格式。多份冲突输入须由用户指定唯一《需求基线》，禁止 AI 自选。
+- **事实与假设分离**：所有未经原文标记或用户确认的内容，不得作为既定业务重点；AI 不主观新增重点、不脑补业务结论。
+- **方案域不越界**：初稿不输出数据库表、接口字段、类名、函数、技术实现方案；不实现终稿模块（权限、数据模型、接口契约、埋点、排期），风险与排除项仅写到提纲级（风险点+应对、排除项清单）。
+- **Gate 不可跳过**：未通过前置 Gate 校验，禁止执行任何文档生成动作；未通过用户确认，禁止进入下一章节。
+- **语言无歧义**：禁用模糊主观表述与技术指令性语言，统一采用「用户故事+业务规则」的产品语言；未明确的逻辑判断条件、不统一的术语须改写或标记待确认。
+- **变更全程可追溯**：所有对基线/澄清结论的引用与融合，须标注来源与依据，禁止静默改写原文。
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 需求工程] 进入阶段: 探索并澄清需求 — 使用 polaris-flow{{SKILL_NAME_SPLITTER}}prd-discovery 技能。`
+**启动时必须先输出**：`[polaris-flow 需求工程] 进入阶段: 编写PRD初稿 — 使用 polaris-flow{{SKILL_NAME_SPLITTER}}prd-draft 技能。`
 
 ## 流程
 
-### Step 0: 设置产物语言
+> **上下文整理通用规则**：每个 Step 收尾时，统一释放该步的中间推导草稿、重复条目、冗余对话与已闭环问题的原始草稿；仅保留已确认结论、剩余待生成章节、交叉校验结果、隐含假设与风险池（下文各「上下文整理」子步骤只列本步需保留的关键产出）。
 
-读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）。无配置时回退到当前用户请求语言。
-
-本阶段所有提问、澄清摘要均以该语言为主语言。
-
-### Step 1: 加载任务并选择
-
-使用 SessionStart 注入的路径（本 skill 内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
-
-- 环境变量 `$PLUGIN_ROOT` / `$REPO_ROOT`（Trae `env`、 Cursor `env`、Claude `CLAUDE_ENV_FILE`，或 Agent 上下文中的同名赋值）
-- 仍无 `$PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
+### Step 0：定位 change_id + 入口校验
 
 ```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/hooks/prd/task-init.sh" ]; then
-  echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
-  exit 2
-fi
-
-INIT_RESULT=$(bash "$PLUGIN_ROOT/hooks/prd/task-init.sh" "$REPO_ROOT")
-INIT_EXIT=$?
-echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --skill build --repo-root "$REPO_ROOT" --phase build)
+RTID_EXIT=$?
 ```
 
-**输出解读**（读 `INIT_RESULT` JSON）：
+- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
+- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-| `INIT_EXIT` | `status` | 含义 | 后续动作 |
-| ----------- | -------- | ---- | -------- |
-| 0 | `"ok"` | 成功 | 取 `draft_name`，进入 Step 1.5 |
-| 1 | `"existing"` | 存在未完成 draft | 按决策点协议询问 A/B/C（见下） |
-| 2 | —（stderr）  | 参数/环境错误     | 按 H12 阻断 |
-| 3 | —（stderr）  | workflow 写入失败 | 按 H12 阻断 |
+按 `$TASK_IDS` 数组长度解读：
 
-`status="existing"` 时且 `existing` 含已有 draft 目录列表，**必须**按 `./policies/decision-point.md` 暂停询问：
+- **唯一匹配**：直接读取 `change_id`
+- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
+- **零匹配**：阻断，提示「未找到 draft 阶段的 active change，请先执行 /{{SKILL_NAME_PREFIX}}discovery」
 
-- **A. 续写最新一个**：`draft_name` = 列表最后一项 → 进入 Step 2
-- **B. 选择一个**：列出所有的 `draft_name` 候选让用户选择之后，再进入 Step 2
-- **C. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `clarify-init.sh`，再进入 Step 1.5：
+> 若选择的任务已是 `phase=discovery`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+> 若上次中断在 plan 中（`discovery.status=in_progress` / apply paused），从中断点续跑；不得因「已是 draft」而报零匹配。
 
-#### Step 1.5：丢弃所有任务
+**入口校验**（失败 → 阻断）：
 
+| 检查 | 条件 |
+|------|------|
+| plan 已完成 | `state.yaml` 中 `plan.status=completed`（或用户明示接受续跑且 `tasks.md` 已是可执行细计划） |
+| tasks 可执行 | `openspec/changes/<change_id>/tasks.md` 非空，且含至少一个 `- [ ]` 或（续跑时）未完成项可定位 |
+| 工作目录 | 若 `worktree_path` 非空 → 后续 apply / 读 tasks **以该 worktree 为仓库根**；否则用主仓 |
+
+通过后执行：
+1. 更新 `state.yaml`：`current_verb: build`，`build.status: in_progress`。
+
+2. 设置语言
+
+执行脚本：
 ```bash
-for d in <existing 列表>; do
-  rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/hooks/workflow-entry.sh" delete-active --skill clarify --repo-root "$REPO_ROOT" --where-change-id "$d"
-done
+LANG = $(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
+LANG_EXIT = $?
 ```
 
-- **D. 取消退出**：结束本 skill
+- `LANG_EXIT != 0` → 使用当前用户请求语言
+- `LANG_EXIT ==0` → 本阶段所有提问与澄清摘要均采用 $LANG。
 
-### Step 2：开启新任务
+输出：`[polaris-flow 需求工程] 编写初稿: change_id=<change_id> ; worktree=<path|main>`
 
-进入本子流程前必须 `read_file ./policies/response-posture.md`，并按其行为对照表、Pushback Patterns推回、回复前自检执行。
+### Step 1：前置校验（必须全部通过才允许继续）
 
-#### 2.1 创建任务目录
+《需求基线》文档，别名 Baseline，路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`
+《需求澄清纪要》文档，路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req-clarify-summary.md`
 
-```bash
+校验项：
 
-```
+1. Baseline 不存在，提示：`[polaris-flow 需求工程] 编写初稿 - 未读取到需求基线文档，PRD初稿生成必须依赖需求基线作为唯一需求输入源，请提供Baseline文件路径/完整内容`，终止流程；
+2. Baseline 结构完整性：必须包含【需求背景、业务流程、功能/能力清单、业务场景清单】；缺失任意关键模块，输出缺失清单，提示：`请重新运行 /polaris-flow{{SKILL_NAME_SPLITTER}}prd-discovery 补齐《需求基线》`，终止流程；
+3. 输入源唯一性与澄清纪要加载：
+   - 声明本次生成仅以 Baseline 为唯一功能需求来源；参考文档/澄清纪要仅控制写作格式或作补充上下文，**不作为需求来源**；多份冲突输入请用户指定唯一 Baseline。
+   - 加载《需求澄清纪要》并校验：若存在澄清纪要，读取其「问题闭环明细-最终答复」与「隐含假设与风险清单」，作为权威补充需求源与风险输入；其最终答复优先于 Baseline 中的待定描述。若无澄清纪要，提示可跳过但建议补齐。
+4. 复杂度等级声明：读取 Baseline 元数据区「复杂度最终等级（简单/标准/复杂）」，据此确定初稿内容深度（见 Step 2 复杂度联动规则），并在 Gate 报告中标注。
+5. 初稿边界预声明：声明本初稿为「方案大逻辑评审对齐」稿，不含完整权限矩阵/接口字段/数据模型/排期/埋点等终稿细节。
 
+输出报告写入 `$REPO_ROOT/.polaris/tasks/<task_id>/_gate_check.md`，包含：校验时间、Baseline 标识、澄清纪要标识、复杂度等级、通过/失败、失败原因、初稿边界声明。
+> Gate 不通过：直接结束技能，不执行任何文档生成动作。
 
-#### 2.2 
+输出：`[polaris-flow 需求工程] 编写PRD初稿 - 输入文档校验通过：Baseline=<标识>，澄清纪要=<有/无>，复杂度=<等级>，初稿边界已声明。`
 
-### Step 3：理解并澄清用户需求
+#### 上下文整理
+- 释放：Baseline 全文、缺失模块草稿、冗余校验中间结果
+- 保留：Baseline 标识与路径、澄清纪要标识、复杂度等级、初稿边界声明、Gate 报告路径
 
-#### 3.1 理解用户需求
+### Step 2：加载输入 + 解析（静默执行，仅重点环节交互用户）
 
+执行步骤：
+1. 完整读取《需求基线》；
+2. 解析提取实体：角色、业务场景、通用能力、业务规则，分配锚点 ID：`cap‑xxx`（通用能力）/ `scene‑xxx`（业务场景）；构建索引 `_baseline_index.json`；
+3. 扫描 Baseline 识别人工重点：识别加粗、【重点】标记、高亮注释片段；
+4. 如果 Baseline 没有显式重点标记，输出**候选重点清单给用户确认**，用户确认后生成 `_key_points.json`；
+   - key_points 每条字段：`raw_text(原文片段)、belong_module(归属模块)、keep_mode[完整保留｜保留语义｜允许改写]`
+5. 加载规范文档与决策点：读取 `./templates/prd_template.md`（章节内容标准）；
+6. **复杂度与逻辑框架构建**：基于 Baseline 复杂度等级确定裁剪档；在内部构建「问题‑方案‑目标」逻辑框架——问题来自需求背景/痛点证据，方案来自功能架构，目标来自业务目标与验证指标（SMART）；
+7. **澄清纪要融合**：读取澄清纪要「最终答复」，标注对 Baseline 的澄清/变更点；读取「隐含假设与风险清单」汇入风险池；
+8. **图表需求识别**：识别需绘制的核心图表（架构图/流程图/状态机/线框图）及对应章节，列入生成计划。
 
-#### 3.2 查阅需求文档库
+**复杂度联动规则**（基于 Baseline「复杂度最终等级」，逐章裁剪内容深度）：
 
+| 等级 | 图表深度 | 风险清单（提纲级） | MoSCoW 严谨度 | 边界声明 |
+|------|----------|--------------------|---------------|----------|
+| 简单 | 仅核心业务流程图，可省略架构图/状态机 | 关键风险 1–3 条 | MUST/SHOULD 两级即可 | 轻量 |
+| 标准 | 架构图 + 主流程图 + 关键状态机 | 技术/业务/合规/依赖 各 1–2 条 | MUST/SHOULD/COULD 三级 | 标准 |
+| 复杂 | 全量图（架构/流程/状态机/线框）+ 图表索引 | 四类完整，含依赖降级 | 四级全用，含 WON'T 排除段 | 详尽 |
 
-#### 3.3 拆解用户故事
+输出状态提示：`Baseline已加载完成，复杂度={等级}，识别通用能力{N}个，业务场景{M}个，已确认重点{K}项，澄清纪要={有/无}，准备进入逐章生成阶段`。
 
+> 禁止：AI 自己主观判定哪些是业务重点；重点必须来自原文标记或者用户确认。
 
-#### 3.4 识别歧义与缺口
+输出：`[polaris-flow 需求工程] 编写初稿 - 输入解析完成：通用能力{N}、业务场景{M}、重点{K}项、图表{N}张，准备进入逐章生成。`
 
-#### 3.5 澄清
+#### 上下文整理
+- 释放：Baseline 全文、原始扫描文本、拆解中间稿、未命中检索结果
+- 保留：源文件元数据、复杂度等级、`_baseline_index.json`、`_key_points.json`、澄清/变更标注、风险池、图表生成计划
 
-#### 3.6 编写 `clarifications.md`
+### Step 3：逐章生成 + 人工确认
 
-#### 3.7 用户确认 `clarifications.md` （阻塞点）
+**执行原则**
+- **一章一确认**：单章完成（生成‑自检‑用户确认‑落盘）后才允许进入下一章，禁止一次性批量生成多章节；
+- **重点不脑补**：AI 不主观判定业务重点，重点必须来自原文标记或用户确认；
+- **图表优先**：流程/需求类章节先给图（架构/流程/状态机/线框），再文字描述；
+- **引用锚点**：场景层用锚点引用通用能力，禁止大段复制原文，只写场景独有差异。
 
-按 `./policies/decision-point.md` 暂停并发起问答询问：
+> 执行铁则：
+> 1. 一章完成（生成‑自检‑用户确认‑写入磁盘）之后，才允许进入下一章；
+> 2. 不允许一次性批量生成多章节；
+> 3. 用户修改意见，修改完成再次展示，必须确认后落盘；
+> 4. 确认后的内容直接写入 sessions 下独立 md 文件，不能仅放在内存。
 
-> 请**仔细**阅读完整意图文档（含目标、前提、结论/选型、范围与验收），**审查**后确认是否可以进入下一阶段？
->
-> （请回复「确认 / ok / 同意」等明确整体确认；若仅对某条目有意见，请直接指出以便修改）
+章节顺序严格固定：
+1. 01‑需求背景.md
+2. 02‑业务流程与时序.md
+3. 03‑需求详情‑通用能力层.md
+4. 03‑需求详情‑业务场景层.md
+5. 04‑版本记录.md
 
-| 用户回复 | 判定 | 后续动作 |
-| -------- | ---- | -------- |
-| 明确整体确认 | 完成 | 进入 5.3 |
-| 仅对某条/某节反馈 | **不算确认** | 修改后 **重新执行 5.2** |
-| 模糊回复（「差不多」「可以吧」） | **不算确认** | 必须再问一次明确确认 |
-| 沉默 / 无回复 | **不算确认** | 同上 |
+**文档头部（合并阶段统一生成，置于首章之前）**：评审重点指引——列出 2—5 条本次评审需重点确认的核心问题，引导评审者按「先业务价值 → 再方案大逻辑 → 最后功能细节」顺序阅读。
 
-用户明确确认后，输出：`[polaris-flow] 澄清阶段完成：.polaris/docs/prd/<task_id>/clarifications.md 已锁定；state 已更新。`
+#### 每一章统一执行模板
+1. 根据 `./references/prd_draft_template.md` 模板，结合 需求基线 + `_baseline_index.json` + 澄清纪要 生成本章草稿；
+2. 内部三重自检：
+   - 自检 A 编写规则(`./policies/writting-rules.md`)：检查是否混入技术代码、表名、接口名，有则改写为产品语言或者标记待确认；**检查模糊主观表述、技术指令性表述、未明确的逻辑判断条件、术语不统一；统一采用「用户故事+业务规则」格式**；
+   - 自检 B 重点项管理(`./policies/key-points-management.md`)：取出本章关联的全部重点项，比对草稿，生成本章重点校验表格；
+   - 自检 C 重点优化：核心结论是否用重点摘要区块/加粗突出；重大风险/验收标准是否高亮；不同优先级功能点是否用分隔线分开；标注不过度；
+3. 将【章节草稿 + 本章重点校验表 + （图表章节含图）】一起输出给用户；
+4. 等待用户反馈（按 `./policies/decision-point.md` 暂停确认）：
+   - 用户确认 OK：直接写入 `$REPO_ROOT/.polaris/task/<task_id>/sessions/xx‑章节名.md`；进入下一章节；
+   - 用户提出修改意见：修改草稿，重新自检，再次输出，重复直到确认通过。
+
+#### 各章内容标准（融入最佳实践，6 章文件名不变）
+- **01‑需求背景**：按「问题先行（证据链支撑真实业务问题）→ 方案后置（整体思路）→ 目标闭环（SMART 可量化，承接 Baseline 业务目标）」组织；明确 **本次范围 In** 与 **本次不包含 Out／排除项清单**。
+- **02‑业务流程与时序**：**先图后文**——优先给出架构图、业务流程图（BPMN/泳道）、核心对象状态机图、长链路线框图（mermaid 或文本图），再文字描述主流程与主要分支；**末尾附「风险与应对（提纲级）」**：按 技术/业务/合规/依赖 四类列出风险点与应对策略，源自 Baseline 约束汇总 + 澄清纪要风险清单，仅写提纲级，不展开终稿细节。
+- **03‑需求详情**：功能点按 **MoSCoW（MUST/SHOULD/COULD/WON'T）分级并排序**，MUST 在前、WON'T 单独排除段；场景层用锚点 `[cap‑xxx](#cap‑xxx)` 引用通用能力，禁止大段复制通用能力原文，只写场景触发条件、流程、场景独有差异规则（保留原业务层规则）；每条功能用「用户故事+业务规则」格式。
+- **04/05 版本记录、更新记录**：版本号、日期、修订人、修订说明。
+
+#### 业务层特殊规则
+> 先写【通用能力层】，后写【业务场景层】；
+> - 通用能力：完整描述一次，分配锚点 ID；
+> - 业务场景层：禁止重复复制通用能力大段原文；使用锚点引用 `详见[xxx](#cap‑xxx)`；只写场景触发条件、流程、**场景独有的差异规则**。
+
+#### 上下文整理
+- 释放：各章草稿中间稿、冗余对话、已确认章节原始讨论
+- 保留：已落盘章节文件、各章重点校验表、图表资源、未确认章节清单
+
+### Step 4：Baseline 交叉验证 + 重点保留率校验
+
+落盘输出：`$REPO_ROOT/.polaris/task/<task_id>/sessions/_cross_check_report.md`
+
+执行动作：
+1. 功能覆盖校验：遍历 `_baseline_index.json` 全部能力、场景条目，在已经落盘的各章节 md 文件检索，生成覆盖矩阵；标记 ✅ 已覆盖 / ❌ 缺失；
+2. 锚点完整性校验：检查全部锚点引用，不存在的锚点标记异常；
+3. 重点内容统计：遍历 `_key_points.json`，统计：完整保留数、语义保留数、缺失/偏差项；计算**重点保留率 = (完整+语义保留)/总重点项**；
+4. 阈值规则：**保留率低于 95%，不允许进入交付阶段**；
+5. 初稿边界检查：校验是否清晰回答「为什么做／做什么／不做什么」三问；范围边界是否明确且无超界；排除项清单是否明确；是否含技术实现细节（应无）；待决事项是否集中标注。任一项不达标，回到对应章修改后重检；
+6. 如果存在缺失功能/重点：输出清单，询问用户：「补充到 PRD｜该条目废弃」；选择补充则回到 Step 3 对应章节修改落盘，之后重新完整跑一遍 Step 4 校验；
+7. 全部校验通过，写入完整 `_cross_check_report.md`，报告包含：功能覆盖矩阵、锚点检查结果、重点保留率、初稿边界检查结果、异常项。
+
+> 本阶段**不评审需求业务合理性**；只做：有没有写、重点是否保留、引用是否合法、初稿边界是否合规。业务好坏属于人工终稿评审范畴。
+
+#### 上下文整理
+- 释放：覆盖矩阵中间草稿、逐条比对原始过程
+- 保留：`_cross_check_report.md`、异常项清单、待用户决策项（补充/废弃）
+
+### Step 5：质量自检 + 初稿交付与归档
+
+输入：sessions 目录全部已确认章节 md
+输出：`$REPO_ROOT/.polaris/task/<task_id>/prd-draft.md` 完整 PRD 初稿文档
+
+步骤：
+1. 按章节顺序合并全部 session 文件，自动生成 Markdown 目录，修正全文锚点跳转；文档头部统一写入「评审重点指引」与「图表索引」（F08）；
+2. 全局质量自检三件套：
+   1）清理残留技术术语；
+   2）检查是否存在本应锚点引用、却大段复制通用能力内容的重复描述；
+   3）标题层级、表格、格式校验；
+   4）**重点优化一致性**：核心结论突出、高亮不过度（F10）；
+3. 生成交付说明，放在文档头部：
+
+> 文档类型：PRD 初稿（工作稿，非终稿交付件）
+> 基线来源：{Baseline 标识}
+> 澄清纪要：{澄清纪要标识}
+> 校验结果：见 /sessions/_cross_check_report.md
+> 重点保留率：XX%
+> 评审重点指引：见文档头部
+> 说明：本文档由 Agent 生成初稿，必须经过产品人工评审修订之后才可进入后续流程。
+
+4. 输出最终完整 `prd‑draft`；
+5. 归档：**完整保留整个 sessions 目录**，作为可追溯历史，支持中断恢复；
+
+输出：`[polaris-flow 需求工程] 编写初稿 - 初稿交付完成：prd-draft 已生成，重点保留率={XX}%，见 _cross_check_report.md。`
+
+### 中断恢复能力
+> 如果对话中断，重新调用技能，检测 `./sessions/_gate_check.md` 存在，读取各章节落盘文件，识别已经确认完成章节，从**未确认的第一章继续执行**，不需要从头全部重写。

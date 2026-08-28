@@ -1,5 +1,6 @@
 /**
- * hooks 资产安装改写：`_polaris-cli.sh` 的 `@PLATFORM_ID@` 占位替换与可执行位。
+ * hooks/scripts 资产安装改写：`_polaris-cli.sh` 的 `@PLATFORM_ID@` 占位替换与可执行位。
+ * `_polaris-cli.sh` 位于插件根 `scripts/`；`hooks/` 仅保留宿主注册入口。
  */
 import { chmod, readdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
@@ -10,43 +11,49 @@ import { fileExists } from '../../utils/file-system.js';
 export const PLATFORM_ID_PLACEHOLDER = '@PLATFORM_ID@';
 
 /**
- * 将 hooks 目录下 `_polaris-cli.sh` 中的 `@PLATFORM_ID@` 替换为真实 platform id。
- * 无文件或无占位则跳过；Unix 下尽量 chmod 可执行。
+ * 将 scripts 目录下 `_polaris-cli.sh` 中的 `@PLATFORM_ID@` 替换为真实 platform id，
+ * 并为 hooks/ 与 scripts/ 下 `*.sh` 设置可执行位。
+ * 无文件或无占位则跳过 rewrite；Unix 下尽量 chmod。
+ * @param pluginRoot 插件根（skills/polaris-flow）
+ * @param platformId 平台 id（claude / cursor / trae 等）
  */
 export async function rewritePolarisCliPlatformId(
-  hooksDir: string,
+  pluginRoot: string,
   platformId: string,
 ): Promise<{ rewritten: boolean }> {
-  const cliPath = path.join(hooksDir, '_polaris-cli.sh');
-  if (!(await fileExists(cliPath))) {
-    return { rewritten: false };
+  const scriptsDir = path.join(pluginRoot, 'scripts');
+  const hooksDir = path.join(pluginRoot, 'hooks');
+  const cliPath = path.join(scriptsDir, '_polaris-cli.sh');
+
+  let rewritten = false;
+  if (await fileExists(cliPath)) {
+    const original = await readFile(cliPath, 'utf-8');
+    if (original.includes(PLATFORM_ID_PLACEHOLDER)) {
+      const next = original.split(PLATFORM_ID_PLACEHOLDER).join(platformId);
+      await writeFile(cliPath, next, 'utf-8');
+      rewritten = true;
+    }
   }
 
-  const original = await readFile(cliPath, 'utf-8');
-  if (!original.includes(PLATFORM_ID_PLACEHOLDER)) {
-    await ensureHookScriptsExecutable(hooksDir);
-    return { rewritten: false };
-  }
-
-  const next = original.split(PLATFORM_ID_PLACEHOLDER).join(platformId);
-  await writeFile(cliPath, next, 'utf-8');
-  await ensureHookScriptsExecutable(hooksDir);
-  return { rewritten: true };
+  await ensureShScriptsExecutable(scriptsDir);
+  await ensureShScriptsExecutable(hooksDir);
+  return { rewritten };
 }
 
 /**
- * 尽量为 hooks 目录下 `*.sh` 设置可执行位（Windows 上可能无效，忽略错误）。
+ * 尽量为目录下 `*.sh` 设置可执行位（Windows 上可能无效，忽略错误）。
+ * @param dir 脚本目录
  */
-async function ensureHookScriptsExecutable(hooksDir: string): Promise<void> {
-  if (!(await fileExists(hooksDir))) {
+async function ensureShScriptsExecutable(dir: string): Promise<void> {
+  if (!(await fileExists(dir))) {
     return;
   }
   try {
-    const entries = await readdir(hooksDir);
+    const entries = await readdir(dir);
     for (const name of entries) {
       if (!name.endsWith('.sh')) continue;
       try {
-        await chmod(path.join(hooksDir, name), 0o755);
+        await chmod(path.join(dir, name), 0o755);
       } catch {
         // 非 Unix 或无权限时忽略
       }

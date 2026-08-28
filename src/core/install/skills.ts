@@ -169,7 +169,7 @@ export async function copyPolarisSkillsForPlatform(
 
   // Step 0：插件根公共内容（shared 原样拷贝；lang policies/templates/adapters 做前缀替换）
   const sharedDirs = assets.sharedAssets.filter((asset) =>
-    ['hooks', 'scorers', 'templates'].includes(asset.dir),
+    ['hooks', 'scorers', 'templates', 'scripts'].includes(asset.dir),
   );
   for (const sharedDir of sharedDirs) {
     for (const file of sharedDir.files) {

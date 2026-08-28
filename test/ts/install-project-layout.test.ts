@@ -12,7 +12,7 @@ import {
   initializeProjectLayout,
   resolveWorktreeRoot,
 } from '../../src/core/install/layout.js';
-import { PLATFORMS } from '../../src/core/platforms.js';
+import { PLATFORMS } from '../../src/core/domain/platforms.js';
 import { getPolarisDir } from '../../src/core/assets/polaris-paths.js';
 
 const claude = PLATFORMS.find((p) => p.id === 'claude')!;

@@ -4,19 +4,21 @@
 
 ### Added
 
-- **workflow-entry get-active-changes**: 只读加载 `.polaris/workflow.yaml` 的 `active_changes`（可选 `--phase` 过滤），stdout 输出 `change_id` JSON 数组；不持 workflow.lock
+- **config get CLI**: 新增 `polaris-flow config get language [path]`，读取 `.polaris/config.yaml` 的 `language`（支持 `--json` 输出 `language_name`）
+- **get-language-name.sh**: 共享脚本 `assets/shared/scripts/get-language-name.sh`，调用 `config get` 并将 `en`/`zh` 翻译为显示名称（English/中文），init 后位于 `PLUGIN_ROOT/scripts/`
 - **SessionStart 路径注入**: core `runSessionStart` 返回 `paths`（repoRoot / platformId / pluginRoot）；commands 映射为 `PLUGIN_ROOT` 等，经 `additionalContext` / Cursor `env` / `CLAUDE_ENV_FILE` / `.polaris/.cache/runtime-env` 注入会话
 - **宿主 hook stdout 协议**: 分发器按平台序列化 JSON（Claude/Trae `hookSpecificOutput`，Cursor `additional_context`/`env`）；过程日志改走 TTY，避免污染宿主 stdout
 - **宿主 hook stdin 归一**: Claude/Cursor/Trae 字段别名与事件判别联合；`HostHookHandler` 为分发器（读 stdin / 写 stdout / 按 event 派发），事件实现为 `HostHookEventHandler`；宿主 `.sh` 统一 `polaris-flow host-hook`
 - **工作流 hooks 调用说明**: 新增 `docs/workflow-hooks-call-order.md`，按 clarify→delivery 梳理 hooks 调用顺序、作用、内部依赖与命名债
 - **平台安装布局**: 按平台 `skillsLayout`（nested / flat）将 polaris 资产装到正确目标目录；Trae 子 skill 扁平为 `polaris-flow-*`，其余平台嵌套进 `skills/polaris-flow/`
-- **包内公共内容安装**: init/update 同步安装 adapters、policies、templates、hooks 脚本到插件根
+- **包内公共内容安装**: init/update 同步安装 adapters、policies、templates、hooks、scripts 到插件根
 - **agents 安装**: 将 `assets/<lang>/agents/` 下评审 agent（含 `propose-review-agent`、`design-review-agent`、`plan-review-agent`、`openspec-review-agent`）写入 `.<platform>/agents/`；session-start 注入 `challenger.model`
 - **outside-voice 协议与模板**: `policies/outside-voice.md`、`templates/outside-voice-prompt.tmpl.md`
 - **propose 主审**: 新增 `propose-review-agent`；`polaris-flow-propose` Step 4.6 派发主审 + 询问 Outside Voice
 
 ### Changed
 
+- **hooks/scripts 目录分离**: 宿主注册入口仅保留 `hooks/session-start.sh`；Skill 调用的薄包装与 `_polaris-cli.sh` 迁至 `scripts/`；Skill 路径改为 `$PLUGIN_ROOT/scripts/...`（无兼容包装，需 `polaris update`）；顺带将 `polaris-sync` 引用统一为 `harness-sync`
 - **skills 安装流水线**: 源技能保持短目录名 + `{{SKILL_NAME_PREFIX}}`；安装时 nested 替换为 `polaris-flow:`、flat 替换为 `polaris-flow-`；flat 落盘为 `polaris-flow-<skill>/`；语言包顶层 `policies/` 注入每个子技能的 `policies/`（同名覆盖）；`skills/README.md` 等根下裸文件始终装到 `skills/polaris-flow/`，不按 flat 重命名
 - **agent 安装按平台改写**: init 安装 agents 时按 `Platform.agentToolMap` 改写 frontmatter `tools`，并用 `resolveReviewAgentModel` 写入 `model`；SessionStart 对全部已注册平台刷新 model
 - **platform 解析**: 无效 `--platform` 回退 `.polaris/config.yaml`，不再把未知字符串当有效 id

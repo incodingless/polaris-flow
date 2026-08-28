@@ -12,7 +12,7 @@ import {
   getOpenSpecNativeContextDir,
   relocateOpenSpecToPlatformDirs,
 } from '../../src/core/integration/openspec.js';
-import { PLATFORMS } from '../../src/core/platforms.js';
+import { PLATFORMS } from '../../src/core/domain/platforms.js';
 
 describe('openspec CLI install', () => {
   it('always installs OpenSpec globally to avoid polluting target project', () => {

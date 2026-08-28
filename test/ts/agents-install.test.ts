@@ -13,7 +13,7 @@ import {
 } from '../../src/core/install/agents.js';
 import { installPolarisForPlatform } from '../../src/core/install.js';
 import { readAssets } from '../../src/core/assets/manifest.js';
-import { PLATFORMS } from '../../src/core/platforms.js';
+import { PLATFORMS } from '../../src/core/domain/platforms.js';
 import { getPolarisConfigPath } from '../../src/core/assets/polaris-paths.js';
 
 const claude = PLATFORMS.find((p) => p.id === 'claude')!;

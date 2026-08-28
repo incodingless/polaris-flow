@@ -9,7 +9,7 @@ polaris-flow 使用 hook 在关键时刻执行检查（如 SessionStart 依赖�
 | Hook | 脚本| 触发时机 |
 |------|---------|---------|
 | SessionStart | `${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh` | 新会话开始 |
-| Constitution Validity | `$PLUGIN_ROOT/hooks/constitution-validity.sh` | design/lock/build/audit 入口 |
+| Constitution Validity | `$PLUGIN_ROOT/scripts/constitution-validity.sh` | design/lock/build/audit 入口 |
 | Scorers ×5 | `$PLUGIN_ROOT/scorers/*.sh` | audit Step 2 评分 |
 
 > **路径定位**：所有 hook/scorer 脚本驻留 plugin 内部，**不镜像到 `.harness/`**。SessionStart 把当前 plugin 绝对路径覆盖写入 `.harness/.cache/.plugin_root`，skill 通过 `PLUGIN_ROOT="$(cat .harness/.cache/.plugin_root)"` 解析后调用。skill 启动时若 `.plugin_root` 缺失，提示用户重启会话即可重新写入。
