@@ -152,6 +152,7 @@ export async function finalize(
   const wf = await runWorkflowEntry({
     op: 'rename-active',
     skill: 'clarify',
+    kind: 'change',
     repoRoot: root,
     from: draftName,
     to: changeId,

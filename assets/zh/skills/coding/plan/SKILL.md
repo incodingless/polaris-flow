@@ -1,6 +1,6 @@
 ---
-name: {{SKILL_NAME_PREFIX}}plan
-description: "用户触发 /{{SKILL_NAME_PREFIX}}plan 或要求在 design 完成后写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划必须基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md 全文推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并派发 plan-review-agent 做独立主审（可选 Outside Voice）。不要用于：clarify/propose 阶段、尚未完成 design、或已进入 build 要求直接写代码。"
+name: polaris{{SKN_SPR}}flow{{SKN_SPR}}plan
+description: "用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}plan 或要求在 design 完成后写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划必须基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md 全文推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并派发 plan-review-agent 做独立主审（可选 Outside Voice）。不要用于：clarify/propose 阶段、尚未完成 design、或已进入 build 要求直接写代码。"
 ---
 
 # Polaris 工作流 - 阶段：任务规划（plan）
@@ -22,7 +22,7 @@ description: "用户触发 /{{SKILL_NAME_PREFIX}}plan 或要求在 design 完成
 - **禁止**未按 `./reference/decision-point.md` 获得用户对 **TDD 策略**（Step 2）的明确选择，就进入 Step 4 覆写 `tasks.md`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 规划 — 使用 {{SKILL_NAME_PREFIX}}plan 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]任务规划- 进入阶段：使用 polaris{{SKN_SPR}}flow{{SKN_SPR}}plan 技能。`
 
 ## 标识约定
 
@@ -78,7 +78,7 @@ TODO 待补充内部流程过程
 用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --skill plan --repo-root "$REPO_ROOT" --phase plan)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill plan --repo-root "$REPO_ROOT" --phase plan)
 RTID_EXIT=$?
 ```
 
@@ -103,7 +103,7 @@ RTID_EXIT=$?
 | 已有细计划 | 若 `plan.status=completed` 且 `tasks.md` 已细计划 → 询问 A 修订覆写 / B 退出（禁止静默覆盖） |
 
 通过后更新 `state.yaml`：`current_verb: plan`，`plan.status: in_progress`。  
-输出：`[polaris-flow] plan: change_id=<change_id> ; phase=plan`
+输出：`[polaris-flow 开发]任务规划: change_id=<change_id> ; phase=plan`
 
 ### Step 1：读取规划依据（OpenSpec 四件套 + detailed-design）
 
@@ -117,7 +117,7 @@ RTID_EXIT=$?
 
 **禁止**凭对话记忆或只读粗骨架 `tasks.md` 开写。读完输出：
 
-`[polaris-flow] plan: 规划依据已读 — proposal / design / specs(N=<文件数>) / tasks(粗) / detailed-design`
+`[polaris-flow 开发]任务规划: 规划依据已读 — proposal / design / specs(N=<文件数>) / tasks(粗) / detailed-design`
 
 若存在则一并只读：
 
@@ -145,7 +145,7 @@ plan:
   tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
 ```
 
-输出：`[polaris-flow] plan: tdd_policy=<值>`
+输出：`[polaris-flow 开发]任务规划: tdd_policy=<值>`
 
 **续跑**：若 `plan.tdd_policy` 已存在 → 展示当前值，按 decision-point 问是否沿用；沿用则跳过改写，不沿用则更新后再进 Step 3。
 
@@ -157,7 +157,7 @@ plan:
 
 **立即执行：** 加载 Superpowers `writing-plans`。不可用 → 阻断并提示安装 superpowers。
 
-输出：`[polaris-flow] plan: 已加载 writing-plans（将按骨架模式落地）`
+输出：`[polaris-flow 开发]任务规划 plan: 已加载 writing-plans（将按骨架模式落地）`
 
 **骨架模式（相对原 skill 的强制改写——违反即计划不合格）：**
 
@@ -246,7 +246,7 @@ read_file ./templates/tasks-template.md
 
 将完整计划写入（**覆写**）`openspec/changes/<change_id>/tasks.md`。  
 最后一组必须是 Documentation Sync（见模板）。  
-输出：`[polaris-flow] plan: 已写 openspec/changes/<change_id>/tasks.md`
+输出：`[polaris-flow 开发]任务规划: 已写 openspec/changes/<change_id>/tasks.md`
 
 ### Step 5：自审 + tasks-lint
 
@@ -303,7 +303,7 @@ LINT_EXIT=$?
 
 4. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；将完整 **Plan Review Report** 写入 `openspec/changes/<change_id>/reviews/plan-review-report.md`。
 
-输出：`[polaris-flow] plan: plan-review-agent 已完成，报告已落盘`
+输出：`[polaris-flow 开发]任务规划: plan-review-agent 已完成，报告已落盘`
 
 #### 6.2 Outside Voice（询问后可选）
 
@@ -365,13 +365,13 @@ current_verb: idle
 workflow阶段推进至详细构建阶段：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --skill plan --where-change-id "$task_id" --set phase=build
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill plan --where-task-id "$task_id" --set phase=build
 ```
 
 输出：
 
 ```
-[polaris-flow] plan 阶段完成：
+任务规划阶段完成：
   change_id     : <change_id>
   tdd_policy    : <prefer_tdd|require_tdd|prefer_direct>
   tasks.md      : openspec/changes/<change_id>/tasks.md（已覆写）
@@ -379,7 +379,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --skill plan --where
   outside-voice : <ran | skipped:...>
   STATUS        : <DONE | DONE_WITH_CONCERNS>
 
-下一步建议 /{{SKILL_NAME_PREFIX}}build（按 tasks.md 由 implementer 执行 /opsx:apply）。
+下一步建议 /polaris{{SKN_SPR}}flow{{SKN_SPR}}build（按 tasks.md 由 implementer 执行 /opsx:apply）。
 ```
 
 ## 退出条件

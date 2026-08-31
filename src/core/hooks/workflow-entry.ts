@@ -1,19 +1,23 @@
 /**
  * workflow.yaml RMW 入口（对齐 assets/shared/scripts/workflow-entry.sh）。
  * 持锁 → 解析 → 修改 → 写回 → 写后校验；由 `polaris workflow-entry` 调用。
- * `get-active-changes` 为只读：不持锁、不写盘，stdout 输出 JSON 数组。
+ * `get-active-changes` 为只读：不持锁、不写盘，stdout 输出 task_id JSON 数组。
+ * 任务列表由必填 `--kind`（change|requirement|testcase）选定。
  */
 import { execFileSync } from 'child_process';
 import path from 'path';
 
 import {
   ensureWorkflowStateFile,
+  getTaskList,
   getWorkflowStatePath,
   loadWorkflowState,
+  parseWorkflowTaskKind,
   saveWorkflowState,
-  type ActiveChangeEntry,
-  type PendingTriageEntry,
+  setTaskList,
   type WorkflowState,
+  type WorkflowTaskEntry,
+  type WorkflowTaskKind,
 } from '../config/workflow-state.js';
 import { acquireWorkflowLock, WorkflowLockError } from './workflow-lock.js';
 
@@ -22,26 +26,21 @@ export type WorkflowEntryOp =
   | 'append-active'
   | 'update-active'
   | 'rename-active'
-  | 'delete-active'
-  | 'upsert-pending-triage'
-  | 'delete-pending-triage';
+  | 'delete-active';
 
 export type WorkflowEntryArgs = {
   op: WorkflowEntryOp;
   skill: string;
+  /** 任务类型：选定 YAML 列表 */
+  kind?: string;
   repoRoot?: string;
-  changeId?: string;
+  taskId?: string;
   phase?: string;
   worktreePath?: string;
   startedAt?: string;
-  whereChangeId?: string;
+  whereTaskId?: string;
   from?: string;
   to?: string;
-  sessionSuffix?: string;
-  tier?: string;
-  t1?: string;
-  t2?: string;
-  timestamp?: string;
   setPhase?: string;
   setWorktreePath?: string;
   /** 测试用：覆盖锁超时 */
@@ -57,14 +56,15 @@ export type WorkflowEntryResult = {
   exitCode: number;
   message?: string;
   /** get-active-changes：完整条目 */
-  activeChanges?: ActiveChangeEntry[];
-  /** get-active-changes：仅 change_id 列表 */
-  changeIds?: string[];
+  tasks?: WorkflowTaskEntry[];
+  /** get-active-changes：仅 task_id 列表 */
+  taskIds?: string[];
 };
 
 type VerifySpec = {
-  kind: 'ac_has_cid' | 'ac_no_cid' | 'ac_entry_phase' | 'pt_has_ss' | 'pt_no_ss';
+  kind: 'has_tid' | 'no_tid' | 'entry_phase';
   val: string;
+  taskKind: WorkflowTaskKind;
 };
 
 /** 解析主仓根：显式路径或 git toplevel */
@@ -83,15 +83,29 @@ export function resolveRepoRoot(explicit?: string, cwd: string = process.cwd()):
 }
 
 /**
- * 从 state 读取 active_changes；可选按 phase 过滤。
+ * 校验并返回 WorkflowTaskKind；失败抛 WorkflowEntryParamError。
  */
-export function listActiveChanges(
+function requireKind(raw: string | undefined): WorkflowTaskKind {
+  const kind = parseWorkflowTaskKind(raw);
+  if (!kind) {
+    throw new WorkflowEntryParamError(
+      '缺少或非法 --kind（须为 change|requirement|testcase）',
+    );
+  }
+  return kind;
+}
+
+/**
+ * 从 state 读取指定 kind 的任务列表；可选按 phase 过滤。
+ */
+export function listTasks(
   state: WorkflowState,
+  kind: WorkflowTaskKind,
   phaseFilter?: string,
-): ActiveChangeEntry[] {
-  const entries = state.active_changes ?? [];
+): WorkflowTaskEntry[] {
+  const entries = getTaskList(state, kind);
   if (!phaseFilter) {
-    return [...entries];
+    return entries;
   }
   return entries.filter((e) => e.phase === phaseFilter);
 }
@@ -103,96 +117,73 @@ export function applyWorkflowOp(
   state: WorkflowState,
   args: WorkflowEntryArgs,
 ): { state: WorkflowState; verify: VerifySpec; verifyNeg?: VerifySpec } {
-  const active = [...state.active_changes];
-  const pending = [...state.pending_triages];
+  const taskKind = requireKind(args.kind);
+  const list = getTaskList(state, taskKind);
 
   switch (args.op) {
     case 'append-active': {
-      if (!args.changeId) {
-        throw new WorkflowEntryParamError('append-active 需要 --change-id');
+      if (!args.taskId) {
+        throw new WorkflowEntryParamError('append-active 需要 --task-id');
       }
-      active.push({
-        change_id: args.changeId,
+      list.push({
+        task_id: args.taskId,
         phase: args.phase ?? '',
         worktree_path: args.worktreePath ?? '',
         started_at: args.startedAt ?? '',
       });
       return {
-        state: { ...state, active_changes: active, pending_triages: pending },
-        verify: { kind: 'ac_has_cid', val: args.changeId },
+        state: setTaskList(state, taskKind, list),
+        verify: { kind: 'has_tid', val: args.taskId, taskKind },
       };
     }
     case 'update-active': {
-      if (!args.whereChangeId) {
-        throw new WorkflowEntryParamError('update-active 需要 --where-change-id');
+      if (!args.whereTaskId) {
+        throw new WorkflowEntryParamError('update-active 需要 --where-task-id');
       }
-      const idx = active.findIndex((e) => e.change_id === args.whereChangeId);
+      const idx = list.findIndex((e) => e.task_id === args.whereTaskId);
       if (idx < 0) {
         throw new WorkflowEntryParamError(
-          `update-active 未找到 change_id=${args.whereChangeId} 的 entry`,
+          `update-active 未找到 task_id=${args.whereTaskId} 的 entry（kind=${taskKind}）`,
         );
       }
-      const cur = active[idx];
+      const cur = list[idx];
       const newPh = args.setPhase ?? cur.phase;
       const newWt = args.setWorktreePath ?? cur.worktree_path;
-      active[idx] = { ...cur, phase: newPh, worktree_path: newWt };
+      list[idx] = { ...cur, phase: newPh, worktree_path: newWt };
       return {
-        state: { ...state, active_changes: active, pending_triages: pending },
-        verify: { kind: 'ac_entry_phase', val: `${args.whereChangeId}|${newPh}` },
+        state: setTaskList(state, taskKind, list),
+        verify: {
+          kind: 'entry_phase',
+          val: `${args.whereTaskId}|${newPh}`,
+          taskKind,
+        },
       };
     }
     case 'rename-active': {
       if (!args.from || !args.to) {
         throw new WorkflowEntryParamError('rename-active 需要 --from <old> --to <new>');
       }
-      const idx = active.findIndex((e) => e.change_id === args.from);
+      const idx = list.findIndex((e) => e.task_id === args.from);
       if (idx < 0) {
-        throw new WorkflowEntryParamError(`rename-active 未找到 change_id=${args.from} 的 entry`);
+        throw new WorkflowEntryParamError(
+          `rename-active 未找到 task_id=${args.from} 的 entry（kind=${taskKind}）`,
+        );
       }
-      active[idx] = { ...active[idx], change_id: args.to };
+      list[idx] = { ...list[idx], task_id: args.to };
       return {
-        state: { ...state, active_changes: active, pending_triages: pending },
-        verify: { kind: 'ac_has_cid', val: args.to },
-        verifyNeg: { kind: 'ac_no_cid', val: args.from },
+        state: setTaskList(state, taskKind, list),
+        verify: { kind: 'has_tid', val: args.to, taskKind },
+        verifyNeg: { kind: 'no_tid', val: args.from, taskKind },
       };
     }
     case 'delete-active': {
-      if (!args.whereChangeId) {
-        throw new WorkflowEntryParamError('delete-active 需要 --where-change-id');
+      if (!args.whereTaskId) {
+        throw new WorkflowEntryParamError('delete-active 需要 --where-task-id');
       }
-      const next = active.filter((e) => e.change_id !== args.whereChangeId);
+      const next = list.filter((e) => e.task_id !== args.whereTaskId);
       return {
-        state: { ...state, active_changes: next, pending_triages: pending },
-        verify: { kind: 'ac_no_cid', val: args.whereChangeId },
-      };
-    }
-    case 'upsert-pending-triage': {
-      if (!args.sessionSuffix || !args.tier) {
-        throw new WorkflowEntryParamError('upsert-pending-triage 需要 --session-suffix 与 --tier');
-      }
-      const entry: PendingTriageEntry = {
-        session_suffix: args.sessionSuffix,
-        tier: args.tier,
-        t1_result: args.t1 ?? args.tier,
-        t2_result: args.t2 ?? '',
-        timestamp: args.timestamp ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-      };
-      const idx = pending.findIndex((e) => e.session_suffix === args.sessionSuffix);
-      if (idx >= 0) pending[idx] = entry;
-      else pending.push(entry);
-      return {
-        state: { ...state, active_changes: active, pending_triages: pending },
-        verify: { kind: 'pt_has_ss', val: args.sessionSuffix },
-      };
-    }
-    case 'delete-pending-triage': {
-      if (!args.sessionSuffix) {
-        throw new WorkflowEntryParamError('delete-pending-triage 需要 --session-suffix');
-      }
-      const next = pending.filter((e) => e.session_suffix !== args.sessionSuffix);
-      return {
-        state: { ...state, active_changes: active, pending_triages: next },
-        verify: { kind: 'pt_no_ss', val: args.sessionSuffix },
+        state: setTaskList(state, taskKind, next),
+        verify: { kind: 'no_tid', val: args.whereTaskId, taskKind },
       };
     }
     default:
@@ -213,41 +204,49 @@ export class WorkflowEntryParamError extends Error {
  */
 export async function verifyWorkflowFile(repoRoot: string, spec: VerifySpec): Promise<boolean> {
   const state = await loadWorkflowState(repoRoot);
+  const list = getTaskList(state, spec.taskKind);
 
   switch (spec.kind) {
-    case 'ac_has_cid':
-      return state.active_changes.some((e) => e.change_id === spec.val);
-    case 'ac_no_cid':
-      return !state.active_changes.some((e) => e.change_id === spec.val);
-    case 'ac_entry_phase': {
-      const [cid, wantPh] = spec.val.split('|');
-      const hit = state.active_changes.find((e) => e.change_id === cid);
+    case 'has_tid':
+      return list.some((e) => e.task_id === spec.val);
+    case 'no_tid':
+      return !list.some((e) => e.task_id === spec.val);
+    case 'entry_phase': {
+      const [tid, wantPh] = spec.val.split('|');
+      const hit = list.find((e) => e.task_id === tid);
       return Boolean(hit && hit.phase === wantPh);
     }
-    case 'pt_has_ss':
-      return state.pending_triages.some((e) => e.session_suffix === spec.val);
-    case 'pt_no_ss':
-      return !state.pending_triages.some((e) => e.session_suffix === spec.val);
     default:
       return false;
   }
 }
 
 /**
- * 只读：加载 workflow.yaml 的 active_changes，可选 `--phase` 过滤。
- * stdout 输出 change_id 的 JSON 数组，例如 `["foo","bar"]`。
+ * 只读：加载指定 kind 的任务列表，可选 `--phase` 过滤。
+ * stdout 输出 task_id 的 JSON 数组，例如 `["foo","bar"]`。
  */
 async function runGetActiveChanges(args: WorkflowEntryArgs): Promise<WorkflowEntryResult> {
+  let taskKind: WorkflowTaskKind;
+  try {
+    taskKind = requireKind(args.kind);
+  } catch (err) {
+    if (err instanceof WorkflowEntryParamError) {
+      console.error(`[workflow-entry] 阻断：${err.message}`);
+      return { exitCode: 3, message: err.message };
+    }
+    throw err;
+  }
+
   const repoRoot = resolveRepoRoot(args.repoRoot);
   if (!repoRoot) {
     return { exitCode: 3, message: '无法解析主仓根' };
   }
 
   const loaded = await loadWorkflowState(repoRoot);
-  const activeChanges = listActiveChanges(loaded, args.phase);
-  const changeIds = activeChanges.map((e) => e.change_id).filter((id) => id.length > 0);
-  console.log(JSON.stringify(changeIds));
-  return { exitCode: 0, activeChanges, changeIds };
+  const tasks = listTasks(loaded, taskKind, args.phase);
+  const taskIds = tasks.map((e) => e.task_id).filter((id) => id.length > 0);
+  console.log(JSON.stringify(taskIds));
+  return { exitCode: 0, tasks, taskIds };
 }
 
 /**
@@ -259,7 +258,7 @@ export async function runWorkflowEntry(args: WorkflowEntryArgs): Promise<Workflo
     return {
       exitCode: 3,
       message:
-        '缺少 op(get-active-changes/append-active/update-active/rename-active/delete-active/upsert-pending-triage/delete-pending-triage)',
+        '缺少 op(get-active-changes/append-active/update-active/rename-active/delete-active)',
     };
   }
 
@@ -320,7 +319,7 @@ export async function runWorkflowEntry(args: WorkflowEntryArgs): Promise<Workflo
       const negOk = await verifyWorkflowFile(repoRoot, applied.verifyNeg);
       if (!negOk) {
         console.error(
-          `[workflow-entry] 写后校验失败(rename 后旧 change_id=${applied.verifyNeg.val} 仍存在)`,
+          `[workflow-entry] 写后校验失败(rename 后旧 task_id=${applied.verifyNeg.val} 仍存在)`,
         );
         return { exitCode: 2, message: '写后校验失败' };
       }
@@ -332,12 +331,12 @@ export async function runWorkflowEntry(args: WorkflowEntryArgs): Promise<Workflo
   }
 }
 
-/** 供测试导出：构造 ActiveChangeEntry */
-export function makeActiveEntry(
-  partial: Partial<ActiveChangeEntry> & Pick<ActiveChangeEntry, 'change_id'>,
-): ActiveChangeEntry {
+/** 供测试导出：构造 WorkflowTaskEntry */
+export function makeTaskEntry(
+  partial: Partial<WorkflowTaskEntry> & Pick<WorkflowTaskEntry, 'task_id'>,
+): WorkflowTaskEntry {
   return {
-    change_id: partial.change_id,
+    task_id: partial.task_id,
     phase: partial.phase ?? '',
     worktree_path: partial.worktree_path ?? '',
     started_at: partial.started_at ?? '',

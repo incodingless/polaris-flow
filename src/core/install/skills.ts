@@ -4,7 +4,7 @@
  *
  * 安装流水线：
  * 1. 按 nested/flat 复制技能目录（源为短名）
- * 2. 替换 {{SKILL_NAME_PREFIX}}（nested → polaris-flow: ；flat → polaris-flow-）
+ * 2. 替换 {{SKN_SPR}}（nested → polaris:flow: ；flat → polaris-flow-）
  * 3. 将语言包顶层 policies 注入每个子技能的 policies/（同名按 overwrite 覆盖）
  */
 import path from 'path';
@@ -22,7 +22,7 @@ import { Assets } from '../assets/manifest.js';
 import { POLARIS_FLOW_PLUGIN_NAME } from '../config/polaris-constants.js';
 
 /** 技能资产中的名称前缀占位符 */
-export const SKILL_NAME_PREFIX_PLACEHOLDER = '{{SKILL_NAME_PREFIX}}';
+export const SKILL_NAME_PREFIX_PLACEHOLDER = '{{SKN_SPR}}';
 
 /**
  * 从 skills 资产相对路径取出顶层 skill 目录名。

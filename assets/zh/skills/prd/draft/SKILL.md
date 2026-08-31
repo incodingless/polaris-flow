@@ -1,5 +1,5 @@
 ---
-name: polaris-flow{{SKILL_NAME_SPLITTER}}prd-draft
+name: polaris{{SKN_SPR}}prd{{SKN_SPR}}draft
 description: 触发场景：用户持有「需求基线 Baseline」与「需求澄清纪要」，需要人机协同逐章产出 PRD 初稿（如「写产品需求」「根据需求基线生成PRD初稿」「结合澄清纪要写需求文档」「PRD初稿」「需求规格初稿」「把基线展开成需求文档」）。本技能覆盖单个阶段：基于基线 + 澄清纪要，逐章生成 PRD 初稿并交叉校验。内置 B 端 PRD 人工编写最佳实践：复杂度分级裁剪、问题‑方案‑目标逻辑、架构图+流程图视觉语言、MoSCoW 优先级、风险前置、重点突出与无歧义语言、初稿边界检查。
 version: 0.3
 ---
@@ -15,7 +15,7 @@ version: 0.3
 - **变更全程可追溯**：所有对基线/澄清结论的引用与融合，须标注来源与依据，禁止静默改写原文。
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 需求工程] 进入阶段: 编写PRD初稿 — 使用 polaris-flow{{SKILL_NAME_SPLITTER}}prd-draft 技能。`
+**启动时必须先输出**：`[polaris-flow 需求工程] 进入阶段: 编写PRD初稿 — 使用 polaris{{SKN_SPR}}prd{{SKN_SPR}}draft 技能。`
 
 ## 流程
 
@@ -24,7 +24,7 @@ version: 0.3
 ### Step 0：定位 change_id + 入口校验
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --skill build --repo-root "$REPO_ROOT" --phase build)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind requirement --skill draft --repo-root "$REPO_ROOT" --phase draft)
 RTID_EXIT=$?
 ```
 
@@ -35,10 +35,10 @@ RTID_EXIT=$?
 
 - **唯一匹配**：直接读取 `change_id`
 - **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 draft 阶段的 active change，请先执行 /{{SKILL_NAME_PREFIX}}discovery」
+- **零匹配**：阻断，提示「未找到 draft 阶段的 active change，请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery」
 
-> 若选择的任务已是 `phase=discovery`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
-> 若上次中断在 plan 中（`discovery.status=in_progress` / apply paused），从中断点续跑；不得因「已是 draft」而报零匹配。
+> 若选择的任务已是 `phase=draft`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+> 若上次中断在 plan 中（`draft.status=in_progress` / apply paused），从中断点续跑；不得因「已是 draft」而报零匹配。
 
 **入口校验**（失败 → 阻断）：
 
@@ -72,7 +72,7 @@ LANG_EXIT = $?
 校验项：
 
 1. Baseline 不存在，提示：`[polaris-flow 需求工程] 编写初稿 - 未读取到需求基线文档，PRD初稿生成必须依赖需求基线作为唯一需求输入源，请提供Baseline文件路径/完整内容`，终止流程；
-2. Baseline 结构完整性：必须包含【需求背景、业务流程、功能/能力清单、业务场景清单】；缺失任意关键模块，输出缺失清单，提示：`请重新运行 /polaris-flow{{SKILL_NAME_SPLITTER}}prd-discovery 补齐《需求基线》`，终止流程；
+2. Baseline 结构完整性：必须包含【需求背景、业务流程、功能/能力清单、业务场景清单】；缺失任意关键模块，输出缺失清单，提示：`请重新运行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery 补齐《需求基线》`，终止流程；
 3. 输入源唯一性与澄清纪要加载：
    - 声明本次生成仅以 Baseline 为唯一功能需求来源；参考文档/澄清纪要仅控制写作格式或作补充上下文，**不作为需求来源**；多份冲突输入请用户指定唯一 Baseline。
    - 加载《需求澄清纪要》并校验：若存在澄清纪要，读取其「问题闭环明细-最终答复」与「隐含假设与风险清单」，作为权威补充需求源与风险输入；其最终答复优先于 Baseline 中的待定描述。若无澄清纪要，提示可跳过但建议补齐。
@@ -96,7 +96,7 @@ LANG_EXIT = $?
 3. 扫描 Baseline 识别人工重点：识别加粗、【重点】标记、高亮注释片段；
 4. 如果 Baseline 没有显式重点标记，输出**候选重点清单给用户确认**，用户确认后生成 `_key_points.json`；
    - key_points 每条字段：`raw_text(原文片段)、belong_module(归属模块)、keep_mode[完整保留｜保留语义｜允许改写]`
-5. 加载规范文档与决策点：读取 `./templates/prd_template.md`（章节内容标准）；
+5. 加载规范文档与决策点：读取 `./templates/prd-draft-template.md`（章节内容标准）；
 6. **复杂度与逻辑框架构建**：基于 Baseline 复杂度等级确定裁剪档；在内部构建「问题‑方案‑目标」逻辑框架——问题来自需求背景/痛点证据，方案来自功能架构，目标来自业务目标与验证指标（SMART）；
 7. **澄清纪要融合**：读取澄清纪要「最终答复」，标注对 Baseline 的澄清/变更点；读取「隐含假设与风险清单」汇入风险池；
 8. **图表需求识别**：识别需绘制的核心图表（架构图/流程图/状态机/线框图）及对应章节，列入生成计划。
@@ -143,7 +143,7 @@ LANG_EXIT = $?
 **文档头部（合并阶段统一生成，置于首章之前）**：评审重点指引——列出 2—5 条本次评审需重点确认的核心问题，引导评审者按「先业务价值 → 再方案大逻辑 → 最后功能细节」顺序阅读。
 
 #### 每一章统一执行模板
-1. 根据 `./references/prd_draft_template.md` 模板，结合 需求基线 + `_baseline_index.json` + 澄清纪要 生成本章草稿；
+1. 根据 `./references/prd-draft-template.md` 模板，结合 需求基线 + `_baseline_index.json` + 澄清纪要 生成本章草稿；
 2. 内部三重自检：
    - 自检 A 编写规则(`./policies/writting-rules.md`)：检查是否混入技术代码、表名、接口名，有则改写为产品语言或者标记待确认；**检查模糊主观表述、技术指令性表述、未明确的逻辑判断条件、术语不统一；统一采用「用户故事+业务规则」格式**；
    - 自检 B 重点项管理(`./policies/key-points-management.md`)：取出本章关联的全部重点项，比对草稿，生成本章重点校验表格；
@@ -190,7 +190,7 @@ LANG_EXIT = $?
 ### Step 5：质量自检 + 初稿交付与归档
 
 输入：sessions 目录全部已确认章节 md
-输出：`$REPO_ROOT/.polaris/task/<task_id>/prd-draft.md` 完整 PRD 初稿文档
+输出：`$REPO_ROOT/.polaris/task/<task_id>/prd-draft-template.md` 完整 PRD 初稿文档
 
 步骤：
 1. 按章节顺序合并全部 session 文件，自动生成 Markdown 目录，修正全文锚点跳转；文档头部统一写入「评审重点指引」与「图表索引」（F08）；
@@ -212,7 +212,7 @@ LANG_EXIT = $?
 4. 输出最终完整 `prd‑draft`；
 5. 归档：**完整保留整个 sessions 目录**，作为可追溯历史，支持中断恢复；
 
-输出：`[polaris-flow 需求工程] 编写初稿 - 初稿交付完成：prd-draft 已生成，重点保留率={XX}%，见 _cross_check_report.md。`
+输出：`[polaris-flow 需求工程] 编写初稿 - 初稿已生成，重点保留率={XX}%，见 _cross_check_report.md。`
 
 ### 中断恢复能力
 > 如果对话中断，重新调用技能，检测 `./sessions/_gate_check.md` 存在，读取各章节落盘文件，识别已经确认完成章节，从**未确认的第一章继续执行**，不需要从头全部重写。

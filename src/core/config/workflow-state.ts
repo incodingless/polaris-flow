@@ -1,42 +1,80 @@
 /**
  * `.polaris/workflow.yaml` 工作流游标读写。
- * 与 polaris-config（项目静态配置）分离：本文件描述 active_changes / pending_triages。
+ * 与 polaris-config（项目静态配置）分离：本文件描述三类任务列表游标。
  */
-import { mkdir, readFile, writeFile } from 'fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists } from '../../utils/file-system.js';
+import { getWorkflowTemplateYamlSrc } from '../assets/manifest.js';
 import { getWorkflowConfigPath } from '../assets/polaris-paths.js';
 
-/** active_changes 单条 */
-export type ActiveChangeEntry = {
-  change_id: string;
+/** 任务游标条目（三列表共用结构） */
+export type WorkflowTaskEntry = {
+  task_id: string;
   phase: string;
   worktree_path: string;
   started_at: string;
 };
 
-/** pending_triages 单条 */
-export type PendingTriageEntry = {
-  session_suffix: string;
-  tier: string;
-  t1_result: string;
-  t2_result: string;
-  timestamp: string;
-};
+/** 任务类型 → YAML 列表键 */
+export type WorkflowTaskKind = 'change' | 'requirement' | 'testcase';
+
+/** kind 对应的 YAML 顶层键名 */
+export type WorkflowTaskListKey = 'change_tasks' | 'requirement_tasks' | 'testcase_tasks';
 
 /** `.polaris/workflow.yaml` 根结构 */
 export type WorkflowState = {
-  active_changes: ActiveChangeEntry[];
-  pending_triages: PendingTriageEntry[];
-  /** 其它顶层字段透传保留 */
-  [key: string]: unknown;
+  change_tasks: WorkflowTaskEntry[];
+  requirement_tasks: WorkflowTaskEntry[];
+  testcase_tasks: WorkflowTaskEntry[];
 };
 
-/** @deprecated 使用 WorkflowState；保留别名以免外部瞬时断裂 */
-export type WorkflowCursor = WorkflowState;
+export const WORKFLOW_TASK_KINDS: readonly WorkflowTaskKind[] = [
+  'change',
+  'requirement',
+  'testcase',
+] as const;
+
+/** 将 kind 映射为 YAML 列表键；非法 kind 返回 null */
+export function listKeyForKind(kind: string | undefined): WorkflowTaskListKey | null {
+  switch (kind) {
+    case 'change':
+      return 'change_tasks';
+    case 'requirement':
+      return 'requirement_tasks';
+    case 'testcase':
+      return 'testcase_tasks';
+    default:
+      return null;
+  }
+}
+
+/** 解析并校验 kind；非法则返回 null */
+export function parseWorkflowTaskKind(raw: string | undefined): WorkflowTaskKind | null {
+  if (raw === 'change' || raw === 'requirement' || raw === 'testcase') {
+    return raw;
+  }
+  return null;
+}
+
+/** 读取指定 kind 的任务列表副本 */
+export function getTaskList(state: WorkflowState, kind: WorkflowTaskKind): WorkflowTaskEntry[] {
+  const key = listKeyForKind(kind)!;
+  return [...(state[key] ?? [])];
+}
+
+/** 写回指定 kind 的任务列表，返回新 state */
+export function setTaskList(
+  state: WorkflowState,
+  kind: WorkflowTaskKind,
+  list: WorkflowTaskEntry[],
+): WorkflowState {
+  const key = listKeyForKind(kind)!;
+  return { ...state, [key]: list };
+}
 
 /** 返回 workflow.yaml 路径 */
 export function getWorkflowStatePath(repoRoot: string): string {
@@ -48,9 +86,13 @@ export function getWorkflowCursorPath(repoRoot: string): string {
   return getWorkflowStatePath(repoRoot);
 }
 
-/** 空骨架 */
+/** 空骨架（三列表） */
 export function emptyWorkflowState(): WorkflowState {
-  return { active_changes: [], pending_triages: [] };
+  return {
+    change_tasks: [],
+    requirement_tasks: [],
+    testcase_tasks: [],
+  };
 }
 
 /** @deprecated 使用 emptyWorkflowState */
@@ -58,37 +100,36 @@ export function emptyWorkflowCursor(): WorkflowState {
   return emptyWorkflowState();
 }
 
+/** 将原始 YAML 条目规范化为 WorkflowTaskEntry */
+function normalizeTaskEntry(raw: Record<string, unknown>): WorkflowTaskEntry {
+  return {
+    task_id: String(raw.task_id ?? ''),
+    phase: String(raw.phase ?? ''),
+    worktree_path: String(raw.worktree_path ?? ''),
+    started_at: String(raw.started_at ?? ''),
+  };
+}
+
+/** 规范化某一列表字段 */
+function normalizeTaskList(value: unknown): WorkflowTaskEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return (value as Record<string, unknown>[]).map(normalizeTaskEntry);
+}
+
 /**
  * 规范化解析结果为 WorkflowState。
  */
 function normalizeWorkflowState(raw: unknown): WorkflowState {
-  const base = emptyWorkflowState();
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return base;
+    return emptyWorkflowState();
   }
   const obj = raw as Record<string, unknown>;
-  const active = Array.isArray(obj.active_changes)
-    ? (obj.active_changes as Record<string, unknown>[]).map((e) => ({
-        change_id: String(e.change_id ?? ''),
-        phase: String(e.phase ?? ''),
-        worktree_path: String(e.worktree_path ?? ''),
-        started_at: String(e.started_at ?? ''),
-      }))
-    : [];
-  const pending = Array.isArray(obj.pending_triages)
-    ? (obj.pending_triages as Record<string, unknown>[]).map((e) => ({
-        session_suffix: String(e.session_suffix ?? ''),
-        tier: String(e.tier ?? ''),
-        t1_result: String(e.t1_result ?? ''),
-        t2_result: String(e.t2_result ?? ''),
-        timestamp: String(e.timestamp ?? ''),
-      }))
-    : [];
-
   return {
-    ...obj,
-    active_changes: active,
-    pending_triages: pending,
+    change_tasks: normalizeTaskList(obj.change_tasks),
+    requirement_tasks: normalizeTaskList(obj.requirement_tasks),
+    testcase_tasks: normalizeTaskList(obj.testcase_tasks),
   };
 }
 
@@ -114,7 +155,7 @@ export async function loadWorkflowCursor(repoRoot: string): Promise<WorkflowStat
 }
 
 /**
- * 若缺失则物化空 workflow.yaml（含 pending_triages）。
+ * 若缺失则物化 workflow.yaml：优先拷贝模板，否则写三空列表骨架。
  */
 export async function ensureWorkflowStateFile(repoRoot: string): Promise<string> {
   const filePath = getWorkflowStatePath(repoRoot);
@@ -122,7 +163,13 @@ export async function ensureWorkflowStateFile(repoRoot: string): Promise<string>
     return filePath;
   }
   await mkdir(path.dirname(filePath), { recursive: true });
-  const skeleton = 'active_changes: []\npending_triages: []\n';
+  const templateSrc = getWorkflowTemplateYamlSrc();
+  if (await fileExists(templateSrc)) {
+    await copyFile(templateSrc, filePath);
+    return filePath;
+  }
+  const skeleton =
+    'change_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\n';
   await writeFile(filePath, skeleton, 'utf-8');
   return filePath;
 }
@@ -133,26 +180,17 @@ export async function ensureWorkflowCursorFile(repoRoot: string): Promise<string
 }
 
 /**
- * 写回 workflow.yaml（稳定字段顺序：active_changes → pending_triages → 其它）。
+ * 写回 workflow.yaml（稳定字段顺序：change → requirement → testcase）。
  */
 export async function saveWorkflowState(repoRoot: string, state: WorkflowState): Promise<void> {
   const filePath = getWorkflowStatePath(repoRoot);
   await mkdir(path.dirname(filePath), { recursive: true });
 
-  const { active_changes, pending_triages, ...rest } = state;
-  const doc: Record<string, unknown> = {
-    ...rest,
-    active_changes: active_changes.length === 0 ? [] : active_changes,
-    pending_triages: pending_triages.length === 0 ? [] : pending_triages,
+  const ordered: Record<string, unknown> = {
+    change_tasks: state.change_tasks.length === 0 ? [] : state.change_tasks,
+    requirement_tasks: state.requirement_tasks.length === 0 ? [] : state.requirement_tasks,
+    testcase_tasks: state.testcase_tasks.length === 0 ? [] : state.testcase_tasks,
   };
-
-  const ordered: Record<string, unknown> = {};
-  ordered.active_changes = doc.active_changes;
-  ordered.pending_triages = doc.pending_triages;
-  for (const [k, v] of Object.entries(doc)) {
-    if (k === 'active_changes' || k === 'pending_triages') continue;
-    ordered[k] = v;
-  }
 
   const text = stringifyYaml(ordered, { lineWidth: 0 });
   await writeFile(filePath, text.endsWith('\n') ? text : `${text}\n`, 'utf-8');
@@ -163,7 +201,7 @@ export async function saveWorkflowCursor(repoRoot: string, cursor: WorkflowState
   return saveWorkflowState(repoRoot, cursor);
 }
 
-/** 失败时返回 null 的 git argv 调用（与 github.runGitShell 安全模型不同，勿合并） */
+/** 失败时返回 null 的 git argv 调用 */
 function tryGitArgs(args: string[], cwd: string): string | null {
   try {
     return execFileSync('git', args, { cwd, encoding: 'utf-8' }).trim();

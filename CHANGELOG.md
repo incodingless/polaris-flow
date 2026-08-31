@@ -18,6 +18,7 @@
 
 ### Changed
 
+- **workflow.yaml 多列表游标**: `active_changes` / `pending_triages` 替换为 `change_tasks` / `requirement_tasks` / `testcase_tasks`（字段 `task_id`）；`workflow-entry` 必填 `--kind`，身份旗标改为 `--task-id` / `--where-task-id`；删除 triage ops；无旧 schema 迁移（需重物化 / `polaris update`）
 - **hooks/scripts 目录分离**: 宿主注册入口仅保留 `hooks/session-start.sh`；Skill 调用的薄包装与 `_polaris-cli.sh` 迁至 `scripts/`；Skill 路径改为 `$PLUGIN_ROOT/scripts/...`（无兼容包装，需 `polaris update`）；顺带将 `polaris-sync` 引用统一为 `harness-sync`
 - **skills 安装流水线**: 源技能保持短目录名 + `{{SKILL_NAME_PREFIX}}`；安装时 nested 替换为 `polaris-flow:`、flat 替换为 `polaris-flow-`；flat 落盘为 `polaris-flow-<skill>/`；语言包顶层 `policies/` 注入每个子技能的 `policies/`（同名覆盖）；`skills/README.md` 等根下裸文件始终装到 `skills/polaris-flow/`，不按 flat 重命名
 - **agent 安装按平台改写**: init 安装 agents 时按 `Platform.agentToolMap` 改写 frontmatter `tools`，并用 `resolveReviewAgentModel` 写入 `model`；SessionStart 对全部已注册平台刷新 model

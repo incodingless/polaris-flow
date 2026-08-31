@@ -1,6 +1,6 @@
 ---
-name: {{SKILL_NAME_PREFIX}}retro
-description: "输出可追溯复盘报告与改进建议。用户触发 /{{SKILL_NAME_PREFIX}}retro，或要求查看度量趋势 / overrides 分布 / 阶段复盘 / 改进建议时必须使用本 skill。不要用于：伪造尚未存在的 metrics、在本阶段写业务实现、或替代 verify /delivery 做验收与交付。"
+name: polaris{{SKN_SPR}}flow{{SKN_SPR}}retro
+description: "输出可追溯复盘报告与改进建议。用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}retro，或要求查看度量趋势 / overrides 分布 / 阶段复盘 / 改进建议时必须使用本 skill。不要用于：伪造尚未存在的 metrics、在本阶段写业务实现、或替代 verify /delivery 做验收与交付。"
 ---
 
 # Polaris 工作流 - 阶段：复盘（retro）
@@ -13,10 +13,10 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /{{SKILL
 - **禁止**把 archive 下的文件当作跨 change 趋势的主数据源（跨 change **只** glob 顶层 `.polaris/metrics/`）
 - **禁止**清理或移动顶层 `.polaris/metrics/`（会破坏跨 change 趋势）
 - **禁止**本阶段编写业务实现、改 specs、推进 `workflow.yaml` 的 phase
-- **H8**（状态行）：每个 Step 入口输出 `[polaris-flow] 进入 retro Step <N>: <动作>`
+- **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]复盘 - 进入Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 复盘 — 使用 {{SKILL_NAME_PREFIX}}retro 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]复盘 - 进入阶段：使用 polaris{{SKN_SPR}}flow{{SKN_SPR}}retro 技能。`
 
 ## 标识约定
 
@@ -24,7 +24,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /{{SKILL
 |----|-----------|
 | Metrics（全局唯一） | `.polaris/metrics/*-metrics.json` |
 | Overrides | `.polaris/overrides.log` |
-| workflow 游标（只读） | `.polaris/workflow.yaml`（`active_changes`） |
+| workflow 游标（只读） | `.polaris/workflow.yaml`（`change_tasks`） |
 | 进行中档案（可选追溯） | `.polaris/tasks/<change_id>/state.yaml` |
 | 已交付快照（可选追溯） | `.polaris/archive/<change_id>/`（state 等；叙事文档在 openspec archive；**不含** metrics 副本） |
 | OpenSpec 变更（可选叙事） | `openspec/changes/<change_id>/` 或 `openspec/changes/archive/*-<change_id>/` |
@@ -37,8 +37,8 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /{{SKILL
 
 | 触发 | 范围 |
 |------|------|
-| `/{{SKILL_NAME_PREFIX}}retro` 或「看度量 / 复盘」 | **overview**：全部历史 metrics（默认最近 20 次；可按用户要求改 N） |
-| `/{{SKILL_NAME_PREFIX}}retro monthly` 或「月度回顾」 | **monthly**：`timestamp`（或文件名时间戳）落在**当前 UTC 自然月**内的记录 |
+| `/polaris{{SKN_SPR}}flow{{SKN_SPR}}retro` 或「看度量 / 复盘」 | **overview**：全部历史 metrics（默认最近 20 次；可按用户要求改 N） |
+| `/polaris{{SKN_SPR}}flow{{SKN_SPR}}retro monthly` 或「月度回顾」 | **monthly**：`timestamp`（或文件名时间戳）落在**当前 UTC 自然月**内的记录 |
 | 用户指定 `change_id` / 「回顾某次变更」 | **by-change**：顶层 metrics 中 `change_id` 等于该值的记录；可辅读 `tasks/` 或 `archive/` 的 state |
 
 用户未说明时默认 overview。多种意图并存时按 decision-point 确认范围，再进入 Step 1。
@@ -88,7 +88,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 | 情况 | 动作 |
 |------|------|
-| 零个 `*-metrics.json` | **停止**。告知：「尚无 verify 度量（`.polaris/metrics/*-metrics.json` 为空）。请先对至少一个 change 跑完 `/{{SKILL_NAME_PREFIX}}verify`（若在 worktree 内验证，还需 `/{{SKILL_NAME_PREFIX}}delivery` 合回主仓）。」**禁止**编造报告正文 |
+| 零个 `*-metrics.json` | **停止**。告知：「尚无 verify 度量（`.polaris/metrics/*-metrics.json` 为空）。请先对至少一个 change 跑完 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}verify`（若在 worktree 内验证，还需 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}delivery` 合回主仓）。」**禁止**编造报告正文 |
 | 有 metrics，无 overrides | 继续；Override 节写「无记录」 |
 | monthly 筛选后为零 | **停止**。告知本月无度量文件，可建议改跑 overview |
 | by-change 筛选后为零 | **停止**。列出顶层 metrics 中出现过的 `change_id`（及「未归因」），请用户重选 |
@@ -128,7 +128,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 - 必须能指回具体低分 scorer、违规计数或 override 聚类  
 - 禁止与数据矛盾的空话（如数据全绿却写「测试覆盖急需提升」）  
-- 建议指向流程动作时用现行命令：`/{{SKILL_NAME_PREFIX}}verify`、`/{{SKILL_NAME_PREFIX}}build`、`/{{SKILL_NAME_PREFIX}}clarify` 等
+- 建议指向流程动作时用现行命令：`/polaris{{SKN_SPR}}flow{{SKN_SPR}}verify`、`/polaris{{SKN_SPR}}flow{{SKN_SPR}}build`、`/polaris{{SKN_SPR}}flow{{SKN_SPR}}clarify` 等
 
 ### Step 5：输出报告
 

@@ -1,6 +1,6 @@
 # 意图调研结果
 
-> **使用约定**：本模板由 `{{SKILL_NAME_PREFIX}}clarify` skill Step 4.1 引用。clarify 主代理读取本模板后，按节顺序填充；各节内容来源标注见行内注释。
+> **使用约定**：本模板由 `polaris{{SKN_SPR}}flow{{SKN_SPR}}clarify` skill Step 4.1 引用。clarify 主代理读取本模板后，按节顺序填充；各节内容来源标注见行内注释。
 
 ---
 

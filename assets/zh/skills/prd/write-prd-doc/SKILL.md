@@ -72,7 +72,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```bash
 for d in <existing 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --skill clarify --repo-root "$REPO_ROOT" --where-change-id "$d"
+  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill clarify --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
 

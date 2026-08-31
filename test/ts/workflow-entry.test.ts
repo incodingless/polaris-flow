@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { emptyWorkflowState, loadWorkflowState } from '../../src/core/config/workflow-state.js';
 import {
   applyWorkflowOp,
-  makeActiveEntry,
+  makeTaskEntry,
   runWorkflowEntry,
 } from '../../src/core/hooks/workflow-entry.js';
 import { acquireWorkflowLock } from '../../src/core/hooks/workflow-lock.js';
@@ -23,60 +23,74 @@ async function tmpRepo(): Promise<string> {
 }
 
 describe('applyWorkflowOp', () => {
-  it('append / update / rename / delete active', () => {
+  it('append / update / rename / delete change_tasks', () => {
     let c = emptyWorkflowState();
     let r = applyWorkflowOp(c, {
       op: 'append-active',
       skill: 't',
-      changeId: 'draft-1',
+      kind: 'change',
+      taskId: 'draft-1',
       phase: 'clarify',
       worktreePath: '',
       startedAt: '2026-01-01T00:00:00Z',
     });
-    expect(r.state.active_changes).toHaveLength(1);
-    expect(r.verify.kind).toBe('ac_has_cid');
+    expect(r.state.change_tasks).toHaveLength(1);
+    expect(r.state.requirement_tasks).toHaveLength(0);
+    expect(r.verify.kind).toBe('has_tid');
 
     r = applyWorkflowOp(r.state, {
       op: 'update-active',
       skill: 't',
-      whereChangeId: 'draft-1',
+      kind: 'change',
+      whereTaskId: 'draft-1',
       setPhase: 'propose',
     });
-    expect(r.state.active_changes[0].phase).toBe('propose');
+    expect(r.state.change_tasks[0].phase).toBe('propose');
 
     r = applyWorkflowOp(r.state, {
       op: 'rename-active',
       skill: 't',
+      kind: 'change',
       from: 'draft-1',
       to: 'feat-abc123',
     });
-    expect(r.state.active_changes[0].change_id).toBe('feat-abc123');
+    expect(r.state.change_tasks[0].task_id).toBe('feat-abc123');
     expect(r.verifyNeg?.val).toBe('draft-1');
 
     r = applyWorkflowOp(r.state, {
       op: 'delete-active',
       skill: 't',
-      whereChangeId: 'feat-abc123',
+      kind: 'change',
+      whereTaskId: 'feat-abc123',
     });
-    expect(r.state.active_changes).toHaveLength(0);
+    expect(r.state.change_tasks).toHaveLength(0);
   });
 
-  it('upsert / delete pending triage', () => {
-    let c = emptyWorkflowState();
+  it('缺 kind 抛错；异种列表互不干扰', () => {
+    const c = emptyWorkflowState();
+    expect(() =>
+      applyWorkflowOp(c, { op: 'append-active', skill: 't', taskId: 'x' }),
+    ).toThrow(/--kind/);
+
     let r = applyWorkflowOp(c, {
-      op: 'upsert-pending-triage',
+      op: 'append-active',
       skill: 't',
-      sessionSuffix: 'aabbcc',
-      tier: 'standard',
-      timestamp: '2026-01-01T00:00:00Z',
+      kind: 'requirement',
+      taskId: 'req-1',
+      phase: 'discovery',
     });
-    expect(r.state.pending_triages[0].tier).toBe('standard');
+    expect(r.state.requirement_tasks).toHaveLength(1);
+    expect(r.state.change_tasks).toHaveLength(0);
+
     r = applyWorkflowOp(r.state, {
-      op: 'delete-pending-triage',
+      op: 'append-active',
       skill: 't',
-      sessionSuffix: 'aabbcc',
+      kind: 'testcase',
+      taskId: 'tc-1',
+      phase: 'draft',
     });
-    expect(r.state.pending_triages).toHaveLength(0);
+    expect(r.state.testcase_tasks[0].task_id).toBe('tc-1');
+    expect(r.state.requirement_tasks).toHaveLength(1);
   });
 });
 
@@ -86,17 +100,18 @@ describe('runWorkflowEntry', () => {
     const result = await runWorkflowEntry({
       op: 'append-active',
       skill: 'test',
+      kind: 'change',
       repoRoot: repo,
-      changeId: 'draft-xyz',
+      taskId: 'draft-xyz',
       phase: 'clarify',
       worktreePath: '',
       startedAt: '2026-07-21T00:00:00Z',
     });
     expect(result.exitCode).toBe(0);
     const state = await loadWorkflowState(repo);
-    expect(state.active_changes).toEqual([
-      makeActiveEntry({
-        change_id: 'draft-xyz',
+    expect(state.change_tasks).toEqual([
+      makeTaskEntry({
+        task_id: 'draft-xyz',
         phase: 'clarify',
         worktree_path: '',
         started_at: '2026-07-21T00:00:00Z',
@@ -104,15 +119,24 @@ describe('runWorkflowEntry', () => {
     ]);
   });
 
-  it('缺 skill → exit 3', async () => {
+  it('缺 skill → exit 3；缺 kind → exit 3', async () => {
     const repo = await tmpRepo();
-    const result = await runWorkflowEntry({
+    const noSkill = await runWorkflowEntry({
       op: 'append-active',
       skill: '',
+      kind: 'change',
       repoRoot: repo,
-      changeId: 'x',
+      taskId: 'x',
     });
-    expect(result.exitCode).toBe(3);
+    expect(noSkill.exitCode).toBe(3);
+
+    const noKind = await runWorkflowEntry({
+      op: 'append-active',
+      skill: 'test',
+      repoRoot: repo,
+      taskId: 'x',
+    });
+    expect(noKind.exitCode).toBe(3);
   });
 
   it('锁被占用且未 stale → exit 1', async () => {
@@ -126,8 +150,9 @@ describe('runWorkflowEntry', () => {
       const result = await runWorkflowEntry({
         op: 'append-active',
         skill: 'waiter',
+        kind: 'change',
         repoRoot: repo,
-        changeId: 'a',
+        taskId: 'a',
         lockOptions: { staleMs: 60_000, spinMs: 250, pollMs: 40 },
       });
       expect(result.exitCode).toBe(1);
@@ -136,50 +161,71 @@ describe('runWorkflowEntry', () => {
     }
   });
 
-  it('get-active-changes 只读返回 JSON，可按 phase 过滤', async () => {
+  it('get-active-changes 按 kind+phase 过滤，不串列表', async () => {
     const repo = await tmpRepo();
     await runWorkflowEntry({
       op: 'append-active',
       skill: 'test',
+      kind: 'change',
       repoRoot: repo,
-      changeId: 'c1',
+      taskId: 'c1',
       phase: 'clarify',
       startedAt: '2026-07-21T00:00:00Z',
     });
     await runWorkflowEntry({
       op: 'append-active',
       skill: 'test',
+      kind: 'change',
       repoRoot: repo,
-      changeId: 'p1',
+      taskId: 'p1',
       phase: 'propose',
       startedAt: '2026-07-21T01:00:00Z',
     });
+    await runWorkflowEntry({
+      op: 'append-active',
+      skill: 'test',
+      kind: 'requirement',
+      repoRoot: repo,
+      taskId: 'r1',
+      phase: 'discovery',
+      startedAt: '2026-07-21T02:00:00Z',
+    });
 
-    const all = await runWorkflowEntry({
+    const allChange = await runWorkflowEntry({
       op: 'get-active-changes',
       skill: 'test',
+      kind: 'change',
       repoRoot: repo,
     });
-    expect(all.exitCode).toBe(0);
-    expect(all.activeChanges).toHaveLength(2);
-    expect(all.changeIds).toEqual(['c1', 'p1']);
+    expect(allChange.exitCode).toBe(0);
+    expect(allChange.taskIds).toEqual(['c1', 'p1']);
 
     const clarifyOnly = await runWorkflowEntry({
       op: 'get-active-changes',
       skill: 'test',
+      kind: 'change',
       repoRoot: repo,
       phase: 'clarify',
     });
     expect(clarifyOnly.exitCode).toBe(0);
-    expect(clarifyOnly.changeIds).toEqual(['c1']);
-    expect(clarifyOnly.activeChanges).toEqual([
-      makeActiveEntry({
-        change_id: 'c1',
+    expect(clarifyOnly.taskIds).toEqual(['c1']);
+    expect(clarifyOnly.tasks).toEqual([
+      makeTaskEntry({
+        task_id: 'c1',
         phase: 'clarify',
         worktree_path: '',
         started_at: '2026-07-21T00:00:00Z',
       }),
     ]);
+
+    const reqs = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'test',
+      kind: 'requirement',
+      repoRoot: repo,
+      phase: 'discovery',
+    });
+    expect(reqs.taskIds).toEqual(['r1']);
   });
 });
 

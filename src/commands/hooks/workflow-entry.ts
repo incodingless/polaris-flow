@@ -5,19 +5,15 @@ import { runWorkflowEntry, type WorkflowEntryOp } from '../../core/hooks/workflo
 
 export type WorkflowEntryCommandOptions = {
   skill: string;
+  kind?: string;
   repoRoot?: string;
-  changeId?: string;
+  taskId?: string;
   phase?: string;
   worktreePath?: string;
   startedAt?: string;
-  whereChangeId?: string;
+  whereTaskId?: string;
   from?: string;
   to?: string;
-  sessionSuffix?: string;
-  tier?: string;
-  t1?: string;
-  t2?: string;
-  timestamp?: string;
   set?: string[];
 };
 
@@ -57,19 +53,15 @@ export async function workflowEntryCommand(
   const result = await runWorkflowEntry({
     op: op as WorkflowEntryOp,
     skill: options.skill,
+    kind: options.kind,
     repoRoot: options.repoRoot,
-    changeId: options.changeId,
+    taskId: options.taskId,
     phase: options.phase,
     worktreePath: options.worktreePath,
     startedAt: options.startedAt,
-    whereChangeId: options.whereChangeId,
+    whereTaskId: options.whereTaskId,
     from: options.from,
     to: options.to,
-    sessionSuffix: options.sessionSuffix,
-    tier: options.tier,
-    t1: options.t1,
-    t2: options.t2,
-    timestamp: options.timestamp,
     setPhase: sets.setPhase,
     setWorktreePath: sets.setWorktreePath,
   });

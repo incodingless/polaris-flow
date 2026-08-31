@@ -1,6 +1,7 @@
-active_changes:
-  - change_id: add-feature-x
-    phase: build
-    worktree_path: /tmp/demo-worktree
-    started_at: 2026-01-01T00:00:00Z
-pending_triages: []
+change_tasks:
+  - task_id: add-feature-x
+    phase: propose
+    worktree_path: ""
+    started_at: "2026-01-01T00:00:00Z"
+requirement_tasks: []
+testcase_tasks: []

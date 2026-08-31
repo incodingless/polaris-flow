@@ -1,6 +1,6 @@
 ---
-name: {{SKILL_NAME_PREFIX}}clarify
-description: "经结构化探索与确认，把用户需求落地为 intention.md。用户触发 /{{SKILL_NAME_PREFIX}}clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
+name: polaris{{SKN_SPR}}flow{{SKN_SPR}}clarify
+description: "经结构化探索与确认，把用户需求落地为 intention.md。用户触发 /polairs{{SKN_SPR}}flow{{SKN_SPR}}clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
 version: 0.1
 ---
 # Polaris 工作流 - 阶段1：澄清
@@ -16,7 +16,7 @@ version: 0.1
 - **禁止**未读取 `./templates/intention-template.md` 就生成 `intention.md`（Step 4 强制前置）
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 澄清需求 — 使用 {{SKILL_NAME_PREFIX}}clarify 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]澄清需求 - 进入澄清阶段：使用 {{SKILL_NAME_PREFIX}}clarify 技能。`
 
 ---
 
@@ -69,7 +69,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```bash
 for d in <existing 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --skill clarify --repo-root "$REPO_ROOT" --where-change-id "$d"
+  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind change --skill clarify --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
 
@@ -77,7 +77,7 @@ done
 
 #### 1.5 状态行输出（H8）
 
-输出：`[polaris-flow] 需求(意图)澄清草稿: .polaris/tasks/<draft_name>/; workflow: appended entry phase=clarify`
+输出：`[polaris-flow 开发]澄清需求 - 开始编写(意图)澄清草稿：.polaris/tasks/<draft_name>/; workflow: appended entry phase=clarify`
 
 ### Step 2：加载宪法（注入点 A）
 
@@ -150,7 +150,7 @@ done
 
 落盘路径：`$REPO_ROOT/.polaris/tasks/<draft_name>/intention.md`
 
-**强制前置**：写入前必须 `read_file ./templates/intention-template.md`，并输出：`[polaris-flow clarify] 已读取意图探索模板 intention-template.md`
+**强制前置**：写入前必须 `read_file ./templates/intention-template.md`，并输出：`[polaris-flow 开发]澄清需求：已读取意图探索模板 intention-template.md`
 
 **禁止**未读模板就生成内容。
 
@@ -175,7 +175,7 @@ done
 
 #### 5.1 意图评审
 
-输出：`[polaris-flow clarify] 意图评审暂未实现，请人工评审文档（务必确保该文档的准确性）。通过后作为后续生成 OpenSpec 规格文档的唯一依据。`
+输出：`[polaris-flow 开发]澄清需求：意图评审暂未实现，请人工评审文档（务必确保该文档的准确性）。通过后作为后续生成 OpenSpec 规格文档的唯一依据。`
 
 #### 5.2 意图Lint评审
 
@@ -222,7 +222,7 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 
 #### 5.5 完成状态行
 
-输出：`[polaris-flow] 澄清阶段完成：.polaris/tasks/<task_id>/intention.md 已锁定；state 已更新。`
+输出：`[polaris-flow 开发]澄清需求 - 澄清阶段完成：.polaris/tasks/<task_id>/intention.md 已锁定；state 已更新。`
 
 ## 自动衔接下一阶段
 

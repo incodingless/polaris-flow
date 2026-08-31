@@ -168,22 +168,18 @@ program
   .description('RMW .polaris/workflow.yaml under workflow.lock (H12)')
   .argument(
     '<op>',
-    'append-active|update-active|rename-active|delete-active|get-active-changes|upsert-pending-triage|delete-pending-triage',
+    'append-active|update-active|rename-active|delete-active|get-active-changes',
   )
   .requiredOption('--skill <name>', 'lock writer id')
+  .requiredOption('--kind <kind>', 'task kind: change|requirement|testcase')
   .option('--repo-root <path>', 'main repo root')
-  .option('--change-id <id>')
+  .option('--task-id <id>')
   .option('--phase <phase>')
   .option('--worktree-path <path>')
   .option('--started-at <iso>')
-  .option('--where-change-id <id>')
+  .option('--where-task-id <id>')
   .option('--from <id>')
   .option('--to <id>')
-  .option('--session-suffix <hex>')
-  .option('--tier <tier>')
-  .option('--t1 <result>')
-  .option('--t2 <result>')
-  .option('--timestamp <iso>')
   .option(...PLATFORM_OPTION)
   .option(
     '--set <kv...>',
@@ -197,19 +193,15 @@ program
   .action(async (op: string, options) => {
     await workflowEntryCommand(op, {
       skill: options.skill,
+      kind: options.kind,
       repoRoot: options.repoRoot,
-      changeId: options.changeId,
+      taskId: options.taskId,
       phase: options.phase,
       worktreePath: options.worktreePath,
       startedAt: options.startedAt,
-      whereChangeId: options.whereChangeId,
+      whereTaskId: options.whereTaskId,
       from: options.from,
       to: options.to,
-      sessionSuffix: options.sessionSuffix,
-      tier: options.tier,
-      t1: options.t1,
-      t2: options.t2,
-      timestamp: options.timestamp,
       set: options.set,
     });
   });

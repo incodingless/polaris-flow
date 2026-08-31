@@ -1,5 +1,5 @@
 ---
-name: polaris-flow{{SKILL_NAME_SPLITTER}}subagent-probe
+name: polaris{{SKN_SPR}}subagent-probe
 description: Subagent 探测技能。接收 platform（与可选的 subagent_id / task_type），按该平台专属扫描策略返回可用 subagent 列表、subagent_id 是否命中、按 task_type 预筛的 matched_agents 子集，以及 platform 级退化结论。纯数据采集，不做任何选 agent / 派发 / 降级决策——决策由调用方（编排型技能）完成。供需要委派独立上下文执行工作的编排型技能在派发前调用。
 ---
 
@@ -18,13 +18,13 @@ description: Subagent 探测技能。接收 platform（与可选的 subagent_id 
 - 需要按 `task_type` 预筛候选 agent 列表
 
 **不适用**：
-- 派发 subagent 执行任务（用 `polaris-flow{{SKILL_NAME_SPLITTER}}subagent-dispatch`）
+- 派发 subagent 执行任务（用 `polaris{{SKN_SPR}}subagent-dispatch`）
 - 选定哪个 agent（由调用方决策）
 - 降级 / inline 决策（由调用方决策）
 
 ## 调用方契约
 
-**任何编排型技能在需要委派 subagent 执行任务前，先调用 `use_skill("polaris-flow{{SKILL_NAME_SPLITTER}}subagent-probe")` 并传入 `platform`，等待返回。拿到 agents 清单后，由调用方自行选 agent，再调用 `polaris-flow{{SKILL_NAME_SPLITTER}}subagent-dispatch` 派发执行。**
+**任何编排型技能在需要委派 subagent 执行任务前，先调用 `use_skill("polaris{{SKN_SPR}}subagent-probe")` 并传入 `platform`，等待返回。拿到 agents 清单后，由调用方自行选 agent，再调用 `polaris{{SKN_SPR}}subagent-dispatch` 派发执行。**
 
 调用方准备入参时应包含：
 - `platform`：宿主平台 id（从项目配置读取）

@@ -1,5 +1,5 @@
 ---
-name: polaris-flow{{SKILL_NAME_SPLITTER}}prd{{SKILL_NAME_SPLITTER}}discovery
+name: polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery
 description: 基于已确认的PRD初稿与需求基线（Baseline），严格遵循prd-template.md标准模板生成正式产品需求终稿。支持L2级代码验证（数据模型/接口契约与真实代码对齐）、基线-终稿双向追溯、7维度完整评审与可测性检查、人工评审支撑包输出。适用于企业级B端系统的正式需求文档交付场景。触发场景：(1) 用户提供PRD初稿并要求生成终稿；(2) 用户提到"PRD终稿"、"需求文档定稿"、"基于初稿补全终稿"；(3) 需要将初稿扩展为含数据模型、状态流转、非功能需求的完整交付文档。硬性约束：必须严格使用prd-template.md模板结构，禁止偏离章节顺序与命名；无初稿不生成终稿。
 ---
 
@@ -9,7 +9,7 @@ description: 基于已确认的PRD初稿与需求基线（Baseline），严格�
 
 **核心设计思路**：严格模板对齐 + 一次性补全 + 完整评审 + L2代码验证
 
-**与初稿（pm-prd-draft）的边界**：
+**与初稿的边界**：
 | 维度 | 初稿（draft） | 终稿（final，本技能） |
 |---|---|---|
 | 定位 | 迭代工作稿 | 正式交付文档 |
@@ -39,7 +39,7 @@ description: 基于已确认的PRD初稿与需求基线（Baseline），严格�
 ### Step 0：状态检查与中断恢复
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --skill build --repo-root "$REPO_ROOT" --phase build)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind requirement --skill build --repo-root "$REPO_ROOT" --phase build)
 EXIT_CODE=$?
 ```
 
@@ -50,21 +50,19 @@ EXIT_CODE=$?
 
 - **唯一匹配**：直接读取 `change_id`
 - **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 draft 阶段的 active change，请先执行 /polaris-flow{{SKILL_NAME_SPLITTER}}prd{{SKILL_NAME_SPLITTER}}draft」
+- **零匹配**：阻断，提示「未找到 draft 阶段的 active change，请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}draft」
 
-> 若选择的任务已是 `phase=discovery`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
-> 若上次中断在 plan 中（`discovery.status=in_progress` / apply paused），从中断点续跑；不得因「已是 draft」而报零匹配。
+> 若选择的任务已是 `phase=refine`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+> 若上次中断在 refine 中（`refine.status=in_progress` / apply paused），从中断点续跑；不得因「已是终稿」而报零匹配。
 
 **入口校验**（失败 → 阻断）：
 
 | 检查 | 条件 |
 |------|------|
-| plan 已完成 | `state.yaml` 中 `plan.status=completed`（或用户明示接受续跑且 `tasks.md` 已是可执行细计划） |
-| tasks 可执行 | `openspec/changes/<change_id>/tasks.md` 非空，且含至少一个 `- [ ]` 或（续跑时）未完成项可定位 |
-| 工作目录 | 若 `worktree_path` 非空 → 后续 apply / 读 tasks **以该 worktree 为仓库根**；否则用主仓 |
+| refine 已完成 | `state.yaml` 中 `refine.status=completed` |
 
 通过后执行：
-1. 更新 `state.yaml`：`current_verb: build`，`build.status: in_progress`。
+1. 更新 `state.yaml`：`current_verb: refine`，`refine.status: in_progress`。
 
 2. 设置语言
 

@@ -1,6 +1,6 @@
 ---
-name: {{SKILL_NAME_PREFIX}}design
-description: "把 propose 的高层 design.md 深化为可实施的详细技术设计并完成评审。用户触发 /{{SKILL_NAME_PREFIX}}design，或要求把 OpenSpec 高层 design.md 深化为 detailed-design.md / 深度技术设计时必须使用本 skill。"
+name: polaris{{SKN_SPR}}flow{{SKN_SPR}}design
+description: "把 propose 的高层 design.md 深化为可实施的详细技术设计并完成评审。用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}design，或要求把 OpenSpec 高层 design.md 深化为 detailed-design.md / 深度技术设计时必须使用本 skill。"
 ---
 
 # Polaris 工作流 - 阶段：深度设计（design）
@@ -21,7 +21,7 @@ description: "把 propose 的高层 design.md 深化为可实施的详细技术�
 - **禁止**把设计/评审产物写回 `.polaris/tasks/`（运行态 `state.yaml` 除外）
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: design — 使用 {{SKILL_NAME_PREFIX}}design 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]设计 - 进入深度设计阶段: 使用 polaris{{SKN_SPR}}flow{{SKN_SPR}}design 技能。`
 
 ## 标识约定
 
@@ -46,7 +46,7 @@ description: "把 propose 的高层 design.md 深化为可实施的详细技术�
 用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --skill design --repo-root "$REPO_ROOT" --phase design)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill design --repo-root "$REPO_ROOT" --phase design)
 RTID_EXIT=$?
 ```
 
@@ -72,11 +72,11 @@ RTID_EXIT=$?
 通过后：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --skill design --where-change-id "$change_id" --set phase=design
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill design --where-task-id "$change_id" --set phase=design
 ```
 
 更新 `state.yaml`：`current_verb: design`，`design.status: in_progress`。  
-输出：`[polaris-flow] design: change_id=<change_id> ; phase=design`
+输出：`[polaris-flow 开发]设计: change_id=<change_id> ; phase=design`
 
 ### Step 1：读取上游事实源
 
@@ -136,7 +136,7 @@ canonical_spec: openspec
 
 正文至少含：实现方案、技术风险、测试策略、边界条件、Spec Patch 清单（无则写「无」）。  
 有 Spec Patch 则同时改 `specs/*/spec.md`。  
-输出：`[polaris-flow] design: wrote openspec/changes/<change_id>/detailed-design.md`
+输出：`[polaris-flow 开发]深度设计: wrote openspec/changes/<change_id>/detailed-design.md`
 
 #### 3.2 专项设计补充预检 + 落盘（阻塞点）
 
@@ -241,10 +241,10 @@ design:
 workflow阶段推进至规划阶段：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --skill design --where-change-id "$task_id" --set phase=plan
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill design --where-task-id "$task_id" --set phase=plan
 ```
 
-输出：`[polaris-flow] design 阶段完成：openspec/changes/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris-flow-plan。`
+输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris{{SKN_SPR}}flow{{SKN_SPR}}plan。`
 
 ## 退出条件
 

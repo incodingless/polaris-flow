@@ -24,8 +24,9 @@ export async function runDeliveryCleanup(
   const wf = await runWorkflowEntry({
     op: 'delete-active',
     skill: 'ship',
+    kind: 'change',
     repoRoot: root,
-    whereChangeId: changeId,
+    whereTaskId: changeId,
   });
   if (wf.exitCode !== 0) {
     console.error('[ship-cleanup] FAIL: delete-active 失败');

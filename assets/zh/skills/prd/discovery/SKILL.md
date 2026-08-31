@@ -1,5 +1,5 @@
 ---
-name: polaris-flow{{SKILL_NAME_SPLITTER}}prd-discovery
+name: polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery
 description: 触发场景：用户给出需求文档或想法，需要先理清需求、识别并澄清模糊点、推导功能架构（如「探索需求」「澄清需求」「需求理解」「需求基线」「梳理功能架构」「做需求 discovery」）。本技能覆盖单个阶段：探索并澄清需求，输出需求基线（含功能架构草案）。
 version: 0.3
 ---
@@ -14,7 +14,7 @@ version: 0.3
 - **变更全程可追溯**：所有需求变更必须记录前后对比与依据，禁止静默修改需求基线。
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow PRD] 进入阶段: 探索并澄清需求 — 使用 polaris-flow{{SKILL_NAME_SPLITTER}}prd-discovery 技能。`
+**启动时必须先输出**：`[polaris-flow PRD] 进入阶段: 探索并澄清需求 — 使用 polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery 技能。`
 
 ## 流程
 
@@ -65,14 +65,14 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 
   ```bash
      rm -rf "$REPO_ROOT/.polaris/tasks/<$task_id>"
-     bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --skill clarify --repo-root "$REPO_ROOT" --where-change-id "$d"
+     bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill clarify --repo-root "$REPO_ROOT" --where-task-id "$d"
   ```
 - **C. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `clarify-init.sh`，再进入 Step 1.9
 
 ```bash
 for d in <existing 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --skill clarify --repo-root "$REPO_ROOT" --where-change-id "$d"
+  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill clarify --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
 

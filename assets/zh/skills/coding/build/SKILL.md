@@ -1,6 +1,6 @@
 ---
-name: {{SKILL_NAME_PREFIX}}build
-description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户触发 /{{SKILL_NAME_PREFIX}}build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。优先由 implementer subagent 执行 apply；仅当 subagent-probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"
+name: polaris{{SKN_SPR}}flow{{SKN_SPR}}build
+description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。优先由 implementer subagent 执行 apply；仅当 subagent-probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"
 ---
 
 # Polaris 工作流 - 阶段：构建（build）
@@ -16,11 +16,11 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 - **禁止**本阶段强制 `git commit`（提交策略交 delivery/ship；apply 过程产生的未提交改动保留在工作区 / worktree）
 - **禁止**重写 `proposal.md` / 高层 `design.md` / `detailed-design.md` / 覆写整份 `tasks.md` 范围；发现计划缺陷 → pause 回 plan，不在 build 静默改 Scope
 - **禁止**用全局开关覆盖 tasks.md 内已有的 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->` 标注（要改标注回 plan）
-- **H8**（状态行输出）：每个 Step 入口输出`[polaris-flow] 进入 build Step <N>: <动作>` 等可见状态行
+- **H8**（状态行输出）：每个 Step 入口输出`[polaris-flow 开发]构建：进入 build Step <N>: <动作>` 等可见状态行
 **允许的例外**：`build_mode=inline`，或 probe 返回 `degradation=inline|unsupported` 时，主代理**可以**在本会话执行 `/opsx:apply`（仍须注入点 C，仍禁止在 apply 之外手写实现）。
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: build — 使用 {{SKILL_NAME_PREFIX}}build 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]构建 - 进入阶段：使用 polaris{{SKN_SPR}}flow{{SKN_SPR}}build 技能。`
 
 ## 标识约定
 
@@ -48,7 +48,7 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 
 ### Step 0：定位 change_id + 入口校验
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --skill build --repo-root "$REPO_ROOT" --phase build)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill build --repo-root "$REPO_ROOT" --phase build)
 RTID_EXIT=$?
 ```
 
@@ -73,7 +73,7 @@ RTID_EXIT=$?
 | 工作目录 | 若 `worktree_path` 非空 → 后续 apply / 读 tasks **以该 worktree 为仓库根**；否则用主仓 |
 
 通过后更新 `state.yaml`：`current_verb: build`，`build.status: in_progress`。
-输出：`[polaris-flow] build: change_id=<change_id> ; worktree=<path|main>`
+输出：`[polaris-flow 开发]构建: change_id=<change_id> ; worktree=<path|main>`
 
 ### Step 1：选择执行方式与审查模式（用户决策点）
 
@@ -111,7 +111,7 @@ RTID_EXIT=$?
 
 ### Step 2：Subagent Probe（仅 `build_mode=subagent_dispatch`）
 
-若 `build_mode=inline` → 输出 `[polaris-flow] build Step 2: 跳过 probe（inline）`，直接进入 Step 3.3。
+若 `build_mode=inline` → 输出 `[polaris-flow 开发]构建 - 第二步: 跳过 probe（inline）`，直接进入 Step 3.3。
 
 若 `build_mode=subagent_dispatch`：
 
@@ -195,7 +195,7 @@ Working directory: <worktree_path 或 main repo root>
 
 **硬阻断**：
 
-- 校验 1 失败 → `[polaris-flow] 阻断：tasks.md 存在未完成任务，禁止标记 build 完成。` + 列出未完成编号；等待用户（继续实施 / 手动勾选并说明理由 / 放弃）
+- 校验 1 失败 → `[polaris-flow 开发]构建 - 阻断：tasks.md 存在未完成任务，禁止标记 build 完成。` + 列出未完成编号；等待用户（继续实施 / 手动勾选并说明理由 / 放弃）
 - 校验 2 失败（paused/errored）→ 呈现原因与可选项，等待用户
 - 校验 3 失败 → 流程失败，不推进 phase
 - 校验 4 失败 → 不推进 phase
@@ -218,17 +218,17 @@ current_verb: idle
 workflow阶段推进至验收阶段：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --skill build --where-change-id "$task_id" --set phase=verify
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill build --where-task-id "$task_id" --set phase=verify
 ```
 
 输出：
 
 ```
-[polaris-flow] build 阶段完成：
+构建阶段完成：
   change_id : <change_id>
   tasks.md  : openspec/changes/<change_id>/tasks.md（全部 [x]）
   review    : <final_review 值>
-下一步建议 /polaris-flow-verify。
+下一步建议 /polaris{{SKN_SPR}}flow{{SKN_SPR}}verify。
 ```
 
 ## Constitution 注入点 C

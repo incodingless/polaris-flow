@@ -24,14 +24,14 @@ function getPlatformContextRel(platform: Platform, scope: InstallScope = 'projec
 
 /**
  * 返回插件根目录相对路径（相对 baseDir）。
- * 例：`.claude/skills/polaris-flow`
+ * 例：`.claude/skills/polaris`
  */
 export function getPluginRootRel(
   platform: Platform,
   scope: InstallScope = 'project',
   _projectPath?: string,
 ): string {
-  return path.posix.join(getPlatformContextRel(platform, scope), 'skills', 'polaris-flow');
+  return path.posix.join(getPlatformContextRel(platform, scope), 'skills', 'polaris');
 }
 
 /**

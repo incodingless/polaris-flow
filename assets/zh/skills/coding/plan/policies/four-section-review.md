@@ -1,6 +1,6 @@
 # Section 1-4：四节评审
 
-> 归属：`{{SKILL_NAME_PREFIX}}plan` 技能。由 **`plan-review-agent`** 在范围挑战之后顺序执行。  
+> 归属：`polaris{{SKN_SPR}}flow{{SKN_SPR}}plan` 技能。由 **`plan-review-agent`** 在范围挑战之后顺序执行。  
 > **一次性报告模式**：每节发现写入 Plan Review Report 对应章节与 Findings，**禁止** `ask_followup_question` / 一问一议；用户决策由 plan skill 消化 STATUS 时处理。
 
 ## Section 1：架构评审

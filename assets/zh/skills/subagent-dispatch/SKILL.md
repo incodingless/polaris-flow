@@ -1,5 +1,5 @@
 ---
-name: polaris-flow{{SKILL_NAME_SPLITTER}}subagent-dispatch
+name: polaris{{SKN_SPR}}subagent-dispatch
 description: Subagent 派发执行技能。接收 platform、已选定的 agent（由 subagent-probe 探测后由调用方选定）、task_spec，构造 prompt 并派发 subagent 执行，等待回报。纯执行，不做探测、不做选 agent 决策、不做降级判断——这些由调用方（编排型技能）完成。支持代码编写、文档编写、文档评审、数据分析、研究等通用任务类型。
 ---
 
@@ -17,14 +17,14 @@ description: Subagent 派发执行技能。接收 platform、已选定的 agent�
 - 需要让一个独立 LLM context 接手某项工作（代码实现、文档撰写、文档评审、数据分析、信息研究等）
 
 **不适用**：
-- 探测可用 subagent（用 `polaris-flow{{SKILL_NAME_SPLITTER}}subagent-probe`）
+- 探测可用 subagent（用 `polaris{{SKN_SPR}}subagent-probe`）
 - 选定哪个 agent（由调用方决策）
 - 降级 / inline 决策（由调用方决策）
 - 主代理自己能直接完成的简单任务（直接 inline 执行，无需派发）
 
 ## 调用方契约
 
-**编排型技能在调用 `subagent-probe` 拿到 agents 清单并自行选定 agent 后，调用 `use_skill("polaris-flow{{SKILL_NAME_SPLITTER}}subagent-dispatch")` 并传入 `platform`、`agent`、`task_spec`，等待回报。**
+**编排型技能在调用 `subagent-probe` 拿到 agents 清单并自行选定 agent 后，调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 并传入 `platform`、`agent`、`task_spec`，等待回报。**
 
 调用方准备入参时应包含：
 - `platform`：宿主平台 id（从项目配置读取）

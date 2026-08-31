@@ -51,8 +51,9 @@ describe('draft-create / task-init / task-finalize', () => {
     await runWorkflowEntry({
       op: 'append-active',
       skill: 'clarify',
+      kind: 'change',
       repoRoot: root,
-      changeId: draftName,
+      taskId: draftName,
       phase: 'clarify',
       worktreePath: '',
       startedAt: '2026-07-21T00:00:00Z',
@@ -157,8 +158,9 @@ describe('harness-sync / ship-cleanup', () => {
     await runWorkflowEntry({
       op: 'append-active',
       skill: 't',
+      kind: 'change',
       repoRoot: root,
-      changeId: 'feat-abc123',
+      taskId: 'feat-abc123',
       phase: 'delivery',
       worktreePath: '',
       startedAt: '2026-07-21T00:00:00Z',

@@ -1,6 +1,6 @@
 ---
-name: {{SKILL_NAME_PREFIX}}propose
-description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /{{SKILL_NAME_PREFIX}}propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 propose-reviewer 独立主审（可选 Outside Voice）后方可进入 design。"
+name: polaris{{SKN_SPR}}flow{{SKN_SPR}}propose
+description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 propose-reviewer 独立主审（可选 Outside Voice）后方可进入 design。"
 version: 0.1
 ---
 
@@ -15,7 +15,7 @@ version: 0.1
 - **禁止**通过 `superpowers:using-git-worktrees` 创建 worktree——必须由本 skill Step 1.3.A 直接执行 git / hooks 完成
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入提案阶段: 使用 {{SKILL_NAME_PREFIX}}propose 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]提案 - 进入提案阶段: 使用 {{SKILL_NAME_PREFIX}}propose 技能。`
 
 ## 标识约定
 
@@ -27,7 +27,7 @@ version: 0.1
 - 批内审查日志（Mode A）：`openspec/changes/<change_id>/review-log.md`
 - 提案主审报告：`openspec/changes/<change_id>/reviews/propose-review-report.md`（Step 4.2）
 - Outside Voice 报告（若运行）：`openspec/changes/<change_id>/reviews/openspec-review-report.md`
-- workflow 游标：`.polaris/workflow.yaml` → `active_changes[].change_id`（写入一律走 `scripts/workflow-entry.sh`）
+- workflow 游标：`.polaris/workflow.yaml` → `change_tasks[].task_id`（写入一律走 `scripts/workflow-entry.sh`）
 
 > **续跑**：若 `openspec/changes/<change_id>/intention.md` 已存在且 `.polaris/tasks/<task_id>/intention.md` 已不存在，视为 Step 3.5 已完成，不得再从 `.polaris` 读 intention。
 
@@ -38,7 +38,7 @@ version: 0.1
 读取task标识列表：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --skill propose --repo-root "$REPO_ROOT" --phase clarify)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill propose --repo-root "$REPO_ROOT" --phase clarify)
 RTID_EXIT=$?
 ```
 
@@ -58,7 +58,7 @@ RTID_EXIT=$?
 #### 1.1 前置自检
 读 `.polaris/tasks/<task_id>/state.yaml` 的 `worktree.created_by_polaris_flow`。
 
-- 字段**已存在**（`true` 或 `false`）→ 跳过本步，输出 `[polaris-flow] worktree: 已决策（<true|false>），跳过本次询问。` 后进入 Step 2
+- 字段**已存在**（`true` 或 `false`）→ 跳过本步，输出 `[polaris-flow 开发]提案 - worktree：已决策（<true|false>），跳过本次询问。` 后进入 Step 2
 - 字段缺失 / 空 → 继续 1.2
 
 #### 1.2 询问用户
@@ -94,10 +94,10 @@ WT_EXIT=$?
 同步主仓 workflow.yaml（脚本内含锁 / 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --skill propose --where-change-id "$task_id" --set phase=propose --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill propose --where-task-id "$task_id" --set phase=propose --set worktree-path="$target_path"
 ```
 
-输出 `[polaris-flow] worktree: created at <target_path> on branch <target_branch>`。
+输出 `[polaris-flow 开发]提案 - worktree：created at <target_path> on branch <target_branch>`。
 
 #### 1.3.B 用户选 B — 留在主仓库
 
@@ -109,10 +109,10 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --skill propose --wh
 同步 workflow.yaml（phase 切到 propose，worktree_path 仍为空）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --skill propose --where-change-id "$task_id" --set phase=propose
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill propose --where-task-id "$task_id" --set phase=propose
 ```
 
-输出 `[polaris-flow] 用户选择留在主仓库，工作区未创建。工作路径为: $REPO_ROOT`。
+输出 `[polaris-flow 开发]提案 - worktree：用户选择留在主仓库，工作区未创建。工作路径为: $REPO_ROOT`。
 
 ### Step 2：定位并校验 `intention.md`
 
@@ -128,7 +128,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --skill propose --wh
 检查`intention.md`内容，根据情况处理：
 | 情况 | 处理 |
 |---|---|
-| **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户调用 `/{{SKILL_NAME_PREFIX}}propose`（或 `/propose`）时的原始消息作为 propose 输入；输出 `[polaris-flow] 未找到 intention.md，使用用户原始 prompt 作为 propose 输入。` 后跳到 Step 3.2 |
+| **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户调用 `/{{SKILL_NAME_PREFIX}}propose`（或 `/propose`）时的原始消息作为 propose 输入；输出 `[polaris-flow 开发]提案 - 未找到 intention.md，使用用户原始 prompt 作为 propose 输入。` 后跳到 Step 3.2 |
 | **文件存在**（暂存或已迁入） | 对照 `./templates/intention-template.md` 检查下方**必含节**均存在且非空。缺节 → **阻断**，列出缺失节名，提示回到 clarify 补全 |
 
 #### 2.3 用户最终确认
@@ -193,7 +193,7 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 判定输出格式（发问前必须写出）：
 
 ```text
-[polaris-flow] 审查模式推荐: A|B（per_batch|after_all）
+审查模式推荐: A|B（per_batch|after_all）
 依据: <1–3 条命中信号>
 ```
 
@@ -237,9 +237,9 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
 
 3. 更新 `.polaris/tasks/<change_id>/state.yaml`：将 intention 路径字段改为 `openspec/changes/<change_id>/intention.md`（若模板有 `intention.path` / 等价字段则写入；无则至少在摘要中记录）。
 4. 若本轮为 fallback（从未有过 intention 文件）→ **跳过**本步，不造空 `intention.md`。
-5. 若 openspec 侧已有 `intention.md` 且 `.polaris` 侧已无 → 视为已迁入，输出 `[polaris-flow] intention: 已在 openspec，跳过迁入。`
+5. 若 openspec 侧已有 `intention.md` 且 `.polaris` 侧已无 → 视为已迁入，输出 `[polaris-flow 开发]提案 - 意图：已在 openspec，跳过迁入。`
 
-输出：`[polaris-flow] intention: moved to openspec/changes/<change_id>/intention.md（.polaris 无备份）`
+输出：`[polaris-flow 开发]提案 - 意图：moved to openspec/changes/<change_id>/intention.md（.polaris 无备份）`
 
 ### Step 4：机械终检 + 提案整体评审（阻塞点）
 
@@ -344,12 +344,12 @@ propose:
 workflow阶段推进至详细设计阶段：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --skill propose --where-change-id "$task_id" --set phase=design
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill propose --where-task-id "$task_id" --set phase=design
 ```
 
 输出：
 
-`[polaris-flow] propose 完成：四件套已落盘；propose-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /{{SKILL_NAME_PREFIX}}plan 覆写）。下一步建议 /{{SKILL_NAME_PREFIX}}design。`
+`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；propose-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /{{SKILL_NAME_PREFIX}}plan 覆写）。下一步建议 /{{SKILL_NAME_PREFIX}}design。`
 
 任一项不满足 → 阻断并输出失败原因。
 

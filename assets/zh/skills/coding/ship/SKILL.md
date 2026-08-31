@@ -1,6 +1,6 @@
 ---
-name: {{SKILL_NAME_PREFIX}}ship
-description: "verify 通过后做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清游标。用户触发 /{{SKILL_NAME_PREFIX}}ship，或在 verify 完成后要求交付 / 合回 / 归档 / 完结一个 change 时必须使用本 skill。不要用于：verify 未完成时强行交付、本阶段编写业务实现、或跳过用户确认直接 /opsx:archive。"
+name: polaris{{SKN_SPR}}flow{{SKN_SPR}}ship
+description: "verify 通过后做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清游标。用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}ship，或在 verify 完成后要求交付 / 合回 / 归档 / 完结一个 change 时必须使用本 skill。不要用于：verify 未完成时强行交付、本阶段编写业务实现、或跳过用户确认直接 /opsx:archive。"
 ---
 
 # Polaris 工作流 - 阶段：交付（ship）
@@ -12,11 +12,11 @@ description: "verify 通过后做终验、分支收尾、worktree 产物合回�
 - **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 3.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
 - **禁止**未按 `./reference/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
 - **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 6.1
-- **禁止**本阶段编写业务实现代码；终验失败 → 回 `/{{SKILL_NAME_PREFIX}}verify`（必要时再回 `/{{SKILL_NAME_PREFIX}}build`）
-- **H8**（状态行）：每个 Step 入口输出 `[polaris-flow] 进入交付 Step <N>: <动作>`
+- **禁止**本阶段编写业务实现代码；终验失败 → 回 `/{{polaris{{SKN_SPR}}flow{{SKN_SPR}}verify`（必要时再回 `/{{polaris{{SKN_SPR}}flow{{SKN_SPR}}build`）
+- **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]交付 - 进入Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow] 进入阶段: 交割 — 使用 {{SKILL_NAME_PREFIX}}ship 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]交付 - 进入阶段：使用 {{polaris{{SKN_SPR}}flow{{SKN_SPR}}ship 技能。`
 
 ## 遵守的 Hard Stops
 
@@ -45,7 +45,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --skill ship --repo-root "$REPO_ROOT" --phase ship)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill ship --repo-root "$REPO_ROOT" --phase ship)
 RTID_EXIT=$?
 ```
 
@@ -80,14 +80,14 @@ RTID_EXIT=$?
 
 锁内容含 `change_id`、PID、启动时间；`trap EXIT INT TERM HUP` 自动释放；≥ 30min 视为 stale，须用户显式确认清理（H11）。
 
-输出：`[polaris-flow] ship lock 已获取：change_id=<change_id> pid=<PID>`
+输出：`[polaris-flow 开发]交付 - ship lock 已获取：change_id=<change_id> pid=<PID>`
 
 ### Step 1：终验
 
 在 verify 已通过的前提下，再跑一轮 `superpowers:verification-before-completion` 作为交付前冒烟（构建/测试等宿主检查）。
 
 - 全部通过 → Step 2
-- 任一失败 → **阻断**；提示修复后重新触发 `/{{SKILL_NAME_PREFIX}}verify`，通过后再回 `/{{SKILL_NAME_PREFIX}}ship`。本阶段不写业务修复代码。
+- 任一失败 → **阻断**；提示修复后重新触发 `/{{polaris{{SKN_SPR}}flow{{SKN_SPR}}verify`，通过后再回 `/{{polaris{{SKN_SPR}}flow{{SKN_SPR}}ship`。本阶段不写业务修复代码。
 
 ### Step 2：分支管理（核心）
 
@@ -225,7 +225,7 @@ openspec-cn archive "$change_id" --yes
 ### Step 6：交付摘要
 
 ```
-[polaris-flow] ship 完成：
+交付完成：
 
   change_id     : <change_id>
   tier          : <tier>
@@ -235,20 +235,20 @@ openspec-cn archive "$change_id" --yes
   verify 总分   : <X>（来自 state.verify.overall_score）
   archive       : <已归档于 <archive_path> | 已延迟（B）| 已跳过（C）| 未归档（失败：<archive_error>）>
 
-后续：下一个变更 /{{SKILL_NAME_PREFIX}}clarify 或 /{{SKILL_NAME_PREFIX}}propose；度量回顾 /{{SKILL_NAME_PREFIX}}retro。
+后续：下一个变更 /{{polaris{{SKN_SPR}}flow{{SKN_SPR}}clarify 或 /{{polaris{{SKN_SPR}}flow{{SKN_SPR}}propose；度量回顾 /{{polaris{{SKN_SPR}}flow{{SKN_SPR}}retro。
 ```
 
 #### 6.1 主仓游标重置 + 清理
 
 **必做**（含 `ship.archive=failed`：OpenSpec 目录仍在原位，仅清 polaris 游标与 tasks 档案）。
 
-调用 `ship-cleanup.sh`（删 `active_changes` 对应 entry + `rm -rf .polaris/tasks/<change_id>{,.snapshot}`）：
+调用 `ship-cleanup.sh`（删 `change_tasks` 对应 entry + `rm -rf .polaris/tasks/<change_id>{,.snapshot}`）：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$change_id" "$ORIGIN_REPO" || exit 1
 ```
 
-输出：`[polaris-flow] workflow: entry removed, active changes: <N>`
+输出：`[polaris-flow 开发]交付 - workflow: entry removed, active changes: <N>`
 
 ## 退出条件
 

@@ -54,7 +54,6 @@ export type SessionStartPaths = {
   repoRoot: string;
   platformId: string;
   contextDir: string;
-  /** `$RepoRoot/projectContextDir/skills/polaris-flow` */
   pluginRoot: string;
 };
 

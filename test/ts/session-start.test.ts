@@ -7,7 +7,7 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 
 import { createHookIo } from '../../src/core/hooks/hook-io.js';
-import { findPlugin } from '../../src/core/integration/detect.js';
+import { findPlugin } from '../../src/core/integrations/detect.js';
 import {
   createSessionId,
   injectReviewAgentModel,
@@ -172,7 +172,7 @@ describe('runSessionStart', () => {
     await mkdir(path.join(pluginRoot, 'templates'), { recursive: true });
     await writeFile(
       path.join(pluginRoot, 'templates', 'workflow-template.yaml'),
-      'active_changes: []\n',
+      'change_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\n',
       'utf-8',
     );
     // 装上 superpowers + 假 openspec skill，减少 WARN
@@ -199,7 +199,9 @@ describe('runSessionStart', () => {
     expect(gitignore).toContain('workflow.yaml');
 
     const workflow = await readFile(path.join(tmp, '.polaris', 'workflow.yaml'), 'utf-8');
-    expect(workflow).toContain('active_changes');
+    expect(workflow).toContain('change_tasks');
+    expect(workflow).toContain('requirement_tasks');
+    expect(workflow).toContain('testcase_tasks');
 
     const session = await readFile(path.join(tmp, '.polaris', 'sessions', '99901.id'), 'utf-8');
     expect(session.trim()).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-[0-9a-f]{6}$/);
@@ -211,6 +213,7 @@ describe('runSessionStart', () => {
       repoRoot: path.resolve(tmp),
       platformId: 'claude',
       pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris-flow'),
+      contextDir: '.claude',
     });
   });
 
@@ -257,6 +260,7 @@ describe('runSessionStart', () => {
       repoRoot: path.resolve(tmp),
       platformId: 'claude',
       pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris-flow'),
+      contextDir: '.claude',
     });
   });
 });

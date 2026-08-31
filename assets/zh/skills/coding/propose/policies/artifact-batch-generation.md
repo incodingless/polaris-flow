@@ -108,7 +108,7 @@ openspec/changes/<change_id>/
 
 ### 4.1 探针
 
-加载 `{{SKILL_NAME_PREFIX}}subagent-probe`（传入 `platform`）。
+加载 `polaris{{SKN_SPR}}flow{{SKN_SPR}}subagent-probe`（传入 `platform`）。
 
 | 结果 | 动作 |
 |------|------|

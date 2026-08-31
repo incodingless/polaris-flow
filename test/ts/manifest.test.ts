@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { readFile } from 'fs/promises';
 
-import { readAssetManifest, resolveManifestAssets } from '../../src/core/assets/manifest.js';
+import { loadManifestConfig, readAssets } from '../../src/core/assets/manifest.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
@@ -12,26 +12,17 @@ const assetsDir = path.join(projectRoot, 'assets');
 
 describe('manifest', () => {
   it('reads asset manifest', async () => {
-    const manifest = await readAssetManifest(assetsDir);
+    const manifest = await loadManifestConfig(assetsDir);
     expect(manifest.version).toBe('0.1.0');
     expect(manifest.langContentDirs).toContain('skills');
   });
 
-  it('resolves empty skills when assets dirs are missing', async () => {
-    const resolved = await resolveManifestAssets(assetsDir, 'en');
-    expect(Array.isArray(resolved.skills)).toBe(true);
-    expect(resolved.version).toBe('0.1.0');
-  });
-
-  it('从 shared/hooks 收集 hook 脚本', async () => {
-    const resolved = await resolveManifestAssets(assetsDir, 'zh');
-    expect(Object.keys(resolved.hooks).length).toBeGreaterThan(0);
-    expect(resolved.hooks['hooks/session-start.sh']).toBeDefined();
-  });
-
-  it('rules 能解析到 skills/hard-stops.md', async () => {
-    const resolved = await resolveManifestAssets(assetsDir, 'zh');
-    expect(resolved.rules).toContain('skills/hard-stops.md');
+  it('readAssets 收集 shared hooks 与 scripts', async () => {
+    const assets = await readAssets('zh');
+    const hooks = assets.sharedAssets.find((a) => a.dir === 'hooks');
+    const scripts = assets.sharedAssets.find((a) => a.dir === 'scripts');
+    expect(hooks?.files.some((f) => f.shortPath === 'session-start.sh')).toBe(true);
+    expect(scripts?.files.some((f) => f.shortPath === 'workflow-entry.sh')).toBe(true);
   });
 });
 
@@ -41,7 +32,10 @@ describe('workflow fixture', () => {
       path.join(__dirname, '..', 'fixtures', 'workflow', 'workflow.yaml'),
       'utf-8',
     );
-    const parsed = parseYaml(raw) as { changes: Array<{ id: string }> };
-    expect(parsed.changes[0]?.id).toBe('add-feature-x');
+    const parsed = parseYaml(raw) as {
+      change_tasks: Array<{ task_id: string; phase: string }>;
+    };
+    expect(parsed.change_tasks[0]?.task_id).toBe('add-feature-x');
+    expect(parsed.change_tasks[0]?.phase).toBe('propose');
   });
 });
