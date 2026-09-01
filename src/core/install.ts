@@ -3,7 +3,7 @@
  * 按以下顺序安装：
  * 1. 目录与配置初始化（install/layout）
  * 2. skills → commands → agents → rules → hooks
- * 3. 公共内容 adapters/policies/templates 随 skills 步骤落入 polaris-flow
+ * 3. 公共内容 adapters/policies/templates 随 skills 步骤落入 polaris
  */
 import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
@@ -16,16 +16,8 @@ import {
   resolveReviewAgentModel,
 } from './config/polaris-project-config.js';
 
-import {
-  getPolarisConfigPath,
-  getPolarisGitignorePath,
-  getWorkflowConfigPath,
-} from './assets/polaris-paths.js';
-import {
-  getConfigExampleYamlSrc,
-  getSharedGitignoreSrc,
-  getWorkflowTemplateYamlSrc,
-} from './assets/manifest.js';
+import { getPolarisConfigPath, getPolarisGitignorePath } from './assets/polaris-paths.js';
+import { getConfigExampleYamlSrc, getSharedGitignoreSrc } from './assets/manifest.js';
 import { copyPolarisAgents } from './install/agents.js';
 import { installPolarisCommandsForPlatform } from './install/commands.js';
 import { rewritePolarisCliPlatformId } from './install/hook-assets.js';
@@ -34,7 +26,8 @@ import { initializeProjectLayout, resolveWorktreeRoot } from './install/layout.j
 import { copyPolarisRules } from './install/rules.js';
 import { copyPolarisSkillsForPlatform } from './install/skills.js';
 import { Assets, readAssets } from './assets/manifest.js';
-import { copyIfMissing, fileExists } from '../utils/file-system.js';
+import { ensureWorkflowStateFile } from './config/workflow-state.js';
+import { copyIfMissing, ensureDir, fileExists } from '../utils/file-system.js';
 
 export type { LockFile, LockSourceEntry } from './install/lock.js';
 export { writeLockFile } from './install/lock.js';
@@ -155,7 +148,8 @@ export async function installPolarisForPlatform(
 
 /**
  * 基于 config.example.yaml 生成 `.polaris/config.yaml`。
- * 保留模板注释；仅覆盖 language / platform / scope / install-time / main-repo-root / worktree-dir。
+ * 保留模板注释；覆盖 language / platforms / scope / install-time /
+ * main-repo-root / worktree-dir，以及 layout 下各绝对路径。
  * @param overwrite 为 true 时即使文件已存在也整文件按模板重写
  */
 export async function generatePolarisConfig(
@@ -170,43 +164,40 @@ export async function generatePolarisConfig(
     return;
   }
 
+  await ensureDir(path.dirname(polarisConfigPath));
+
+  const repoRoot = path.resolve(projectPath);
+  const worktreeRoot = resolveWorktreeRoot(projectPath, scope);
+
   const templateText = await readFile(getConfigExampleYamlSrc(), 'utf-8');
   const doc = parseDocument(templateText, { keepSourceTokens: true });
 
   doc.set('language', language);
+  // 模板键名为 platform；运行时统一写 platforms，并删除旧键
   doc.set(
     'platforms',
     platforms.map((p) => p.id),
   );
+  if (doc.has('platform')) {
+    doc.delete('platform');
+  }
   doc.set('scope', scope);
   doc.set('install-time', new Date().toISOString());
-  doc.set('main-repo-root', path.resolve(projectPath));
-  doc.set('worktree-dir', resolveWorktreeRoot(projectPath, scope));
+  doc.set('main-repo-root', repoRoot);
+  doc.set('worktree-dir', worktreeRoot);
+
+  doc.setIn(['layout', 'worktree'], worktreeRoot);
+  doc.setIn(['layout', 'openspec'], path.join(repoRoot, 'openspec'));
+  doc.setIn(['layout', 'tasks', 'root'], path.join(repoRoot, '.polaris', 'tasks'));
+  doc.setIn(['layout', 'docs', 'root'], path.join(repoRoot, 'docs'));
 
   const text = String(doc);
   await writeFile(polarisConfigPath, text.endsWith('\n') ? text : `${text}\n`, 'utf-8');
 }
 
 /**
- * 生成 Polaris 工作流配置文件。
- * 保留模板注释；仅覆盖 version / install-time / plugins。
- * @param overwrite 为 true 时即使文件已存在也整文件按模板重写
+ * 物化 `.polaris/workflow.yaml`：原样拷贝模板，不写入 version / install-time。
  */
-async function generateWorkflowConfig(
-  projectPath: string,
-  overwrite: boolean = false,
-): Promise<void> {
-  const workflowConfigPath = getWorkflowConfigPath(projectPath);
-  if (!overwrite && (await fileExists(workflowConfigPath))) {
-    return;
-  }
-
-  const templateText = await readFile(getWorkflowTemplateYamlSrc(), 'utf-8');
-  const doc = parseDocument(templateText, { keepSourceTokens: true });
-
-  doc.set('version', '0.1.0');
-  doc.set('install-time', new Date().toISOString());
-
-  const text = String(doc);
-  await writeFile(workflowConfigPath, text.endsWith('\n') ? text : `${text}\n`, 'utf-8');
+async function generateWorkflowConfig(projectPath: string): Promise<void> {
+  await ensureWorkflowStateFile(projectPath);
 }

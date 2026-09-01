@@ -67,7 +67,7 @@ describe('copyPolarisAgents / installPolarisForPlatform agent rewrite', () => {
     expect(result.agents.copied).toBeGreaterThan(0);
 
     const text = await readFile(
-      path.join(tmpDir, '.claude/agents/propose-review-agent.md'),
+      path.join(tmpDir, '.claude/agents/propose-reviewer.md'),
       'utf-8',
     );
     expect(text).toMatch(/^model: Test-Review-Model$/m);
@@ -97,13 +97,13 @@ describe('copyPolarisAgents / installPolarisForPlatform agent rewrite', () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-agents-skip-'));
     const agentsDir = path.join(tmpDir, '.claude', 'agents');
     await mkdir(agentsDir, { recursive: true });
-    await writeFile(path.join(agentsDir, 'propose-review-agent.md'), 'stale\n', 'utf-8');
+    await writeFile(path.join(agentsDir, 'propose-reviewer.md'), 'stale\n', 'utf-8');
 
     const asset = await readAssets('zh');
     const stats = await copyPolarisAgents(tmpDir, agentsDir, false, asset, claude);
     expect(stats.skipped).toBeGreaterThan(0);
 
-    const text = await readFile(path.join(agentsDir, 'propose-review-agent.md'), 'utf-8');
+    const text = await readFile(path.join(agentsDir, 'propose-reviewer.md'), 'utf-8');
     expect(text).toBe('stale\n');
   });
 });

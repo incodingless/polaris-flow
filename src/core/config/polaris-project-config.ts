@@ -387,7 +387,7 @@ export function getProjectPluginSubdirSrc(pluginName: PluginName): string {
 }
 
 export function getProjectPluginSubdirDest(projectPath: string, pluginName: PluginName): string {
-  return path.join(getPolarisDir(projectPath), 'skills', 'polaris-flow', pluginName);
+  return path.join(getPolarisDir(projectPath), 'skills', 'polaris', pluginName);
 }
 
 export function getContextDir(

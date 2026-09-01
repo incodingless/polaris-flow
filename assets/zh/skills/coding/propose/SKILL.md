@@ -1,6 +1,6 @@
 ---
-name: polaris{{SKN_SPR}}flow{{SKN_SPR}}propose
-description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 propose-reviewer 独立主审（可选 Outside Voice）后方可进入 design。"
+name: polaris{{SKN_SPR}}coding{{SKN_SPR}}propose
+description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 propose-reviewer 独立主审（可选 Outside Voice）后方可进入 design。"
 version: 0.1
 ---
 

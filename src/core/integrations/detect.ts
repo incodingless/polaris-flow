@@ -11,7 +11,7 @@ import { fileExists, readDir } from '../../utils/file-system.js';
 import { PLATFORMS, type Platform } from '../domain/platforms.js';
 import type { InstallScope } from '../config/polaris-project-config.js';
 import { getPlatformContextDir } from '../domain/platforms.js';
-import { POLARIS_FLOW_PLUGIN_NAME, POLARIS_PLUGIN_PREFIX } from '../config/polaris-constants.js';
+import { POLARIS_FLOW_PLUGIN_NAME, POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 
 /** superpowers 特征 skill（命中任一即视为已装） */
 const SUPERPOWERS_MARKERS = [
@@ -54,24 +54,39 @@ function getBaseDir(scope: InstallScope, projectPath: string): string {
   return scope === 'global' ? os.homedir() : projectPath;
 }
 
-/** 根据 detectionPaths / skillsDir 是否存在，探测项目可能使用的平台集合 */
+/**
+ * 探测本机/项目可能使用的平台集合。
+ * 命中任一即可：项目内 `contextDir`、主目录下 `detectionPaths`、或全局 contextDir。
+ */
 async function detectPlatforms(projectPath: string): Promise<Set<string>> {
   const detectedPlatforms = new Set<string>();
+  const homeDir = os.homedir();
 
   for (const platform of PLATFORMS) {
+    const projectCtx = getPlatformContextDir(platform, 'project', projectPath);
+    if (await fileExists(projectCtx)) {
+      detectedPlatforms.add(platform.id);
+      continue;
+    }
+
+    let hitHome = false;
     if (platform.detectionPaths && platform.detectionPaths.length > 0) {
       for (const p of platform.detectionPaths) {
-        if (await fileExists(path.join(projectPath, p))) {
-          detectedPlatforms.add(platform.id);
+        const candidate = path.isAbsolute(p) ? p : path.join(homeDir, p);
+        if (await fileExists(candidate)) {
+          hitHome = true;
           break;
         }
       }
     } else {
-      // getPlatformContextDir 已含 projectPath，勿再 join（Node path.join 不丢弃绝对段）
-      const skillsDir = getPlatformContextDir(platform, 'project', projectPath);
-      if (await fileExists(skillsDir)) {
-        detectedPlatforms.add(platform.id);
+      const globalCtx = getPlatformContextDir(platform, 'global', projectPath);
+      if (await fileExists(globalCtx)) {
+        hitHome = true;
       }
+    }
+
+    if (hitHome) {
+      detectedPlatforms.add(platform.id);
     }
   }
 
@@ -99,13 +114,14 @@ async function hasSkills(
       if (entries.some((e) => e.startsWith('codegraph-'))) return true;
       break;
     case 'polaris':
-      // polaris-flow（嵌套包根）或 polaris-flow-*（Trae 扁平子 skill）或旧版 polaris*
+      // polaris（嵌套包根）或 polaris-*（扁平子 skill）；兼容旧 polaris-flow*
       if (
         entries.some(
           (e) =>
+            e === POLARIS_PLUGIN_NAME ||
+            e.startsWith(`${POLARIS_PLUGIN_NAME}-`) ||
             e === POLARIS_FLOW_PLUGIN_NAME ||
-            e.startsWith(`${POLARIS_FLOW_PLUGIN_NAME}-`) ||
-            e.startsWith(POLARIS_PLUGIN_PREFIX),
+            e.startsWith(`${POLARIS_FLOW_PLUGIN_NAME}-`),
         )
       ) {
         return true;

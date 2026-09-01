@@ -1,6 +1,6 @@
 ---
-name: polaris{{SKN_SPR}}flow{{SKN_SPR}}clarify
-description: "经结构化探索与确认，把用户需求落地为 intention.md。用户触发 /polairs{{SKN_SPR}}flow{{SKN_SPR}}clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
+name: polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify
+description: "经结构化探索与确认，把用户需求落地为 intention.md。用户触发 /polairs{{SKN_SPR}}coding{{SKN_SPR}}clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
 version: 0.1
 ---
 # Polaris 工作流 - 阶段1：澄清
@@ -46,7 +46,7 @@ if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/task-init.sh" ]; then
   exit 2
 fi
 
-INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT")
+INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind change)
 INIT_EXIT=$?
 echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```

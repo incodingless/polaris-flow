@@ -1,6 +1,6 @@
 ---
-name: polaris{{SKN_SPR}}flow{{SKN_SPR}}design
-description: "把 propose 的高层 design.md 深化为可实施的详细技术设计并完成评审。用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}design，或要求把 OpenSpec 高层 design.md 深化为 detailed-design.md / 深度技术设计时必须使用本 skill。"
+name: polaris{{SKN_SPR}}coding{{SKN_SPR}}design
+description: "把 propose 的高层 design.md 深化为可实施的详细技术设计并完成评审。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design，或要求把 OpenSpec 高层 design.md 深化为 detailed-design.md / 深度技术设计时必须使用本 skill。"
 ---
 
 # Polaris 工作流 - 阶段：深度设计（design）
@@ -21,7 +21,7 @@ description: "把 propose 的高层 design.md 深化为可实施的详细技术�
 - **禁止**把设计/评审产物写回 `.polaris/tasks/`（运行态 `state.yaml` 除外）
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]设计 - 进入深度设计阶段: 使用 polaris{{SKN_SPR}}flow{{SKN_SPR}}design 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]设计 - 进入深度设计阶段: 使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}design 技能。`
 
 ## 标识约定
 
@@ -244,7 +244,7 @@ workflow阶段推进至规划阶段：
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill design --where-task-id "$task_id" --set phase=plan
 ```
 
-输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris{{SKN_SPR}}flow{{SKN_SPR}}plan。`
+输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan。`
 
 ## 退出条件
 

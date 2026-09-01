@@ -1,6 +1,6 @@
 ---
-name: polaris{{SKN_SPR}}flow{{SKN_SPR}}verify
-description: "对 build 产出做 Constitution 审计、scorer 评分与对照规格验证；用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}verify，或在 build 完成后要求验收 / 审计实施产出 / 跑 Constitution 合规与 scorer / 对照 specs 与 深度设计做验证时必须使用本 skill。"
+name: polaris{{SKN_SPR}}coding{{SKN_SPR}}verify
+description: "对 build 产出做 Constitution 审计、scorer 评分与对照规格验证；用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}verify，或在 build 完成后要求验收 / 审计实施产出 / 跑 Constitution 合规与 scorer / 对照 specs 与 深度设计做验证时必须使用本 skill。"
 ---
 
 # Polaris 工作流 - 阶段：验证（verify）
@@ -12,12 +12,12 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 - **禁止**在 team 模式下，scorer / Constitution 形成 blocking 时把 `verify.blocked=false` 或标记通过
 - **禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 且未完成出口校验就把 `phase` 推到 delivery
 - **禁止**本阶段做分支合并 / PR / worktree 合回 / `/opsx:archive`（那是 delivery）
-- **禁止**本阶段编写业务实现代码；用户确认修复后回 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}build`，不得在 verify 内静默改实现
+- **禁止**本阶段编写业务实现代码；用户确认修复后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`，不得在 verify 内静默改实现
 - **禁止**未按 `./reference/decision-point.md` 获得用户对「验证失败 / override / 规格漂移」的明确选择就继续或接受偏差
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]验证 - 进入 verify Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]验证 - 进入阶段：使用 polaris{{SKN_SPR}}flow{{SKN_SPR}}verify 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]验证 - 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}verify 技能。`
 
 ## 标识约定
 
@@ -67,7 +67,7 @@ RTID_EXIT=$?
 
 - **唯一匹配**：直接读取 `change_id`
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 design 阶段的 active change，请先执行 /polaris{{SKN_SPR}}flow{{SKN_SPR}}design」
+- **零匹配**：阻断，提示「未找到 design 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design」
 
 > 若 entry 已是 `phase=plan`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
 > 若上次中断在 verify（`verify.status=in_progress`），从中断点续跑；不得因「已是 verify」而报零匹配。
@@ -94,7 +94,7 @@ RTID_EXIT=$?
 | dirty 仅为本阶段产物（验证报告草稿等） | 可继续 |
 | 已实现但 `tasks.md` 仍有未勾选 | 视为 build 状态滞后 → [验证失败决策](#验证失败决策阻塞点) |
 
-用户选择「回 build 修复」后，才允许调用 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}build`；本 skill 只写 `verify.status: failed` 与失败原因，**不**改 `phase`（由用户确认后主代理再把 phase 设回 build，或由 build 入口接受「从 verify 回退」的显式选择）。
+用户选择「回 build 修复」后，才允许调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`；本 skill 只写 `verify.status: failed` 与失败原因，**不**改 `phase`（由用户确认后主代理再把 phase 设回 build，或由 build 入口接受「从 verify 回退」的显式选择）。
 
 ### Step 2：Constitution Compliance Audit（注入点 D）
 
@@ -259,7 +259,7 @@ git diff --stat <base-ref>...HEAD
 | 选项 | 动作 |
 |------|------|
 | A | 在 `detailed-design.md` 追加 `## Implementation Divergence` 记录原因（本阶段允许产物；不得因此再触发 Step 1 dirty 失败环） |
-| B | 用户确认后回 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}build`（或回 design/plan，由用户选），更新设计与 specs |
+| B | 用户确认后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`（或回 design/plan，由用户选），更新设计与 specs |
 | C | 确认偏差可接受，继续；报告中记录接受原因与影响 |
 
 ### Step 5：落盘证据 + 出口推进
@@ -296,7 +296,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
   mode      : <light|full>
   score     : <overall_score> (<score_level>)
   report    : openspec/changes/<change_id>/reviews/verify-report.md
-下一步建议 /polaris{{SKN_SPR}}flow{{SKN_SPR}}delivery。
+下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}delivery。
 ```
 
 **硬阻断（不得推进 phase）**：
@@ -310,7 +310,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 ## 验证失败决策（阻塞点）
 
-验证不通过时**必须**按 `./reference/decision-point.md` 暂停。不得自动调用 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}build`，不得自动把失败标成通过。
+验证不通过时**必须**按 `./reference/decision-point.md` 暂停。不得自动调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`，不得自动把失败标成通过。
 
 暂停时必须列出：
 
@@ -324,7 +324,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 | 选择 | 动作 |
 |------|------|
-| 全部修复 | 写 `verify.status: failed`；调用 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}build` 修复（用户确认后） |
+| 全部修复 | 写 `verify.status: failed`；调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build` 修复（用户确认后） |
 | 逐项处理 | CRITICAL / IMPORTANT 必须修；WARNING / SUGGESTION 可接受偏差但须写入报告；存在任一 CRITICAL/IMPORTANT 时禁止「全部接受」 |
 | 接受偏差（仅非 blocking） | 记 overrides.log + 报告；team blocking 场景除外 |
 

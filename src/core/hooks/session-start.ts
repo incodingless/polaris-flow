@@ -38,6 +38,7 @@ const GITIGNORE_ENTRIES = [
   'metrics/',
   'workflow.yaml',
   'tasks/',
+  'testcases/',
   'archive/',
   'overrides.log',
 ] as const;
@@ -143,7 +144,7 @@ async function checkOpenspec(
 
 /**
  * 检查 .polaris 目录、config、gitignore、workflow 骨架、.locks。
- * @param pluginRoot 插件根绝对路径（`$RepoRoot/.<platform>/skills/polaris-flow`）
+ * @param pluginRoot 插件根绝对路径（`$RepoRoot/.<platform>/skills/polaris`）
  */
 async function checkConfig(
   io: HookIo,

@@ -1,6 +1,6 @@
 ---
-name: polaris{{SKN_SPR}}flow{{SKN_SPR}}plan
-description: "用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}plan 或要求在 design 完成后写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划必须基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md 全文推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并派发 plan-review-agent 做独立主审（可选 Outside Voice）。不要用于：clarify/propose 阶段、尚未完成 design、或已进入 build 要求直接写代码。"
+name: polaris{{SKN_SPR}}coding{{SKN_SPR}}plan
+description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 或要求在 design 完成后写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划必须基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md 全文推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并派发 plan-review-agent 做独立主审（可选 Outside Voice）。不要用于：clarify/propose 阶段、尚未完成 design、或已进入 build 要求直接写代码。"
 ---
 
 # Polaris 工作流 - 阶段：任务规划（plan）
@@ -22,7 +22,7 @@ description: "用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}plan 或要求在 d
 - **禁止**未按 `./reference/decision-point.md` 获得用户对 **TDD 策略**（Step 2）的明确选择，就进入 Step 4 覆写 `tasks.md`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]任务规划- 进入阶段：使用 polaris{{SKN_SPR}}flow{{SKN_SPR}}plan 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]任务规划- 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 技能。`
 
 ## 标识约定
 
@@ -379,7 +379,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
   outside-voice : <ran | skipped:...>
   STATUS        : <DONE | DONE_WITH_CONCERNS>
 
-下一步建议 /polaris{{SKN_SPR}}flow{{SKN_SPR}}build（按 tasks.md 由 implementer 执行 /opsx:apply）。
+下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}build（按 tasks.md 由 implementer 执行 /opsx:apply）。
 ```
 
 ## 退出条件

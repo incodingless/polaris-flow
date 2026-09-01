@@ -39,13 +39,13 @@ describe('install/layout', () => {
     await access(path.join(projectPath, '.worktrees'));
   });
 
-  it('initializeProjectLayout：创建平台 skills/commands/agents/rules 与 polaris-flow 根', async () => {
+  it('initializeProjectLayout：创建平台 skills/commands/agents/rules 与 polaris 根', async () => {
     const projectPath = await mkdtemp(path.join(os.tmpdir(), 'polaris-layout-proj-'));
     const layout = await initializeProjectLayout(projectPath, 'project', claude);
 
     expect(layout.baseDir).toBe(path.join(projectPath, '.claude'));
-    await access(path.join(projectPath, '.claude/skills/polaris-flow'));
-    await access(path.join(projectPath, '.claude/commands/polaris-flow'));
+    await access(path.join(projectPath, '.claude/skills/polaris'));
+    await access(path.join(projectPath, '.claude/commands/polaris'));
     await access(path.join(projectPath, '.claude/agents'));
     await access(path.join(projectPath, '.claude/rules'));
   });

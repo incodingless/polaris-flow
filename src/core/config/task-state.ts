@@ -207,7 +207,7 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
     change_id: changeId,
     phase: options.phase ?? 'idle',
     current_tier: '',
-    kind: options.kind ?? 'solo',
+    kind: options.kind ?? 'change',
     workflow: options.workflow ?? 'sdd',
     verify_mode: 'light',
     auto_transition: true,

@@ -63,7 +63,7 @@ async function makeProject(opts?: {
       'lang: zh',
       `created_at: '${new Date().toISOString()}'`,
       `platform: ${opts?.platform ?? 'claude'}`,
-      `plugin_root: ${opts?.pluginRoot ?? '.claude/skills/polaris-flow'}`,
+      `plugin_root: ${opts?.pluginRoot ?? '.claude/skills/polaris'}`,
       "workflow: ''",
       "phase: ''",
       'auto_transition: true',
@@ -168,7 +168,7 @@ describe('runSessionStart', () => {
     const tmp = await makeProject({ platform: 'claude' });
     const fakeHome = path.join(tmp, '_home');
     await mkdir(fakeHome, { recursive: true });
-    const pluginRoot = path.join(tmp, '.claude', 'skills', 'polaris-flow');
+    const pluginRoot = path.join(tmp, '.claude', 'skills', 'polaris');
     await mkdir(path.join(pluginRoot, 'templates'), { recursive: true });
     await writeFile(
       path.join(pluginRoot, 'templates', 'workflow-template.yaml'),
@@ -212,7 +212,7 @@ describe('runSessionStart', () => {
     expect(result.paths).toEqual({
       repoRoot: path.resolve(tmp),
       platformId: 'claude',
-      pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris-flow'),
+      pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris'),
       contextDir: '.claude',
     });
   });
@@ -259,7 +259,7 @@ describe('runSessionStart', () => {
     expect(result.paths).toEqual({
       repoRoot: path.resolve(tmp),
       platformId: 'claude',
-      pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris-flow'),
+      pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris'),
       contextDir: '.claude',
     });
   });

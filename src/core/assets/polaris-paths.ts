@@ -6,8 +6,13 @@
 import os from 'os';
 import path from 'path';
 
+import type { WorkflowTaskKind } from '../config/workflow-state.js';
+
 /** 安装作用域：global → 用户主目录；project → 当前项目（叶类型，避免与 config 循环依赖） */
 export type InstallScope = 'global' | 'project';
+
+/** `.polaris` 下按任务 kind 划分的一级存储段 */
+export type TaskStorageSegment = 'tasks' | 'testcases';
 
 //---------------------------------
 //         全局 ~/.polaris
@@ -109,6 +114,57 @@ export function getTaskIntentionPath(projectPath: string, taskId: string): strin
 /** 返回 intention 相对仓库根的路径字符串（写入 state.yaml 用） */
 export function getTaskIntentionRelPath(taskId: string): string {
   return path.posix.join('.polaris', 'tasks', taskId, 'intention.md');
+}
+
+//---------------------------------
+//        按 kind 的任务路径
+//---------------------------------
+
+/**
+ * 返回 kind 对应的 `.polaris` 一级目录名。
+ * change / requirement → tasks；testcase → testcases。
+ */
+export function getTaskStorageSegment(kind: WorkflowTaskKind): TaskStorageSegment {
+  return kind === 'testcase' ? 'testcases' : 'tasks';
+}
+
+/** 返回 `.polaris/tasks` 或 `.polaris/testcases` */
+export function getTaskKindRootDir(projectPath: string, kind: WorkflowTaskKind): string {
+  return path.join(getPolarisDir(projectPath), getTaskStorageSegment(kind));
+}
+
+/** 返回 `.polaris/<segment>/<taskId>` */
+export function getTaskKindDir(
+  projectPath: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+): string {
+  return path.join(getTaskKindRootDir(projectPath, kind), taskId);
+}
+
+/** 返回 `.polaris/<segment>/<taskId>/state.yaml` */
+export function getTaskKindStatePath(
+  projectPath: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+): string {
+  return path.join(getTaskKindDir(projectPath, kind, taskId), 'state.yaml');
+}
+
+/**
+ * 返回相对仓库根的 posix 路径：`.polaris/<segment>/<taskId>/<file>`。
+ */
+export function getTaskKindRelPath(
+  kind: WorkflowTaskKind,
+  taskId: string,
+  file: string,
+): string {
+  return path.posix.join('.polaris', getTaskStorageSegment(kind), taskId, file);
+}
+
+/** 返回 `.polaris/testcases` 目录 */
+export function getTestcasesDir(projectPath: string): string {
+  return path.join(getPolarisDir(projectPath), 'testcases');
 }
 
 //---------------------------------

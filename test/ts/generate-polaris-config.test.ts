@@ -19,7 +19,7 @@ function platformById(id: string) {
 }
 
 describe('generatePolarisConfig', () => {
-  it('目标不存在时从模板生成，覆盖 6 个动态字段并保留其它默认值与注释', async () => {
+  it('目标不存在时从模板生成，覆盖动态字段与 layout 绝对路径', async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-gen-config-'));
     const platforms = [platformById('trae'), platformById('claude')];
 
@@ -30,7 +30,8 @@ describe('generatePolarisConfig', () => {
     const parsed = parseYaml(raw) as Record<string, unknown>;
 
     expect(parsed.language).toBe('en');
-    expect(parsed.platform).toEqual(['trae', 'claude']);
+    expect(parsed.platforms).toEqual(['trae', 'claude']);
+    expect(parsed.platform).toBeUndefined();
     expect(parsed.scope).toBe('project');
     expect(typeof parsed['install-time']).toBe('string');
     expect(String(parsed['install-time'])).toMatch(/^\d{4}-\d{2}-\d{2}T/);
@@ -38,14 +39,25 @@ describe('generatePolarisConfig', () => {
     expect(parsed['worktree-dir']).toBe(resolveWorktreeRoot(tmpDir, 'project'));
     expect(parsed.kind).toBe('solo');
     expect(parsed.model).toBeTruthy();
+    expect(raw).not.toContain('<project_root>');
     expect(raw).toContain('# 基础配置');
+
+    const layout = parsed.layout as Record<string, unknown>;
+    expect(layout.worktree).toBe(resolveWorktreeRoot(tmpDir, 'project'));
+    expect(layout.openspec).toBe(path.join(path.resolve(tmpDir), 'openspec'));
+    expect((layout.tasks as { root: string }).root).toBe(
+      path.join(path.resolve(tmpDir), '.polaris', 'tasks'),
+    );
+    expect((layout.docs as { root: string }).root).toBe(
+      path.join(path.resolve(tmpDir), 'docs'),
+    );
   });
 
   it('已存在且 overwrite=false 时不改文件', async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-gen-config-'));
     const configPath = getPolarisConfigPath(tmpDir);
     await mkdir(path.dirname(configPath), { recursive: true });
-    const sentinel = '# sentinel\nlanguage: "zh"\nplatform:\n  - "trae"\n';
+    const sentinel = '# sentinel\nlanguage: "zh"\nplatforms:\n  - "trae"\n';
     await writeFile(configPath, sentinel, 'utf-8');
 
     await generatePolarisConfig(tmpDir, 'en', 'project', [platformById('claude')], false);
@@ -64,11 +76,13 @@ describe('generatePolarisConfig', () => {
     const raw = await readFile(configPath, 'utf-8');
     const parsed = parseYaml(raw) as Record<string, unknown>;
     expect(parsed.language).toBe('en');
-    expect(parsed.platform).toEqual(['cursor']);
+    expect(parsed.platforms).toEqual(['cursor']);
+    expect(parsed.platform).toBeUndefined();
     expect(parsed.scope).toBe('global');
     expect(parsed['main-repo-root']).toBe(path.resolve(tmpDir));
     expect(parsed['worktree-dir']).toBe(resolveWorktreeRoot(tmpDir, 'global'));
     expect(parsed.kind).toBe('solo');
+    expect(raw).not.toContain('<project_root>');
     expect(raw).toContain('# 基础配置');
   });
 });

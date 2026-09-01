@@ -14,7 +14,7 @@ import {
 import { type Languages } from '../config/polaris-project-config.js';
 import { getPlatformContextDir, type Platform } from '../domain/platforms.js';
 
-const POLARIS_FLOW_PLUGIN_NAME = 'polaris-flow';
+import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 
 export type ProjectLayoutOption = {
   /** 技能语言，写入 config.yaml */
@@ -88,7 +88,7 @@ export async function initializePolarisCommonLayout(
  * 创建项目工作目录，以及按 scope 落盘的技能插件根。
  * 对 platforms 中每个平台，在技能根（project→项目，global→~/.polaris）下创建：
  *    skills / commands / agents / rules（若平台声明），以及
- *    skills/polaris-flow/{hooks,templates,adapters,policies,scorers}
+ *    skills/polaris/{hooks,templates,adapters,policies,scorers}
  */
 export async function initializeProjectLayout(
   projectPath: string,
@@ -101,8 +101,8 @@ export async function initializeProjectLayout(
   const contextDir =
     scope === 'global' ? globalContextDir : getPlatformContextDir(platform, scope, projectPath);
 
-  const skillBase = path.join(contextDir, platform.skillsDir, POLARIS_FLOW_PLUGIN_NAME);
-  const commandBase = path.join(contextDir, platform.commandsDir, POLARIS_FLOW_PLUGIN_NAME);
+  const skillBase = path.join(contextDir, platform.skillsDir, POLARIS_PLUGIN_NAME);
+  const commandBase = path.join(contextDir, platform.commandsDir, POLARIS_PLUGIN_NAME);
   const agentBase = path.join(contextDir, platform.agentsDir);
   const ruleBase = path.join(contextDir, platform.rulesDir);
 

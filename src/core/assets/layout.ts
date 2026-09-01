@@ -7,13 +7,19 @@ import path from 'path';
 
 import { getSkillsLayout, type Platform } from '../domain/platforms.js';
 import type { InstallScope } from './polaris-paths.js';
-import { loadPolarisConfig } from '../config/polaris-project-config.js';
+import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 
-/** 包内公共目录前缀（装入 polaris-flow 插件根，两种 layout 相同） */
+/** 包内公共目录前缀（装入 polaris 插件根，两种 layout 相同） */
 const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/', 'scripts/'] as const;
 
-/** 应忽略的空壳路径前缀 */
-const SKIP_PREFIXES = ['skills/polaris/'] as const;
+/** 技能族目录（其下为叶技能） */
+const SKILL_FAMILIES = new Set(['coding', 'prd', 'test']);
+
+/** 应忽略的空壳 / 备份路径前缀 */
+const SKIP_PREFIXES = [
+  'skills/backup/',
+  'skills/requirements-engineering/',
+] as const;
 
 /**
  * 返回平台上下文相对目录名（project→contextDir，global→globalContextDir）。
@@ -31,21 +37,24 @@ export function getPluginRootRel(
   scope: InstallScope = 'project',
   _projectPath?: string,
 ): string {
-  return path.posix.join(getPlatformContextRel(platform, scope), 'skills', 'polaris');
+  return path.posix.join(getPlatformContextRel(platform, scope), 'skills', POLARIS_PLUGIN_NAME);
 }
 
 /**
- * 判断 manifest 资产路径是否应跳过安装（如空壳 polaris/）。
+ * 判断 manifest 资产路径是否应跳过安装。
  */
 export function shouldSkipAsset(assetRelPath: string): boolean {
   const normalized = assetRelPath.replace(/\\/g, '/');
+  if (normalized.includes('/.workbuddy/')) {
+    return true;
+  }
   return SKIP_PREFIXES.some(
     (prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix),
   );
 }
 
 /**
- * 判断是否为包内公共内容（adapters/policies/templates/hooks/hard-stops）。
+ * 判断是否为包内公共内容（adapters/policies/templates/hooks/scripts）。
  */
 export function isPackageCommonAsset(assetRelPath: string): boolean {
   const normalized = assetRelPath.replace(/\\/g, '/');
@@ -59,7 +68,42 @@ export function isPackageCommonAsset(assetRelPath: string): boolean {
 }
 
 /**
- * 从 `skills/<name>/...` 路径取出顶层 skill 名；非 skill 树则返回 null。
+ * 解析 skills 资产相对路径中的族 / 叶技能。
+ * - `coding/clarify/SKILL.md` → family=coding, skill=clarify
+ * - `subagent-probe/SKILL.md` → family=null, skill=subagent-probe
+ */
+export function parseSkillAssetPath(shortPath: string): {
+  family: string | null;
+  skill: string;
+  underSkill: string;
+} | null {
+  const normalized = shortPath.replace(/\\/g, '/');
+  if (!normalized || normalized === 'README.md' || !normalized.includes('/')) {
+    return null;
+  }
+  const parts = normalized.split('/');
+  if (parts[0] === 'backup' || parts[0] === 'requirements-engineering') {
+    return null;
+  }
+  if (SKILL_FAMILIES.has(parts[0])) {
+    if (parts.length < 2) {
+      return null;
+    }
+    return {
+      family: parts[0],
+      skill: parts[1],
+      underSkill: parts.slice(2).join('/'),
+    };
+  }
+  return {
+    family: null,
+    skill: parts[0],
+    underSkill: parts.slice(1).join('/'),
+  };
+}
+
+/**
+ * @deprecated 使用 parseSkillAssetPath；保留仅取叶技能名以兼容旧调用。
  */
 export function getTopLevelSkillName(assetRelPath: string): string | null {
   const normalized = assetRelPath.replace(/\\/g, '/');
@@ -67,19 +111,8 @@ export function getTopLevelSkillName(assetRelPath: string): string | null {
     return null;
   }
   const rest = normalized.slice('skills/'.length);
-  if (!rest || rest === 'hard-stops.md') {
-    return null;
-  }
-  const slash = rest.indexOf('/');
-  const name = slash === -1 ? rest : rest.slice(0, slash);
-  // skills 根下的裸文件（含扩展名）不是子 skill
-  if (slash === -1 && name.includes('.')) {
-    return null;
-  }
-  if (!name || name === 'polaris') {
-    return null;
-  }
-  return name;
+  const parsed = parseSkillAssetPath(rest);
+  return parsed?.skill ?? null;
 }
 
 /**
@@ -110,29 +143,38 @@ export function resolveInstallDest(
   const pluginRoot = getPluginRootRel(platform, scope, projectPath);
   const skillsRoot = path.posix.join(getPlatformContextRel(platform, scope), 'skills');
 
-  // 包内公共内容
   if (isPackageCommonAsset(normalized)) {
     if (normalized === 'skills/hard-stops.md' || normalized === 'hard-stops.md') {
       return path.posix.join(pluginRoot, 'hard-stops.md');
     }
-    // adapters/foo → plugin_root/adapters/foo
-    // hooks/foo.sh → plugin_root/hooks/foo.sh
     return path.posix.join(pluginRoot, normalized);
   }
 
-  // 子 skill
-  const skillName = getTopLevelSkillName(normalized);
-  if (skillName) {
-    const underSkill = normalized.slice(`skills/${skillName}/`.length);
-    if (getSkillsLayout(platform) === 'flat') {
-      const flatRoot = path.posix.join(skillsRoot, `polaris-flow-${skillName}`);
-      return underSkill ? path.posix.join(flatRoot, underSkill) : flatRoot;
+  if (!normalized.startsWith('skills/')) {
+    return null;
+  }
+  const rest = normalized.slice('skills/'.length);
+  const parsed = parseSkillAssetPath(rest);
+  if (!parsed) {
+    if (!rest.includes('/')) {
+      return path.posix.join(pluginRoot, rest);
     }
-    const nestedRoot = path.posix.join(pluginRoot, skillName);
-    return underSkill ? path.posix.join(nestedRoot, underSkill) : nestedRoot;
+    return null;
   }
 
-  return null;
+  const { family, skill, underSkill } = parsed;
+  if (getSkillsLayout(platform) === 'flat') {
+    const flatName = family
+      ? `${POLARIS_PLUGIN_NAME}-${family}-${skill}`
+      : `${POLARIS_PLUGIN_NAME}-${skill}`;
+    const flatRoot = path.posix.join(skillsRoot, flatName);
+    return underSkill ? path.posix.join(flatRoot, underSkill) : flatRoot;
+  }
+
+  const nestedRoot = family
+    ? path.posix.join(pluginRoot, family, skill)
+    : path.posix.join(pluginRoot, skill);
+  return underSkill ? path.posix.join(nestedRoot, underSkill) : nestedRoot;
 }
 
 /**
@@ -148,11 +190,11 @@ export function resolveAgentInstallDest(
 }
 
 /**
- * 获取项目的Polaris插件根路径
- * @param projectPath 项目根路径
- * @param platform 平台
- * @returns Polaris插件根路径
+ * 获取项目的 Polaris 插件根路径。
  */
-export async function getPolarisPluginRootPath(projectPath: string, platform: Platform): Promise<string> {
-  return path.posix.join(projectPath, platform.contextDir, platform.skillsDir, 'polaris-flow');
+export async function getPolarisPluginRootPath(
+  projectPath: string,
+  platform: Platform,
+): Promise<string> {
+  return path.posix.join(projectPath, platform.contextDir, platform.skillsDir, POLARIS_PLUGIN_NAME);
 }

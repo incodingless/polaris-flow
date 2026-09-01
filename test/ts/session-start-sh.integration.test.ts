@@ -63,7 +63,7 @@ async function makeProject(): Promise<{ projectPath: string; homeDir: string }> 
     [
       'language: zh',
       'platform: claude',
-      'plugin_root: .claude/skills/polaris-flow',
+      'plugin_root: .claude/skills/polaris',
       "workflow: ''",
       "phase: ''",
       'context_compression: off',

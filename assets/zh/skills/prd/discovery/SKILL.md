@@ -32,47 +32,46 @@ version: 0.3
 - 仍无 `$PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
 
 ```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/task-init.sh" ]; then
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.sh" ]; then
   echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
   exit 2
 fi
 
-INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT")
-INIT_EXIT=$?
-echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
+ACTIVE_RESULT=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes \
+  --kind requirement --skill discovery --repo-root "$REPO_ROOT")
+ACTIVE_EXIT=$?
+echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 ```
 
-**输出解读**（读 `INIT_RESULT` JSON）：
+**输出解读**（读 `ACTIVE_RESULT` JSON 数组，元素为 `task_id`）：
 
+| `ACTIVE_EXIT` | 含义 | 后续动作 |
+| ------------- | ---- | -------- |
+| 0 且数组非空 | 存在未完结需求任务 | 按决策点协议询问 A/B/C/D（见下） |
+| 0 且数组为空 | 无活跃需求任务 | 进入 Step 2 开启新任务 |
+| 非 0 | 参数/环境错误 | 按 H12 阻断 |
 
-| `INIT_EXIT` | `status`     | 含义              | 后续动作                       |
-| ------------- | -------------- | ------------------- | -------------------------------- |
-| 0           | `"ok"`       | 成功              | 取`draft_name`，进入 Step 1.5  |
-| 1           | `"existing"` | 存在未完成 draft  | 按决策点协议询问 A/B/C（见下） |
-| 2           | —（stderr） | 参数/环境错误     | 按 H12 阻断                    |
-| 3           | —（stderr） | workflow 写入失败 | 按 H12 阻断                    |
+存在活跃任务时，**必须**按 `./policies/decision-point.md` 暂停询问：
 
-`status="existing"` 时且 `existing` 含已有 draft 目录列表，**必须**按 `./policies/decision-point.md` 暂停询问：
-
-- **A. 续写最新一个**：`draft_name` = 列表最后一项 → 进入 Step 1.5
-- **B. 选择一个**：列出所有的 `draft_name` 候选让用户选择之后，取 `draft_name`后再发出以下询问，让用户选择：
+- **A. 续写最新一个**：`task_id` = 列表最后一项 → 进入 Step 1.5
+- **B. 选择一个**：列出所有 `task_id` 候选让用户选择之后，再发出以下询问：
 
   > 当前选择任务 <task_id>，请确认以下操作：
   >
   > - **A. 续写当前任务**：进入 Step 1.5
-  > - **B. 重新开始任务**：对当前dir 执行下列命令后，**重新**调用 `clarify-init.sh`，再进入 Step 1.9
+  > - **B. 重新开始任务**：对当前 dir 执行下列命令后，进入 Step 2（重新确认名称并 `task-init`）
   >
 
   ```bash
-     rm -rf "$REPO_ROOT/.polaris/tasks/<$task_id>"
-     bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill clarify --repo-root "$REPO_ROOT" --where-task-id "$d"
+     rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
+     bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id"
   ```
-- **C. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `clarify-init.sh`，再进入 Step 1.9
+- **C. 丢弃所有**：对每个 id 执行下列命令后，进入 Step 2
 
 ```bash
-for d in <existing 列表>; do
+for d in <ACTIVE_RESULT 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill clarify --repo-root "$REPO_ROOT" --where-task-id "$d"
+  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
 
@@ -81,10 +80,6 @@ done
 #### Step 1.5：读取任务进展，继续执行任务
 
 读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`，读取当前状态，根据以下状态值进入对应步骤：
-
-### Step 1.9：开启新任务
-
-`clarify-init.sh` 已在 B/C 分支中调用完成。本步骤读取新建任务 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml`，确认初始状态（如 `status=init`）后，进入 Step 2 执行初始化与前置校验。
 
 ### Step 2：初始化与前置校验
 
@@ -116,12 +111,39 @@ done
 
 用户确认后，将 `task_id` 记入会话上下文。
 
-#### 2.5 落盘《需求基线》文档
+#### 2.5 初始化任务目录（无 draft）
 
-需求基线 落盘路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req-baseline.md`
+需求任务**不**创建 `draft-*` 临时目录。确认 `task_id` 后直接初始化正式目录：
 
-1. `read_file ./templates/req-baseline-template.md` 按此模板初始化《需求基线》文档，并输出：`[polaris-flow PRD] 已读取需求基线模板 req-baseline.md`
-2. 落盘路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req-baseline.md`。向《需求基线》写入：需求唯一标识、复杂度初判结果（总分、分项得分、等级、是否触发强制升档）、初始化时间、执行状态
+```bash
+INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind requirement --task-id "$task_id")
+INIT_EXIT=$?
+echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
+```
+
+| `INIT_EXIT` | `status` | 含义 | 后续动作 |
+| ----------- | -------- | ---- | -------- |
+| 0 | `"ok"` | 已建 `.polaris/tasks/<task_id>/` + `state.yaml`（`phase=discovery`） | 进入 2.6 |
+| 1 | `"existing"` | 目录已存在 | 按决策点询问续写 / 另选名称 / 删除后重试 |
+| 2 | — | 参数/环境错误 | 按 H12 阻断 |
+
+成功后可选登记游标（若本阶段约定写入 workflow）：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
+  --kind requirement --skill discovery --repo-root "$REPO_ROOT" \
+  --task-id "$task_id" --phase discovery --worktree-path "" \
+  --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+读取 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml`，确认 `phase=discovery` 后继续。
+
+#### 2.6 落盘《需求基线》文档
+
+需求基线 落盘路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`
+
+1. `read_file ./templates/req_baseline_template.md` 按此模板初始化《需求基线》文档，并输出：`[polaris-flow PRD] 已读取需求基线模板 req_baseline.md`
+2. 落盘路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`。向《需求基线》写入：需求唯一标识、复杂度初判结果（总分、分项得分、等级、是否触发强制升档）、初始化时间、执行状态
 3. 上下文释放规则
 
 - 释放：目录全量扫描结果、无关文件列表、冗余文件元数据
@@ -162,7 +184,7 @@ done
 
 #### 3.5 增量落盘
 
-1. 需求基线文档路径：`$REPO_ROOT/tasks/<task_id>/req-baseline.md`，增量写入以下内容：
+1. 需求基线文档路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`，增量写入以下内容：
 
 - 第1章 文档概览
 - 第2章 需求基线引用说明（含核心诉求摘要）
@@ -269,8 +291,8 @@ done
 4. 增量补充
    **每一轮澄清完成后立即更新文档，不等待全部轮次结束**：
 
-   - 同步更新《需求基线》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req-baseline.md`） 第 3/4/6/7 章中发生变更的内容
-   - 向《需求澄清纪要》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/clarify-summary.md`）写入：
+   - 同步更新《需求基线》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`） 第 3/4/6/7 章中发生变更的内容
+   - 首次写入前 `read_file ./templates/req_clarify_summary_template.md` 初始化《需求澄清纪要》模板；向《需求澄清纪要》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_clarify_summary.md`）写入：
      - 第2章 问题闭环明细（业务层部分：高/中/低优先级各表）
      - 第3章 需求变更记录（业务层相关变更）
      - 第4章 隐含假设与风险清单（业务层相关假设）
@@ -310,7 +332,7 @@ done
 
 #### 5.2 增量补充需求基线
 
-1. 需求基线文档路径：`$REPO_ROOT/tasks/<task_id>/req-baseline.md`，第 6 章写入候选功能架构草案，醒目标注「候选方案，待澄清确认」
+1. 需求基线文档路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`，第 6 章写入候选功能架构草案，醒目标注「候选方案，待澄清确认」
 2. 所有架构衍生模糊点同步纳入待澄清问题池（不写入澄清纪要，待阶段4统一处理）
 
 #### 5.3 整理上下文
@@ -344,13 +366,13 @@ done
 4. 动态更新机制
    每收到一轮/一个答复，立即执行：
 
-   - 更新《需求基线》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req-baseline.md`）第6章候选架构草稿、第5章方案对应说明
+   - 更新《需求基线》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`）第6章候选架构草稿、第5章方案对应说明
    - 重新校验架构完整性，识别新增模糊点并纳入后续澄清
    - 记录变更前后对比与依据
 
 #### 6.2 增量落盘
 
-向《需求澄清纪要》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/clarify-summary.md`）写入：
+向《需求澄清纪要》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_clarify_summary.md`）写入：
 
 - 第2章 问题闭环明细（业务层部分：高/中/低优先级各表）
 - 第3章 需求变更记录（业务层相关变更）
@@ -388,8 +410,8 @@ done
 
 #### 7.5 补全收尾章节
 
-- 写入《需求基线》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req-baseline.md`）第7章需求合理性最终结论（终稿）、第8章后续工作建议
-- 写入《需求澄清纪要》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/clarify-summary.md`）第 5 章「后续待跟进事项」
+- 写入《需求基线》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`）第7章需求合理性最终结论（终稿）、第8章后续工作建议
+- 写入《需求澄清纪要》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_clarify_summary.md`）第 5 章「后续待跟进事项」
 
 #### 7.6 规整格式与固化版本
 
@@ -411,4 +433,23 @@ done
 | 模糊回复（「差不多」「可以吧」） | **不算确认** | 必须再问一次明确确认   |
 | 沉默 / 无回复                    | **不算确认** | 同上                   |
 
-用户明确确认后，清空上下文并输出：`[polaris-flow PRD] 澄清阶段完成：需求基线(req-baseline.md)、需求澄清纪要(clarify-summary.md)已锁定；状态已更新。`
+用户明确确认后：
+
+1. 推进 workflow 阶段至 draft
+
+```bash
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=draft
+```
+
+2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（直接编辑，无专用脚本）：
+
+```yaml
+phase: draft
+discovery:
+  status: completed
+  finished_at: "<ISO>"   # 保留既有 started_at
+```
+
+3. 清空上下文并输出：
+
+`[polaris-flow 需求工程] 需求探索 - 阶段完成，即将进入 [编写初稿] 阶段。可执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}draft。`

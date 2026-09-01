@@ -405,4 +405,4 @@
 
 ---
 
-> **使用说明**：本模板为 `polaris-flow{{SKILL_NAME_SPLITTER}}prd{{SKILL_NAME_SPLITTER}}testability` 技能 Phase 4 输出标准格式。执行评审时填充所有 `{占位符}`，删除无问题的行（保留表头），补充附录无需填写。最终输出文件名建议：`_testability_report_{文档版本}_{YYYYMMDD}.md`。
+> **使用说明**：本模板为 `polaris{{SKN_SPR}}prd{{SKN_SPR}}testability` 技能 Phase 4 输出标准格式。执行评审时填充所有 `{占位符}`，删除无问题的行（保留表头），补充附录无需填写。最终输出文件名建议：`_testability_report_{文档版本}_{YYYYMMDD}.md`。

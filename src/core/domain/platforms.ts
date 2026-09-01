@@ -5,8 +5,9 @@
 import path from 'path';
 import os from 'os';
 import type { InstallScope } from '../assets/polaris-paths.js';
+import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 
-/** polaris-flow 插件根下的公共子目录名 */
+/** polaris 插件根下的公共子目录名 */
 export const PLUGIN_SUBDIR_NAMES = [
   'hooks',
   'templates',
@@ -18,7 +19,7 @@ export const PLUGIN_SUBDIR_NAMES = [
 /** 平台配置根下始终创建的目录名 */
 export const PLATFORM_ROOT_DIR_NAMES = ['skills', 'commands', 'agents'] as const;
 
-/** 技能目录布局：nested 嵌套进 polaris-flow；flat 子 skill 扁平为 polaris-flow-*（如 Trae） */
+/** 技能目录布局：nested 嵌套进 polaris；flat 子 skill 扁平为 polaris-<family>-<skill>（如 Trae） */
 export type SkillsLayout = 'nested' | 'flat';
 
 /** 平台元数据：探测路径、skills/rules/hooks 能力与布局 */
@@ -42,6 +43,11 @@ export interface Platform {
   hooksConfigFile: string;
   /** Hook 配置写入格式 */
   hookFormat?: 'claude-code' | 'trae' | 'trae-cn';
+  /**
+   * 本机是否已安装该平台的探测路径。
+   * 相对路径相对用户主目录（如 `.claude`）；绝对路径原样使用。
+   * 另会探测项目内 `contextDir` 是否已存在。
+   */
   detectionPaths?: string[];
   /**
    * 传给 OpenSpec CLI `--tools` 的工具 id（≠ polaris platform id）。
@@ -182,14 +188,14 @@ function normalizePlatformDir(platform: string): string {
 }
 
 /**
- * 返回插件根相对路径：`.<platform>/skills/polaris-flow`（写入 config.plugin_root）。
+ * 返回插件根相对路径：`.<platform>/skills/polaris`（写入 config.plugin_root）。
  */
 export function getPluginRootRelPath(platform: string): string {
-  return path.posix.join(normalizePlatformDir(platform), 'skills', 'polaris-flow');
+  return path.posix.join(normalizePlatformDir(platform), 'skills', POLARIS_PLUGIN_NAME);
 }
 
 /**
- * 返回插件根绝对路径：`<baseDir>/.<platform>/skills/polaris-flow`。
+ * 返回插件根绝对路径：`<baseDir>/.<platform>/skills/polaris`。
  * `platform` 可为 `.trae` 或 `claude` 等。
  */
 export function getPluginRoot(baseDir: string, platform: string): string {
@@ -257,7 +263,8 @@ export const PLATFORMS: Platform[] = [
     /** project/global 实际文件由 hooks.ts 按 scope 选择 settings.local.json / settings.json */
     hooksConfigFile: 'settings.local.json',
     hookFormat: 'claude-code',
-    detectionPaths: ['/Users/jason/.claude/v1/history.json'],
+    /** 相对用户主目录：本机已安装 Claude Code 时通常存在 */
+    detectionPaths: ['.claude'],
     openspecToolId: 'claude',
     agentToolMap: CLAUDE_AGENT_TOOL_MAP,
   },
@@ -276,7 +283,7 @@ export const PLATFORMS: Platform[] = [
     /** project/global 实际文件由 hooks.ts 按 scope 选择 settings.local.json / settings.json */
     hooksConfigFile: 'settings.local.json',
     hookFormat: 'claude-code',
-    detectionPaths: ['/Users/jason/.cursor/v1/history.json'],
+    detectionPaths: ['.cursor'],
     openspecToolId: 'cursor',
     agentToolMap: CURSOR_AGENT_TOOL_MAP,
   },
@@ -294,7 +301,7 @@ export const PLATFORMS: Platform[] = [
     supportsHooks: true,
     hooksConfigFile: 'hooks.json',
     hookFormat: 'claude-code',
-    detectionPaths: ['/Users/jason/.trae/v1/history.json'],
+    detectionPaths: ['.trae'],
     openspecToolId: 'trae',
     agentToolMap: TRAE_AGENT_TOOL_MAP,
   },
@@ -312,7 +319,7 @@ export const PLATFORMS: Platform[] = [
     supportsHooks: true,
     hooksConfigFile: 'hooks.json',
     hookFormat: 'trae',
-    detectionPaths: ['/Users/jason/.trae-cn/v1/history.json'],
+    detectionPaths: ['.trae-cn'],
     openspecToolId: 'trae',
     agentToolMap: TRAE_AGENT_TOOL_MAP,
   },

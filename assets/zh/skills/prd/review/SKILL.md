@@ -1,6 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prd{{SKN_SPR}}review
 description: 产品需求文档（PRD）7维度业务评审技能。对PRD初稿或终稿执行系统化业务评审，覆盖业务一致性、范围完整性、逻辑自洽性、规则明确性、可实现性、合规性、基线双向一致性七个维度，输出分级问题清单与评审报告。适用于PRD初稿完成后、终稿定稿前、需求变更后的评审场景。触发场景：(1) 用户要求评审PRD；(2) polaris{{SKN_SPR}}prd{{SKN_SPR}}refine的Step3调用本技能执行完整评审；(3) 用户提到"需求评审"、"PRD评审"、"检查需求文档"。硬性约束：只做评审不做修改，问题必须分级，阻塞问题必须明确标注。
+version: 0.3
 ---
 
 # 产品需求业务评审技能
@@ -51,7 +52,7 @@ Step1 输入加载与评审范围确认 > Step2 多维度逐项评审 > Step 3 �
 - A：全量审查 ，进入Step 1
 - B：指定章节审查，列出章节作为选项要求用户选择（多选），选项格式为：<章节号>.<章节名称>。
 
-1.4 写入 `state.yaml`：`build.build_mode: <subagent_dispatch|inline>`。
+1.4 写入 `state.yaml`：`refine.build_mode: <subagent_dispatch|inline>`。
 
 1.5 **初始化问题记录结构**
    - 每条问题记录字段：问题ID、所属维度、问题标题、问题描述、文档位置（章节+锚点）、问题等级、改进建议、影响范围
@@ -229,6 +230,8 @@ Step1 输入加载与评审范围确认 > Step2 多维度逐项评审 > Step 3 �
 ---
 
 ## Step 4 — 评审报告输出与重评审机制
+
+**必须** `read_file` `./templates/review_report_template.md`，按报告模板输出。
 
 ### 评审报告结构
 

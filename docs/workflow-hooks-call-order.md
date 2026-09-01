@@ -102,8 +102,8 @@ bash "$PLUGIN_ROOT/scripts/<script>.sh" [args…]
 ### 3.1 clarify
 
 ```text
-Step 1     task-init.sh → polaris task-init
-              └─ draft-create（core）          # 新建 .polaris/tasks/draft-*/ 或报 existing
+Step 1     task-init.sh --kind change → polaris task-init
+              └─ draft-create（core）          # 新建 .polaris/tasks/draft-*/ 或报 existing（同 kind）
 Step 1(B)  workflow-entry delete-active   # 用户选丢弃 draft 时，逐个删游标
 …澄清 / Reframe / Premise…
 Step 4.4   task-finalize.sh → polaris task-finalize
@@ -112,10 +112,18 @@ Step 4.4   task-finalize.sh → polaris task-finalize
 
 | 脚本 | 典型参数 | 退出码要点 |
 |------|----------|------------|
-| `task-init.sh` | `<repo_root>` | 0=新建 ok；1=已有 draft（JSON `existing`）；2=环境错误 |
-| `draft-create.sh` | `<repo_root>` | 由 init 封装；0=新建；1=已有 draft |
-| `task-finalize.sh` | `<repo_root> <draft_name> <change_id>` | 目录 mv、回填 intention 标题、rename 游标 |
+| `task-init.sh` | `<repo_root> --kind change\|requirement\|testcase` | 0=新建 ok；1=已有同 kind draft（JSON `existing`）；2=环境错误 |
+| `draft-create.sh` | `<repo_root> --kind …` | 由 init 封装；0=新建；1=已有同 kind draft |
+| `task-finalize.sh` | `<repo_root> <draft_name> <change_id>` | 目录 mv、回填 intention 标题、rename 游标（本期仅 change） |
 | `workflow-entry.sh` | `delete-active` /（finalize 内）`rename-active` | 持 `workflow.lock` 改对应 kind 列表 |
+
+`task-init --kind` 目录约定：
+
+| kind | 存储根 | draft | 初始 phase | 初始 state |
+|------|--------|-------|------------|------------|
+| `change` | `.polaris/tasks/` | `draft-*` → finalize | `clarify` | change 型（intention / clarify 块） |
+| `requirement` | `.polaris/tasks/` | **无**；须 `--task-id` 直建正式目录 | `discovery` | PRD 型 |
+| `testcase` | `.polaris/testcases/` | `draft-*` | `discovery` | testcase 型 + `testcase_plan.md` |
 
 ---
 

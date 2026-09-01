@@ -1,6 +1,9 @@
 /**
- * Clarify 任务生命周期：init（建 draft + state）与 finalize（draft → change_id）。
+ * Clarify / discovery / testcase 任务生命周期：init（建目录 + state）与 finalize（draft → 正式 id）。
  * 由 `polaris task-init` / `polaris task-finalize` 调用。
+ *
+ * - change / testcase：先建 draft-*，再由 finalize（或后续流程）落到正式 id
+ * - requirement：不建 draft，须传正式 taskId，直接初始化任务目录
  */
 import { mkdir, rename, readFile, writeFile } from 'fs/promises';
 import path from 'path';
@@ -10,13 +13,23 @@ import {
   getTaskDir,
   getTaskIntentionPath,
   getTaskIntentionRelPath,
+  getTaskKindDir,
+  getTaskKindRelPath,
+  getTaskKindStatePath,
   getTaskStatePath,
 } from '../assets/polaris-paths.js';
+import { getTaskKindLayout } from '../config/task-kind-layout.js';
+import {
+  createDefaultRequirementState,
+  saveRequirementStateToFile,
+} from '../config/requirement-state.js';
 import {
   createDefaultTaskState,
   patchTaskStateFile,
   saveTaskStateToFile,
 } from '../config/task-state.js';
+import { createDefaultTestcaseState, saveTestcaseStateToFile } from '../config/testcase-state.js';
+import type { WorkflowTaskKind } from '../config/workflow-state.js';
 import { fileExists } from '../../utils/file-system.js';
 import { runDraftCreate } from './draft-create.js';
 import { runWorkflowEntry } from './workflow-entry.js';
@@ -34,15 +47,85 @@ export type FinalizeResult = {
   message?: string;
 };
 
+/** init 可选参数 */
+export type InitOptions = {
+  /** 正式任务 id；usesDraft=false 的 kind（如 requirement）必填 */
+  taskId?: string;
+};
+
 /** @deprecated 使用 InitResult */
 export type TaskInitResult = InitResult;
 /** @deprecated 使用 FinalizeResult */
 export type TaskFinalizeResult = FinalizeResult;
 
 /**
- * clarify 建 draft + state.yaml（对齐 task-init.sh；不写 workflow append）。
+ * 向已创建的任务目录写入 state 与 bootstrap 文件。
  */
-export async function init(repoRoot: string): Promise<InitResult> {
+async function writeKindStateAndBootstrap(
+  root: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+  taskDir: string,
+): Promise<void> {
+  const layout = getTaskKindLayout(kind);
+  const statePath = getTaskKindStatePath(root, kind, taskId);
+
+  if (layout.stateFactory === 'change') {
+    const state = createDefaultTaskState({
+      changeId: taskId,
+      phase: layout.initialPhase,
+      kind: 'change',
+    });
+    state.intention = {
+      path: getTaskIntentionRelPath(taskId),
+    };
+    state.clarify = {
+      status: 'in_progress',
+      draft_dir: taskId,
+    };
+    await saveTaskStateToFile(statePath, state);
+  } else if (layout.stateFactory === 'requirement') {
+    const state = createDefaultRequirementState({
+      taskId,
+      phase: layout.initialPhase,
+    });
+    state.discovery = {
+      status: 'in_progress',
+      started_at: new Date().toISOString(),
+      finished_at: '',
+    };
+    await saveRequirementStateToFile(statePath, state);
+  } else {
+    const planRel = getTaskKindRelPath(kind, taskId, 'testcase_plan.md');
+    const state = createDefaultTestcaseState({
+      taskId,
+      phase: layout.initialPhase,
+      planPath: planRel,
+    });
+    state.discovery = {
+      status: 'in_progress',
+      started_at: new Date().toISOString(),
+      finished_at: '',
+    };
+    await saveTestcaseStateToFile(statePath, state);
+  }
+
+  for (const file of layout.bootstrapFiles) {
+    const abs = path.join(taskDir, file.relPath);
+    await mkdir(path.dirname(abs), { recursive: true });
+    await writeFile(abs, file.content, 'utf-8');
+  }
+}
+
+/**
+ * 按 kind 初始化任务目录 + state.yaml（不写 workflow append）。
+ * requirement 不走 draft，须提供 options.taskId。
+ */
+export async function init(
+  repoRoot: string,
+  kind: WorkflowTaskKind,
+  options: InitOptions = {},
+): Promise<InitResult> {
   if (!repoRoot) {
     return { exitCode: 2, message: '缺少或无效的 repo_root 参数' };
   }
@@ -56,11 +139,46 @@ export async function init(repoRoot: string): Promise<InitResult> {
     return { exitCode: 2, message: `配置文件不存在，请重启会话。路径：${configPath}` };
   }
 
-  const draft = await runDraftCreate(root);
+  const layout = getTaskKindLayout(kind);
+
+  if (!layout.usesDraft) {
+    const taskId = (options.taskId ?? '').trim();
+    if (!taskId) {
+      return {
+        exitCode: 2,
+        message: `kind=${kind} 不使用 draft，须提供 --task-id`,
+      };
+    }
+    const taskDir = getTaskKindDir(root, kind, taskId);
+    if (await fileExists(taskDir)) {
+      return {
+        exitCode: 1,
+        payload: {
+          status: 'existing',
+          kind,
+          task_id: taskId,
+          existing: [taskId],
+        },
+      };
+    }
+    await mkdir(taskDir, { recursive: true });
+    await writeKindStateAndBootstrap(root, kind, taskId, taskDir);
+    return {
+      exitCode: 0,
+      payload: {
+        status: 'ok',
+        kind,
+        task_id: taskId,
+        task_dir: taskDir,
+      },
+    };
+  }
+
+  const draft = await runDraftCreate(root, kind);
   if (draft.exitCode === 1) {
     return {
       exitCode: 1,
-      payload: { status: 'existing', existing: draft.existing },
+      payload: { status: 'existing', existing: draft.existing, kind },
     };
   }
   if (draft.exitCode !== 0) {
@@ -69,26 +187,13 @@ export async function init(repoRoot: string): Promise<InitResult> {
 
   const draftDir = draft.draft_dir;
   await mkdir(draftDir, { recursive: true });
-
-  const state = createDefaultTaskState({
-    changeId: draft.draft_name,
-    phase: 'clarify',
-  });
-  state.intention = {
-    path: getTaskIntentionRelPath(draft.draft_name),
-  };
-  // 保留 clarify 块供 finalize 清 draft_dir（兼容历史语义）
-  state.clarify = {
-    status: 'in_progress',
-    draft_dir: draft.draft_name,
-  };
-
-  await saveTaskStateToFile(getTaskStatePath(root, draft.draft_name), state);
+  await writeKindStateAndBootstrap(root, kind, draft.draft_name, draftDir);
 
   return {
     exitCode: 0,
     payload: {
       status: 'ok',
+      kind,
       draft_name: draft.draft_name,
       draft_dir: draftDir,
     },
@@ -96,7 +201,7 @@ export async function init(repoRoot: string): Promise<InitResult> {
 }
 
 /**
- * draft → 正式 change_id，并 rename-active。
+ * draft → 正式 change_id，并 rename-active（仅 change 路径；本期未泛化 kind）。
  */
 export async function finalize(
   repoRoot: string,

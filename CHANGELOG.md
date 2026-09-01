@@ -10,7 +10,7 @@
 - **宿主 hook stdout 协议**: 分发器按平台序列化 JSON（Claude/Trae `hookSpecificOutput`，Cursor `additional_context`/`env`）；过程日志改走 TTY，避免污染宿主 stdout
 - **宿主 hook stdin 归一**: Claude/Cursor/Trae 字段别名与事件判别联合；`HostHookHandler` 为分发器（读 stdin / 写 stdout / 按 event 派发），事件实现为 `HostHookEventHandler`；宿主 `.sh` 统一 `polaris-flow host-hook`
 - **工作流 hooks 调用说明**: 新增 `docs/workflow-hooks-call-order.md`，按 clarify→delivery 梳理 hooks 调用顺序、作用、内部依赖与命名债
-- **平台安装布局**: 按平台 `skillsLayout`（nested / flat）将 polaris 资产装到正确目标目录；Trae 子 skill 扁平为 `polaris-flow-*`，其余平台嵌套进 `skills/polaris-flow/`
+- **平台安装布局**: 按平台 `skillsLayout`（nested / flat）将 polaris 资产装到正确目标目录；flat 叶技能为 `polaris-<family>-<skill>/`，nested 进 `skills/polaris/{family}/`
 - **包内公共内容安装**: init/update 同步安装 adapters、policies、templates、hooks、scripts 到插件根
 - **agents 安装**: 将 `assets/<lang>/agents/` 下评审 agent（含 `propose-review-agent`、`design-review-agent`、`plan-review-agent`、`openspec-review-agent`）写入 `.<platform>/agents/`；session-start 注入 `challenger.model`
 - **outside-voice 协议与模板**: `policies/outside-voice.md`、`templates/outside-voice-prompt.tmpl.md`
@@ -18,9 +18,14 @@
 
 ### Changed
 
+- **平台探测路径**: `detectionPaths` 改为相对用户主目录（`.claude` / `.cursor` / `.trae` / `.trae-cn`），去掉误提交的 `/Users/jason/...` 绝对路径；`detectPlatforms` 同时认项目 `contextDir` 与主目录标记
+- **安装 config layout 路径物化**: `generatePolarisConfig` 写入 `layout.worktree` / `openspec` / `tasks.root` / `docs.root` 绝对路径；模板键 `platform` 改为 `platforms`
+- **workflow 物化**: init 仅拷贝模板三列表，不再写入 `version` / `install-time`
+- **插件根 polaris**: 落盘目录由 `skills/polaris-flow` 改为 `skills/polaris`；flat 叶技能为 `polaris-<family>-<skill>/`；`{{SKN_SPR}}` 仅为 `:`/`-` 分隔符；policies 注入叶技能；跳过 `backup/` 与 `requirements-engineering/`
+- **task-init `--kind`**: 必填 `change|requirement|testcase`；change/testcase 建 `draft-*`；requirement **不建 draft**，须 `--task-id` 直接初始化 `.polaris/tasks/<task_id>/`；testcase 落 `.polaris/testcases/` + `testcase_plan.md`；`draft-create` 同步要求 `--kind`（拒绝 requirement）
 - **workflow.yaml 多列表游标**: `active_changes` / `pending_triages` 替换为 `change_tasks` / `requirement_tasks` / `testcase_tasks`（字段 `task_id`）；`workflow-entry` 必填 `--kind`，身份旗标改为 `--task-id` / `--where-task-id`；删除 triage ops；无旧 schema 迁移（需重物化 / `polaris update`）
 - **hooks/scripts 目录分离**: 宿主注册入口仅保留 `hooks/session-start.sh`；Skill 调用的薄包装与 `_polaris-cli.sh` 迁至 `scripts/`；Skill 路径改为 `$PLUGIN_ROOT/scripts/...`（无兼容包装，需 `polaris update`）；顺带将 `polaris-sync` 引用统一为 `harness-sync`
-- **skills 安装流水线**: 源技能保持短目录名 + `{{SKILL_NAME_PREFIX}}`；安装时 nested 替换为 `polaris-flow:`、flat 替换为 `polaris-flow-`；flat 落盘为 `polaris-flow-<skill>/`；语言包顶层 `policies/` 注入每个子技能的 `policies/`（同名覆盖）；`skills/README.md` 等根下裸文件始终装到 `skills/polaris-flow/`，不按 flat 重命名
+- **skills 安装流水线**: 源技能为 `family/skill` 两级（如 `coding/clarify`）+ `{{SKN_SPR}}`；nested 落 `skills/polaris/{family}/{skill}/`，flat 叶技能落 `polaris-<family>-<skill>/`；`{{SKN_SPR}}` 仅为 `:`/`-`；policies 注入叶技能 `policies/`；跳过 `backup/`、`requirements-engineering/`、`.workbuddy/`
 - **agent 安装按平台改写**: init 安装 agents 时按 `Platform.agentToolMap` 改写 frontmatter `tools`，并用 `resolveReviewAgentModel` 写入 `model`；SessionStart 对全部已注册平台刷新 model
 - **platform 解析**: 无效 `--platform` 回退 `.polaris/config.yaml`，不再把未知字符串当有效 id
 

@@ -14,7 +14,7 @@ export const PLATFORM_ID_PLACEHOLDER = '@PLATFORM_ID@';
  * 将 scripts 目录下 `_polaris-cli.sh` 中的 `@PLATFORM_ID@` 替换为真实 platform id，
  * 并为 hooks/ 与 scripts/ 下 `*.sh` 设置可执行位。
  * 无文件或无占位则跳过 rewrite；Unix 下尽量 chmod。
- * @param pluginRoot 插件根（skills/polaris-flow）
+ * @param pluginRoot 插件根（skills/polaris）
  * @param platformId 平台 id（claude / cursor / trae 等）
  */
 export async function rewritePolarisCliPlatformId(

@@ -166,10 +166,7 @@ program
 program
   .command('workflow-entry')
   .description('RMW .polaris/workflow.yaml under workflow.lock (H12)')
-  .argument(
-    '<op>',
-    'append-active|update-active|rename-active|delete-active|get-active-changes',
-  )
+  .argument('<op>', 'append-active|update-active|rename-active|delete-active|get-active-changes')
   .requiredOption('--skill <name>', 'lock writer id')
   .requiredOption('--kind <kind>', 'task kind: change|requirement|testcase')
   .option('--repo-root <path>', 'main repo root')
@@ -208,20 +205,23 @@ program
 
 program
   .command('draft-create')
-  .description('Create .polaris/tasks/draft-* directory')
+  .description('Create .polaris/<tasks|testcases>/draft-* directory by kind')
   .argument('<repo_root>', 'project root')
+  .requiredOption('--kind <kind>', 'task kind: change|requirement|testcase')
   .option(...PLATFORM_OPTION)
-  .action(async (repoRoot: string) => {
-    await draftCreateCommand(repoRoot);
+  .action(async (repoRoot: string, options: { kind: string }) => {
+    await draftCreateCommand(repoRoot, options.kind);
   });
 
 program
   .command('task-init')
-  .description('Clarify: create draft task + state.yaml')
+  .description('Init task dir + state.yaml by kind (requirement needs --task-id, no draft)')
   .argument('<repo_root>', 'project root')
+  .requiredOption('--kind <kind>', 'task kind: change|requirement|testcase')
+  .option('--task-id <id>', 'formal task id (required when kind does not use draft)')
   .option(...PLATFORM_OPTION)
-  .action(async (repoRoot: string) => {
-    await taskInitCommand(repoRoot);
+  .action(async (repoRoot: string, options: { kind: string; taskId?: string }) => {
+    await taskInitCommand(repoRoot, { kind: options.kind, taskId: options.taskId });
   });
 
 program

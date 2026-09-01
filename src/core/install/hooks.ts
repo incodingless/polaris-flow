@@ -38,7 +38,7 @@ export function resolveHooksConfigPath(
  * 生成项目相对 hooks 脚本 command（cwd 一般为项目根）。
  */
 export function buildPolarisHookCommand(platformId: string, scriptName: string): string {
-  return `bash ".${platformId}/skills/polaris-flow/hooks/${scriptName}"`;
+  return `bash ".${platformId}/skills/polaris/hooks/${scriptName}"`;
 }
 
 /**
@@ -47,10 +47,11 @@ export function buildPolarisHookCommand(platformId: string, scriptName: string):
 export function isManagedHookCommand(command: unknown): boolean {
   if (typeof command !== 'string') return false;
   return (
+    command.includes('polaris/hooks') ||
     command.includes('polaris-flow/hooks') ||
     command.includes('/hooks/session-start.sh') ||
     command.includes('${CLAUDE_PLUGIN_ROOT}/hooks/') ||
-    /\/skills\/polaris-flow\/hooks\//.test(command)
+    /\/skills\/polaris(-flow)?\/hooks\//.test(command)
   );
 }
 

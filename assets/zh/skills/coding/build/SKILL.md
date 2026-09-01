@@ -1,6 +1,6 @@
 ---
-name: polaris{{SKN_SPR}}flow{{SKN_SPR}}build
-description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。优先由 implementer subagent 执行 apply；仅当 subagent-probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"
+name: polaris{{SKN_SPR}}coding{{SKN_SPR}}build
+description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。优先由 implementer subagent 执行 apply；仅当 subagent-probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"
 ---
 
 # Polaris 工作流 - 阶段：构建（build）
@@ -20,7 +20,7 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 **允许的例外**：`build_mode=inline`，或 probe 返回 `degradation=inline|unsupported` 时，主代理**可以**在本会话执行 `/opsx:apply`（仍须注入点 C，仍禁止在 apply 之外手写实现）。
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]构建 - 进入阶段：使用 polaris{{SKN_SPR}}flow{{SKN_SPR}}build 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]构建 - 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}build 技能。`
 
 ## 标识约定
 
@@ -228,7 +228,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
   change_id : <change_id>
   tasks.md  : openspec/changes/<change_id>/tasks.md（全部 [x]）
   review    : <final_review 值>
-下一步建议 /polaris{{SKN_SPR}}flow{{SKN_SPR}}verify。
+下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}verify。
 ```
 
 ## Constitution 注入点 C

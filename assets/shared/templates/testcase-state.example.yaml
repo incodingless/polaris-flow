@@ -1,0 +1,67 @@
+# 单测试用例任务业务档案模板（仅运行态）
+# 路径：.polaris/testcases/<task_id>/state.yaml
+
+####################
+# 基础配置
+####################
+# 语言
+# 可选值: en-英文 | zh-中文
+language: "zh"
+
+# 初始化时间
+create_time: "2026-06-25T02:05:29.066Z"
+
+# 仓库根目录
+main-repo-root: "<project_root>"
+
+####################
+# 运行配置
+####################
+# 任务ID
+task_id: ""
+
+# 任务类型（draft 扫描过滤用）
+kind: testcase
+
+# 阶段
+# 可选值: idle-空闲 | discovery-澄清 | draft-草稿 | refine-完善 | ship-交付
+phase: idle
+
+# 计划文档相对路径
+# 可选值: .polaris/testcases/<task_id>/testcase_plan.md
+plan_path: ""
+
+####################
+# 产物信息 （运行态产物）
+####################
+
+######## discovery阶段 #############
+discovery:
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过
+  status: ""
+  started_at: ""
+  finished_at: ""
+
+######## draft阶段 #############
+draft:
+  status: ""
+  started_at: ""
+  finished_at: ""
+
+######## refine阶段 #############
+refine:
+  status: ""
+  started_at: ""
+  finished_at: ""
+
+######## ship阶段 #############
+ship:
+  status: ""
+  started_at: ""
+  finished_at: ""
+  harness_sync: ""
+  archive_dir: ""
+  archive: ""
+  archive_path: ""
+  archive_error: ""

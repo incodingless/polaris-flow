@@ -1,6 +1,6 @@
 ---
-name: polaris{{SKN_SPR}}flow{{SKN_SPR}}ship
-description: "verify 通过后做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清游标。用户触发 /polaris{{SKN_SPR}}flow{{SKN_SPR}}ship，或在 verify 完成后要求交付 / 合回 / 归档 / 完结一个 change 时必须使用本 skill。不要用于：verify 未完成时强行交付、本阶段编写业务实现、或跳过用户确认直接 /opsx:archive。"
+name: polaris{{SKN_SPR}}coding{{SKN_SPR}}ship
+description: "verify 通过后做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清游标。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}ship，或在 verify 完成后要求交付 / 合回 / 归档 / 完结一个 change 时必须使用本 skill。不要用于：verify 未完成时强行交付、本阶段编写业务实现、或跳过用户确认直接 /opsx:archive。"
 ---
 
 # Polaris 工作流 - 阶段：交付（ship）
@@ -12,11 +12,11 @@ description: "verify 通过后做终验、分支收尾、worktree 产物合回�
 - **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 3.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
 - **禁止**未按 `./reference/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
 - **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 6.1
-- **禁止**本阶段编写业务实现代码；终验失败 → 回 `/{{polaris{{SKN_SPR}}flow{{SKN_SPR}}verify`（必要时再回 `/{{polaris{{SKN_SPR}}flow{{SKN_SPR}}build`）
+- **禁止**本阶段编写业务实现代码；终验失败 → 回 `/{{polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（必要时再回 `/{{polaris{{SKN_SPR}}coding{{SKN_SPR}}build`）
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]交付 - 进入Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]交付 - 进入阶段：使用 {{polaris{{SKN_SPR}}flow{{SKN_SPR}}ship 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]交付 - 进入阶段：使用 {{polaris{{SKN_SPR}}coding{{SKN_SPR}}ship 技能。`
 
 ## 遵守的 Hard Stops
 
@@ -87,7 +87,7 @@ RTID_EXIT=$?
 在 verify 已通过的前提下，再跑一轮 `superpowers:verification-before-completion` 作为交付前冒烟（构建/测试等宿主检查）。
 
 - 全部通过 → Step 2
-- 任一失败 → **阻断**；提示修复后重新触发 `/{{polaris{{SKN_SPR}}flow{{SKN_SPR}}verify`，通过后再回 `/{{polaris{{SKN_SPR}}flow{{SKN_SPR}}ship`。本阶段不写业务修复代码。
+- 任一失败 → **阻断**；提示修复后重新触发 `/{{polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`，通过后再回 `/{{polaris{{SKN_SPR}}coding{{SKN_SPR}}ship`。本阶段不写业务修复代码。
 
 ### Step 2：分支管理（核心）
 
@@ -235,7 +235,7 @@ openspec-cn archive "$change_id" --yes
   verify 总分   : <X>（来自 state.verify.overall_score）
   archive       : <已归档于 <archive_path> | 已延迟（B）| 已跳过（C）| 未归档（失败：<archive_error>）>
 
-后续：下一个变更 /{{polaris{{SKN_SPR}}flow{{SKN_SPR}}clarify 或 /{{polaris{{SKN_SPR}}flow{{SKN_SPR}}propose；度量回顾 /{{polaris{{SKN_SPR}}flow{{SKN_SPR}}retro。
+后续：下一个变更 /{{polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify 或 /{{polaris{{SKN_SPR}}coding{{SKN_SPR}}propose；度量回顾 /{{polaris{{SKN_SPR}}coding{{SKN_SPR}}retro。
 ```
 
 #### 6.1 主仓游标重置 + 清理
