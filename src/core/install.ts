@@ -114,6 +114,7 @@ export async function installPolarisForPlatform(
     platformLayout.commandsDir,
     overwrite,
     asset,
+    platform.skillsLayout,
   );
 
   // 3.3 复制代理（按平台映射 tools，写入 config 解析的 model）

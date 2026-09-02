@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery
 description: 触发场景：用户给出需求文档或想法，需要先理清需求、识别并澄清模糊点、推导功能架构（如「探索需求」「澄清需求」「需求理解」「需求基线」「梳理功能架构」「做需求 discovery」）。本技能覆盖单个阶段：探索并澄清需求，输出需求基线（含功能架构草案）。
-version: 0.3
+version: 0.7
 ---
 # 编写产品需求-探索并澄清需求
 
@@ -59,7 +59,7 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
   > 当前选择任务 <task_id>，请确认以下操作：
   >
   > - **A. 续写当前任务**：进入 Step 1.5
-  > - **B. 重新开始任务**：对当前 dir 执行下列命令后，进入 Step 2（重新确认名称并 `task-init`）
+  > - **B. 重新开始任务**：对当前 dir 执行下列命令后，进入 Step 2（重新产出需求组并建目录）
   >
 
   ```bash
@@ -79,7 +79,14 @@ done
 
 #### Step 1.5：读取任务进展，继续执行任务
 
-读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`，读取当前状态，根据以下状态值进入对应步骤：
+读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`，按状态值进入对应步骤：
+
+| `state.yaml` 状态 / 判断依据 | 进入步骤 |
+|---|---|
+| `phase=discovery` 且《需求基线》仅为 2.5 写入的基础档案（第 3~7 章为空或模板占位） | 视为**未启动的基础任务**，目录/游标/初稿均已就绪，直接进入 **Step 3** 按该任务范围推进 |
+| `phase=discovery` 且已有第 3 章实质内容 | 从对应未完成步骤续写（Step 3 之后） |
+| `phase=draft` 或更后 | 提示用户该任务已过 discovery，引导到对应后续技能 |
+| 无法判定 | 按 `./policies/decision-point.md` 询问用户从哪个步骤继续 |
 
 ### Step 2：初始化与前置校验
 
@@ -91,63 +98,112 @@ done
 
 加载需求复杂度评估策略：`read_file` `./policies/complexity-assessment-policy.md`，基于原始需求的显性信息，校验是否触发高危场景强制升档规则，触发则直接定为复杂需求；否则从业务复杂度、技术复杂度、合规风险复杂度三个维度逐项评分后计算总分，匹配对应等级：简单需求 / 标准需求 / 复杂需求
 
-#### 2.3 跨系统拆分校验
+#### 2.3 判断是否需要拆分
 
-- 基于关键词与资源扫描结果，判断需求是否涉及 2 个及以上独立业务系统
-- 若横跨多系统，立即暂停分析，向用户说明拆分理由并给出子需求拆分建议，用户确认后再继续
+基于关键词与资源扫描结果，判断需求是否涉及 2 个及以上独立业务系统。
 
-#### 2.4 任务名称确认（阻塞点）→ 得到 `task_id`
+无论拆分与否，后续都统一走同一条流程（2.4 产出需求组 → 2.5 建目录写内容 → 2.6 列任务选择 → Step 3 编写需求理解），不再按「拆分 / 非拆分」分叉出两套步骤。
 
-按 `./policies/decision-point.md` 暂停，让用户决定任务名（即后续目录名 / `task_id`）。**禁止**静默推断或自动落盘。
-约束：`task_id` 必须是 **kebab-case 英文**（小写字母、数字、连字符），如 `refine-user-privilege`。
+#### 2.4 产出需求组（需求内容 + 推荐名称）
 
-暂停时必须展示：
+根据 2.3 的判断结果，产出「需求组」——一个待建任务的需求列表，每个需求带一个推荐 kebab-case 任务名。需求组归一为 1 个（不拆分）或 N 个（拆分）需求，后续步骤统一处理。
 
-- 基于需求内容派生的 **2–3 个推荐名**，各附一行范围说明
-- 「自行输入名称」选项
-- 提示：非合规输入（含中文）会转换为 kebab-case，**转换结果须回显并再次确认**
+**不拆分（单系统，需求组 1 项）**，展示：
 
-名称与已有 `$REPO_ROOT/.polaris/tasks/` 目录冲突时，报告冲突并请用户另选。
+- 需求内容：需求名称、适用范围（涉及系统）、原始核心诉求摘要
+- 推荐任务名：基于需求内容派生的 **2–3 个 kebab-case 推荐名**，首个为默认，各附一行范围说明
 
-用户确认后，将 `task_id` 记入会话上下文。
+**拆分（跨系统，需求组 N 项）**，展示《子需求拆分建议》，每个子需求一行：
 
-#### 2.5 初始化任务目录（无 draft）
+- 序号、子需求名、涉及系统、范围一句话、**推荐的 kebab-case 任务名**（须回显）
 
-需求任务**不**创建 `draft-*` 临时目录。确认 `task_id` 后直接初始化正式目录：
+**任务名约束（两种情形通用）**：
 
-```bash
-INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind requirement --task-id "$task_id")
-INIT_EXIT=$?
-echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
-```
+- 一律 kebab-case 英文（小写字母、数字、连字符），如 `refine-user-privilege`
+- 与已有 `$REPO_ROOT/.polaris/tasks/` 目录冲突时，加数字后缀（如 `-2`）消歧并回显，不得静默改名
+- 推荐名默认采用；用户明确指定名称时以用户指定为准，非合规输入（含中文）转换为 kebab-case 后**回显并再次确认**
 
-| `INIT_EXIT` | `status` | 含义 | 后续动作 |
-| ----------- | -------- | ---- | -------- |
-| 0 | `"ok"` | 已建 `.polaris/tasks/<task_id>/` + `state.yaml`（`phase=discovery`） | 进入 2.6 |
-| 1 | `"existing"` | 目录已存在 | 按决策点询问续写 / 另选名称 / 删除后重试 |
-| 2 | — | 参数/环境错误 | 按 H12 阻断 |
+#### 2.5 初始化任务目录 + 写入需求内容
 
-成功后可选登记游标（若本阶段约定写入 workflow）：
+对需求组的**每一个**需求依次执行「建目录 → 写需求内容 → 登记游标」，一个都不少。
+
+**① 建目录**（`task-init`，需求任务不创建 `draft-*` 临时目录）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
-  --kind requirement --skill discovery --repo-root "$REPO_ROOT" \
-  --task-id "$task_id" --phase discovery --worktree-path "" \
-  --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+for TASK in "<任务1>" "<任务2>" ...; do
+  INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind requirement --task-id "$TASK")
+  INIT_EXIT=$?
+  echo "TASK=$TASK INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
+done
 ```
 
-读取 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml`，确认 `phase=discovery` 后继续。
+| `INIT_EXIT` | `status` | 后续动作 |
+|---|---|---|
+| 0 | `ok` | 目录与 `state.yaml` 已建，继续下一个 |
+| 1 | `existing` | **立即中断**：报告冲突目录，请用户改名或删除后重试；**禁止**向既有任务目录写入内容 |
+| 2 | — | 参数/环境错误，按 H12 阻断 |
 
-#### 2.6 落盘《需求基线》文档
+**② 写需求内容**（基础任务档案）：为每个新建目录写入《需求基线》初稿，路径 `$REPO_ROOT/.polaris/tasks/<任务名>/req_baseline.md`。
 
-需求基线 落盘路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`
+1. `read_file ./templates/req_baseline_template.md` 按模板初始化，输出：
+   `[polaris-flow PRD] 已读取需求基线模板 req_baseline.md`
+2. 写入该需求**当前已知**的内容：
 
-1. `read_file ./templates/req_baseline_template.md` 按此模板初始化《需求基线》文档，并输出：`[polaris-flow PRD] 已读取需求基线模板 req_baseline.md`
-2. 落盘路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`。向《需求基线》写入：需求唯一标识、复杂度初判结果（总分、分项得分、等级、是否触发强制升档）、初始化时间、执行状态
+- 元数据区：需求唯一标识、当前执行阶段 `discovery`、文档版本 `V0.1`、最后更新时间
+- 第 1 章 文档概览：需求名称、适用范围（涉及系统）
+- 第 2 章 引用说明：源文件名称 / 版本 / 路径、提出方、接收日期、**该需求对应的原始核心诉求摘要**
+- 第 8 章 后续工作建议（仅拆分时）：父需求标识、拆分理由、**本需求与其余需求的边界**
+- 执行状态：**未启动**（等待被选中后推进）
+
+未知章节保留模板占位，**禁止**编造内容。
+
+3. 全部写入后输出：`[polaris-flow PRD] 已创建 N 个需求任务：<任务名列表>`
+
+> 至此每个需求都是一份可独立恢复的基础任务，用户选择只决定「本次先推进哪一个」。
+
+**③ 登记 workflow 游标**（**不可省略**：`task-init` 只建目录与 `state.yaml`，不写游标；不登记则 Step 1 的 `get-active-changes` 读不到，无法通过「B. 选择一个」恢复）：
+
+```bash
+for TASK in "<任务1>" "<任务2>" ...; do
+  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
+    --kind requirement --skill discovery --repo-root "$REPO_ROOT" \
+    --task-id "$TASK" --phase discovery --worktree-path "" \
+    --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+done
+```
+
+全部登记后，用 `get-active-changes --kind requirement` 校验：每个任务名都在返回的 `task_id` 列表里；缺任何一个都要重跑对应的 `append-active`，不得带着遗漏进入 2.6。
+
+#### 2.6 列出任务，选择 1 个（阻塞点）
+
+扫描 `$REPO_ROOT/.polaris/tasks/` 确认 2.5 建成的任务目录均已就绪，列出任务清单，让用户**明确选中一个**继续。
+
+| 用户回复 | 判定 | 后续动作 |
+|---|---|---|
+| 指名其中一个（序号或任务名均可） | 明确选择 | 该任务作为后续全部分析的范围 |
+| 「都要做」「按建议来」「先做重要的」 | **不算选择** | 重新发问，并说明本阶段一次只推进一个任务 |
+| 只确认清单本身（如「没问题」） | **不算选择** | 重新发问——确认清单 ≠ 选中某一项 |
+| 对清单 / 命名提出调整 | 先调整 | 调整后重新发问，不得沿用调整前的选择 |
+
+**选项上限**：单次询问的选项数上限为 4 个。任务多于 4 个时先按业务系统分组，两级串行询问——第 1 级选业务系统，第 2 级选该系统下的任务；**禁止**把全部任务一次性罗列进单次询问。
+
+**发问执行**：按 `./policies/decision-point.md` 暂停，按 `./policies/ask-question-react.md` 发问（工具名经平台注册表查得，不得写死）。推荐项只能作为说明，不得代替用户选择。
+
+选择完成后：
+
+- **选中项**：`task_id` 即其目录名，作为后续全部分析的范围；目录、需求内容初稿与游标均已就绪
+- **未选中项**：保留目录、需求内容初稿与游标，状态维持「未启动」，后续可通过 Step 1 的 **B. 选择一个** 恢复；同时在选中项《需求基线》第 8 章记录这些待办任务（含目录名与范围）
+- **禁止**在未得到明确选择时继续后续分析，也**禁止**替用户挑一个（包括推荐项）
+
+**落盘《需求基线》文档（增量写入）**，路径 `$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`：
+
+1. 直接读取 2.5 已写入的 `V0.1` 初稿，**增量写入**，不重新初始化、不覆盖已有章节
+2. 向选中项写入：需求唯一标识、复杂度初判结果（总分、分项得分、等级、是否触发强制升档）、初始化时间、执行状态（由「未启动」改为「进行中」）
 3. 上下文释放规则
+   - 释放：目录全量扫描结果、无关文件列表、冗余文件元数据
+   - 保留：需求唯一标识、复杂度等级、断点状态、输出目录路径
 
-- 释放：目录全量扫描结果、无关文件列表、冗余文件元数据
-- 保留：需求唯一标识、复杂度等级、断点状态、输出目录路径
+→ 完成后进入 **Step 3**（未选中的基础任务留在 Step 1 的候选里，稍后恢复）。
 
 ### Step 3：理解需求 + 结构化拆解
 

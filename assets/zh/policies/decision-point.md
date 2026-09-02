@@ -24,7 +24,7 @@
 
 ## 发问执行
 
-到达决策点后的发问动作（工具选择、选项构造、失败降级、文本降级格式等）按 `polaris-flow/policies/ask-question-react-policy.md` 执行。
+到达决策点后的发问动作（工具选择、选项构造、失败降级、文本降级格式等）按 `./policies/ask-question-react.md` 执行。
 
 ## 最低呈现要求
 

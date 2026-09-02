@@ -4,6 +4,9 @@
 
 ### Added
 
+- **polaris-flow 功能入口命令**: 新增 `assets/zh/commands/polaris-flow.md` 作为统一入口，让用户先选再做而非直接开工——按 `.polaris/config.yaml` 的 `platform` 查询问工具注册表确定工具名（不写死 `AskUserQuestion`），依次单选「功能类别（开发/维护/需求/测试）→ 具体功能（共 11 项）」，再收集附加上下文（文件/目录/文字说明），最后按选择路由到对应入口技能；命令本身只做选择与路由，不产出任何需求、设计、代码或测试产物
+- **命令资产 `{{SKN_SPR}}` 展开**: `installPolarisCommandsForPlatform` 新增 `skillsLayout` 参数，落盘时把命令正文的 `{{SKN_SPR}}` 展开为 `:`（nested）或 `-`（flat），使命令内引用的技能名与落盘技能名一致；此前命令文件原样拷贝，跨布局必然引用失效
+- **命令文件分步写出**: `install/commands.ts` 新增 `writeCommandFile`，按文件粒度处理 overwrite 跳过与占位符替换，替换 `runCopyJobs` 的整批拷贝
 - **config get CLI**: 新增 `polaris-flow config get language [path]`，读取 `.polaris/config.yaml` 的 `language`（支持 `--json` 输出 `language_name`）
 - **get-language-name.sh**: 共享脚本 `assets/shared/scripts/get-language-name.sh`，调用 `config get` 并将 `en`/`zh` 翻译为显示名称（English/中文），init 后位于 `PLUGIN_ROOT/scripts/`
 - **SessionStart 路径注入**: core `runSessionStart` 返回 `paths`（repoRoot / platformId / pluginRoot）；commands 映射为 `PLUGIN_ROOT` 等，经 `additionalContext` / Cursor `env` / `CLAUDE_ENV_FILE` / `.polaris/.cache/runtime-env` 注入会话
@@ -18,6 +21,8 @@
 
 ### Changed
 
+- **命令注册文档**: `assets/zh/adapters/command-registration.md` 由「各宿主手动注册方式」（Trae 手动声明 / CodeBuddy `plugin.json`）重写为「宿主中立 Markdown + 落盘位置表 + 已注册平台表」，与 `init` / `update` 的实际分发行为对齐，去掉已失效的 `/pofl:*` 与旧平台描述
+- **prd/discovery Step 2 重构为「需求组」统一流程**: 将原 2.3 分叉点（非拆分路径 / 拆分路径两套不对称步骤）重构为 2.3~2.6 四步串行——2.3 判断是否拆分 → 2.4 产出「需求组」（不拆分给需求内容 + 推荐名，拆分给子需求拆分建议 + 推荐名，归一为 1 或 N 个需求）→ 2.5 对每个需求建目录（`task-init`）、写需求内容初稿、登记 workflow 游标（`append-active`），形成可独立恢复的基础任务 → 2.6 扫描任务目录列出清单、让用户明确选中一个推进；命名由「独立阻塞点」降为「推荐名默认采用、用户可改名」；「都要做」「按建议来」「只确认清单」均判为未选择；未选中任务状态维持「未启动」，后续经 Step 1 的「B. 选择一个」恢复；任务多于 4 个时按业务系统分组两级串行询问；Step 1.5 补齐按 `state.yaml` 判断基础任务（直接进 Step 3）/续写/后续阶段的恢复映射
 - **平台探测路径**: `detectionPaths` 改为相对用户主目录（`.claude` / `.cursor` / `.trae` / `.trae-cn`），去掉误提交的 `/Users/jason/...` 绝对路径；`detectPlatforms` 同时认项目 `contextDir` 与主目录标记
 - **安装 config layout 路径物化**: `generatePolarisConfig` 写入 `layout.worktree` / `openspec` / `tasks.root` / `docs.root` 绝对路径；模板键 `platform` 改为 `platforms`
 - **workflow 物化**: init 仅拷贝模板三列表，不再写入 `version` / `install-time`
@@ -72,6 +77,7 @@
 
 ### Fixed
 
+- **decision-point 策略引用路径**: `assets/zh/policies/decision-point.md` 原指向 `polaris-flow/policies/ask-question-react-policy.md`（文件名与路径均不存在），修正为 `./policies/ask-question-react.md`；该文件是所有阻塞点的发问路由出口，坏引用会导致发问协议断链
 - **OpenSpec 按平台目录落盘**: `installOpenSpec` 接收 Platform 列表；CLI 仍用 `openspecToolId`，init 后按 `contextDir`/`skillsDir`/`commandsDir` 迁入（如 trae-cn → `.trae-cn/skills`），不再把 toolId 当作平台目录
 - **Superpowers 技能嵌套路径**: `installSource` 对已含 `baseDir` 的平台目录再次 `path.join(baseDir, …)`；Node `path.join` 不丢弃绝对段，会写出 `<project>/Users/.../<project>/.trae-cn/skills`。改为直接使用 `getPlatformSkillsDir`
 - **平台探测双重 join**: `detectPlatforms` 对 `getPlatformContextDir` 结果不再二次 `path.join(projectPath, …)`
@@ -85,6 +91,7 @@
 
 ### Tests
 
+- **commands-install**: 覆盖 claude（nested）与 trae（flat）下命令落盘路径，以及菜单命令中 5 个技能引用 `{{SKN_SPR}}` 分别展开为 `polaris:<family>:<skill>` 与 `polaris-<family>-<skill>`
 - **agents-install**: 覆盖 `mapAgentTools`（trae 恒等、claude/cursor 映射去重）、安装落盘 tools/model、overwrite 跳过
 - **openspec relocate**: 覆盖 trae-cn 迁入 `.trae-cn`、trae 不迁入、trae+trae-cn 双保留
 - **install/layout**: 覆盖 `resolveWorktreeRoot` / `getInstallSkillBase` / `initializePolarisCommonLayout` / `initializeProjectLayout`
@@ -99,6 +106,7 @@
 
 ### Removed
 
+- **polaris 命令桩**: 删除 `assets/zh/commands/polaris.md`（正文仅一行 `Use the polaris:polaris skill.`），入口职责由 `polaris-flow` 命令承接；旧命令未做功能选择，会把用户直接丢进单一技能
 - **plan-review skill**: 整目录（含 policies/references/prompts/`cross-review-agent`）移除，职责下沉到 agents + 父 skill
 - **平台支持收窄**: 仅保留 claude / cursor / trae 三个目标平台，删除其余平台（codex / opencode / windsurf / qwen / qoder / gemini / copilot / kiro / cline / pi / lingma 等）的元数据、命令适配器、hook installer、规则格式、Superpowers agent 映射、OpenSpec 迁移与探测逻辑；`hookFormat` 类型从 7 值收窄到 `'claude-code'`，`rulesFormat` 从 `'md' | 'mdc' | 'copilot'` 收窄到 `'md' | 'mdc'`
 - **Pi extension**: 删除 `install/pi-extension.ts` 与 `installCommands` 内 Pi 分流，Pi 平台不再走 TS extension 生成
