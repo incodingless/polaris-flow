@@ -20,6 +20,12 @@ task_id: ""
 # 任务类型（draft 扫描过滤用）
 kind: requirement
 
+# 需求名称
+req_name_cn: ""
+
+# 需求编号前缀
+req_prefix: ""
+
 # 阶段
 # 可选值: idle-空闲 | discovery-澄清 | draft-草稿 | refine-完善 | ship-交付
 phase: idle

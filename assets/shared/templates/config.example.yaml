@@ -123,3 +123,8 @@ deepread:
 constitution:
   required: false
   path: "openspec/memory/constitution.md"
+
+req_naming:
+  prefix_rule: derived        # derived | fixed | manual
+  prefix_pattern: "{DEPT}-{MODULE}"   # 仅 fixed 使用；占位符运行时求解
+  conflict_policy: extend
