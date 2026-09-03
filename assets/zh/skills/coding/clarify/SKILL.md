@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify
-description: "经结构化探索与确认，把用户需求落地为 intention.md。用户触发 /polairs{{SKN_SPR}}coding{{SKN_SPR}}clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
+description: "经结构化探索与确认，把用户需求落地为 intention.md。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
 version: 0.1
 ---
 # Polaris 工作流 - 阶段1：澄清
@@ -16,7 +16,7 @@ version: 0.1
 - **禁止**未读取 `./templates/intention-template.md` 就生成 `intention.md`（Step 4 强制前置）
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]澄清需求 - 进入澄清阶段：使用 {{SKILL_NAME_PREFIX}}clarify 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]澄清需求 - 进入澄清阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify 技能。`
 
 ---
 

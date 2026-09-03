@@ -13,21 +13,21 @@ import { PLATFORMS } from '../../src/core/domain/platforms.js';
 const claude = PLATFORMS.find((p) => p.id === 'claude')!;
 const trae = PLATFORMS.find((p) => p.id === 'trae')!;
 
-/** 菜单命令中引用的四个技能，按布局展开后的期望形态 */
+/** 菜单命令中引用的五个技能，按布局展开后的期望形态 */
 const referencedSkills = {
   nested: [
     'polaris:coding:clarify',
     'polaris:prd:discovery',
     'polaris:prd:draft',
-    'polaris:test:case',
-    'polaris:test:acceptance',
+    'polaris:testing:case',
+    'polaris:testing:acceptance',
   ],
   flat: [
     'polaris-coding-clarify',
     'polaris-prd-discovery',
     'polaris-prd-draft',
-    'polaris-test-case',
-    'polaris-test-acceptance',
+    'polaris-testing-case',
+    'polaris-testing-acceptance',
   ],
 } as const;
 
@@ -74,22 +74,26 @@ describe('installPolarisForPlatform commands', () => {
   });
 });
 
-describe('test 族技能安装', () => {
-  it('claude nested：test 族叶技能进入 polaris/test/', { timeout: INSTALL_TIMEOUT }, async () => {
-    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-testfam-'));
-    await installPolarisForPlatform(tmpDir, claude, true, 'zh', 'project');
+describe('testing 族技能安装', () => {
+  it(
+    'claude nested：testing 族叶技能进入 polaris/testing/',
+    { timeout: INSTALL_TIMEOUT },
+    async () => {
+      const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-testingfam-'));
+      await installPolarisForPlatform(tmpDir, claude, true, 'zh', 'project');
 
-    const caseSkill = await readFile(
-      path.join(tmpDir, '.claude/skills/polaris/test/case/SKILL.md'),
-      'utf-8',
-    );
-    expect(caseSkill).toMatch(/^name: polaris:test:case$/m);
-    expect(caseSkill).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+      const caseSkill = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/testing/case/SKILL.md'),
+        'utf-8',
+      );
+      expect(caseSkill).toMatch(/^name: polaris:testing:case$/m);
+      expect(caseSkill).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
-    const acceptanceSkill = await readFile(
-      path.join(tmpDir, '.claude/skills/polaris/test/acceptance/SKILL.md'),
-      'utf-8',
-    );
-    expect(acceptanceSkill).toMatch(/^name: polaris:test:acceptance$/m);
-  });
+      const acceptanceSkill = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/testing/acceptance/SKILL.md'),
+        'utf-8',
+      );
+      expect(acceptanceSkill).toMatch(/^name: polaris:testing:acceptance$/m);
+    },
+  );
 });

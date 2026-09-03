@@ -15,7 +15,7 @@ version: 0.1
 - **禁止**通过 `superpowers:using-git-worktrees` 创建 worktree——必须由本 skill Step 1.3.A 直接执行 git / hooks 完成
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]提案 - 进入提案阶段: 使用 {{SKILL_NAME_PREFIX}}propose 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]提案 - 进入提案阶段: 使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}propose 技能。`
 
 ## 标识约定
 
@@ -49,7 +49,7 @@ RTID_EXIT=$?
 
 - **唯一匹配**（恰好 1 个 id）→ 直接取该 `task_id`
 - **多个匹配** → 按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配** → 阻断，提示「未找到 clarify 阶段的 active change，请先执行 /{{SKILL_NAME_PREFIX}}clarify」
+- **零匹配** → 阻断，提示「未找到 clarify 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify」
 
 > 若 entry 已是 `phase=propose`（例如上次中断续跑），且同 `task_id` 下 worktree 决策与 intention 校验已完成，可从中断点续跑；不得重新筛成「零匹配」。可再跑一次不加 `--phase` 或 `--phase propose` 核对。
 
@@ -128,7 +128,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 检查`intention.md`内容，根据情况处理：
 | 情况 | 处理 |
 |---|---|
-| **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户调用 `/{{SKILL_NAME_PREFIX}}propose`（或 `/propose`）时的原始消息作为 propose 输入；输出 `[polaris-flow 开发]提案 - 未找到 intention.md，使用用户原始 prompt 作为 propose 输入。` 后跳到 Step 3.2 |
+| **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}propose`（或 `/propose`）时的原始消息作为 propose 输入；输出 `[polaris-flow 开发]提案 - 未找到 intention.md，使用用户原始 prompt 作为 propose 输入。` 后跳到 Step 3.2 |
 | **文件存在**（暂存或已迁入） | 对照 `./templates/intention-template.md` 检查下方**必含节**均存在且非空。缺节 → **阻断**，列出缺失节名，提示回到 clarify 补全 |
 
 #### 2.3 用户最终确认
@@ -269,7 +269,7 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
 - **Mode A**：批内 §4 已完成；本步做**齐套跨批 Verdict**（喂给 OV），不是重跑批内细则。
 - **Mode B**：本步为**唯一**制品主审出口（policy 未跑 §4）。
 
-1. **`subagent-probe`**：加载 `{{SKILL_NAME_PREFIX}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → 标注并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。
+1. **`subagent-probe`**：加载 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → 标注并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。
 2. **派发**：`propose-reviewer`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。
 
    **按 `subagent-delegate-policy.md` 执行派发**（D-0 工具可用性判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
@@ -349,7 +349,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 输出：
 
-`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；propose-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /{{SKILL_NAME_PREFIX}}plan 覆写）。下一步建议 /{{SKILL_NAME_PREFIX}}design。`
+`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；propose-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 覆写）。下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design。`
 
 任一项不满足 → 阻断并输出失败原因。
 

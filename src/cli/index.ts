@@ -8,6 +8,7 @@ import { doctorCommand } from '../commands/doctor.js';
 import { statusCommand } from '../commands/status.js';
 import { configGetCommand } from '../commands/config.js';
 import { hostHookCommand, sessionStartCommand } from '../commands/hooks/host-hook.js';
+import { stateNextCommand } from '../commands/hooks/state.js';
 import { workflowEntryCommand } from '../commands/hooks/workflow-entry.js';
 import {
   constitutionValidityCommand,
@@ -201,6 +202,18 @@ program
       to: options.to,
       set: options.set,
     });
+  });
+
+const stateProgram = program.command('state').description('Workflow phase transition helper');
+
+stateProgram
+  .command('next')
+  .description('Resolve next skill from workflow phase + auto_transition (NEXT: auto|manual|done)')
+  .argument('<change-name>', 'change / requirement / testcase id')
+  .option('--repo-root <path>', 'main repo root')
+  .option(...PLATFORM_OPTION)
+  .action(async (changeName: string, options: { repoRoot?: string }) => {
+    await stateNextCommand(changeName, { repoRoot: options.repoRoot });
   });
 
 program

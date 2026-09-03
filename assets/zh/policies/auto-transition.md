@@ -22,4 +22,4 @@ node polaris-flow state next <change-name>
 
 ## 预设路由
 
-`polaris-flow:hotfix` 时，`phase: build` 返回 `{{SKILL_NAME_PREFIX}}hotfix`；`polairs-flow:tweak` 时返回 `{{SKILL_NAME_PREFIX}}tweak`。其余 phase（`verify`、`archive`）按标准 Skill 名称返回（`{{SKILL_NAME_PREFIX}}verify`、`{{SKILL_NAME_PREFIX}}archive`），不受 workflow 类型影响。预设 Skill 内部的"连续执行模式"可能覆盖 `auto_transition` 行为——详见对应预设的 `<IMPORTANT>` 块。
+`polaris-flow:hotfix` 时，`phase: build` 返回 `polaris{{SKN_SPR}}maintance{{SKN_SPR}}hotfix`；`polaris-flow:tweak` 时返回 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak`。其余 phase（`verify`、`archive`）按标准 Skill 名称返回（`polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`、`polaris{{SKN_SPR}}coding{{SKN_SPR}}ship`），不受 workflow 类型影响。预设 Skill 内部的"连续执行模式"可能覆盖 `auto_transition` 行为——详见对应预设的 `<IMPORTANT>` 块。

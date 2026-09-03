@@ -21,6 +21,9 @@ const cursor = PLATFORMS.find((p) => p.id === 'cursor')!;
 const trae = PLATFORMS.find((p) => p.id === 'trae')!;
 const traeCn = PLATFORMS.find((p) => p.id === 'trae-cn')!;
 
+// installPolarisForPlatform 会拷贝全部资产（约 200+ 文件），单测需放宽默认 5s 超时
+const INSTALL_TIMEOUT = 60_000;
+
 describe('mapAgentTools', () => {
   it('claude：Read→read，Grep→grep', () => {
     expect(mapAgentTools(claude, 'Read, Grep, Glob')).toBe('glob, grep, read');
@@ -54,44 +57,52 @@ body uses Read still
 });
 
 describe('copyPolarisAgents / installPolarisForPlatform agent rewrite', () => {
-  it('claude 落盘：tools 映射 + model.review 来自 config', async () => {
-    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-agents-claude-'));
-    await mkdir(path.join(tmpDir, '.polaris'), { recursive: true });
-    await writeFile(
-      getPolarisConfigPath(tmpDir),
-      ['language: zh', 'model:', '  review: Test-Review-Model', ''].join('\n'),
-      'utf-8',
-    );
+  it(
+    'claude 落盘：tools 映射 + model.review 来自 config',
+    { timeout: INSTALL_TIMEOUT },
+    async () => {
+      const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-agents-claude-'));
+      await mkdir(path.join(tmpDir, '.polaris'), { recursive: true });
+      await writeFile(
+        getPolarisConfigPath(tmpDir),
+        ['language: zh', 'model:', '  review: Test-Review-Model', ''].join('\n'),
+        'utf-8',
+      );
 
-    const result = await installPolarisForPlatform(tmpDir, claude, true, 'zh', 'project');
-    expect(result.agents.copied).toBeGreaterThan(0);
+      const result = await installPolarisForPlatform(tmpDir, claude, true, 'zh', 'project');
+      expect(result.agents.copied).toBeGreaterThan(0);
 
-    const text = await readFile(
-      path.join(tmpDir, '.claude/agents/propose-reviewer.md'),
-      'utf-8',
-    );
-    expect(text).toMatch(/^model: Test-Review-Model$/m);
-    expect(text).toMatch(/^tools:/m);
-  });
+      const text = await readFile(
+        path.join(tmpDir, '.claude/agents/propose-reviewer.md'),
+        'utf-8',
+      );
+      expect(text).toMatch(/^model: Test-Review-Model$/m);
+      expect(text).toMatch(/^tools:/m);
+    },
+  );
 
-  it('trae-cn：落盘到 contextDir agents，model.review 来自 config', async () => {
-    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-agents-trae-cn-'));
-    await mkdir(path.join(tmpDir, '.polaris'), { recursive: true });
-    await writeFile(
-      getPolarisConfigPath(tmpDir),
-      ['language: zh', 'model:', '  review: Review-Only-Model', ''].join('\n'),
-      'utf-8',
-    );
+  it(
+    'trae-cn：落盘到 contextDir agents，model.review 来自 config',
+    { timeout: INSTALL_TIMEOUT },
+    async () => {
+      const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-agents-trae-cn-'));
+      await mkdir(path.join(tmpDir, '.polaris'), { recursive: true });
+      await writeFile(
+        getPolarisConfigPath(tmpDir),
+        ['language: zh', 'model:', '  review: Review-Only-Model', ''].join('\n'),
+        'utf-8',
+      );
 
-    const result = await installPolarisForPlatform(tmpDir, traeCn, true, 'zh', 'project');
-    expect(result.agents.copied).toBeGreaterThan(0);
+      const result = await installPolarisForPlatform(tmpDir, traeCn, true, 'zh', 'project');
+      expect(result.agents.copied).toBeGreaterThan(0);
 
-    const text = await readFile(
-      path.join(tmpDir, '.trae/agents/openspec-review-agent.md'),
-      'utf-8',
-    );
-    expect(text).toMatch(/^model: Review-Only-Model$/m);
-  });
+      const text = await readFile(
+        path.join(tmpDir, '.trae/agents/openspec-review-agent.md'),
+        'utf-8',
+      );
+      expect(text).toMatch(/^model: Review-Only-Model$/m);
+    },
+  );
 
   it('overwrite=false 时跳过已存在 agent', async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-agents-skip-'));

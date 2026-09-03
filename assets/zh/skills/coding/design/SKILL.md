@@ -15,7 +15,7 @@ description: "把 propose 的高层 design.md 深化为可实施的详细技术�
 - **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<change_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
 - **禁止**跳过 Step 4 主审：必须派发 `design-review-agent`（评审逻辑在 agent 内，禁止在本 skill 内联重写或主代理自审冒充）
 - **禁止**跳过 Step 4 Outside Voice **询问**（按 `.polaris/policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
-- **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `/{{SKILL_NAME_PREFIX}}plan`；写代码是 build）
+- **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`；写代码是 build）
 - **禁止**把本 skill 当成 plan 主审：不派 `plan-review-agent`、不写 `plan-review-report.md`
 - **禁止**将专项设计写成 `design.md` 或放入任何子目录；专项必须为变更根目录下的 `<slug>-design.md`
 - **禁止**把设计/评审产物写回 `.polaris/tasks/`（运行态 `state.yaml` 除外）
@@ -57,7 +57,7 @@ RTID_EXIT=$?
 
 - **唯一匹配**（恰好 1 个 id）→ 直接取该 `task_id`
 - **多个匹配** → 按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配** → 阻断，提示「未找到 clarify 阶段的 active change，请先执行 /{{SKILL_NAME_PREFIX}}clarify」
+- **零匹配** → 阻断，提示「未找到 clarify 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify」
 
 > 若 entry 已是 `phase=design`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
 
@@ -174,7 +174,7 @@ canonical_spec: openspec
 
 #### 4.1 主审 — `design-review-agent`
 
-1. **`subagent-probe`**：加载 `{{SKILL_NAME_PREFIX}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → 标注跳过并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。
+1. **`subagent-probe`**：加载 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → 标注跳过并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。
 2. **派发**：注册名 / `subagent_type` = `design-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断，提示先 `polaris-flow init/update`。
 
    **按 `subagent-delegate-policy.md` 执行派发**（D-0 工具可用性判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：

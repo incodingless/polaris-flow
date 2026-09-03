@@ -19,6 +19,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 7. ❌ 禁止用纯文本罗列选项代替第 2 级询问——必须发出真实的询问工具调用（文本降级模式除外）
 8. ❌ **禁止在未完成上下文收集时加载技能**——必须走完第三步，得到用户明确答复（`无` 也算明确答复）
 9. ❌ 禁止写死询问工具名——工具名一律按下方「发问方式」查表得到
+10. ❌ **禁止对标注「⚠️ 暂不可用」的选项尝试加载技能**——必须停下并明确告知用户缺什么，不得静默跳过、直接开工、或自行换用其他技能替代
 </HARD-STOP>
 
 ## 发问方式：按平台查表
@@ -31,11 +32,13 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 
 | `platform` | 询问工具 | 单次多 question | 单 question 选项上限 |
 |---|---|---|---|
-| `claude` | `AskUserQuestion` | 支持 | 4 |
-| `cursor` | `AskUserQuestion` | 支持 | 4 |
 | `trae` | `AskUserQuestion` | 支持 | 4 |
-| `trae-cn` | `AskUserQuestion` | 支持 | 4 |
-| `codebuddy` | `AskUserQuestion` | 按「不支持」处理（拆多次调用） | 4 |
+| `trae-cn`     | `AskUserQuestion` | 支持 | 4 |
+| `cursor` | `AskUserQuestion` | 支持 | 4 |
+| `qoder` | — | — | 走文本降级模式 |
+| `claude`      | `AskUserQuestion` | 支持 | 4 |
+| `cursor`      | `AskUserQuestion` | 支持 | 4 |
+| `codebuddy`   | `AskUserQuestion` | 待确认（按宿主实际行为判定；若不支持则按「不支持」分支处理） | 4 |
 | 未登记 / 读不到 config | — | — | 走文本降级模式 |
 
 **文本降级模式**：无法确定平台或询问工具不可用时，在对话中逐个输出编号选项
@@ -95,9 +98,9 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "header": "开发功能",
     "multiSelect": false,
     "options": [
-      { "label": "实现简单功能", "description": "P01 · 单模块/单文件改动" },
-      { "label": "实现常规功能", "description": "P02 · 多模块协作，常规设计及任务规划" },
-      { "label": "实现复杂功能", "description": "P03 · 跨服务/高风险，含专项设计与交付复盘" }
+      { "label": "P01 · 实现简单功能", "description": "单模块/单文件改动" },
+      { "label": "P02 · 实现常规功能", "description": "多模块协作，常规设计及任务规划" },
+      { "label": "P03 · 实现复杂功能", "description": "跨服务/高风险，含专项设计与交付复盘" }
     ]
   }]
 }
@@ -112,9 +115,9 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "header": "维护功能",
     "multiSelect": false,
     "options": [
-      { "label": "修复Bug", "description": "M01 · 定位并修复代码缺陷" },
-      { "label": "评审代码", "description": "M02 · 评审既有改动，识别代码缺陷" },
-      { "label": "重构代码", "description": "M03 · 在不改变外部行为的前提下改善代码结构" }
+      { "label": "M01 · 修复Bug", "description": "定位并修复代码缺陷（⚠️ 暂不可用）" },
+      { "label": "M02 · 评审代码", "description": "评审既有改动，识别代码缺陷（⚠️ 暂不可用）" },
+      { "label": "M03 · 重构代码", "description": "改善代码结构而不改变外部行为（⚠️ 暂不可用）" }
     ]
   }]
 }
@@ -129,8 +132,8 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "header": "需求功能",
     "multiSelect": false,
     "options": [
-      { "label": "编写用户需求", "description": "R01 · 产出用户需求，说明需求目标" },
-      { "label": "编写产品需求", "description": "R02 · 基于用户需求产出产品需求文档" }
+      { "label": "R01 · 编写用户需求", "description": "产出用户需求，说明需求目标" },
+      { "label": "R02 · 编写产品需求", "description": "基于用户需求产出产品需求文档" }
     ]
   }]
 }
@@ -145,8 +148,8 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "header": "测试功能",
     "multiSelect": false,
     "options": [
-      { "label": "编写测试用例", "description": "T01 · 基于产品需求文档产出用例集" },
-      { "label": "编写验收标准", "description": "T02 · 产出 GWT 验收标准清单" }
+      { "label": "T01 · 编写测试用例", "description": "基于产品需求文档产出用例集" },
+      { "label": "编写验收标准", "description": "产出 GWT 验收标准清单" }
     ]
   }]
 }
@@ -204,12 +207,12 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 
 | 选项 | 入口技能 | 后续阶段链 |
 |:---:|---|---|
-| **P01** 实现简单功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` | clarify → propose → build → verify |
+| **P01** 实现简单功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` | tweak（轻量澄清 → tasks → 实施 → 出口检查）→ ship |
 | **P02** 实现常规功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` | clarify → propose → design → plan → build → verify → ship |
 | **P03** 实现复杂功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` | clarify → propose → design → plan → build → verify → ship → retro |
-| **M01** 修复Bug | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}hotfix` | 
-| **M02** 代码评审 | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` | 
-| **M03** 重构 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}refactor` | 
+| **M01** 修复Bug | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}hotfix` | ⚠️ 暂不可用 · 该技能尚未提供 |
+| **M02** 代码评审 | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` | ⚠️ 暂不可用 · 该技能尚未提供 |
+| **M03** 重构 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}refactor` | ⚠️ 暂不可用 · 该技能尚未提供 |
 | **R01** 编写用户需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery` | discovery（产出需求基线，含功能架构草案） |
 | **R02** 编写产品需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}draft` | draft → refine → review → ship |
 | **T01** 编写测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}case` | case（产出用例集 + 追溯矩阵） |
@@ -217,6 +220,13 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 
 按 `已选功能` 的编号在上表中查到入口技能。选项名称以第二步选项的 `label` 为准；
 用户说「代码评审」「重构」等别名时，按编号等价映射到 **M02 / M03**。
+
+**查到「⚠️ 暂不可用」时，不要尝试加载技能**，改为明确告知用户并停下：
+
+1. 说明该功能当前不可用，并照上表「入口技能」列**照实说出缺的是哪个技能**
+2. 询问用户是否改选其他功能；改选则回到第二步重新走一遍选择流程
+
+禁止在技能缺失时直接开工或用其他技能顶替——用户必须明确知道这次什么都没做，而不是拿到一份错位产物。
 
 加载技能时**必须同时交接** `已选功能` 与 `附加上下文`，并显式告知技能：
 开工前先读取上下文清单中的全部材料（详见 3.3）；`附加上下文` 为 `无` 时直接按其自身流程执行。
@@ -227,7 +237,7 @@ P01 / P02 / P03 的差别在于**走的阶段数**，选择时按以下标准判
 
 | 选项 | 适用特征 | 阶段差异 |
 |:---:|---|---|
-| **P01** 简单 | 单模块、单文件级改动、无跨模块设计、无复杂状态流转、风险低 | 跳过 design / plan，propose 后直接 build |
+| **P01** 简单 | 单模块、单文件级改动、无跨模块设计、无复杂状态流转、风险低 | 走 `tweak` 单入口技能：一次会话内完成轻量澄清（change-brief）→ tasks → 实施 → 出口检查，跳过 design / plan 与独立 verify，产物为 `change-brief.md` + `tasks.md`，由 ship 归档前补齐四件套 |
 | **P02** 常规 | 多模块协作、需详细技术设计与任务拆分、有一定风险 | 完整走 design 与 plan |
 | **P03** 复杂 | 跨系统/跨服务、高风险、需专项设计（数据模型/接口契约/领域模型） | 完整链路 + 专项设计与强制评审，交付后复盘 |
 

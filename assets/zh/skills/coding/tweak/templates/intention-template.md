@@ -1,6 +1,6 @@
 # 意图调研结果
 
-> **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` skill Step 4.1 引用。clarify 主代理读取本模板后，按节顺序填充；各节内容来源标注见行内注释。
+> **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` 在升档转交时引用（`upgrade-check.md` §3.1 / `artifact-backfill.md` §2.1），用于把 `change-brief.md` 改写为 `intention.md`。主代理读取本模板后，按节顺序填充（各节内容按 `artifact-backfill.md` §1 映射表搬运，简报没有的节填「无」）；下方行内注释为节结构说明。
 
 ---
 

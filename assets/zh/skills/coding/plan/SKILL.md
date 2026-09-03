@@ -48,7 +48,7 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 或要求在
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`）
 - 运行态：`.polaris/tasks/<change_id>/state.yaml`
 
-> **链路**：`clarify → propose → design → **plan** → build → verify → delivery → retro(可选)`。  
+> **链路**：`clarify → propose → design → **plan** → build → verify → ship → retro(可选)`。  
 > 细计划 = f(四件套, detailed-design)；propose 的 tasks 只是输入粗骨架。主审走 `plan-review-agent`；可选 Outside Voice 走 `openspec-review-agent`。
 
 ## 有效 vs 无效（写计划前默念）
@@ -273,7 +273,7 @@ LINT_EXIT=$?
 
 #### 6.1 主审
 
-1. **`subagent-probe`**：加载 `{{SKILL_NAME_PREFIX}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → **阻断**（计划无独立主审不得进 build；与 design 可跳过主审不同）。不得 inline 假评审。
+1. **`subagent-probe`**：加载 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → **阻断**（计划无独立主审不得进 build；与 design 可跳过主审不同）。不得 inline 假评审。
 2. **解析 StandardsRoot**：本 skill 安装根目录（含 `policies/`、`references/`、`prompts/`）。例：`$PLUGIN_ROOT/plan`（nested）或项目 skills 下的 `polaris-flow-plan`（flat）。目录缺失 → 阻断，提示 `polaris-flow init/update`。
 3. **派发**：注册名 / `subagent_type` = `plan-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断。
 

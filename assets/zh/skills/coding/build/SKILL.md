@@ -13,7 +13,7 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 - **禁止**主代理在 `/opsx:apply` 之外直接编写业务实现代码（补丁、新模块、改 API 等）
 - **禁止**调用 `superpowers:subagent-driven-development` / `superpowers:executing-plans`（H13）
 - **禁止**未完成出口校验（Step 5）就写 `build.status: completed` 或把 `phase` 推到 verify
-- **禁止**本阶段强制 `git commit`（提交策略交 delivery/ship；apply 过程产生的未提交改动保留在工作区 / worktree）
+- **禁止**本阶段强制 `git commit`（提交策略交 ship；apply 过程产生的未提交改动保留在工作区 / worktree）
 - **禁止**重写 `proposal.md` / 高层 `design.md` / `detailed-design.md` / 覆写整份 `tasks.md` 范围；发现计划缺陷 → pause 回 plan，不在 build 静默改 Scope
 - **禁止**用全局开关覆盖 tasks.md 内已有的 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->` 标注（要改标注回 plan）
 - **H8**（状态行输出）：每个 Step 入口输出`[polaris-flow 开发]构建：进入 build Step <N>: <动作>` 等可见状态行
@@ -34,7 +34,7 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 | implementer prompt 模板 | `./assets/implementer-prompt.md` |
 
-> **链路**：`clarify → propose → design → plan → **build** → verify → delivery`。  
+> **链路**：`clarify → propose → design → plan → **build** → verify → ship`。  
 > 本阶段不写计划、不审设计；只执行已评审的 `tasks.md`。  
 > 若本阶段落盘代码评审报告，写入 `openspec/changes/<change_id>/reviews/code-review-report.md`（无流程则不强造）。
 
@@ -59,7 +59,7 @@ RTID_EXIT=$?
 
 - **唯一匹配**：直接读取 `change_id`
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 plan 阶段的 active change，请先执行 /{{SKILL_NAME_PREFIX}}plan」
+- **零匹配**：阻断，提示「未找到 plan 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan」
 
 > 若 选择的任务已是 `phase=plan`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
 > 若上次中断在 plan 中（`plan.status=in_progress` / apply paused），从中断点续跑；不得因「已是 build」而报零匹配。
@@ -115,7 +115,7 @@ RTID_EXIT=$?
 
 若 `build_mode=subagent_dispatch`：
 
-1. **必须** `use_skill("{{SKILL_NAME_PREFIX}}subagent-probe")`，传入 `platform="$PLATFORM"`
+1. **必须** `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入 `platform="$PLATFORM"`
 2. 按 `subagent-probe` 的返回结构消费（`platform_degradation` + `agents`）：
 
 | probe 返回 | 动作 |

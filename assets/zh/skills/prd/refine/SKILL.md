@@ -40,7 +40,7 @@ version: 0.3
 
 **技能总流程**: S0 状态检查与中断恢复 > S1 输入加载与分析 > S2 逐章补全生成 > S2.5 合并终稿全文 > S3 完整评审 > S4 定稿输出
 
-**路径约定**：本技能所有过程文件统一落在 `$REPO_ROOT/.polaris/tasks/<task_id>/sessions/`，下文简写 `sessions/`（与 `draft`、`discovery` 一致）。禁止使用相对当前工作目录的路径——refine 可能在独立 worktree 中执行，相对路径会落到错误位置。
+**路径约定**：本技能所有过程文件统一落在 `$REPO_ROOT/.polaris/tasks/<task_id>/final/`目录下。禁止使用相对当前工作目录的路径——refine 可能在独立 worktree 中执行，相对路径会落到错误位置。
 
 ### Step 0：状态检查与中断恢复
 
@@ -86,8 +86,8 @@ LANG_EXIT=$?
 ## Step 1：输入加载、模板校验与追溯构建
 
 **输出落盘**：
-- `sessions/_phase1_analysis.md`
-- `sessions/_baseline_trace_matrix.csv`
+- `phase1_analysis.md`
+- `baseline_trace_matrix.csv`
 
 ### 1.1 模板强制加载与校验
 - 必须`read_file` `./templates/prd_template.md`，将模板的全部章节标题、子结构、表格格式作为输出的唯一结构基准
@@ -122,8 +122,11 @@ LANG_EXIT=$?
 - 按模板章节列出补全清单，标注每章的继承/新增状态、L2验证级别
 - 存在 coding-knowledge 时：第4章数据模型、1.4 术语定义（枚举部分）、第7章状态流转（枚举部分）标记为 **L2代码验证级**
 - 不存在 coding-knowledge 时：标记为 **L1设计级**，明确标注「未经过代码验证，开发前需技术复核」
-- 输出补全清单 + 验证级别说明 + 追溯矩阵初版给用户确认
-- 用户确认后进入 Phase 2
+- 按 `./policies/decision-point.md` 暂停询问确认补全范围：
+  > 以上补全范围与验证级别是否确认？
+  > A. 确认，进入逐章生成
+  > B. 调整（说明需调整的章节或验证级别）
+- 仅 A 进入 Step 2；B 按反馈修订补全清单后重新确认
 
 ## Step 2：逐章补全生成（严格按模板章节顺序）
 
@@ -132,8 +135,9 @@ LANG_EXIT=$?
 
 **执行铁则**
 - 严格按模板 文档头 → 第一章 → 第十一章 → 附录 的顺序生成
-- 每章：生成 → L2 验证（如适用）→ 章节自检 → **写入磁盘**（状态置「已生成待确认」）→ **人工确认**（状态置「已确认」）→ 进入下一章
+- 每章：生成 → L2 验证（如适用）→ 章节自检 → **写入磁盘**（状态置「已生成待确认」）→ **人工确认**（按 `./policies/decision-point.md` 暂停确认，确认后状态置「已确认」）→ 进入下一章
 - 先落盘后确认：草稿落盘是为了中断后能恢复上下文，确认前该文件**不作为**合并输入（Step 2.5 只收「已确认」章节）
+- **全文单次落盘（省 Token）**：章节全文仅在「写入 sessions 文件」时输出一次；会话中只展示【本章要点摘要 + 重点校验表 + 文件路径（引导预览）】，**不再粘贴全文**——避免全文二次输出，也避免全文长期驻留上下文重复计费
 - 确认一章，再进入下一章；禁止批量生成多章节
 - 继承章节先优化确认，再开始新增章节生成
 
@@ -157,7 +161,7 @@ LANG_EXIT=$?
 | `_appendix-c.md` | 附录 C 参考资料 |
 | `_appendix-d.md` | 附录 D 评审签署 |
 
-**章节状态文件**：`sessions/_chapter_state.md`，每章落盘或确认后立即更新：
+**章节状态文件**：`sessions/chapter_state.md`，每章落盘或确认后立即更新：
 
 | 章节文件 | 状态 | 确认时间 | L2验证结论 |
 |---|---|---|---|
@@ -205,14 +209,19 @@ LANG_EXIT=$?
 7. **可测性自检**：验收标准是否全部为 Given/When/Then 且可独立判定
 8. **占位符自检**：本章是否残留 `{{...}}` 占位符或 `【填写指引】`
 
-自检通过后，将章节草稿 + 自检结果 + 本章重点校验表一同提交用户确认。
+自检通过后，按 `./policies/decision-point.md` 暂停确认（**不粘贴章节全文**——全文已落盘，仅展示【本章要点摘要 + 自检结果 + 本章重点校验表 + 章节文件路径】引导用户预览确认）：
+> 本章（<章节文件名>）是否确认通过？
+> A. 确认通过 → 状态置「已确认」，进入下一章
+> B. 提出修改 → 增量编辑修改已落盘文件，重新自检后再次确认
+
+仅 A 置「已确认」并进入下一章；B 迭代直到确认通过。
 
 ---
 
 ## Step 2.5：合并终稿全文（Step 3 评审输入）
 
 **输入**：`sessions/` 下全部状态为「已确认」的章节文件
-**输出落盘**：`sessions/_prd_final_draft.md`
+**输出落盘**：`sessions/prd_final_draft.md`
 
 - 按 Step 2 文件名表顺序拼接，前置文档头与版本修订记录，后置附录 A~D
 - **定稿前清理**：删除模板「模板使用约定」整节与所有 `【填写指引】`，确认无 `{{...}}` 残留占位符
@@ -225,8 +234,8 @@ LANG_EXIT=$?
 ## Step 3：完整评审与人工评审支撑
 
 **输出落盘**：
-- `sessions/_full_review_report.md`
-- `sessions/review-package/`（人工评审支撑包）
+- `full_review_report.md`
+- `review-package/`（人工评审支撑包）
 
 ### 3.0 探测可用 subagent（Step 3 入口，一次探测全程复用）
 
@@ -264,7 +273,7 @@ LANG_EXIT=$?
   - `task_description`：对 PRD 终稿执行 7 维度业务评审。加载并遵循 `polaris{{SKN_SPR}}prd{{SKN_SPR}}review` 技能的评审方法与 Phase 4 报告格式，产出含分级问题清单、基线追溯矩阵、问题ID锚点链接的完整评审报告。
   - `task_type`：`doc_review`
   - `materials`：
-    - `sessions/_prd_final_draft.md`（Step 2.5 合并出的终稿全文，3.1 与 3.2 共用同一文件）
+    - `sessions/prd_final_draft.md`（Step 2.5 合并出的终稿全文，3.1 与 3.2 共用同一文件）
     - Baseline 路径
     - `polaris{{SKN_SPR}}prd{{SKN_SPR}}review` 技能 SKILL.md 路径（供 subagent 加载评审方法）
   - `constraints`：
@@ -302,7 +311,7 @@ LANG_EXIT=$?
 
 subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
-- `DONE` / `DONE_WITH_CONCERNS`：接收 `result.output`（评审报告内容或路径），落盘到 `sessions/_full_review_report.md` 的业务评审部分
+- `DONE` / `DONE_WITH_CONCERNS`：接收 `result.output`（评审报告内容或路径），落盘到 `sessions/full_review_report.md` 的业务评审部分
 - `BLOCKED`：记录 `result.concerns`，向用户报告阻塞原因，暂停 Step 3 后续
 - `NEEDS_CONTEXT`：按 `result.concerns` 补充上下文后重新派发（同一 agent）
 - `FAILED`：降级为主代理 inline 执行（自动，见上方「inline 降级」）
@@ -325,7 +334,7 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
   - `task_description`：对 PRD 终稿执行可测性专项检查。加载并遵循 `polaris{{SKN_SPR}}prd{{SKN_SPR}}testability` 技能的检查方法与 Phase 4 报告格式，产出含四维度检查记录、分级问题清单（T0~T3）、验收标准补全建议、问题ID锚点链接的完整可测性报告。
   - `task_type`：`doc_review`
   - `materials`：
-    - `sessions/_prd_final_draft.md`（与 3.1 共用同一文件，禁止各自指向不同版本）
+    - `sessions/prd_final_draft.md`（与 3.1 共用同一文件，禁止各自指向不同版本）
     - `polaris{{SKN_SPR}}prd{{SKN_SPR}}testability` 技能 SKILL.md 路径（供 subagent 加载检查方法）
   - `constraints`：
     - 只评审，**禁止**修改任何文档文件
@@ -341,7 +350,7 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
 验收标准完整性、业务规则可判定性、场景覆盖充分性、数据指标可验证性。四维度必须全部检查。
 
-**返回结果处理**：与 3.1 相同的 `result.status` 处理逻辑；接收后落盘到 `sessions/_full_review_report.md` 的可测性检查部分。
+**返回结果处理**：与 3.1 相同的 `result.status` 处理逻辑；接收后落盘到 `full_review_report.md` 的可测性检查部分。
 
 ### 3.2.1 并行执行与结果汇总
 
@@ -351,12 +360,12 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
 **并行约束**：
 - 两次派发的 `platform` 必须相同（同一宿主，与 probe 同源）
-- 两次派发的 `materials` 中 PRD 终稿路径必须指向同一文件（`sessions/_prd_final_draft.md`）；任一章节在评审期间被修订，必须先重跑 Step 2.5 再重新派发，禁止让两个 subagent 评审不同版本
+- 两次派发的 `materials` 中 PRD 终稿路径必须指向同一文件（`prd_final_draft.md`）；任一章节在评审期间被修订，必须先重跑 Step 2.5 再重新派发，禁止让两个 subagent 评审不同版本
 - subagent-dispatch 内部不感知并行——它是无状态的单次派发；并行编排由本技能（调用方）负责
 - 一方 inline 降级不阻塞另一方——各自独立处理、独立落盘
 
 **结果汇总**：
-- 两个 subagent-dispatch 均返回后，主 agent 汇总两份报告，合并到 `sessions/_full_review_report.md`
+- 两个 subagent-dispatch 均返回后，主 agent 汇总两份报告，合并到 `full_review_report.md`
 - 汇总时保留两份报告的完整内容，按「业务评审」+「可测性检查」两节组织
 - 若其中一方 inline 降级也失败（如 materials 不可读），标注该维度「未能执行」，不阻塞另一维度的结果汇总
 
@@ -372,8 +381,8 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
 **修复-重评审闭环**（每轮迭代必须走完，禁止跳过任一步）：
 
-1. 按问题定位到对应分章文件，修改后重新提交用户确认，状态置回「已确认」
-2. **重跑 Step 2.5** 覆盖 `sessions/_prd_final_draft.md`
+1. 按问题定位到对应分章文件，修改后按 `./policies/decision-point.md` 重新提交用户确认，确认后状态置回「已确认」
+2. **重跑 Step 2.5** 覆盖 `prd_final_draft.md`
 3. 重新派发 3.1 / 3.2 评审同一文件
 4. 回到本步骤按分级处理新问题，直到 P0 / T0 清零
 
@@ -395,22 +404,17 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
 ## Step 4：定稿输出、模板一致性终检与基线映射更新
 
-**输出文件**：`{需求简称}-需求终稿-v1.0.md`
+### 4.1 终稿定稿（复用 Step 2.5 产物，不重复拼接）
 
-### 4.1 全章节合并
+**输入**：`prd_final_draft.md`——Step 2.5 已按文件名表顺序拼接、完成定稿前清理、生成目录与跨章锚点的完整全文；Step 3.3 评审修复后已重跑 Step 2.5，内容为最新。
 
-**输入**：`sessions/` 下全部状态为「已确认」的章节文件（含 Step 3.3 评审修复后重新确认的章节）
-**处理**：严格按 Step 2 文件名表顺序拼接
+**处理**：不再重新拼接 15 章（避免与 Step 2.5 重复生成同一份全文），直接以该文件为终稿正文：
+- 若 Step 3 评审未触发任何修复（未重跑 Step 2.5），先校验 Step 2.5 清理是否到位（无模板「模板使用约定」、无 `【填写指引】`、无 `{{...}}` 残留），不到位则补清理
+- 落盘为正式命名文件 `prd-final-v1.0.md`
 
-```
-文档头 → 版本修订记录 → 第一章 → … → 第十一章 → 附录A → 附录B → 附录C → 附录D
-```
+**约束**：评审修复**先落到对应分章文件并重新确认、再重跑 Step 2.5**；禁止在定稿环节直接改正文，否则分章文件与终稿漂移
 
-- Step 3.3 的评审修复**先落到对应分章文件并重新确认**，再合并；禁止在合并环节临时改稿，否则分章文件与终稿漂移
-- 若任一章节状态仍为「已生成待确认」，**阻断**，回到 Step 2 完成该章确认
-- 合并后执行定稿前清理：删除模板「模板使用约定」整节与所有 `【填写指引】`，确认无 `{{...}}` 残留占位符
-
-**输出**：终稿全文，作为 4.2 ~ 4.6 的唯一作用对象
+**输出**：`prd-final-v1.0.md`，作为 4.2 ~ 4.6 的唯一作用对象
 
 ### 4.2 模板一致性终检（强制门禁）
 
@@ -422,7 +426,7 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
 ### 4.3 格式与一致性校验
 
-- 生成全文目录，统一标题层级与锚点
+- 复核全文目录、标题层级与锚点（Step 2.5 已生成，此处核对一致性，不重复生成）
 - 检查所有引用链接、锚点跳转有效性
 - 统一术语表述，消除前后不一致
 - 对本次新增与修订内容进行差异高亮标记，便于快速定位变更
@@ -431,8 +435,8 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
 - 列出 Baseline / 用户故事中每项需求对应的终稿章节、功能点、验收标准与段落锚点
 - 支持双向追溯
-- 与 1.6 节、独立追溯矩阵文件 `sessions/_baseline_trace_matrix.csv` 三处保持一致
-- 若本步骤对矩阵做了修订，**必须回写 `sessions/_appendix-a.md` 并重跑 4.1 合并**，禁止直接改终稿导致与分章文件漂移
+- 与 1.6 节、独立追溯矩阵文件 `baseline_trace_matrix.csv` 三处保持一致
+- 若本步骤对矩阵做了修订，**必须回写 `appendix-a.md`、重跑 Step 2.5 覆盖 `prd_final_draft.md`、再重跑 4.1 定稿**，禁止直接改终稿导致与分章文件漂移
 
 ### 4.5 终稿正式声明
 
@@ -443,10 +447,10 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 > 代码验证级别：L2（已代码验证）/ L1（设计级）
 > 生效范围：本文件为研发、测试、验收的唯一正式依据
 
-### 4.6 输出与归档
+### 4.6 落盘与归档
 
-- 输出命名规范的终稿文档
-- 输出完整的人工评审支撑包
+- 终稿已落盘为 `{需求简称}-final-v1.0.md`；会话中只输出【终稿文件路径 + 交付摘要 + 评审结论】，**不粘贴终稿全文**（全文已落盘，引导用户预览）
+- 落盘完整的人工评审支撑包（`review-package/`）
 - 完整保留 `sessions` 目录所有过程文件，支持追溯与迭代
 - 同步更新版本记录与更新记录，关联评审报告链接
 
@@ -472,19 +476,18 @@ refine:
 
 `[polaris-flow 需求工程] 完善终稿 - 阶段完成，即将进入 [交付] 阶段。可执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}ship。`
 
-
 ---
 
 ## 中断恢复能力
 
-对话中断后重新调用技能，先读 `sessions/_chapter_state.md` 判断续跑位置——**该文件是唯一依据，不靠文件是否存在推断**：
+对话中断后重新调用技能，先读 `chapter_state.md` 判断续跑位置——**该文件是唯一依据，不靠文件是否存在推断**：
 
 | 状态文件读到的位置 | 续跑动作 |
 |---|---|
-| 存在「已生成待确认」的章节 | 将该章草稿重新提交用户确认，确认后置「已确认」再继续 |
-| 全部章节「已确认」，无 `_prd_final_draft.md` | 从 Step 2.5 合并开始 |
-| 存在 `_prd_final_draft.md`，无 `_full_review_report.md` | 从 Step 3 评审开始 |
-| 存在 `_full_review_report.md`，无终稿文件 | 从 Step 3.3 修复 / Step 4 定稿开始 |
+| 存在「已生成待确认」的章节 | 将该章草稿按 `./policies/decision-point.md` 重新提交用户确认，确认后置「已确认」再继续 |
+| 全部章节「已确认」，无 `prd_final_draft.md` | 从 Step 2.5 合并开始 |
+| 存在 `prd_final_draft.md`，无 `full_review_report.md` | 从 Step 3 评审开始 |
+| 存在 `full_review_report.md`，无终稿文件 | 从 Step 3.3 修复 / Step 4 定稿开始 |
 
 - 已完成的评审结果保留有效，无需重复执行
 - 阻塞问题修复记录完整保留，从中断处继续迭代

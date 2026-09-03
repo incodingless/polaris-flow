@@ -11,15 +11,29 @@
 
 ## 技能资产现状
 
-- **在用**：`assets/zh/skills/{coding,prd,test,subagent-dispatch,subagent-probe}/`。
-  族名在 `layout.ts` 与 `install/skills.ts` 的 `SKILL_FAMILIES` 中注册，新增族需同步两处。
+- **在用族**（`assets/zh/skills/`）：
+  - `coding/`: build, clarify, design, plan, propose, retro, ship, verify（**无 refactor**）
+  - `prd/`: discovery, draft, refine, review, ship, testability
+  - `testing/`: acceptance, case
+  - `subagent-dispatch/`、`subagent-probe/`（各自带 `references/`）
+  - `maintance/`：**空目录**，0 文件，git 历史也无内容
+  族名在 `layout.ts` 与 `install/skills.ts` 的 `SKILL_FAMILIES` 中注册，**新增/改名必须同步两处**。
+  **写命令路由表前先 `ls assets/zh/skills/<族>/` 核对**——凭印象写必然挂。
+- **⚠️ 测试族固定为 `testing`，不可改回 `test`** —— `test` 与仓库根 `test/`（单元测试）及保留目录
+  冲突。族名一旦与 `assets/<lang>/skills/` 下的真实目录名不一致，`parseSkillAssetPath` 会把族目录
+  误判成独立技能（落盘 `polaris/testing/` 带 `case/` 子目录，而非两个叶技能），命令里的
+  `polaris{{SKN_SPR}}testing{{SKN_SPR}}case` 就永远路由不到。
 - **不安装**：`assets/zh/skills/requirements-engineering/`（被 `shouldSkipSkillShortPath` 跳过，
   与 `skills/prd/` 功能重叠的旧版）。改 PRD 技能改 `skills/prd/`，不要改这里。
 
 ## 已知陈旧项（勿踩）
 
-- `test/ts/skills-install.test.ts` 断言技能名为 `polaris:flow:clarify`，与实际 `polaris:coding:clarify`
-  不符 —— 是资产从 `flow` 族重组成 `coding`/`prd` 族后遗留的失败测试，非代码缺陷。
+- **`assets/zh/commands/hotfix.md` 与 `assets/en/commands/hotfix.md` 是死链命令桩**：
+  正文仅 `Use the polaris:hotfix skill.`，而该技能不存在（既非族也非独立技能）。
+- **安装类测试的 timeout 债**：任何调 `installPolarisForPlatform` / `copyPolarisSkillsForPlatform` 的用例，
+  实测需 11~15s（拷贝 200+ 文件），必须显式给 `{ timeout: 60_000 }`，否则默认 5s 必然超时。
+  照 `commands-install.test.ts` / `skills-install.test.ts` 的 `INSTALL_TIMEOUT` 写法加即可。
+  `session-start.test.ts` 里也有同类超时失败（未修）。
 - `assets/zh/skills/README.md` 引用了不存在的 `delivery/`、`explore-router/`、`idea-discovery/`、
   `hard-stops.md`。
 - `polaris.example.yaml` / `config.example.yaml` / `ask-question-react.md` /

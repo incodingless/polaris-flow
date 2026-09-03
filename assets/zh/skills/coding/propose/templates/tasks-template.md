@@ -2,15 +2,15 @@
 
 > **重要**：
 > - **propose** 阶段调用 `/opsx:propose` 生成四件套前，必须 `read_file` 重读本文件（产出**粗骨架** tasks）。
-> - **plan** 阶段（`/polaris{{SKN_SPR}}flow{{SKN_SPR}}plan`）在 design 完成后**覆写**同一路径的 `tasks.md` 为可执行细计划；每次覆写前必须再次 `read_file` 本文件。
+> - **plan** 阶段（`/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`）在 design 完成后**覆写**同一路径的 `tasks.md` 为可执行细计划；每次覆写前必须再次 `read_file` 本文件。
 
 ## 模板正文（propose 初稿 / plan 覆写须按此格式）
 
 ```markdown
 # {{CHANGE_ID}} — 实施任务计划
 
-> **执行入口**：本计划由 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}build` 通过 `/opsx:apply` 在 implementer subagent 内逐 task 执行。
-> **规划入口**：细计划由 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}plan` 按 writing-plans（骨架模式）覆写；propose 仅提供粗骨架。
+> **执行入口**：本计划由 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build` 通过 `/opsx:apply` 在 implementer subagent 内逐 task 执行。
+> **规划入口**：细计划由 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` 按 writing-plans（骨架模式）覆写；propose 仅提供粗骨架。
 
 
 **目标**：{{GOAL_ONE_SENTENCE}}
@@ -95,7 +95,7 @@
 
 - DocSync **必须**作为最后一组（编号 N，N = 实施任务组数 + 1）
 - 子任务为平铺检查项，不再展开二级子任务
-- DocSync 内不做 commit / PR / merge 决策——这些动作交给 delivery / ship 阶段
+- DocSync 内不做 commit / PR / merge 决策——这些动作交给 ship 阶段
 
 ### 5. YAGNI 原则
 
@@ -114,8 +114,8 @@
 
 | 上游消费方 | 期待 tasks.md 提供什么 |
 |------------|----------------------|
-| `/polaris{{SKN_SPR}}flow{{SKN_SPR}}propose` | 按本模板生成**粗骨架**（可过 lint）；细粒度留给 plan |
-| `/polaris{{SKN_SPR}}flow{{SKN_SPR}}plan` | **覆写**为可执行细计划（Files + Interfaces + TDD/非TDD + 可复制命令）；跑 `tasks-lint`；再派 `plan-review-agent` |
+| `/polaris{{SKN_SPR}}coding{{SKN_SPR}}propose` | 按本模板生成**粗骨架**（可过 lint）；细粒度留给 plan |
+| `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` | **覆写**为可执行细计划（Files + Interfaces + TDD/非TDD + 可复制命令）；跑 `tasks-lint`；再派 `plan-review-agent` |
 | `plan-review-agent`（由 plan 派发） | 评审粒度、依赖排序、可执行性、测试缺口；写入 `reviews/plan-review-report.md`，**评审期间不直接改 tasks**；消化与改写由 plan skill 完成；可选 Outside Voice（`openspec-review-agent`） |
-| `/polaris{{SKN_SPR}}flow{{SKN_SPR}}build`（implementer 跑 `/opsx:apply`） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
+| `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`（implementer 跑 `/opsx:apply`） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
 | verify / audit | 实施完成后对照产物；audit 可不读 tasks，只看代码改动与产出 |

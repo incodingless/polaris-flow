@@ -48,10 +48,9 @@ EXIT_CODE=$?
 ### 2.1 转移终稿至文档库
 
 ```bash
-# 终稿由 refine 输出：{需求简称}-需求终稿-v1.0.md，位于任务目录下
 PRD_DOC_DIR="${PRD_DOC_DIR:-$REPO_ROOT/docs/prd}"
 mkdir -p "$PRD_DOC_DIR"
-cp "$REPO_ROOT/.polaris/tasks/$task_id/"*"需求终稿"*.md "$PRD_DOC_DIR/"
+cp "$REPO_ROOT/.polaris/tasks/$task_id/prd_final_*.md "$PRD_DOC_DIR/"
 ```
 
 > `$PRD_DOC_DIR` 默认为 `$REPO_ROOT/docs/prd/`；用户可在 Step 1 确认交付时指定其它文档库位置覆盖。
@@ -72,4 +71,3 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement -
 
 ### 2.3 输出消息
 输出：`[polaris-flow 需求工程] 交付PRD终稿 - 已经完成文档交付，当前任务成功完成。(⁎⚈᷀᷁ᴗ⚈᷀᷁⁎)`
-

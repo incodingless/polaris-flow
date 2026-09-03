@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}retro
-description: "输出可追溯复盘报告与改进建议。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}retro，或要求查看度量趋势 / overrides 分布 / 阶段复盘 / 改进建议时必须使用本 skill。不要用于：伪造尚未存在的 metrics、在本阶段写业务实现、或替代 verify /delivery 做验收与交付。"
+description: "输出可追溯复盘报告与改进建议。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}retro，或要求查看度量趋势 / overrides 分布 / 阶段复盘 / 改进建议时必须使用本 skill。不要用于：伪造尚未存在的 metrics、在本阶段写业务实现、或替代 verify /ship 做验收与交付。"
 ---
 
 # Polaris 工作流 - 阶段：复盘（retro）
@@ -30,8 +30,8 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 | OpenSpec 变更（可选叙事） | `openspec/changes/<change_id>/` 或 `openspec/changes/archive/*-<change_id>/` |
 | 配置 | `.polaris/config.yaml`（`mode` 等） |
 
-> **链路位置**：`clarify → … → verify → delivery` 之后的**旁路复盘**，不占用 phase 游标、不推进阶段。  
-> verify 写入 metrics；delivery 把 worktree 内 metrics / overrides 合回主仓顶层；retro 只读聚合。
+> **链路位置**：`clarify → … → verify → ship` 之后的**旁路复盘**，不占用 phase 游标、不推进阶段。  
+> verify 写入 metrics；ship 把 worktree 内 metrics / overrides 合回主仓顶层；retro 只读聚合。
 
 ## 触发与范围
 
@@ -62,7 +62,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 
 - 跨 change 趋势：**只**用顶层 metrics  
 - 单 change 叙事：用顶层 metrics 按 `change_id` 过滤；需要业务上下文时读 `.polaris/tasks/<id>/state.yaml` 或 `.polaris/archive/<id>/`；需要设计/规格上下文时读 `openspec/changes/<id>/`（或 archive 下对应目录）
-- **禁止**假设 archive 内仍有 `metrics/*` 或独立 `overrides.log` 切片（delivery 目标态不存副本）
+- **禁止**假设 archive 内仍有 `metrics/*` 或独立 `overrides.log` 切片（ship 目标态不存副本）
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
@@ -88,7 +88,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 | 情况 | 动作 |
 |------|------|
-| 零个 `*-metrics.json` | **停止**。告知：「尚无 verify 度量（`.polaris/metrics/*-metrics.json` 为空）。请先对至少一个 change 跑完 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（若在 worktree 内验证，还需 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}delivery` 合回主仓）。」**禁止**编造报告正文 |
+| 零个 `*-metrics.json` | **停止**。告知：「尚无 verify 度量（`.polaris/metrics/*-metrics.json` 为空）。请先对至少一个 change 跑完 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（若在 worktree 内验证，还需 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 合回主仓）。」**禁止**编造报告正文 |
 | 有 metrics，无 overrides | 继续；Override 节写「无记录」 |
 | monthly 筛选后为零 | **停止**。告知本月无度量文件，可建议改跑 overview |
 | by-change 筛选后为零 | **停止**。列出顶层 metrics 中出现过的 `change_id`（及「未归因」），请用户重选 |

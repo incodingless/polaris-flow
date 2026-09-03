@@ -26,8 +26,8 @@
 | Hard Stop | 自检话术 |
 |-----------|---------|
 | H8 | （无阻断话术，仅"重写回复"——补上缺失的 `[polaris-flow] ...` 状态行后再继续） |
-| H9 | `[polaris-flow] 阻断：本次流程创建过 worktree，delivery 必须完成 harness 产物合回 + git 合回 + 清理三段式后才能输出交付摘要（HARD STOP H9）。先确认 .polaris/metrics、overrides.log、state.yaml 终态、intention.md 修订已拷回主仓 .polaris/ 与 .polaris/archive/<change_id>/，再执行 git worktree remove。` |
+| H9 | `[polaris-flow] 阻断：本次流程创建过 worktree，ship 必须完成 harness 产物合回 + git 合回 + 清理三段式后才能输出交付摘要（HARD STOP H9）。先确认 .polaris/metrics、overrides.log、state.yaml 终态、intention.md 修订已拷回主仓 .polaris/ 与 .polaris/archive/<change_id>/，再执行 git worktree remove。` |
 | H10 | `[polaris-flow] 阻断：派发 subagent 前必须先调用 {{SKILL_NAME_PREFIX}}subagent-probe（HARD STOP H10）。当前 platform=<id> 未完成 Subagent Probe，禁止启动 subagent。` |
-| H11 | `[polaris-flow] 阻断：delivery 必须先获取 .polaris/.locks/delivry.lock 互斥锁（HARD STOP H11）。检测到既有锁 <lock_content> 持有 <age>s（< 30min 视为活跃 / ≥ 30min 视为 stale 需用户确认）。请按 policies/ship-lock.md 处理或等待对方 ship 完成。` |
+| H11 | `[polaris-flow] 阻断：ship 必须先获取 .polaris/.locks/ship.lock 互斥锁（HARD STOP H11）。检测到既有锁 <lock_content> 持有 <age>s（< 30min 视为活跃 / ≥ 30min 视为 stale 需用户确认）。请按 policies/ship-lock.md 处理或等待对方 ship 完成。` |
 | H12 | `[polaris-flow] 阻断：写 workflow.yaml 必须先获取 .polaris/.locks/workflow.lock（HARD STOP H12）。6s 内未获取到锁，持有者 <lock_content>。请按 policies/workflow-lock.md 处理。`（或写后校验失败时：`[polaris-flow] 阻断：workflow.yaml 写后校验未通过（HARD STOP H12）。期望 <expected>，实际 <actual>，请手动修复后重试。`） |
 | H13 | `[polaris-flow] 阻断:即将调用 <superpowers:subagent-driven-development \| superpowers:executing-plans>,该派发驱动器已被全局禁用(HARD STOP H13)。请改为:① 先调 {{SKILL_NAME_PREFIX}}subagent-probe(platform=<id>) 取得 agents/degradation;② 主代理用宿主原生 Task / AgentTool 直接派发(agent 路径、builtin id 或默认 subagent),或 inline 执行(degradation 为 inline/unsupported 时);③ 绝不回退到 superpowers 派发驱动器。` |

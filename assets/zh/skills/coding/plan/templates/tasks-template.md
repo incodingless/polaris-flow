@@ -2,7 +2,7 @@
 
 > **重要**：
 > - **propose** 阶段调用 `/opsx:propose` 生成四件套前，必须 `read_file` 重读本文件（产出**粗骨架** tasks）。
-> - **plan** 阶段（`/polaris{{SKN_SPR}}flow{{SKN_SPR}}plan`）在 design 完成后**覆写**同一路径的 `tasks.md` 为可执行细计划；每次覆写前必须再次 `read_file` 本文件。
+> - **plan** 阶段（`/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`）在 design 完成后**覆写**同一路径的 `tasks.md` 为可执行细计划；每次覆写前必须再次 `read_file` 本文件。
 > - 最终供 build / verify 消费的，以 **plan 覆写后** 的版本为准。
 
 ## 任务粒度规则
@@ -23,8 +23,8 @@ tasks.md 支持两类任务：
 ```markdown
 # {{CHANGE_ID}} — 实施任务计划
 
-> **执行入口**：本计划由 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}build` 通过 `/opsx:apply` 在 implementer subagent 内逐 task 执行。
-> **规划入口**：细计划由 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}plan` 按 writing-plans（骨架模式）覆写；propose 仅提供粗骨架。
+> **执行入口**：本计划由 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build` 通过 `/opsx:apply` 在 implementer subagent 内逐 task 执行。
+> **规划入口**：细计划由 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` 按 writing-plans（骨架模式）覆写；propose 仅提供粗骨架。
 
 
 **Goal**：{{GOAL_ONE_SENTENCE}}
@@ -109,7 +109,7 @@ tasks.md 支持两类任务：
 
 - DocSync **必须**作为最后一组（编号 N，N = 实施任务组数 + 1）
 - 子任务为平铺检查项，不再展开二级子任务
-- DocSync 内不做 commit / PR / merge 决策——这些动作交给 delivery / ship 阶段
+- DocSync 内不做 commit / PR / merge 决策——这些动作交给 ship 阶段
 
 ### 5. YAGNI 原则
 

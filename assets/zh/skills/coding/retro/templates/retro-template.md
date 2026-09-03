@@ -1,6 +1,6 @@
 # 复盘报告
 
-> **使用约定**：本模板由 `polaris{{SKN_SPR}}flow{{SKN_SPR}}retro` skill。 主代理读取本模板后，按节顺序填充；各节内容来源标注见行内注释。
+> **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}retro` skill。 主代理读取本模板后，按节顺序填充；各节内容来源标注见行内注释。
 
 - 范围：<overview|monthly|by-change> <补充：N 次 / YYYY-MM / change_id=…>
 - 生成时间：<ISO8601>
@@ -33,8 +33,8 @@
 
 ## 5. 后续
 
-- 继续度量：对进行中 change 跑 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}verify`（worktree 场景需经 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}delivery` 合回）
-- 新变更：`/polaris{{SKN_SPR}}flow{{SKN_SPR}}clarify` 或 `/polaris{{SKN_SPR}}flow{{SKN_SPR}}propose`
+- 继续度量：对进行中 change 跑 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（worktree 场景需经 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 合回）
+- 新变更：`/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 或 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}propose`
 
 ## 约束速查
 

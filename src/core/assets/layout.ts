@@ -12,8 +12,12 @@ import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 /** 包内公共目录前缀（装入 polaris 插件根，两种 layout 相同） */
 const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/', 'scripts/'] as const;
 
-/** 技能族目录（其下为叶技能） */
-const SKILL_FAMILIES = new Set(['coding', 'prd', 'test']);
+/**
+ * 技能族目录（其下为叶技能）。
+ * 注意：族名必须与 `assets/<lang>/skills/` 下的实际目录名一致，否则族目录会被误判为独立技能。
+ * 测试族固定为 `testing`——**不可用 `test`**，与仓库根 `test/`（单元测试）及保留目录冲突。
+ */
+const SKILL_FAMILIES = new Set(['coding', 'prd', 'testing']);
 
 /** 应忽略的空壳 / 备份路径前缀 */
 const SKIP_PREFIXES = [

@@ -12,11 +12,12 @@ description: "verify 通过后做终验、分支收尾、worktree 产物合回�
 - **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 3.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
 - **禁止**未按 `./reference/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
 - **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 6.1
-- **禁止**本阶段编写业务实现代码；终验失败 → 回 `/{{polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（必要时再回 `/{{polaris{{SKN_SPR}}coding{{SKN_SPR}}build`）
+- **P01 快速通道**：`tweak.mode=tweak` 时**必须**执行 Step 4.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
+- **禁止**本阶段编写业务实现代码；终验失败 → 回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（必要时再回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`）
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]交付 - 进入Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]交付 - 进入阶段：使用 {{polaris{{SKN_SPR}}coding{{SKN_SPR}}ship 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]交付 - 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}ship 技能。`
 
 ## 遵守的 Hard Stops
 
@@ -35,10 +36,13 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 | sync 脚本 | `$PLUGIN_ROOT/scripts/harness-sync.sh` |
 | sync policy | `policies/polaris-sync.md` |
 | lock policy | `policies/ship-lock.md` |
+| P01 产物补齐策略 | `./policies/artifact-backfill.md`（仅快速通道触发） |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 hooks） |
 
-> **链路**：`clarify → propose → design → plan → build → verify → **ship**`。  
-> 本阶段交付与归档；不再做 Constitution / scorer（那是 verify）。
+> **链路**：`clarify → propose → design → plan → build → verify → **ship**`（P01 快速通道为 `tweak → **ship**`）。
+> 本阶段交付与归档；不再做 Constitution / scorer（那是 verify / tweak 出口检查）。
+>
+> **P01 差异**：tweak 只产出 `change-brief.md` + `tasks.md`，没有 proposal / design / specs。归档前必须由本阶段按 `./policies/artifact-backfill.md` 补齐四件套（Step 4.5），否则 `openspec-cn archive` 会失败。
 
 ## 输入与入口校验
 
@@ -87,7 +91,7 @@ RTID_EXIT=$?
 在 verify 已通过的前提下，再跑一轮 `superpowers:verification-before-completion` 作为交付前冒烟（构建/测试等宿主检查）。
 
 - 全部通过 → Step 2
-- 任一失败 → **阻断**；提示修复后重新触发 `/{{polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`，通过后再回 `/{{polaris{{SKN_SPR}}coding{{SKN_SPR}}ship`。本阶段不写业务修复代码。
+- 任一失败 → **阻断**；提示修复后重新触发 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`，通过后再回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}ship`。本阶段不写业务修复代码。
 
 ### Step 2：分支管理（核心）
 
@@ -192,6 +196,32 @@ current_verb: idle
 
 > Step 4 在 archive **之前**写入 `ship.status=delivered`，确保 archive 跳过/失败时分支与合回结果不丢失。
 
+### Step 4.5：P01 产物补齐（条件执行）
+
+**触发条件**（满足任一即执行，否则整步跳过）：
+
+- `state.yaml` 中 `tweak.mode == "tweak"`
+- `openspec/changes/<change_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
+
+**执行**：`read_file ./policies/artifact-backfill.md`，按 **§3 归档路径**把 `change-brief.md` 转换为四件套（`proposal.md` / `design.md` / `specs/<capability>/spec.md`）。
+
+约束：
+
+- **禁止**修改 `tasks.md`（执行的唯一真相）
+- **禁止**删除 `change-brief.md`（补齐的源，随 openspec 一并归档）
+- **禁止**新增简报中不存在的目标、模块、验收场景或设计决策——补齐只是格式转换
+
+写状态：
+
+```yaml
+ship:
+  backfill: "<done|skipped:no_need|failed:<reason>>"
+```
+
+输出：`[polaris-flow 开发]交付 - 产物补齐：<done | 无需补齐 | 失败：<reason>>（源：change-brief.md）`
+
+**失败处理**：不阻断交付收尾。记录 `backfill=failed:<reason>`，照常进入 Step 5——用户可在归档询问时选择「暂不归档（B）」，事后手动补齐再跑 `openspec-cn archive <change_id>`。
+
 ### Step 5：OpenSpec 归档（强制询问，主代理执行）
 
 #### 5.1 询问是否归档
@@ -233,9 +263,10 @@ openspec-cn archive "$change_id" --yes
   worktree      : <已合回并清理 / 已保留 / 未创建>
   产物合回      : <已合回主仓 .polaris/archive/<change_id>/ | 未合回（worktree 保留）| 部分失败：<失败项> | n/a>
   verify 总分   : <X>（来自 state.verify.overall_score）
+  产物补齐      : <已补齐四件套（源：change-brief.md）| 无需补齐 | 补齐失败：<reason>>   # 仅 P01 显示
   archive       : <已归档于 <archive_path> | 已延迟（B）| 已跳过（C）| 未归档（失败：<archive_error>）>
 
-后续：下一个变更 /{{polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify 或 /{{polaris{{SKN_SPR}}coding{{SKN_SPR}}propose；度量回顾 /{{polaris{{SKN_SPR}}coding{{SKN_SPR}}retro。
+后续：下一个变更 /polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify 或 /polaris{{SKN_SPR}}coding{{SKN_SPR}}propose；度量回顾 /polaris{{SKN_SPR}}coding{{SKN_SPR}}retro。
 ```
 
 #### 6.1 主仓游标重置 + 清理
@@ -255,6 +286,7 @@ bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$change_id" "$ORIGIN_REPO" || exit 
 - ship lock 已获取并在流程结束时由 trap 释放
 - `ship.status=delivered` 已写入
 - 若 `created_by_polaris_flow`：已完成 3.5，或用户选 C 且已标注 abandoned
+- Step 4.5 已处理（补齐 done / 无需补齐 / 失败已记录）
 - archive 已询问；选 A 成功则为 archived，失败则为 failed（**未**移动 openspec）
 - Step 6.1 已成功
 
@@ -265,4 +297,5 @@ bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$change_id" "$ORIGIN_REPO" || exit 
 - 停在 Step 0 → 重新获取 lock（注意 stale）
 - 停在 Step 3.5 中途（sync 完、remove 未完）→ **禁止**直接 remove；先确认 sync 状态再续
 - 停在 Step 5 之后、6.1 之前 → 只补 6.1，勿重做分支合并；archive=failed 时勿假装已归档
+- 停在 Step 4.5 补齐失败 → 不阻断；照常进入 Step 5，建议用户选 B 暂不归档
 - 勿重新跑 verify 全流程，除非 Step 1 终验失败

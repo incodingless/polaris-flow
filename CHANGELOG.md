@@ -22,6 +22,7 @@
 ### Changed
 
 - **命令注册文档**: `assets/zh/adapters/command-registration.md` 由「各宿主手动注册方式」（Trae 手动声明 / CodeBuddy `plugin.json`）重写为「宿主中立 Markdown + 落盘位置表 + 已注册平台表」，与 `init` / `update` 的实际分发行为对齐，去掉已失效的 `/pofl:*` 与旧平台描述
+- **polaris-flow 维护类选项标注「暂不可用」**: M01/M02/M03 三项的入口技能均未落地（`maintance/hotfix` 与 `maintance/codereview` 无对应技能，`coding/` 族下也不存在 `refactor`），此前选中会直接撞上技能加载失败。现保留菜单，但在选项描述与路由表两处标注「⚠️ 暂不可用」，并在加载前拦截——照实告知用户缺的是哪个技能、询问是否改选其他功能；HARD-STOP 新增第 10 条，禁止对暂不可用选项直接开工或换用其他技能顶替，确保用户明确知道本次什么都没做而不是拿到一份错位产物
 - **prd/discovery Step 2 重构为「需求组」统一流程**: 将原 2.3 分叉点（非拆分路径 / 拆分路径两套不对称步骤）重构为 2.3~2.6 四步串行——2.3 判断是否拆分 → 2.4 产出「需求组」（不拆分给需求内容 + 推荐名，拆分给子需求拆分建议 + 推荐名，归一为 1 或 N 个需求）→ 2.5 对每个需求建目录（`task-init`）、写需求内容初稿、登记 workflow 游标（`append-active`），形成可独立恢复的基础任务 → 2.6 扫描任务目录列出清单、让用户明确选中一个推进；命名由「独立阻塞点」降为「推荐名默认采用、用户可改名」；「都要做」「按建议来」「只确认清单」均判为未选择；未选中任务状态维持「未启动」，后续经 Step 1 的「B. 选择一个」恢复；任务多于 4 个时按业务系统分组两级串行询问；Step 1.5 补齐按 `state.yaml` 判断基础任务（直接进 Step 3）/续写/后续阶段的恢复映射
 - **平台探测路径**: `detectionPaths` 改为相对用户主目录（`.claude` / `.cursor` / `.trae` / `.trae-cn`），去掉误提交的 `/Users/jason/...` 绝对路径；`detectPlatforms` 同时认项目 `contextDir` 与主目录标记
 - **安装 config layout 路径物化**: `generatePolarisConfig` 写入 `layout.worktree` / `openspec` / `tasks.root` / `docs.root` 绝对路径；模板键 `platform` 改为 `platforms`
@@ -77,6 +78,7 @@
 
 ### Fixed
 
+- **testing 技能族落盘路径**: `SKILL_FAMILIES`（`assets/layout.ts` 与 `install/skills.ts` 各一份）原为 `['coding','prd','test']`，与资产目录 `assets/<lang>/skills/testing/` 不一致——`testing` 不在族名集合内，`parseSkillAssetPath` 会把它判为独立技能，落盘成 `polaris/testing/`（含 `case/`、`acceptance/` 子目录）而非两个叶技能，导致 `polaris-flow` 菜单的 T01/T02 两项路由不到任何技能。现统一为 `['coding','prd','testing']`；族名**不可改回 `test`**，与仓库根 `test/`（单元测试）及保留目录冲突
 - **decision-point 策略引用路径**: `assets/zh/policies/decision-point.md` 原指向 `polaris-flow/policies/ask-question-react-policy.md`（文件名与路径均不存在），修正为 `./policies/ask-question-react.md`；该文件是所有阻塞点的发问路由出口，坏引用会导致发问协议断链
 - **OpenSpec 按平台目录落盘**: `installOpenSpec` 接收 Platform 列表；CLI 仍用 `openspecToolId`，init 后按 `contextDir`/`skillsDir`/`commandsDir` 迁入（如 trae-cn → `.trae-cn/skills`），不再把 toolId 当作平台目录
 - **Superpowers 技能嵌套路径**: `installSource` 对已含 `baseDir` 的平台目录再次 `path.join(baseDir, …)`；Node `path.join` 不丢弃绝对段，会写出 `<project>/Users/.../<project>/.trae-cn/skills`。改为直接使用 `getPlatformSkillsDir`
@@ -91,7 +93,7 @@
 
 ### Tests
 
-- **commands-install**: 覆盖 claude（nested）与 trae（flat）下命令落盘路径，以及菜单命令中 5 个技能引用 `{{SKN_SPR}}` 分别展开为 `polaris:<family>:<skill>` 与 `polaris-<family>-<skill>`
+- **commands-install**: 覆盖 claude（nested）与 trae（flat）下命令落盘路径，以及菜单命令中 5 个技能引用 `{{SKN_SPR}}` 分别展开为 `polaris:<family>:<skill>` 与 `polaris-<family>-<skill>`；新增 testing 族叶技能落盘断言（`polaris/testing/case/SKILL.md` 且 `name: polaris:testing:case`）。此前测试断言族名为 `test`，与资产目录 `testing/` 不符，3 项全部失败（命令引用断言不匹配 + 落盘路径 ENOENT），族名统一后转为全通过
 - **agents-install**: 覆盖 `mapAgentTools`（trae 恒等、claude/cursor 映射去重）、安装落盘 tools/model、overwrite 跳过
 - **openspec relocate**: 覆盖 trae-cn 迁入 `.trae-cn`、trae 不迁入、trae+trae-cn 双保留
 - **install/layout**: 覆盖 `resolveWorktreeRoot` / `getInstallSkillBase` / `initializePolarisCommonLayout` / `initializeProjectLayout`
@@ -99,6 +101,7 @@
 - **config / task-state**: 覆盖 kebab↔snake 归一、旧 `lang` 兼容、`patchPolarisConfig` / `patchTaskState` 不丢字段、constitution 读 config.path
 - **session-start / detect**: 覆盖 hook IO 通道、依赖探测（可注入 HOME/PATH）、缺 `.polaris` FAIL、gitignore/workflow/session 物化、agent model 注入、WARN/FAIL exit 语义
 - **install-layout / skills-install**: 覆盖 nested/flat 落盘、hooks 命令路径、agents 与 config 字段；skills 步骤不再隐式安装 agents；断言 `plan-review-agent` / `openspec-review-agent` 落盘
+- **skills-install / agents-install 超时修复**: 给调用 `installPolarisForPlatform` 的 5 个用例加 `INSTALL_TIMEOUT=60s`——该调用拷贝 200+ 文件实测约 15s，默认 5s 必然超时，这些用例此前长期失败且与业务逻辑无关；顺带修正 `skills-install` 的遗留断言 `polaris:flow:clarify` → `polaris:coding:clarify`、`polaris-flow-clarify` → `polaris-coding-clarify`（资产从 `flow` 族重组为 `coding`/`prd` 族后未同步，此前被超时掩盖）；nested/flat 两处补上 testing 族叶技能落盘断言
 - **generatePolarisConfig**: 覆盖从模板首次生成、已存在跳过、`--overwrite` 整文件重写，以及模板注释保留
 - **hooks-install**: Trae/Claude 六场景（不存在写入、合并保留用户配置、overwrite 替换 hooks）
 - **hook-platform-params**: platform 解析优先级、stdin JSON、`_polaris-cli` 占位替换、hooks command 路径改写、SessionStart session_id

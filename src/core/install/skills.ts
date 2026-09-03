@@ -25,8 +25,21 @@ import { parseSkillAssetPath } from '../assets/layout.js';
 /** 技能资产中的名称分隔符占位符 */
 export const SKILL_NAME_PREFIX_PLACEHOLDER = '{{SKN_SPR}}';
 
-/** 技能族目录名（其下为叶技能） */
-const SKILL_FAMILIES = new Set(['coding', 'prd', 'test']);
+/**
+ * 匹配技能文本中的 `../` 相对引用（如 `../clarify/x.md`、`../../../../policies/y.md`）。
+ * 负向前瞻 `(?<!\.)` 排除 `.../`（省略号 / shell glob），避免误报。
+ */
+const CROSS_SKILL_PARENT_REF_RE = /(?<!\.)\.\.\/[A-Za-z0-9._\-\/]+/g;
+
+/** 幽灵占位符：源码中从未定义 / 替换，安装后会原样残留，必须清理。 */
+const GHOST_SKILL_NAME_PLACEHOLDER = '{{SKILL_NAME_PREFIX}}';
+
+/**
+ * 技能族目录名（其下为叶技能）。
+ * 注意：族名必须与 `assets/<lang>/skills/` 下的实际目录名一致，否则族目录会被误判为独立技能。
+ * 测试族固定为 `testing`——**不可用 `test`**，与仓库根 `test/`（单元测试）及保留目录冲突。
+ */
+const SKILL_FAMILIES = new Set(['coding', 'prd', 'testing']);
 
 /**
  * 是否应跳过该 skills 短路径。
@@ -193,6 +206,86 @@ function collectSkillLeafRoots(assets: Assets): SkillLeafRoot[] {
 }
 
 /**
+ * 从技能资产相对路径解析出技能根（相对 skills 根）与文件所在目录。
+ * 返回 null 表示该文件不是可校验的技能叶文件。
+ */
+function resolveSkillAssetLocation(shortPath: string): { skillRootRel: string; fileDirRel: string } | null {
+  const normalized = shortPath.replace(/\\/g, '/');
+  if (shouldSkipSkillShortPath(normalized)) {
+    return null;
+  }
+  // 仅校验 Markdown 内容；跳过 .DS_Store / .gitkeep 等非文本文件，也跳过 README 文档页。
+  if (!normalized.endsWith('.md') || normalized.endsWith('README.md')) {
+    return null;
+  }
+  const parsed = parseSkillAssetPath(normalized);
+  if (!parsed) {
+    return null;
+  }
+  const skillRootRel = parsed.family ? `${parsed.family}/${parsed.skill}` : parsed.skill;
+  const slash = normalized.lastIndexOf('/');
+  const fileDirRel = slash === -1 ? '' : normalized.slice(0, slash);
+  return { skillRootRel, fileDirRel };
+}
+
+/**
+ * 扫描技能资产，找出「逃出技能自身目录」的 `../` 相对引用与幽灵占位符 {{SKILL_NAME_PREFIX}}。
+ *
+ * 背景：flat 安装布局把每个叶技能平铺为独立目录（如 `polaris-coding-tweak/`），
+ * 源文件里的跨技能 `../clarify/...`、跨层 `../../../../policies/...` 相对路径在 flat 下必然断裂。
+ * 正确做法是技能名引用（`use_skill` / `/命令`）或技能内自包含路径（`./policies/`、`./templates/`）。
+ * 安装器只替换 `{{SKN_SPR}}`，不重写 `../` 与 `{{SKILL_NAME_PREFIX}}`，因此源资产扫描等价于产物扫描。
+ */
+export async function findSkillAssetRefViolations(assets: Assets): Promise<string[]> {
+  const targets: { file: Assets['langDirAssets'][number]['files'][number]; location: { skillRootRel: string; fileDirRel: string } }[] = [];
+  for (const skillAsset of assets.langDirAssets.filter((a) => a.dir === 'skills')) {
+    for (const file of skillAsset.files) {
+      const location = resolveSkillAssetLocation(file.shortPath);
+      if (location) {
+        targets.push({ file, location });
+      }
+    }
+  }
+
+  // 并发读取全部技能文件（源文件量约几十到上百个，串行读在慢盘上会明显拖慢安装）。
+  const contents = await Promise.all(targets.map(({ file }) => readFile(file.fullPath, 'utf-8')));
+
+  const violations: string[] = [];
+  for (let i = 0; i < targets.length; i++) {
+    const { file, location } = targets[i];
+    const content = contents[i];
+
+    if (content.includes(GHOST_SKILL_NAME_PLACEHOLDER)) {
+      violations.push(`${file.shortPath}: 残留幽灵占位符 {{SKILL_NAME_PREFIX}}`);
+    }
+
+    const { skillRootRel, fileDirRel } = location;
+    for (const ref of content.match(CROSS_SKILL_PARENT_REF_RE) ?? []) {
+      const resolved = path.posix.normalize(path.posix.join(fileDirRel, ref));
+      if (resolved !== skillRootRel && !resolved.startsWith(`${skillRootRel}/`)) {
+        violations.push(
+          `${file.shortPath}: 跨技能/跨层引用 \`${ref}\`（解析为 ${resolved}，逃出技能目录 ${skillRootRel}）`,
+        );
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * 校验技能资产无跨技能 `../` 引用与幽灵占位符；命中即抛错，阻断安装。
+ */
+export async function validateSkillAssetsNoCrossSkillParentRefs(assets: Assets): Promise<void> {
+  const violations = await findSkillAssetRefViolations(assets);
+  if (violations.length > 0) {
+    throw new Error(
+      `技能资产校验失败：发现 ${violations.length} 处跨技能 ../ 引用或幽灵占位符，禁止安装。\n` +
+        violations.map((v) => `  - ${v}`).join('\n'),
+    );
+  }
+}
+
+/**
  * 拷贝 Polaris skills 与包内公共内容到指定平台。
  */
 export async function copyPolarisSkillsForPlatform(
@@ -202,6 +295,9 @@ export async function copyPolarisSkillsForPlatform(
   overwrite: boolean,
   assets: Assets,
 ): Promise<{ copied: number; skipped: number }> {
+  // 构建期校验：命中跨技能 ../ 引用或幽灵占位符即阻断安装（防回归）。
+  await validateSkillAssetsNoCrossSkillParentRefs(assets);
+
   const jobs: CopyJob[] = [];
   const prefix = resolveSkillNamePrefix(skillsLayout);
 

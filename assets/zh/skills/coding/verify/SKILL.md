@@ -6,12 +6,12 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 # Polaris 工作流 - 阶段：验证（verify）
 
 <HARD-GATE>
-本 skill **仅**负责：在 **build 已完成** 的前提下，对实施产出做 Constitution 合规审计（注入点 D）、scorer 评分、以及对照 OpenSpec 四件套 + `detailed-design.md` 的实现验证；通过后推进到 delivery。
+本 skill **仅**负责：在 **build 已完成** 的前提下，对实施产出做 Constitution 合规审计（注入点 D）、scorer 评分、以及对照 OpenSpec 四件套 + `detailed-design.md` 的实现验证；通过后推进到 ship。
 
 - **禁止**跳过 5 个 scorer 脚本（脚本缺失见 Step 3 降级；不得假装已跑）
 - **禁止**在 team 模式下，scorer / Constitution 形成 blocking 时把 `verify.blocked=false` 或标记通过
-- **禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 且未完成出口校验就把 `phase` 推到 delivery
-- **禁止**本阶段做分支合并 / PR / worktree 合回 / `/opsx:archive`（那是 delivery）
+- **禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 且未完成出口校验就把 `phase` 推到 ship
+- **禁止**本阶段做分支合并 / PR / worktree 合回 / `/opsx:archive`（那是 ship）
 - **禁止**本阶段编写业务实现代码；用户确认修复后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`，不得在 verify 内静默改实现
 - **禁止**未按 `./reference/decision-point.md` 获得用户对「验证失败 / override / 规格漂移」的明确选择就继续或接受偏差
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]验证 - 进入 verify Step <N>: <动作>`
@@ -32,7 +32,7 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 | Constitution 规则 | `./policies/constitution-audit.md` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 
-> **链路**：`clarify → propose → design → plan → build → **verify** → delivery`。
+> **链路**：`clarify → propose → design → plan → build → **verify** → ship`。
 > 本阶段验证是否可交付；不交付、不归档。
 
 ## 前置条件
@@ -42,7 +42,7 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 
 ## Metrics 存储约定
 
-- 目录：`.polaris/metrics/`（**当前工作目录**的 `.polaris/`——若在 worktree 内即 worktree 的 metrics；delivery 合回主仓）
+- 目录：`.polaris/metrics/`（**当前工作目录**的 `.polaris/`——若在 worktree 内即 worktree 的 metrics；ship 合回主仓）
 - 文件名：`<timestamp>-metrics.json`，每次 verify 写一个新文件，**不覆盖**历史，`<timestamp>`格式：`date -u +%Y%m%d-%H%M%S`（UTC）
 - JSON 顶层**必含** `change_id`
 - **禁止**写到 `.polaris/metrics.json`（单文件形式）——会破坏按时间戳叠加语义
@@ -285,7 +285,7 @@ current_verb: idle
 
 4. 推进：
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill verify --where-task-id "$change_id" --set phase=delivery
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill verify --where-task-id "$change_id" --set phase=ship
 ```
 
 3. 输出：
@@ -296,7 +296,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
   mode      : <light|full>
   score     : <overall_score> (<score_level>)
   report    : openspec/changes/<change_id>/reviews/verify-report.md
-下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}delivery。
+下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}ship。
 ```
 
 **硬阻断（不得推进 phase）**：
@@ -344,11 +344,11 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 - `verify.blocked=false`（或已合法 override）
 - `.polaris/metrics/<timestamp>-metrics.json` 已写入且含 `change_id`
 - `verify-report.md` 存在且 `verify.verification_report` 指向它
-- `verify.status=completed`，且 `phase=delivery`
+- `verify.status=completed`，且 `phase=ship`
 
 ## 上下文压缩恢复
 
 重载：`change_id`、`worktree_path`、`verify.*`（status / mode / score_level / blocked）、最新 metrics 文件、本 skill 停在哪一步、失败项清单（若有）。  
 - 停在 Step 2/3 → 从该步续，勿重复已写入的 metrics（可追加新 timestamp 文件）  
 - 停在 Step 4 失败决策 → 从决策点续，勿重跑已通过的检查项（除非用户要求全量重跑）  
-- 勿重新跑 build apply；勿进入 delivery 直到出口校验通过
+- 勿重新跑 build apply；勿进入 ship 直到出口校验通过

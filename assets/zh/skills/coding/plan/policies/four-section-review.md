@@ -1,11 +1,11 @@
 # Section 1-4：四节评审
 
-> 归属：`polaris{{SKN_SPR}}flow{{SKN_SPR}}plan` 技能。由 **`plan-review-agent`** 在范围挑战之后顺序执行。  
+> 归属：`polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` 技能。由 **`plan-review-agent`** 在范围挑战之后顺序执行。  
 > **一次性报告模式**：每节发现写入 Plan Review Report 对应章节与 Findings，**禁止** `ask_followup_question` / 一问一议；用户决策由 plan skill 消化 STATUS 时处理。
 
 ## Section 1：架构评审
 
-详细维度参见 `./references/engineering-mindset.md` 中的「15 条工程经理认知模式」（尤其 #3 默认无聊、#10 本质 vs 偶然复杂性、#11 两周嗅探）。
+详细维度参见 `../references/engineering-mindset.md` 中的「15 条工程经理认知模式」（尤其 #3 默认无聊、#10 本质 vs 偶然复杂性、#11 两周嗅探）。
 
 评估清单：
 
@@ -31,7 +31,7 @@
 
 ## Section 3：测试评审
 
-**完整方法论详见 `./references/test-review-methodology.md`**。这是本 skill 最重的一节，目标 100% 覆盖。
+**完整方法论详见 `../references/test-review-methodology.md`**。这是本 skill 最重的一节，目标 100% 覆盖。
 
 核心步骤（精简版）：
 

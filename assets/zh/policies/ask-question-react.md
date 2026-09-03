@@ -21,7 +21,7 @@
 | `claude`      | `AskUserQuestion` | ✅ 支持 | 4 | — |
 | `cursor`      | `AskUserQuestion` | ✅ 支持 | 4 | 复用 Claude API 约定 |
 | `codebuddy`   | `AskUserQuestion` | 待确认（按宿主实际行为判定；若不支持则按「不支持」分支处理） | 4 | — |
-| `qoder`       | （无原生结构化询问工具） | — | — | 直接走文本降级模式 |
+| `qoder`       | （无原生结构化询问工具） | — | 
 | （未登记）      | — | — | — | 直接走文本降级模式 |
 
 ## 能力差异处理
