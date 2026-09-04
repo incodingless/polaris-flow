@@ -1,0 +1,137 @@
+# 单任务业务档案模板（仅运行态）
+# 路径：.polaris/tasks/<task_id>/state.yaml
+
+####################
+# 基础配置 
+####################
+# 语言
+# 可选值: en-英文 | zh-中文
+language: "zh"
+
+# 初始化时间
+create_time: "2026-06-25T02:05:29.066Z"
+
+####################
+# 运行配置 
+####################
+# 任务ID
+task_id: ""
+
+# 任务类型（draft 扫描过滤用）
+kind: requirement
+
+# 需求名称
+req_name_cn: ""
+
+# 需求编号前缀
+req_prefix: ""
+
+# 阶段
+# 可选值: idle-空闲 | discovery-澄清 | draft-草稿 | refine-完善 | ship-交付
+phase: idle
+
+####################
+# 产物信息 （运行态产物）
+####################
+
+######## discovery阶段 #############
+discovery:
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
+  status: ""
+
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  started_at: ""
+
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
+
+######## draft阶段 #############
+draft:
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
+  status: ""
+  
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  started_at: ""
+
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
+
+  # 前置校验结论
+  gate:
+    # 是否通过
+    # 可选值: true-通过 | false-不通过
+    passed: true
+    
+    # 校验时间
+    # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+    checked_at: ""
+    
+    # Baseline 标识
+    baseline_id: ""
+    
+    # 澄清纪要标识，无则 null
+    clarify_summary_id: ""
+    
+    # 复杂度
+    # 可选值: simple-简单 | standard-标准 | complex-复杂
+    complexity: ""
+    
+    # 失败原因，通过则空
+    fail_reason: ""
+    
+    # 初稿边界声明
+    boundary: ""
+
+######## refine阶段 #############
+refine:
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
+  status: ""
+
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  started_at: ""
+
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
+
+######## ship阶段 #############
+ship:
+  # 状态
+  # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
+  status: ""
+
+  # 开始时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  started_at: ""
+  
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
+
+  # 同步状态
+  # 可选值: synced-同步 | partial_failure-部分失败 | skipped_no_source-跳过无源 | skipped_worktree_retained-跳过工作树保留 | deferred_archive_conflict-延迟归档冲突 | n/a-未执行
+  harness_sync: ""
+
+  # 归档目录
+  # 可选值: .polaris/archive/<change_id>（运行态快照；叙事随 openspec archive）
+  archive_dir: ""
+
+  # 归档状态
+  # 可选值: archived-归档 | deferred-延迟 | skipped-跳过 | failed-失败
+  archive: ""
+
+  # 归档路径
+  # 可选值: openspec/changes/<change_id>/archive.md
+  archive_path: ""
+
+  # 归档错误
+  # 可选值: 错误信息
+  archive_error: ""

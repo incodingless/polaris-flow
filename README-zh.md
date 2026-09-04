@@ -37,6 +37,29 @@ node bin/polaris.js --version
 - `polaris update` — 更新 schema、skills 与依赖
 - `polaris uninstall` — 卸载已安装组件
 
+## 阶段工作流
+
+### 1. SDD工作流(/polfo-sdd)
+```
+ /polfo:clarify → /polfo:propose → /polfo:design → /polfo:plan → /polfo:build → /polfo:verify → /polfo:ship → /polfo:retro
+ (澄清)            (提案，需求及目标)  (设计)          (任务规划)      (编码构建)      (验收)            
+ (交付)            (回顾， 可选)
+```
+
+### 2. 小改动工作流(/polfo-tweak)
+```
+ /ptfl:design → /ezfl:propose → /ezfl:lock → /ezfl:build → /ezfl:audit → /ezfl:ship → /ezfl:reflect
+ (探索)          (四件套)        (评审)        (实施)        (审计)        (交付)        (回顾)
+```
+### 3. 问题修复工作流(/polfo-debug)
+```
+ /ptfl:design → /ezfl:propose → /ezfl:lock → /ezfl:build → /ezfl:audit → /ezfl:ship → /ezfl:reflect
+ (探索)          (四件套)        (评审)        (实施)        (审计)        (交付)        (回顾)
+```
+
+### 4. 代码重构工作流(/polfo-refactor)
+
+
 ## 许可证
 
 MIT

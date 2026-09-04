@@ -1,0 +1,62 @@
+name: idea-discovery
+version: "1.0.0"
+description: 意图探索管道 — 调研 → 复杂度路由 → 澄清收敛 → intent.md
+
+draft_paths:
+  - "openspec/changes/{change_name}/intention.md"
+
+phases:
+  - id: context
+    module: phases/00-context.md
+    outputs: [context-brief, fuzzy-points, clear-items]
+    gate: all_outputs_present
+
+  - id: routing
+    module: phases/00b-complexity-routing.md
+    inputs: [context-brief, fuzzy-points, clear-items]
+    outputs: [complexity, routing_rationale]
+    gate: complexity_assigned
+    stop_if: complexity == needs_split
+
+  - id: expand
+    module: phases/01-targeted-expand.md
+    skip_if: complexity == simple OR fuzzy-points empty
+    outputs: [expand-log]
+
+  - id: clarify
+    module: phases/02-clarify.md
+    skip_if: complexity == simple AND no_blocking_unknown
+    outputs: [clarify-log]
+
+  - id: grill
+    module: phases/03-grill.md
+    skip_if: complexity == simple
+    mode:
+      standard: abbreviated
+      complex: full
+    outputs: [grill-log]
+
+  - id: converge
+    module: phases/04-converge.md
+    outputs: [options, selected-option]
+
+  - id: intent-outline
+    module: phases/05-intent-outline.md
+    outputs: [intent-outline-sections]
+
+  - id: artifact
+    module: phases/06-artifact.md
+    template: intent-output-template.md
+    outputs: [intent.md]
+
+  - id: review
+    module: phases/07-review.md
+    gate: user_approved
+
+rollback:
+  - from: grill
+    to: clarify
+    reason: contradiction_found
+  - from: intent-outline
+    to: expand
+    reason: new_fuzzy_point

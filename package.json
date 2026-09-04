@@ -1,6 +1,6 @@
 {
   "name": "@polaris/polaris-flow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "All-in-one Polaris workflow platform: install, OpenSpec schema, skills, and dashboard for AI coding environments",
   "keywords": [
     "polaris-flow",

@@ -27,6 +27,9 @@ describe('CLI smoke', () => {
     expect(output).toContain('update');
     expect(output).toContain('doctor');
     expect(output).toContain('status');
+    expect(output).toContain('host-hook');
+    expect(output).toContain('session-start');
+    expect(output).toContain('workflow-entry');
   });
 
   it('doctor runs against project root', () => {

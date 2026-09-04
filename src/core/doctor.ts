@@ -1,17 +1,23 @@
+/**
+ * doctor 诊断：Node/命令可用性、skills-lock 与平台 polaris 安装状态。
+ */
 import path from 'path';
 import { createRequire } from 'module';
 
-import { fileExists, readJson } from '../utils/file-system.js';
-import { isCommandAvailable } from './openspec.js';
-import { detectPlatforms, getBaseDir, hasSkills } from './detect.js';
-import { PLATFORMS } from './platforms.js';
-import type { InstallScope } from './types.js';
+import { fileExists } from '../utils/file-system.js';
+import { readJsonObjectOrEmpty } from '../utils/json-io.js';
+import { isCommandAvailable } from './integrations/openspec.js';
+import { detectPlatforms, getBaseDir, hasSkills } from './integrations/detect.js';
+import { PLATFORMS, getPlatformSkillsDir } from './domain/platforms.js';
+import type { InstallScope } from './config/polaris-project-config.js';
 
 const require = createRequire(import.meta.url);
 const { engines } = require('../../package.json') as { engines?: { node?: string } };
 
+/** 单项诊断级别 */
 export type DiagnosticStatus = 'ok' | 'warn' | 'fail';
 
+/** 单项诊断结果 */
 export type DiagnosticItem = {
   name: string;
   status: DiagnosticStatus;
@@ -74,7 +80,7 @@ async function checkSkillsLock(projectPath: string): Promise<DiagnosticItem> {
   }
 
   try {
-    await readJson(lockPath);
+    await readJsonObjectOrEmpty(lockPath);
     return { name: 'skills-lock.json', status: 'ok', message: lockPath };
   } catch (error) {
     return {
@@ -97,7 +103,8 @@ async function checkPolarisSkills(
     if (!detected.has(platform.id)) {
       continue;
     }
-    if (await hasSkills(baseDir, platform, 'polaris', [], scope)) {
+    const skillsBaseDir = getPlatformSkillsDir(platform, scope, baseDir);
+    if (await hasSkills(skillsBaseDir, 'polaris')) {
       installedCount++;
     }
   }
@@ -134,6 +141,7 @@ export async function runDiagnostics(
   return checks;
 }
 
+/** 是否存在 fail 级别诊断项 */
 export function hasDiagnosticFailure(checks: DiagnosticItem[]): boolean {
   return checks.some((item) => item.status === 'fail');
 }

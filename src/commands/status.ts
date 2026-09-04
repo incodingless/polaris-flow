@@ -1,17 +1,28 @@
+/**
+ * `polaris status`：展示主仓与 `.polaris/workflow.yaml` 中的三类任务游标。
+ */
 import path from 'path';
 
-import { loadWorkflowFromCwd } from '../core/workflow.js';
+import { getWorkflowStatePath, loadWorkflowFromCwd } from '../core/config/workflow-state.js';
 
 export type StatusOptions = {
   json?: boolean;
 };
 
+/**
+ * 输出当前仓库工作流状态。
+ */
 export async function runStatus(rawPath: string, options: StatusOptions = {}): Promise<void> {
   const cwd = path.resolve(rawPath || process.cwd());
   const { mainRepo, state } = await loadWorkflowFromCwd(cwd);
 
   if (!mainRepo) {
-    const payload = { error: 'not a git repository', changes: [] };
+    const payload = {
+      error: 'not a git repository',
+      change_tasks: [],
+      requirement_tasks: [],
+      testcase_tasks: [],
+    };
     if (options.json) {
       console.log(JSON.stringify(payload, null, 2));
     } else {
@@ -21,15 +32,19 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
     return;
   }
 
-  const changes = state?.changes ?? [];
+  const changeTasks = state?.change_tasks ?? [];
+  const requirementTasks = state?.requirement_tasks ?? [];
+  const testcaseTasks = state?.testcase_tasks ?? [];
 
   if (options.json) {
     console.log(
       JSON.stringify(
         {
           mainRepo,
-          workflowPath: path.join(mainRepo, '.harness', 'workflow.yaml'),
-          changes,
+          workflowPath: getWorkflowStatePath(mainRepo),
+          change_tasks: changeTasks,
+          requirement_tasks: requirementTasks,
+          testcase_tasks: testcaseTasks,
         },
         null,
         2,
@@ -41,19 +56,31 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
   console.log(`Main repository: ${mainRepo}`);
   console.log('');
 
-  if (changes.length === 0) {
-    console.log('No active changes.');
-    return;
-  }
+  const printSection = (
+    title: string,
+    entries: Array<{ task_id: string; phase: string; worktree_path: string }>,
+  ) => {
+    console.log(`${title}:`);
+    if (entries.length === 0) {
+      console.log('  (none)');
+      return;
+    }
+    for (const entry of entries) {
+      const worktree = entry.worktree_path ? ` @ ${entry.worktree_path}` : '';
+      console.log(`  • ${entry.task_id} [${entry.phase || 'unknown'}]${worktree}`);
+    }
+  };
 
-  console.log('Active changes:');
-  for (const change of changes) {
-    const title = change.title ? ` — ${change.title}` : '';
-    const worktree = change.worktree ? ` @ ${change.worktree}` : '';
-    console.log(`  • ${change.id} [${change.status}]${title}${worktree}`);
-  }
+  printSection('Change tasks', changeTasks);
+  console.log('');
+  printSection('Requirement tasks', requirementTasks);
+  console.log('');
+  printSection('Testcase tasks', testcaseTasks);
 }
 
+/**
+ * status 命令入口。
+ */
 export async function statusCommand(projectPath: string, options: StatusOptions): Promise<void> {
   await runStatus(projectPath, options);
 }

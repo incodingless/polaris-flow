@@ -1,0 +1,130 @@
+####################
+# 基础配置 
+####################
+# 语言
+# 可选值: en-英文 | zh-中文
+language: "zh"
+
+# 平台
+# 可选值: trae-trae | claude-claude | qoder-qoder | trae-cn-trae中文版
+platforms:
+  - "trae-cn"
+
+# 范围
+# 可选值: global-全局 | project-项目
+scope: "project"
+
+# 安装时间
+install-time: "2026-06-25T02:05:29.066Z"
+
+# 仓库根目录
+main-repo-root: "<project_root>"
+
+# 工作树目录
+worktree-dir: "<project_root>/.worktrees"
+
+# 布局配置
+layout:
+
+  # 工作树目录
+  worktree: "<project_root>/.worktrees"
+
+  # openspec目录
+  openspec: "<project_root>/openspec"
+
+  # 任务目录
+  tasks: 
+    root: "<project_root>/.polaris/tasks"
+    draft: "draft"
+
+  ##### 文档目录 #####
+  docs:
+    root: "<project_root>/docs"
+    prd: "prd"
+    architecture: "architecture"
+    design: "design"
+    testcases: "testcases"
+
+# 模型配置
+model:
+  # 提案模型
+  propose: GLM5.2
+  # 编码模型
+  code: Doubao-Seed-2.1-Pro
+  # 审查模型
+  review: DeepSeek-V4-Flash
+  # 挑战模型
+  challenger: DeepSeek-V4-Pro
+
+# 上下文压缩
+# 可选值: off-关闭 | beta-开启
+context-compression: off
+
+####################
+# 运行配置 
+####################
+# 协作模式
+# 可选值: solo-单人协作 | team-多人协作
+kind: "solo"
+
+####################
+# 高级配置 
+####################
+# 评分配置
+scorer:
+  # 留空使用默认模型；team 模式可指定评分模型
+  model: ""
+  # 权重配置
+  weights:
+    # 审计违规率
+    audit-violation-rate: 1.0
+    # 宪法违规数量
+    constitution-violation-count: 1.0
+    # 测试覆盖率
+    test-coverage: 1.0
+    # 代码复杂度
+    complexity: 1.0
+    # 文档同步
+    doc-sync: 1.0
+
+# 质量评分阈值配置
+thresholds:
+  solo:
+    warn_below: 60
+  team:
+    block_below: 70
+
+# 分类配置
+triage:
+  mechanical_script: "hooks/triage-t1.sh"
+  sensitive_keywords_file: ".polaris/keywords/critical.txt"
+  default_tier_when_unclear: "standard"
+
+tiers:
+  trivial:
+    path: ["build", "ship"]
+  standard:
+    path: ["design", "lock", "build", "audit", "ship"]
+  critical:
+    path: ["design", "lock", "challenge", "build", "audit", "ship"]
+
+# 深度阅读配置
+deepread:
+  # 默认行为: halt_and_wait | notify_and_continue
+  default_action: "halt_and_wait"
+  # 模板路径
+  template_path: "templates/deepread-template.html"
+  # 输出目录
+  output_dir: ".polaris/deepreads"
+  # 令牌阈值
+  token_threshold: 500
+
+# 宪法配置
+constitution:
+  required: false
+  path: "openspec/memory/constitution.md"
+
+req_naming:
+  prefix_rule: derived        # derived | fixed | manual
+  prefix_pattern: "{DEPT}-{MODULE}"   # 仅 fixed 使用；占位符运行时求解
+  conflict_policy: extend

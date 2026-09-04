@@ -1,0 +1,41 @@
+# polaris-flow 全局工作流游标
+# 路径：.polaris/workflow.yaml（在init时物化空模板，创建新任务时生成任务配置，过程中由各 skill 维护）
+
+# 职责：
+#   - 列出所有"未delivery 完结"的任务（change_tasks）
+#   - 仅承载"游标"语义（哪个任务在哪个阶段），不承载单任务的业务档案
+#   - 单任务的业务档案（clarify/propose/design/build/verify/delivery 状态）写入
+#     .polaris/tasks/<task_id>/state.yaml
+#
+# 并发安全：每个任务在 change_tasks 中各占一项，多个 clarify 同时进行时
+# 各自只 append 自己的 entry，再各自维护 tasks/<task_id>/state.yaml，互不覆盖。
+# 注：task等同于 Openspec的change概念
+change_tasks: []
+# 每项结构（共 4 个字段）：
+#   - task_id: refactor-sdk-api-0701c0
+#     phase: design                      # clarify | propose | design | build | verify | delivery
+#     worktree_path: ""                  # 空表示该 change 仍在主仓；propose 后填 worktree 绝对路径
+#     started_at: 2026-05-25T14:30:00Z   # task 创建时间（clarify Step 1）
+
+# 职责：
+#   - 列出所有归档的"需求"任务（requirement_tasks）
+#   - 仅承载"游标"语义（哪个需求任务在哪个阶段），不承载单需求任务的业务档案
+#   - 单需求任务的业务档案（discovery/draft/refine/ship 状态）写入
+#     .polaris/tasks/<task_id>/state.yaml（与 change 同根；靠 state.kind 区分）
+#
+# 并发安全：每个需求任务在 requirement_tasks 中各占一项，多个 discovery 同时进行时
+# 各自只 append 自己的 entry，再各自维护 tasks/<task_id>/state.yaml，互不覆盖。
+requirement_tasks: []
+# 每项结构（共 4 个字段）：
+#   - task_id: refactor-sdk-api-0701c0
+#     phase: draft                      # discovery | draft | refine | ship
+#     worktree_path: ""                  # 空表示该需求任务仍在主仓；draft 后填 worktree 绝对路径
+#     started_at: 2026-05-25T14:30:00Z   # task 创建时间（discovery Step 1）
+
+testcase_tasks: []
+# 每项结构（共 4 个字段）：
+#   - task_id: refactor-sdk-api-0701c0
+#     phase: discovery                  # discovery | draft | refine | ship
+#     worktree_path: ""                  # 空表示该测试任务仍在主仓
+#     started_at: 2026-05-25T14:30:00Z   # task 创建时间
+# 单测试任务业务档案：.polaris/testcases/<task_id>/state.yaml

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { defaultAdapter } from '../../src/core/command-adapters/default.js';
-import { claudeAdapter } from '../../src/core/command-adapters/claude.js';
-import { getCommandAdapter } from '../../src/core/command-adapters/index.js';
+import {
+  claudeAdapter,
+  defaultAdapter,
+  getCommandAdapter,
+} from '../../src/core/install/command-adapters/command-adapters.js';
 import { parseFrontmatter } from '../../src/core/install.js';
 
 describe('command-adapters', () => {
