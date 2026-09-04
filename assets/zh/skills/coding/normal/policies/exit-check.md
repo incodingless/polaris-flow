@@ -1,8 +1,8 @@
-# 出口检查 — tweak 收尾校验
+# 出口检查 — normal 收尾校验
 
-> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 6 引用。目标是让快速通道在**不接独立 verify 阶段**的前提下，仍然产出与完整链路同构的证据（metrics + 验证报告），保证 retro 的趋势数据不断档。
+> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 9 引用。目标是让常规通道在**不接独立 verify 阶段**的前提下，仍然产出与完整链路同构的证据（metrics + 验证报告），保证 retro 的趋势数据不断档。
 >
-> 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` 的差异：`verify_mode` 固定 `light`；把 7 项完整验证压到 6 项；不做 detailed-design 深度比对（tweak 没有该产物）；代码审查已在 Step 5.5 做过，本步不重审。
+> 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` 的差异：`verify_mode` 固定 `light`；不做 detailed-design 深度比对（normal 没有该产物）；C6 对照 **specs 验收场景**（P02 有真实规格，比 tweak 的 change-brief 对照更强）；代码审查已在 Step 8.5 做过，本步不重审。
 
 ## 执行顺序
 
@@ -19,7 +19,7 @@
 | C3 | 构建 / 编译通过 | 运行项目对应命令，exit 0 | CRITICAL |
 | C4 | 相关测试通过 | 运行 tasks 内的测试 / 验证命令，exit 0 | CRITICAL |
 | C5 | 无明显安全问题 | 无硬编码密钥、无新增 `unsafe` / 无危险默认放开；人工审视 | CRITICAL（仅确认存在时） |
-| C6 | 验收标准可追溯 | `change-brief.md`「验收标准」逐条能对应到实现或测试；未覆盖项须写明原因 | IMPORTANT |
+| C6 | specs 验收场景可追溯 | `specs/<capability>/spec.md` 的 Requirements + Scenarios（GWT）逐条能对应到实现或测试；未覆盖项须写明原因 | IMPORTANT |
 
 ### 1.1 dirty worktree 处理
 
@@ -27,7 +27,7 @@
 
 | 情况 | 动作 |
 |------|------|
-| dirty 属于本次变更的实现 / 测试 / tasks / change-brief | **不**在本步修复或提交，记 C2 失败 → 失败决策 |
+| dirty 属于本次变更的实现 / 测试 / tasks / 四件套同步 | **不**在本步修复或提交，记 C2 失败 → 失败决策 |
 | dirty 仅为本阶段产物（验证报告草稿等） | 可继续 |
 | 已实现但 `tasks.md` 仍有未勾选 | 视为 apply 状态滞后 → C1 失败 |
 
@@ -72,8 +72,6 @@ done
 
 每个脚本 stdout 一行 JSON：`{"scorer":"<name>","score":<0-100>,"reason":"<text>"}`。
 
-> 这 5 个 scorer 都不依赖 OpenSpec 四件套（`doc-sync-scorer` 只看 CHANGELOG / README 与 docs 类 commit），因此 tweak 缺 proposal/design/specs **不会**污染评分。
-
 **脚本缺失**：不得伪造分数。按 `./policies/decision-point.md`：**A 阻断并提示补齐 scorers** / **B 用户接受跳过**（team 模式且强制 scorer 时只允许 A）。
 
 ### 3.2 聚合写入 metrics
@@ -88,7 +86,7 @@ TS=$(date -u +%Y%m%d-%H%M%S)
 
 ```json
 {
-  "timestamp": "20260525-074800",
+  "timestamp": "20260903-074800",
   "change_id": "<change_id>",
   "mode": "solo",
   "audit": { "violations": 0, "total_checks": 12 },
@@ -152,10 +150,10 @@ else:  # team
 
 | 选择 | 动作 |
 |------|------|
-| 全部修复 | 回 tweak Step 5.3 重新 `/opsx:apply`（用户确认后）；本轮先写 `verify.status: failed` 与失败原因，**不**推进 phase |
+| 全部修复 | 回 normal Step 8.3 重新 `/opsx:apply`（用户确认后）；本轮先写 `verify.status: failed` 与失败原因，**不**推进 phase |
 | 逐项处理 | CRITICAL / IMPORTANT 必须修；WARNING / SUGGESTION 可接受偏差但须写入报告；存在任一 CRITICAL / IMPORTANT 时禁止「全部接受」 |
 | 接受偏差（仅非 blocking） | 记 `.polaris/overrides.log` + `verify-report.md`；team blocking 场景除外 |
-| 升到常规通道 | 命中新升档信号时可选；按 `./upgrade-check.md` §3 转交 normal |
+| 升到 P03 | 命中升档信号（`./tier-gate.md` §2）时可选；按其 §2.3 转交 design |
 
 ### 4.3 重试上限
 
@@ -171,13 +169,14 @@ else:  # team
 2. Constitution 审计摘要（核对项、violations、Critical / Important 分级）
 3. `overall_score` 与 `score_level`
 4. 5 个 scorer 的逐项 score + reason
-5. Step 5.5 代码审查的 IMPORTANT 项及其处置结论
-6. 接受的偏差（若有）及原因
+5. Step 8.5 代码审查的 IMPORTANT 项及其处置结论
+6. Step 7 合并主审的遗留 concerns 及其处置结论
+7. 接受的偏差（若有）及原因
 
 报告首行须标注来源：
 
 ```markdown
-> 本报告由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` 出口检查生成（P01 快速通道，verify_mode=light）。
+> 本报告由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` 出口检查生成（P02 常规通道，verify_mode=light）。
 ```
 
 ---

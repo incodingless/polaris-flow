@@ -28,13 +28,13 @@
 命中任一信号时，按 `./policies/decision-point.md` 暂停，必须列出命中的信号编号与依据：
 
 ```text
-本次变更命中 <N> 项升档信号（详见下方），建议升到常规链路（P02：clarify → propose → design → plan → build → verify → ship）。
+本次变更命中 <N> 项升档信号（详见下方），建议升到常规通道（P02：polaris{{SKN_SPR}}coding{{SKN_SPR}}normal 单入口，含四件套 + 合并主审）。
 
 命中信号：
   · U1 跨模块：<列出模块>
   · U5 触碰核心链路：<列出链路>
 
-A. 升到常规链路 — 把简报转为 intention.md，交 polaris{{SKN_SPR}}coding{{SKN_SPR}}propose 继续（推荐）
+A. 升到常规通道 — 把简报转为 intention.md，交 polaris{{SKN_SPR}}coding{{SKN_SPR}}normal 继续（推荐）
 B. 继续 tweak — 记录风险接受后按快速通道执行
 ```
 
@@ -45,7 +45,7 @@ B. 继续 tweak — 记录风险接受后按快速通道执行
 
 ## 3. 转交动作（用户选 A）
 
-目标：让 `polaris{{SKN_SPR}}coding{{SKN_SPR}}propose` 的 Step 2.2 校验**一次通过**，不触发 fallback。
+目标：让 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` 拿到结构完整的 `intention.md`，直接进入其 Step 1.5 写入（映射改写到位即一次通过，无需 fallback）。
 
 ### 3.1 生成 `intention.md`
 
@@ -74,7 +74,7 @@ tweak:
   mode: tweak
   status: upgraded
   upgrade_reason: "U1,U5"          # 命中的信号编号
-  upgrade_target: propose
+  upgrade_target: normal
   finished_at: "<ISO>"
 current_verb: idle
 ```
@@ -82,11 +82,11 @@ current_verb: idle
 输出：
 
 ```text
-[polaris-flow 开发]快速通道 - 已升档到常规链路：change_id=<change_id>；intention.md 已就绪；命中信号 <U..>
-下一步执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}propose。
+[polaris-flow 开发]快速通道 - 已升档到常规通道：change_id=<change_id>；intention.md 已就绪；命中信号 <U..>
+下一步执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}normal。
 ```
 
-之后按 `./policies/auto-transition.md` 决定是否自动调用 propose。
+之后按 `./policies/auto-transition.md` 决定是否自动调用 normal。
 
 ## 4. 风险接受记录（用户选 B）
 

@@ -41,7 +41,7 @@ node bin/polaris.js --version
 
 ### 1. SDD工作流(/polfo-sdd)
 ```
- /polfo:clarify → /polfo:propose → /polfo:design → /polfo:plan → /polfo:build → /polfo:verify → /polfo:delivery → /polfo:retro
+ /polfo:clarify → /polfo:propose → /polfo:design → /polfo:plan → /polfo:build → /polfo:verify → /polfo:ship → /polfo:retro
  (澄清)            (提案，需求及目标)  (设计)          (任务规划)      (编码构建)      (验收)            
  (交付)            (回顾， 可选)
 ```

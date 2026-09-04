@@ -7,12 +7,13 @@
 | 档位 | 链路 | 特征 |
 |---|---|---|
 | P01 简单 | tweak（单入口 4 步）→ ship | 单模块、单文件级改动、无跨模块设计、风险低 |
-| P02 常规 | clarify → propose → design → plan → build → verify → ship | 多模块协作，需详细设计与任务拆分 |
-| P03 复杂 | P02 全链路 + retro | 跨服务/高风险，含专项设计与交付复盘 |
+| P02 常规 | normal（单入口 10 步）→ ship | 多模块协作，需规格契约，≤8 顶层任务 |
+| P03 复杂 | clarify → propose → design → plan → build → verify → ship + retro | 跨服务/高风险，含专项设计与交付复盘 |
 
-- 产物：P01 为 `change-brief.md` + `tasks.md`；P02/P03 为 OpenSpec 四件套 + `detailed-design.md`
-- 档位由入口用户选择，执行中命中升档信号（跨模块 / >1 delta spec / >3 大任务 / 新增数据实体 / 触碰核心链路）可升到 P02，检查点在 brief 定稿后、生成 tasks 前
-- P01 的 TDD 策略为**按任务性质自动判定**（`tdd_mode: auto_by_task_type`）：新功能/Bug修复/含分支 → TDD，配置/重命名/文档/依赖升级 → 非 TDD，无法判定 → 默认 TDD。不询问用户（Constitution 里 Test-First 是 NON-NEGOTIABLE，全局 prefer_direct 会撞 Critical）
+- 产物：P01 为 `change-brief.md` + `tasks.md`（ship 归档前补齐四件套）；P02 为 OpenSpec 四件套 + `intention.md`（design.md 常规深度：架构决策+模块划分+模块间接口契约+数据流，**不产** detailed-design）；P03 为四件套 + `detailed-design.md` + 专项设计
+- 档位由入口用户选择；执行中三档可互转：tweak 升档信号 U1–U8 → normal（brief 映射转 intention）；normal 双向守门（规格定稿后、细计划前）降档门 D1′–D4′ → tweak（**保留四件套**）、升档门 D1–D7 → design（转交零成本）
+- P02 评审压缩为 1 次合并主审（复用 propose-reviewer，对象=四件套+终版细计划+intention），无 OV、无 design/plan 独立主审；确认预算 ~5 次；tasks 一次写成终版细计划（无 plan 覆写）
+- P01/P02 的 TDD 策略均为**按任务性质自动判定**（`tdd_mode: auto_by_task_type`）：新功能/Bug修复/含分支 → TDD，配置/重命名/文档/依赖升级 → 非 TDD，无法判定 → 默认 TDD。不询问用户（Constitution 里 Test-First 是 NON-NEGOTIABLE，全局 prefer_direct 会撞 Critical）
 
 ## 产物与状态布局
 
@@ -42,3 +43,6 @@
 - `skills/README.md` 写 `delivery`，实际目录为 `ship`
 - `commands/hotfix.md` / `tweak.md` 指向的 skill 未实现，`skills/maintance/` 为空
 - 代码层（src/）仍用 `delivery` 命名（`TaskDeliveryState` / `runDeliveryCleanup` / `delivery-cleanup.ts`），文档层已迁 `ship`；功能自洽（代码不读 state 的 delivery.*/ship.* 子块），重构风险高暂不动
+- **幽灵 policy 引用**：`subagent-delegate-policy.md` 被 plan/design/propose 的 SKILL.md 及 `propose/policies/artifact-batch-generation.md` 引用，但文件不存在（normal 已规避：Step 7.2 内联 D-1/D-2 判定）
+- propose 的 `design-template.md` 节名为中文（宪法对齐/未选方案），与其 Step 4.1 机械终检的英文节名校验（`## Constitution Alignment` 等）不匹配；normal 的副本已改为英文节名规避
+- `commands/tweak.md` 用字面量 trigger `/polaris:tweak`，与 polaris-flow.md 的 `{{SKN_SPR}}` 占位符风格不一致（normal.md 已按占位符风格写）

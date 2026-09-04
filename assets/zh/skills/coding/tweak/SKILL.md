@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak
-description: "面向简单需求的单入口开发流程：一次会话内串行完成轻量澄清（change-brief）→ 生成 tasks.md → 实施 → 出口检查，然后交给 ship 收尾。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak、经 /flow 选择 P01 实现简单功能、或要求快速实现一个单模块 / 单文件级改动时必须使用本 skill。不要用于：需跨模块设计或多 delta spec 的需求（走 P02 完整链路）、出口检查未通过就强行交付、或在本技能内重写 proposal / 高层 design 的范围结论。"
+description: "面向简单需求的单入口开发流程：一次会话内串行完成轻量澄清（change-brief）→ 生成 tasks.md → 实施 → 出口检查，然后交给 ship 收尾。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak、经 /flow 选择 P01 实现简单功能、或要求快速实现一个单模块 / 单文件级改动时必须使用本 skill。不要用于：需跨模块设计或多 delta spec 的需求（走 P02 polaris{{SKN_SPR}}coding{{SKN_SPR}}normal）、出口检查未通过就强行交付、或在本技能内重写 proposal / 高层 design 的范围结论。"
 version: 0.1
 ---
 
@@ -139,7 +139,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```text
 A. 确认 — 按此摘要推进，生成变更简报
 B. 需要修正 — 请直接说明要改哪一项（可自由输入）
-C. 超出简单需求 — 升到常规链路（P02）
+C. 超出简单需求 — 升到常规通道（P02 normal）
 ```
 
 | 用户选择 | 动作 |

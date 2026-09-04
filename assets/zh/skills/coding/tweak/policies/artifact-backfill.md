@@ -2,7 +2,7 @@
 
 > `change-brief.md` 的节结构是刻意按四件套的关系设计的，因此两条下游路径都只做**格式转换**，不补内容：
 >
-> - **§2 升档路径**：brief → `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}propose`（由 `upgrade-check.md` §3.1 调用）
+> - **§2 升档路径**：brief → `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal`（P02 常规通道，由 `upgrade-check.md` §3.1 调用）
 > - **§3 归档路径**：brief → 四件套，供 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 归档前调用
 >
 > **硬规则**：brief 每一节必须自洽完整。下游禁止新增简报里没有的需求、模块或验收标准。
@@ -45,9 +45,9 @@
 
 ### 2.2 校验
 
-生成后必须能通过 `polaris{{SKN_SPR}}coding{{SKN_SPR}}propose` Step 2.2 的必含节检查：目标、任务范围、验收场景及标准、宪法对齐、前提、结论（架构 + 技术选型）、待决问题、备选方案均存在且**非空**。
+生成后必须满足 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 1.5 的模板要求：目标、任务范围、验收场景及标准、宪法对齐、前提、结论（架构 + 技术选型）、待决问题、备选方案各节均存在且**非空**。
 
-缺节或为空 → 补齐后重跑，不得带着缺口转交（会让 propose 走 fallback，丢失简报的结构化信息）。
+缺节或为空 → 补齐后重跑，不得带着缺口转交（会让 normal 的轻量澄清丢失简报的结构化信息）。
 
 ---
 

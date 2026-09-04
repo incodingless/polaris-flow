@@ -208,7 +208,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 | 选项 | 入口技能 | 后续阶段链 |
 |:---:|---|---|
 | **P01** 实现简单功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` | tweak（轻量澄清 → tasks → 实施 → 出口检查）→ ship |
-| **P02** 实现常规功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` | clarify → propose → design → plan → build → verify → ship |
+| **P02** 实现常规功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` | normal（轻量澄清 → 四件套 → 双向守门 → 终版细计划 → 合并主审 → 实施 → 出口检查）→ ship |
 | **P03** 实现复杂功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` | clarify → propose → design → plan → build → verify → ship → retro |
 | **M01** 修复Bug | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}hotfix` | ⚠️ 暂不可用 · 该技能尚未提供 |
 | **M02** 代码评审 | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` | ⚠️ 暂不可用 · 该技能尚未提供 |
@@ -238,7 +238,7 @@ P01 / P02 / P03 的差别在于**走的阶段数**，选择时按以下标准判
 | 选项 | 适用特征 | 阶段差异 |
 |:---:|---|---|
 | **P01** 简单 | 单模块、单文件级改动、无跨模块设计、无复杂状态流转、风险低 | 走 `tweak` 单入口技能：一次会话内完成轻量澄清（change-brief）→ tasks → 实施 → 出口检查，跳过 design / plan 与独立 verify，产物为 `change-brief.md` + `tasks.md`，由 ship 归档前补齐四件套 |
-| **P02** 常规 | 多模块协作、需详细技术设计与任务拆分、有一定风险 | 完整走 design 与 plan |
+| **P02** 常规 | 多模块协作、需规格契约与任务拆分、有一定风险 | 走 `normal` 单入口技能：轻量澄清（intention）→ OpenSpec 四件套 → 双向守门 → 终版细计划 → 合并主审（1 次）→ 实施 → 出口检查；产物为四件套 + intention + tasks，无 detailed-design、无独立 design / plan 主审 |
 | **P03** 复杂 | 跨系统/跨服务、高风险、需专项设计（数据模型/接口契约/领域模型） | 完整链路 + 专项设计与强制评审，交付后复盘 |
 
 用户已明确复杂度时直接按其选择；用户描述模糊时，用上表判定后向用户确认一次。
