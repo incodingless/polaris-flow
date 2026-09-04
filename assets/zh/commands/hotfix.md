@@ -1,8 +1,8 @@
 ---
 name: hotfix
-command_prefix: polaris
-triggers: ["/polaris:hotfix"]
-description: 快速修复 bug（跳过 brainstorming）
+command_prefix: pofol
+triggers: ["/pofol:hotfix"]
+description: 快速修复 bug
 ---
 
 Use the `polaris:hotfix` skill.

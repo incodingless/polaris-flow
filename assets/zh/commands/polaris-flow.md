@@ -1,7 +1,7 @@
 ---
 name: flow
-command_prefix: flow
-triggers: ["/flow"]
+command_prefix: pofol
+triggers: ["/pofol:flow"]
 description: Polaris Flow 总入口。按平台查表选用询问工具，单选让用户依次选择功能类别与具体功能，收集附加上下文（文件/目录/说明）后加载对应技能并进入相应工作流。
 ---
 
