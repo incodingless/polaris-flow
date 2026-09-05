@@ -8,12 +8,37 @@
 |---|---|---|
 | P01 简单 | tweak（单入口 4 步）→ ship | 单模块、单文件级改动、无跨模块设计、风险低 |
 | P02 常规 | normal（单入口 10 步）→ ship | 多模块协作，需规格契约，≤8 顶层任务 |
-| P03 复杂 | clarify → propose → design → plan → build → verify → ship + retro | 跨服务/高风险，含专项设计与交付复盘 |
+| P03 复杂 | clarify → propose → design(可选) → plan → build → verify → ship + retro | 跨服务/高风险，含专项设计与交付复盘 |
 
-- 产物：P01 为 `change-brief.md` + `tasks.md`（ship 归档前补齐四件套）；P02 为 OpenSpec 四件套 + `intention.md`（design.md 常规深度：架构决策+模块划分+模块间接口契约+数据流，**不产** detailed-design）；P03 为四件套 + `detailed-design.md` + 专项设计
+- 产物：P01 为 `change-brief.md` + `tasks.md`（ship 归档前补齐四件套）；P02 为 OpenSpec 四件套 + `intention.md`（design.md 常规深度：架构决策+模块划分+模块间接口契约+数据流，**不产** detailed-design）；P03 为四件套（+ `detailed-design.md` + 专项设计，**design 可选**：propose 完成时询问是否深化，跳过则 `design.status=skipped` 直接进 plan，无 detailed-design/专项设计）
 - 档位由入口用户选择；执行中三档可互转：tweak 升档信号 U1–U8 → normal（brief 映射转 intention）；normal 双向守门（规格定稿后、细计划前）降档门 D1′–D4′ → tweak（**保留四件套**）、升档门 D1–D7 → design（转交零成本）
 - P02 评审压缩为 1 次合并主审（复用 propose-reviewer，对象=四件套+终版细计划+intention），无 OV、无 design/plan 独立主审；确认预算 ~5 次；tasks 一次写成终版细计划（无 plan 覆写）
 - P01/P02 的 TDD 策略均为**按任务性质自动判定**（`tdd_mode: auto_by_task_type`）：新功能/Bug修复/含分支 → TDD，配置/重命名/文档/依赖升级 → 非 TDD，无法判定 → 默认 TDD。不询问用户（Constitution 里 Test-First 是 NON-NEGOTIABLE，全局 prefer_direct 会撞 Critical）
+
+## 8 阶段重构蓝图（gstack 思路，进行中）
+
+目标链（P03）：`clarify → propose(含可选 design) → plan → build → review → test(可选) → ship → retro(可选)`
+
+- [x] ① design 可选化（propose 内衔接，`design.status=skipped`，已完成）
+- [ ] ② verify → review 职责切分
+- [ ] ③ 新增 test 阶段（接口测试 / E2E）
+- [ ] ④ P01/P02 同步改造
+
+### ② verify→review（倾向方案 A：全替换）
+- review 职责 = 单测覆盖率 + 代码质量 + 意图一致性（proposal/specs vs 实际实现）
+- Constitution 审计 + 5 个 scorer 改为 review 的**前置 hook**（build 后自动跑，数据作 review 输入），不删机制
+- 命名：`coding/verify/`→`coding/review/`；`verify-report.md`→`review-report.md`；`verify-review-agent`→`code-review-agent`（避开 `review-review-agent` 尴尬名）
+- 备选 B：review 与 verify 并存（9 步，与 8 阶段计数对不齐）；备选 C：review 内 3 子任务（coverage/quality/intent-diff）
+
+### ③ test 阶段（真·新，默认跳过、用户显式选）
+- 入口 4 项决策：接口测试(1) / E2E(2) / 1+2 / 跳过
+- 成本：接口测试中（各项目自带 pytest/httpx/JUnit+MockMvc）；E2E 高（`testing/` 目录空、需建 Playwright/Cypress 脚手架）
+- 失败回流：E2E / 接口测试失败 → **回 build**（功能性缺陷=实现问题，非审查问题）
+- 落地：新建 `coding/test/`，v1 只做接口测试，E2E 留 v2
+
+### ④ P01/P02 改造（倾向 P01 不动、P02 轻调）
+- P01 tweak 不变（单模块无需 review/test 拆分）
+- P02 normal 轻调：出口检查拆为 mini-review（覆盖+质量）+ 跳 test + ship；报告并入 review-report.md
 
 ## 产物与状态布局
 
@@ -21,6 +46,7 @@
 - 运行态：`.polaris/tasks/<change_id>/state.yaml`；阶段游标：`.polaris/workflow.yaml`
 - 度量：`.polaris/metrics/<UTC-YYYYMMDD-HHMMSS>-metrics.json`（时间戳叠加，不覆盖）
 - 专项设计必须扁平放变更根目录、命名 `<slug>-design.md`，禁止叫 `design.md`、禁止建子目录
+- **design 可选化的状态约定（2026-09 重构）**：跳过深化时写 `design.status: skipped` + `design.review_report: "skipped:<reason>"`（复用现有字段，未新增 TS 类型），propose 直接 `--set phase=plan`；plan/verify/build 一律识别 `design.status=skipped` 时允许 `detailed-design.md` 缺失、降级为"仅由四件套推导"。`state-next.ts` 的 `PHASE_TO_SKILL` 无需改（phase=plan 正确映射 plan skill）。
 
 ## 复用价值高的既有资产
 

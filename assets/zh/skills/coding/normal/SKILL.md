@@ -31,12 +31,12 @@ version: 0.1
 
 ## 定位与边界
 
-normal 是 P02（常规功能）的执行体。它把完整链路的 `clarify → propose → design → plan → build → verify` 六段压缩进**一个技能**，但保留 P02 的本质差异：**真实产出 OpenSpec 四件套作为跨模块契约**，并保留**一次独立合并主审**。
+normal 是 P02（常规功能）的执行体。它把完整链路的 `clarify → propose → design(可选) → plan → build → verify` 六段压缩进**一个技能**，但保留 P02 的本质差异：**真实产出 OpenSpec 四件套作为跨模块契约**，并保留**一次独立合并主审**。
 
 | 维度 | tweak（P01） | normal（P02） | 完整链路（P03） |
 |------|----------------|----------------------|----------------|
 | 适用 | 单模块 / 单文件级、≤ 3 顶层任务、≤ 1 delta spec | 多模块协作、需规格契约、≤ 8 顶层任务 | 跨服务 / 高风险、需专项设计与复盘 |
-| 阶段数 | 1 个技能内部跑完 4 步 | 1 个技能内部跑完 10 步 | clarify → propose → design → plan → build → verify → ship（→ retro） |
+| 阶段数 | 1 个技能内部跑完 4 步 | 1 个技能内部跑完 10 步 | clarify → propose → design(可选) → plan → build → verify → ship（→ retro） |
 | 规格产物 | `change-brief.md` + `tasks.md` | **OpenSpec 四件套** + `intention.md` + 终版 `tasks.md` | 四件套 + `detailed-design.md` + 专项设计 |
 | 设计 / 评审 | 无独立设计，无主审 | 设计并入四件套 `design.md`；**1 次合并主审**（propose-reviewer） | design 主审 + plan 主审 + 可选 Outside Voice |
 | 用户确认 | 3 次 | **~5 次**（理解确认 / 任务名 / 规格定稿 + 条件性的主审消化、出口决策） | ≥ 10 次 |

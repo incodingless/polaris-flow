@@ -1,15 +1,15 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}plan
-description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 或要求在 design 完成后写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划必须基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md 全文推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并派发 plan-review-agent 做独立主审（可选 Outside Voice）。不要用于：clarify/propose 阶段、尚未完成 design、或已进入 build 要求直接写代码。"
+description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 或要求在 design 完成后（或 propose 已确认跳过 design）写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md（若已深化）推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并派发 plan-review-agent 做独立主审（可选 Outside Voice）。不要用于：clarify/propose 阶段、尚未完成 design 且尚未确认跳过 design、或已进入 build 要求直接写代码。"
 ---
 
 # Polaris 工作流 - 阶段：任务规划（plan）
 
 <HARD-GATE>
-本 skill **仅**负责：以 **OpenSpec 四件套 + `detailed-design.md`** 为唯一规划依据，覆写可执行的 `openspec/changes/<change_id>/tasks.md`，并经 `plan-review-agent` 独立主审通过后才放行 build。
+本 skill **仅**负责：以 **OpenSpec 四件套（+ `detailed-design.md` 若已深化）** 为唯一规划依据，覆写可执行的 `openspec/changes/<change_id>/tasks.md`，并经 `plan-review-agent` 独立主审通过后才放行 build。
 
 - **禁止**未完整阅读规划依据就开始写计划（见下方「规划依据」；禁止凭对话记忆 / 口头一句话 / 只看粗骨架 tasks 拆任务）
-- **禁止**未确认 `detailed-design.md` 存在且 `design.status=completed`（或用户明示接受续跑）就开始写计划
+- **禁止**未确认 design 状态就开始写计划——须满足其一：`design.status=completed` 且 `detailed-design.md` 存在（已深化），或 `design.status=skipped`（propose 已确认跳过深化，`detailed-design.md` 缺失合法）
 - **禁止**跳过 Superpowers `writing-plans`（不可用则阻断；加载后必须按下方「骨架模式」落地，禁止原样照抄每步贴完整实现代码 / 每任务 commit）
 - **禁止**主代理在覆写 `tasks.md` 前未 `read_file templates/tasks-template.md`
 - **禁止**另写 `docs/superpowers/plans/*.md` 或 `.polaris/tasks/*/implementation-plan.md` 作为主产物——**唯一**实施计划是 `openspec/changes/<change_id>/tasks.md`（覆写，不是并列第二份）
@@ -34,9 +34,9 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 或要求在
 | | `openspec/changes/<change_id>/design.md` | 高层架构与选型 |
 | | `openspec/changes/<change_id>/specs/**/*.md` | 需求与验收场景（任务覆盖的主清单） |
 | | `openspec/changes/<change_id>/tasks.md` | propose **粗骨架**（结构参考；**不是**范围真理，将被覆写） |
-| 深度设计 | `openspec/changes/<change_id>/detailed-design.md` | 实现方案、风险、测试策略、边界、模块/接口细节 |
+| 深度设计 | `openspec/changes/<change_id>/detailed-design.md` | 实现方案、风险、测试策略、边界、模块/接口细节（**仅 `design.status=completed` 时存在**；`skipped` 时无此依据，细计划仅由四件套推导） |
 
-冲突裁决：**specs 定「做什么」；detailed-design 定「怎么拆怎么测」；高层 design.md / proposal 定边界。** 粗骨架 tasks 与三者冲突时，以三者为准并覆写 tasks。
+冲突裁决：**specs 定「做什么」；detailed-design 定「怎么拆怎么测」（`design.status=skipped` 时由四件套 `design.md` 推导）；高层 design.md / proposal 定边界。** 粗骨架 tasks 与三者冲突时，以三者为准并覆写 tasks。
 
 ### 其它
 
@@ -48,8 +48,8 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 或要求在
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`）
 - 运行态：`.polaris/tasks/<change_id>/state.yaml`
 
-> **链路**：`clarify → propose → design → **plan** → build → verify → ship → retro(可选)`。  
-> 细计划 = f(四件套, detailed-design)；propose 的 tasks 只是输入粗骨架。主审走 `plan-review-agent`；可选 Outside Voice 走 `openspec-review-agent`。
+> **链路**：`clarify → propose → (design 可选) → **plan** → build → verify → ship → retro(可选)`。  
+> 细计划 = f(四件套, detailed-design 若有)；propose 的 tasks 只是输入粗骨架。主审走 `plan-review-agent`；可选 Outside Voice 走 `openspec-review-agent`。
 
 ## 有效 vs 无效（写计划前默念）
 
@@ -97,7 +97,7 @@ RTID_EXIT=$?
 
 | 检查 | 条件 |
 |------|------|
-| 深度设计已落盘 | `openspec/changes/<change_id>/detailed-design.md` 非空，且 frontmatter 含 `role: technical-design` |
+| 深度设计状态 | 二选一：`design.status=completed` 且 `detailed-design.md` 非空（frontmatter 含 `role: technical-design`）；或 `design.status=skipped`（propose 已确认跳过深化） |
 | 四件套存在 | `openspec/changes/<change_id>/` 下 `proposal.md`、`design.md`、`tasks.md` 非空，`specs/` 至少一非空文件 |
 | 设计评审 | 若存在 `reviews/design-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 design |
 | 已有细计划 | 若 `plan.status=completed` 且 `tasks.md` 已细计划 → 询问 A 修订覆写 / B 退出（禁止静默覆盖） |
@@ -105,7 +105,7 @@ RTID_EXIT=$?
 通过后更新 `state.yaml`：`current_verb: plan`，`plan.status: in_progress`。  
 输出：`[polaris-flow 开发]任务规划: change_id=<change_id> ; phase=plan`
 
-### Step 1：读取规划依据（OpenSpec 四件套 + detailed-design）
+### Step 1：读取规划依据（OpenSpec 四件套 + detailed-design 若有）
 
 **必读全文**（勿用摘要替代；读完再进入 Step 2）：
 
@@ -113,17 +113,17 @@ RTID_EXIT=$?
 2. `openspec/changes/<change_id>/design.md`
 3. `openspec/changes/<change_id>/specs/**/*.md`（目录下每个非空 spec）
 4. `openspec/changes/<change_id>/tasks.md`（粗骨架，仅作结构参考）
-5. `openspec/changes/<change_id>/detailed-design.md`
+5. `openspec/changes/<change_id>/detailed-design.md`（**仅 `design.status=completed` 时必读**；`skipped` 时此文件不存在，跳过）
 
 **禁止**凭对话记忆或只读粗骨架 `tasks.md` 开写。读完输出：
 
-`[polaris-flow 开发]任务规划: 规划依据已读 — proposal / design / specs(N=<文件数>) / tasks(粗) / detailed-design`
+`[polaris-flow 开发]任务规划: 规划依据已读 — proposal / design / specs(N=<文件数>) / tasks(粗) / detailed-design（或 design=skipped）`
 
 若存在则一并只读：
 
 - `openspec/changes/<change_id>/reviews/design-review-report.md`
 - `openspec/changes/<change_id>/*-design.md`（专项设计，如有；排除四件套 `design.md`）
-- `openspec/changes/<change_id>/intention.md`（冲突以四件套 + detailed-design 为准）
+- `openspec/changes/<change_id>/intention.md`（冲突以四件套 + detailed-design 若有为准）
 
 ### Step 2：TDD 策略（用户决策点）
 
@@ -136,7 +136,7 @@ RTID_EXIT=$?
 |------|--------|------|------|
 | **A**（默认推荐） | `prefer_tdd` | **按任务类型标注**：新功能 / Bug 修复 / 含分支逻辑 → `<!-- TDD 任务 -->`；配置 / 重命名 / 文档 / 依赖升级 / 纯脚手架 → `<!-- 非 TDD 任务 -->`；无法判断 → **默认 TDD** | 大多数标准变更 |
 | **B** | `require_tdd` | **从紧**：凡含行为或接口变更的任务一律 TDD；仅纯文档 / 纯文案可标非 TDD | 高风险、核心业务、安全相关 |
-| **C** | `prefer_direct` | **从宽**：默认非 TDD（三步）；仅当 `detailed-design` 测试策略点名、或用户在本决策中另行指定的任务标 TDD | hotfix、探索性小改、明确不要求测试覆盖时 |
+| **C** | `prefer_direct` | **从宽**：默认非 TDD（三步）；仅当 `detailed-design` 测试策略点名（若已深化）、或用户在本决策中另行指定的任务标 TDD | hotfix、探索性小改、明确不要求测试覆盖时 |
 
 写入 `$REPO_ROOT/.polaris/tasks/<change_id>/state.yaml`：
 
@@ -190,25 +190,25 @@ read_file ./templates/tasks-template.md
 | 依据条目 | 来源节/路径 | 对应将写入的顶层任务 |
 |----------|-------------|----------------------|
 | 每条 spec requirement / 验收场景 | `specs/` | Task … |
-| detailed-design 实现方案中的模块/接口 | `detailed-design.md` | Task … |
-| 测试策略与关键边界 | `detailed-design.md` | 落在相关 TDD 任务的 RED 步或独立验证步 |
+| detailed-design 实现方案中的模块/接口 | `detailed-design.md`（仅 `design.status=completed`；`skipped` 时跳过此行） | Task … |
+| 测试策略与关键边界 | `detailed-design.md`（仅 `design.status=completed`；`skipped` 时由四件套 `design.md` 推导） | 落在相关 TDD 任务的 RED 步或独立验证步 |
 | proposal 非目标 | `proposal.md` | **不得**出现对应任务 |
 
-任一 spec 需求或 detailed-design 必做模块无对应任务 → 先补行，再写 tasks.md。
+任一 spec 需求或 detailed-design 必做模块（若有）无对应任务 → 先补行，再写 tasks.md。
 
 #### 4.2 文件结构地图
 
 在覆盖表之后，锁定：
 
-- 将创建 / 修改 / 测试的**精确路径**（优先采用 detailed-design 已点名的路径）
-- 模块边界与依赖方向（与 detailed-design + 高层 design.md 一致）
+- 将创建 / 修改 / 测试的**精确路径**（优先采用 detailed-design 已点名的路径；`skipped` 时以四件套 `design.md` 为准）
+- 模块边界与依赖方向（与 detailed-design（若有）+ 高层 design.md 一致）
 - 哪些任务 TDD、哪些非 TDD——**必须服从 Step 2 的 `tdd_policy`**（见下表）；用户声明的例外优先于默认规则
 
 | `tdd_policy` | 标注规则 |
 |--------------|----------|
 | `prefer_tdd` | 逻辑/API/bugfix → TDD；配置/文档/脚手架 → 非 TDD；无法判断 → **默认 TDD** |
 | `require_tdd` | 含行为或接口变更 → **必须 TDD**；仅纯文档/文案 → 非 TDD |
-| `prefer_direct` | **默认非 TDD**；仅 detailed-design 测试策略点名或用户例外清单中的任务 → TDD |
+| `prefer_direct` | **默认非 TDD**；仅 detailed-design 测试策略点名（若已深化）或用户例外清单中的任务 → TDD |
 
 #### 4.3 任务粒度
 
@@ -217,7 +217,7 @@ read_file ./templates/tasks-template.md
 - 一个顶层任务 = 带自身验证环、值得独立评审的最小交付
 - 脚手架 / 配置 / 文档同步：**折进**需要它的交付任务；禁止无验收的「纯脚手架」顶层任务
 - 子步骤：TDD=5 步 / 非 TDD=3 步（见模板）；每步约 2–5 分钟量级的**一个动作**
-- **不要**按 propose 粗骨架原样加细——粗骨架可拆可并，以 specs + detailed-design 覆盖为准
+- **不要**按 propose 粗骨架原样加细——粗骨架可拆可并，以 specs + detailed-design（若有）覆盖为准
 
 #### 4.4 每条顶层任务必须含
 
@@ -252,7 +252,7 @@ read_file ./templates/tasks-template.md
 
 #### 5.1 自审（主代理，writing-plans Self-Review）
 
-1. **规划依据覆盖**：`proposal` Scope、每条 `specs` 需求/场景、`detailed-design` 实现模块与测试策略——能否指出对应任务？非目标是否被误写入？缺口列出并补任务。
+1. **规划依据覆盖**：`proposal` Scope、每条 `specs` 需求/场景、`detailed-design` 实现模块与测试策略（若已深化）——能否指出对应任务？非目标是否被误写入？缺口列出并补任务。
 2. **占位符扫描**：全文搜失败标志，清零。
 3. **类型/接口一致**：后任务 Consumes 与前任务 Produces 同名同义。
 4. **TDD 标注**：每条顶层任务有且仅有一种 HTML 注释类型；标注与 `plan.tdd_policy` + 例外清单一致（`require_tdd` 下不得把行为变更标成非 TDD；`prefer_direct` 下不得无依据地把任务全打成 TDD）。
@@ -294,7 +294,7 @@ LINT_EXIT=$?
      6. `openspec/changes/<change_id>/proposal.md`
      7. `openspec/changes/<change_id>/design.md`
      8. `openspec/changes/<change_id>/specs/**/*.md`（每个非空文件）
-     9. `openspec/changes/<change_id>/detailed-design.md`
+     9. 若有（`design.status=completed`）：`openspec/changes/<change_id>/detailed-design.md`
      10. 若有：`openspec/changes/<change_id>/reviews/design-review-report.md`
      11. 若有：`openspec/changes/<change_id>/*-design.md`（专项设计；排除四件套 `design.md`）
      12. 若有：`openspec/changes/<change_id>/intention.md`
@@ -323,7 +323,7 @@ LINT_EXIT=$?
      3. `openspec/changes/<change_id>/design.md`
      4. `openspec/changes/<change_id>/specs/**/*.md`（每个非空文件）
      5. `openspec/changes/<change_id>/tasks.md`
-     6. `openspec/changes/<change_id>/detailed-design.md`
+     6. 若有（`design.status=completed`）：`openspec/changes/<change_id>/detailed-design.md`
 
    （模板内 findings 摘录从刚落盘的 `plan-review-report.md` 填充；**不要**附带用户对 findings 的采纳决策。）
 
@@ -393,6 +393,6 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 ## 上下文压缩恢复
 
-重载：`change_id`、`plan.tdd_policy`、`detailed-design.md`、当前 `tasks.md`、`reviews/plan-review-report.md`、`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
+重载：`change_id`、`plan.tdd_policy`、`detailed-design.md`（若有）、当前 `tasks.md`、`reviews/plan-review-report.md`、`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
 若停在 Step 2 未选定 → 先完成 TDD 策略再写 tasks。  
 若停在 `plan.status=in_progress` 且 tasks 已写未评审 → 从 Step 5.2 / Step 6 续，勿无故重写全部任务（除非用户要求改 `tdd_policy`，则须重跑 Step 2→4）。

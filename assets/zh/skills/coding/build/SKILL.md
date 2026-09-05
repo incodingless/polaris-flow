@@ -29,12 +29,12 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 | `change_id` | 与 clarify / propose / design / plan 同值 |
 | 实施计划（唯一） | `openspec/changes/<change_id>/tasks.md` |
 | 评审报告（`plan-review-agent` 写入） | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
-| 深度设计（只读） | `openspec/changes/<change_id>/detailed-design.md` |
+| 深度设计（只读，`design.status=skipped` 时不存在） | `openspec/changes/<change_id>/detailed-design.md` |
 | 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 | implementer prompt 模板 | `./assets/implementer-prompt.md` |
 
-> **链路**：`clarify → propose → design → plan → **build** → verify → ship`。  
+> **链路**：`clarify → propose → (design 可选) → plan → **build** → verify → ship`。  
 > 本阶段不写计划、不审设计；只执行已评审的 `tasks.md`。  
 > 若本阶段落盘代码评审报告，写入 `openspec/changes/<change_id>/reviews/code-review-report.md`（无流程则不强造）。
 

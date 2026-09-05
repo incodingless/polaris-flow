@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}propose
-description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 propose-reviewer 独立主审（可选 Outside Voice）后方可进入 design。"
+description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}propose，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 propose-reviewer 独立主审（可选 Outside Voice）后，询问是否进入可选 design 深化：深化则进 design，跳过则直接进 plan（design.status=skipped）。"
 version: 0.1
 ---
 
@@ -341,17 +341,46 @@ propose:
   finished_at: "<ISO>"
 ```
 
-workflow阶段推进至详细设计阶段：
+任一项不满足 → 阻断并输出失败原因。
+
+#### 5.1 深化设计决策点（阻塞）
+
+propose 完成后，深度设计（design）是**可选**衔接阶段：只有 full（P03 完整链路）在此决策；tweak / normal 不经过本 skill，天然无此决策。
+
+按 `./policies/decision-point.md` 暂停，询问是否进入深度设计深化：
+
+```text
+四件套已锁定。是否需要把高层 design.md 深化为 detailed-design.md（含可选专项设计）？
+
+A. 是 — 进入 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design 深化（复杂 / 高风险 / 需数据模型或接口契约专项设计）
+B. 否 — 跳过深化，直接进入 plan（四件套已足够指导细计划）
+```
+
+**推荐规则**（可附在选项旁，不强制）：涉及跨服务、数据模型、对外 API 契约、领域模型或高风险 → 推荐 A；四件套已把架构、模块、接口、数据流写清、无需专项展开 → 推荐 B。
+
+#### 5.2 按决策推进 phase
+
+**A（深化）** → 推进 design 阶段：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill propose --where-task-id "$task_id" --set phase=design
 ```
 
-输出：
+输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；propose-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 覆写）。下一步 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design。`
 
-`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；propose-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 覆写）。下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design。`
+**B（跳过深化）** → 更新 `state.yaml` 标记 design 跳过，直接推进 plan：
 
-任一项不满足 → 阻断并输出失败原因。
+```yaml
+design:
+  status: skipped
+  review_report: "skipped:用户选择跳过深度设计（四件套已足够指导细计划）"
+```
+
+```bash
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill propose --where-task-id "$task_id" --set phase=plan
+```
+
+输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；propose-review 已处理；intention.md 已迁入；已跳过深度设计（design.status=skipped，tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 覆写）。下一步 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan。`
 
 ## 退出条件
 
@@ -359,13 +388,15 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 - Step 3.5 intention 已迁入或合法跳过
 - Step 4.2 主审已派发（或用户接受 SKIPPED）且无未消化 Critical
 - Outside Voice 已询问并完成（ran / 用户跳过 / 宿主无法运行已标注）
-- `phase=design`
+- Step 5.1 深化设计决策点已问询并记录
+- `phase=design`（深化）或 `phase=plan` 且 `design.status=skipped`（跳过深化）
 
 ## 上下文压缩恢复
 
 重载：`change_id`、`artifact_review_mode`、四件套路径、`review-log.md`（若有）、`reviews/propose-review-report.md`、`reviews/openspec-review-report.md`（若有）、停在哪一步。
 若停在 4.2/4.4 未消化 → 先完成评审消化，勿无故重跑 `/opsx:propose` 或整段 3.4。
 若停在 4.1 未通过 → 先补齐四件套 / 修 lint，再进 4.2。
+若停在 5.1 决策点 → 完成深化设计决策（A 深化 / B 跳过）后再按 5.2 推进 phase。
 
 ## 自动衔接下一阶段
 

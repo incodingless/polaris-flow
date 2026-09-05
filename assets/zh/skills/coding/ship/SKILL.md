@@ -39,7 +39,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 | P01 产物补齐策略 | `./policies/artifact-backfill.md`（仅快速通道触发） |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 hooks） |
 
-> **链路**：`clarify → propose → design → plan → build → verify → **ship**`（P01 快速通道为 `tweak → **ship**`）。
+> **链路**：`clarify → propose → (design 可选) → plan → build → verify → **ship**`（P01 快速通道为 `tweak → **ship**`）。
 > 本阶段交付与归档；不再做 Constitution / scorer（那是 verify / tweak 出口检查）。
 >
 > **P01 差异**：tweak 只产出 `change-brief.md` + `tasks.md`，没有 proposal / design / specs。归档前必须由本阶段按 `./policies/artifact-backfill.md` 补齐四件套（Step 4.5），否则 `openspec-cn archive` 会失败。
@@ -99,7 +99,7 @@ RTID_EXIT=$?
 
 ### Step 3：worktree 产物合回 + 清理（仅本流程创建过 worktree 时）
 
-**条件**：`state.yaml: worktree.created_by_easy_flow == true`。
+**条件**：`state.yaml: worktree.created_by_polaris_flow == true`。
 **顺序不可调换**：3.1–3.4 判定合并状态 → 3.5 先 sync 再 remove →（或 3.6 保留）。
 
 #### 3.1 读取 worktree 元信息

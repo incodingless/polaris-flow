@@ -6,7 +6,7 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 # Polaris 工作流 - 阶段：验证（verify）
 
 <HARD-GATE>
-本 skill **仅**负责：在 **build 已完成** 的前提下，对实施产出做 Constitution 合规审计（注入点 D）、scorer 评分、以及对照 OpenSpec 四件套 + `detailed-design.md` 的实现验证；通过后推进到 ship。
+本 skill **仅**负责：在 **build 已完成** 的前提下，对实施产出做 Constitution 合规审计（注入点 D）、scorer 评分、以及对照 OpenSpec 四件套（+ `detailed-design.md` 若已深化）的实现验证；通过后推进到 ship。
 
 - **禁止**跳过 5 个 scorer 脚本（脚本缺失见 Step 3 降级；不得假装已跑）
 - **禁止**在 team 模式下，scorer / Constitution 形成 blocking 时把 `verify.blocked=false` 或标记通过
@@ -25,14 +25,14 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 |----|-----------|
 | `change_id` | 与 clarify → build 同值 |
 | OpenSpec 四件套 | `openspec/changes/<change_id>/`（proposal / design / specs / tasks） |
-| 深度设计（只读） | `openspec/changes/<change_id>/detailed-design.md` |
+| 深度设计（只读，`design.status=skipped` 时不存在） | `openspec/changes/<change_id>/detailed-design.md` |
 | 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
 | 验证报告 | `openspec/changes/<change_id>/reviews/verify-report.md` |
 | Metrics | `.polaris/metrics/<timestamp>-metrics.json` |
 | Constitution 规则 | `./policies/constitution-audit.md` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 
-> **链路**：`clarify → propose → design → plan → build → **verify** → ship`。
+> **链路**：`clarify → propose → (design 可选) → plan → build → **verify** → ship`。
 > 本阶段验证是否可交付；不交付、不归档。
 
 ## 前置条件
@@ -78,7 +78,7 @@ RTID_EXIT=$?
 |------|------|
 | build 已完成 | `state.yaml` 中 `build.status=completed`（或用户明示接受续跑） |
 | tasks 已勾完 | `openspec/changes/<change_id>/tasks.md` 中不存在 `- [ ]` |
-| 四件套 + 深度设计 | `proposal.md` / `design.md` / `tasks.md` 非空，`specs/` 至少一非空文件；`detailed-design.md` 存在 |
+| 四件套 + 深度设计 | `proposal.md` / `design.md` / `tasks.md` 非空，`specs/` 至少一非空文件；`detailed-design.md` 存在（**或 `design.status=skipped`，此时缺失合法**） |
 | 工作目录 | 若 `worktree_path` 非空 → 后续读产物 / 跑命令 **以该 worktree 为仓库根**；否则用主仓 |
 
 通过后更新 `state.yaml`：`current_verb: verify`，`verify.status: in_progress`，`verify.blocked: false`（本轮重新判定）。  
@@ -246,11 +246,11 @@ git diff --stat <base-ref>...HEAD
 
 1. `tasks.md` 全部 `[x]`
 2. 实现符合高层 `openspec/changes/<change_id>/design.md`
-3. 实现符合 `openspec/changes/<change_id>/detailed-design.md`
+3. 实现符合 `openspec/changes/<change_id>/detailed-design.md`（**仅 `design.status=completed` 时检查；`skipped` 时跳过本项**）
 4. 能力规格场景可追溯通过（或明确记录未自动化项与手工结论）
 5. `proposal.md` 目标已满足
-6. specs / detailed-design 无未记录矛盾（Build 中改过 spec 的，detailed-design 须有对应记录）
-7. `detailed-design.md` 可定位且与当前 change 相关
+6. specs / detailed-design（若有）无未记录矛盾（Build 中改过 spec 的，detailed-design 须有对应记录）
+7. `detailed-design.md` 可定位且与当前 change 相关（**仅 `design.status=completed` 时检查**）
 
 **不通过** → [验证失败决策](#验证失败决策阻塞点)。
 
@@ -258,7 +258,7 @@ git diff --stat <base-ref>...HEAD
 
 | 选项 | 动作 |
 |------|------|
-| A | 在 `detailed-design.md` 追加 `## Implementation Divergence` 记录原因（本阶段允许产物；不得因此再触发 Step 1 dirty 失败环） |
+| A | 在 `detailed-design.md` 追加 `## Implementation Divergence` 记录原因（本阶段允许产物；不得因此再触发 Step 1 dirty 失败环）；**`design.status=skipped` 时无此文件，改为在 `reviews/verify-report.md` 记录偏差** |
 | B | 用户确认后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`（或回 design/plan，由用户选），更新设计与 specs |
 | C | 确认偏差可接受，继续；报告中记录接受原因与影响 |
 

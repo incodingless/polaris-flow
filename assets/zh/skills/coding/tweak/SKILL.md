@@ -33,7 +33,7 @@ tweak 是 P01（简单功能）的执行体。它把完整链路的 `clarify →
 | 维度 | tweak（P01） | 完整链路（P02 / P03） |
 |------|----------------|----------------------|
 | 适用 | 单模块 / 单文件级、≤ 3 个顶层任务、≤ 1 个 delta spec、无跨模块设计 | 多模块协作、需详细设计与任务拆分 |
-| 阶段数 | 1 个技能内部跑完 4 步 | clarify → propose → design → plan → build → verify → ship |
+| 阶段数 | 1 个技能内部跑完 4 步 | clarify → propose → design(可选) → plan → build → verify → ship |
 | 规格产物 | `change-brief.md` + `tasks.md` | OpenSpec 四件套 + `detailed-design.md` |
 | 设计 / 评审 | 无独立 design / plan，无阶段主审 | design 主审 + plan 主审 + 可选 Outside Voice |
 | 用户确认 | 3 次（理解确认 / 任务名 / 简报定稿）；命中升档时 +1 | ≥ 10 次 |
