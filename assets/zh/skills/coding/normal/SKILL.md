@@ -21,7 +21,7 @@ version: 0.1
 - **禁止**调用 `superpowers:subagent-driven-development` / `superpowers:executing-plans`（H13）
 - **禁止**跳过 5 个 scorer 或伪造分数；**禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 就把 `phase` 推到 ship
 - **禁止**本阶段做分支合并 / PR / `/opsx:archive`（那是 ship）
-- **禁止**未完成出口校验（Step 9）就写 `build.status` / `verify.status=completed` 或推进 phase
+- **禁止**未完成出口校验（Step 9）就写 `runtime.build.status` / `runtime.verify.status=completed` 或推进 phase
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]常规通道 - 进入 normal Step <N>: <动作>`
 </HARD-GATE>
 
@@ -31,20 +31,20 @@ version: 0.1
 
 ## 定位与边界
 
-normal 是 P02（常规功能）的执行体。它把完整链路的 `clarify → propose → design(可选) → plan → build → verify` 六段压缩进**一个技能**，但保留 P02 的本质差异：**真实产出 OpenSpec 四件套作为跨模块契约**，并保留**一次独立合并主审**。
+normal 是 P02（常规功能）的执行体。它把完整链路的 `specify → plan → design(可选) → tasks → build → verify` 六段压缩进**一个技能**，但保留 P02 的本质差异：**真实产出 OpenSpec 四件套作为跨模块契约**，并保留**一次独立合并主审**。
 
 | 维度 | tweak（P01） | normal（P02） | 完整链路（P03） |
 |------|----------------|----------------------|----------------|
 | 适用 | 单模块 / 单文件级、≤ 3 顶层任务、≤ 1 delta spec | 多模块协作、需规格契约、≤ 8 顶层任务 | 跨服务 / 高风险、需专项设计与复盘 |
-| 阶段数 | 1 个技能内部跑完 4 步 | 1 个技能内部跑完 10 步 | clarify → propose → design(可选) → plan → build → verify → ship（→ retro） |
+| 阶段数 | 1 个技能内部跑完 4 步 | 1 个技能内部跑完 10 步 | specify → plan → design(可选) → tasks → build → verify → ship（→ retro） |
 | 规格产物 | `change-brief.md` + `tasks.md` | **OpenSpec 四件套** + `intention.md` + 终版 `tasks.md` | 四件套 + `detailed-design.md` + 专项设计 |
-| 设计 / 评审 | 无独立设计，无主审 | 设计并入四件套 `design.md`；**1 次合并主审**（propose-reviewer） | design 主审 + plan 主审 + 可选 Outside Voice |
+| 设计 / 评审 | 无独立设计，无主审 | 设计并入四件套 `design.md`；**1 次合并主审**（plan-reviewer） | design 主审 + tasks 主审 + 可选 Outside Voice |
 | 用户确认 | 3 次 | **~5 次**（理解确认 / 任务名 / 规格定稿 + 条件性的主审消化、出口决策） | ≥ 10 次 |
 | workflow 写入 | 仅 1 次（出口推进 ship） | **1 次**（出口推进 ship；升档转交时条件性 +1） | 每阶段 1 次 |
 | 收尾 | 交 ship（归档前补齐四件套） | 交 ship（四件套已齐，无需补齐） | 交 ship |
 | metrics | 照写 | 照写（retro 趋势不断档） | 照写 |
 
-**刻意不做**：worktree 决策询问、TDD 策略询问、执行方式询问、审查模式询问、brainstorming、专项设计预检、design / plan 独立主审、Outside Voice 询问。这些在常规需求里属于过度流程，且 `decision-point.md` 明确要求「只有一个安全下一步时不得制造确认」。
+**刻意不做**：worktree 决策询问、TDD 策略询问、执行方式询问、审查模式询问、brainstorming、专项设计预检、design / tasks 独立主审、Outside Voice 询问。这些在常规需求里属于过度流程，且 `decision-point.md` 明确要求「只有一个安全下一步时不得制造确认」。
 
 **刻意保留**（相对 tweak 的加法）：真实四件套（多模块协作需要 specs 作为跨模块契约）、一次独立合并主审（规格错误的多模块返工成本远高于单模块）、双向守门（P02 是三档的中间档，两个方向的错档都要兜住）。
 
@@ -66,7 +66,7 @@ normal 是 P02（常规功能）的执行体。它把完整链路的 `clarify �
 | `change_id` | 与 tweak / ship 同值，kebab-case |
 | 意图文档（唯一真相） | `openspec/changes/<change_id>/intention.md`（Step 4.2 迁入前在 `.polaris/tasks/<change_id>/`） |
 | OpenSpec 四件套 | `openspec/changes/<change_id>/{proposal.md, design.md, specs/, tasks.md}` |
-| 合并主审报告 | `openspec/changes/<change_id>/reviews/propose-review-report.md` |
+| 合并主审报告 | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
 | 运行态 | `.polaris/tasks/<change_id>/state.yaml` |
 | 验证报告 | `openspec/changes/<change_id>/reviews/verify-report.md` |
 | Metrics | `.polaris/metrics/<timestamp>-metrics.json` |
@@ -101,13 +101,13 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 | `INIT_EXIT` | `status` | 含义 | 后续动作 |
 | ----------- | -------- | ---- | -------- |
 | 0 | `"ok"` | 成功 | 取 `draft_name`，进入 Step 1 |
-| 1 | `"existing"` | 存在未完成 draft | 按决策点协议询问 A/B/C/D（同 clarify Step 1） |
+| 1 | `"existing"` | 存在未完成 draft | 按决策点协议询问 A/B/C/D（同 specify Step 1） |
 | 2 | —（stderr） | 参数/环境错误 | 按 H12 阻断 |
 | 3 | —（stderr） | workflow 写入失败 | 按 H12 阻断 |
 
 `status="existing"` 时按 `./policies/decision-point.md` 暂停：**A 续写最新** / **B 选择指定** / **C 丢弃后重建** / **D 取消退出**。续写场景沿用现有 `change_id`，不算目录冲突。
 
-**状态行（H8）**：`[polaris-flow 开发]常规通道 - 开始轻量澄清：.polaris/tasks/<draft_name>/; workflow: appended entry phase=clarify`
+**状态行（H8）**：`[polaris-flow 开发]常规通道 - 开始轻量澄清：.polaris/tasks/<draft_name>/; workflow: appended entry phase=specify`
 
 ### Step 1：轻量澄清（intention.md）
 
@@ -203,7 +203,7 @@ C. 超出常规需求 — 升到复杂链路（P03）
 #### 2.2 敲定目录名并更新 state（finalize）
 
 ```bash
-FINAL_RESULT=$(bash "$PLUGIN_ROOT/scripts/clarify-finalize.sh" "$REPO_ROOT" "<draft_name>" "<task_id>")
+FINAL_RESULT=$(bash "$PLUGIN_ROOT/scripts/specify-finalize.sh" "$REPO_ROOT" "<draft_name>" "<task_id>")
 FINAL_EXIT=$?
 echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 ```
@@ -222,10 +222,10 @@ normal 默认留在主仓库，不询问。写入 `.polaris/tasks/<change_id>/st
 ```yaml
 worktree:
   created_by_polaris_flow: false
-current_verb: propose
+phase: plan
 ```
 
-> 位置刻意放在四件套生成**之前**（对齐 propose 的时序）：worktree 模式下 openspec 产物要落在 worktree 分支上。
+> 位置刻意放在四件套生成**之前**（对齐 plan 的时序）：worktree 模式下 openspec 产物要落在 worktree 分支上。
 
 用户**显式**要求 worktree 时，创建并同步元信息（ship 的合回逻辑照常生效）：
 
@@ -246,13 +246,13 @@ worktree:
   branch: "<target_branch>"
   origin_repo: "<REPO_ROOT>"
   status: active
-current_verb: propose
+phase: plan
 ```
 
 同步主仓 workflow.yaml（脚本内含锁 + 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill normal --where-task-id "$change_id" --set phase=propose --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill normal --where-task-id "$change_id" --set phase=plan --set worktree-path="$target_path"
 ```
 
 输出：`[polaris-flow 开发]常规通道 - worktree：created at <target_path> on branch <target_branch>`
@@ -278,7 +278,7 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" \
 
 **强制前置**：`read_file ./templates/design-template.md`，并输出：`[已 read_file templates/design-template.md]`
 
-**`intention.md` 节 → 四件套映射**（与完整链路 propose 的映射一致）：
+**`intention.md` 节 → 四件套映射**（与完整链路 plan 的映射一致）：
 
 | `intention.md` 节 | 写入位置 | 要求 |
 |---|---|---|
@@ -346,7 +346,7 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" \
 
 **强制前置**：`read_file ./templates/tasks-template.md`，并输出：`[已 read_file templates/tasks-template.md]`
 
-与完整链路的关键差异：propose 产出的是**粗骨架**（等 plan 覆写），normal **没有独立 plan 阶段**，因此必须一次写成**可执行细计划**——含 Files / Interfaces / 可直接复制的验证命令。
+与完整链路的关键差异：plan 产出的是**粗骨架**（等 tasks 覆写），normal **没有独立 tasks 阶段**，因此必须一次写成**可执行细计划**——含 Files / Interfaces / 可直接复制的验证命令。
 
 #### 6.2 规模硬约束
 
@@ -366,23 +366,24 @@ LINT_EXIT=$?
 #### 6.4 状态写入
 
 ```yaml
-normal:
-  mode: normal
-  status: in_progress
-  tdd_mode: auto_by_task_type
-  build_mode: inline        # 或 subagent_dispatch（仅用户显式要求）
-  signals: []               # 命中的守门信号（Step 5 选 B 时记录）
-current_verb: build
-build:
-  status: in_progress
-  build_mode: inline
+runtime:
+  normal:
+    mode: normal
+    status: in_progress
+    tdd_mode: auto_by_task_type
+    build_mode: inline        # 或 subagent_dispatch（仅用户显式要求）
+    signals: []               # 命中的守门信号（Step 5 选 B 时记录）
+  build:
+    status: in_progress
+    build_mode: inline
+phase: build
 ```
 
 输出：`[polaris-flow 开发]常规通道: change_id=<change_id> ; worktree=main ; tasks=<N> 顶层任务`
 
 ### Step 7：合并主审（阻塞点）
 
-P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**（复用 `propose-reviewer`，评审对象天然就是四件套 + intention）。不做 design / plan 独立主审，不询问 Outside Voice。
+P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**（复用 `plan-reviewer`，评审对象天然就是四件套 + intention）。不做 design / tasks 独立主审，不询问 Outside Voice。
 
 #### 7.1 机械终检
 
@@ -395,10 +396,10 @@ P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**�
 
 任一失败 → 回 Step 4.3 / 6.2 补齐，不得进入 7.2。
 
-#### 7.2 派发主审 — `propose-reviewer`
+#### 7.2 派发主审 — `plan-reviewer`
 
 1. **probe**：`use_skill("polaris{{SKN_SPR}}subagent-probe")`（传入 `platform`）。返回 `inline` / `unsupported` → 标注并 decision-point：**A 接受跳过主审（记录原因）** / **B 阻断**。不得 inline 假评审。
-2. **派发**：`propose-reviewer`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。派发执行按 probe 返回的平台能力选择形态：
+2. **派发**：`plan-reviewer`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。派发执行按 probe 返回的平台能力选择形态：
    - **路径引用型**（agent 可自读文件）：`materials` 传路径清单
    - **内容注入型**（agent 无法读文件）：主代理 Read 全部全文拼入 `Materials:` 段
 3. **传入参数**：
@@ -417,7 +418,7 @@ P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**�
      4. `openspec/changes/<change_id>/tasks.md`（**终版细计划**，非粗骨架——须在派发 prompt 中注明）
      5. `openspec/changes/<change_id>/intention.md`
 
-4. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；写入 `openspec/changes/<change_id>/reviews/propose-review-report.md`
+4. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；写入 `openspec/changes/<change_id>/reviews/plan-review-report.md`
 
 #### 7.3 消化
 
@@ -426,12 +427,13 @@ P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**�
 3. 消化完成后写入 state：
 
 ```yaml
-propose:
-  status: completed
-  review_report: openspec/changes/<change_id>/reviews/propose-review-report.md  # 或 skipped:<reason>
-  review_mode: merged
-  outside_voice: not_run:p02-compressed
-  finished_at: "<ISO>"
+runtime:
+  plan:
+    status: completed
+    review_report: openspec/changes/<change_id>/reviews/plan-review-report.md  # 或 skipped:<reason>
+    review_mode: merged
+    outside_voice: not_run:p02-compressed
+    finished_at: "<ISO>"
 ```
 
 ### Step 8：实施
@@ -467,7 +469,7 @@ inline 与 subagent 分支同样适用（subagent 分支须写入启动 prompt�
 #### 8.4 apply 中途 pause / error
 
 - **paused**：按 apply 给出的原因与选项，用 decision-point 问用户；用户选继续 → 再次 `/opsx:apply`
-- **errored**：阻断，报告错误；不写 `build.status=completed`
+- **errored**：阻断，报告错误；不写 `runtime.build.status=completed`
 
 #### 8.5 轻量代码审查（固定 `standard`，不询问）
 
@@ -501,34 +503,35 @@ apply 完成后跑**一次** `superpowers:requesting-code-review`，范围 = 本
 出口校验全部通过后，**一次性**完成所有状态写入——与 tweak 同款模式：中间不推 phase，全程只有这一 workflow 写。
 
 ```yaml
-normal:
-  status: completed
-  finished_at: "<ISO>"
-propose:
-  status: completed
-  review_report: openspec/changes/<change_id>/reviews/propose-review-report.md
-  review_mode: merged
-  outside_voice: not_run:p02-compressed
-  finished_at: "<ISO>"
-build:
-  status: completed
-  build_mode: <inline|subagent_dispatch>
-  review_mode: standard
-  final_review: <done|skipped:<reason>|accepted_risk>
-  completed_tasks: <N>
-  total_tasks: <N>
-  finished_at: "<ISO>"
-verify:
-  status: completed
-  constitution_valid: <true|false>
-  overall_score: <N>
-  score_level: <high|low>
-  verify_mode: light
-  blocked: false
-  verification_report: "openspec/changes/<change_id>/reviews/verify-report.md"
-  scorer_results: { ... }
-  finished_at: "<ISO>"
-current_verb: idle
+runtime:
+  normal:
+    status: completed
+    finished_at: "<ISO>"
+  plan:
+    status: completed
+    review_report: openspec/changes/<change_id>/reviews/plan-review-report.md
+    review_mode: merged
+    outside_voice: not_run:p02-compressed
+    finished_at: "<ISO>"
+  build:
+    status: completed
+    build_mode: <inline|subagent_dispatch>
+    review_mode: standard
+    final_review: <done|skipped:<reason>|accepted_risk>
+    completed_tasks: <N>
+    total_tasks: <N>
+    finished_at: "<ISO>"
+  verify:
+    status: completed
+    constitution_valid: <true|false>
+    overall_score: <N>
+    score_level: <high|low>
+    verify_mode: light
+    blocked: false
+    verification_report: "openspec/changes/<change_id>/reviews/verify-report.md"
+    scorer_results: { ... }
+    finished_at: "<ISO>"
+phase: idle
 ```
 
 ```bash
@@ -541,7 +544,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 常规通道完成：
   change_id : <change_id>
   specs     : openspec/changes/<change_id>/{proposal.md, design.md, specs/, tasks.md}（四件套已齐）
-  review    : openspec/changes/<change_id>/reviews/propose-review-report.md（合并主审）
+  review    : openspec/changes/<change_id>/reviews/plan-review-report.md（合并主审）
   score     : <overall_score> (<score_level>)
   report    : openspec/changes/<change_id>/reviews/verify-report.md
 下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}ship（四件套已齐，无需补齐，直接归档）。
@@ -551,7 +554,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 ## TDD 策略：为什么这里不询问
 
-完整链路在 plan 阶段会询问 `prefer_tdd / require_tdd / prefer_direct`。normal **不询问**，改为按 `tasks-template.md` 的规则**逐任务自动判定**：
+完整链路在 tasks 阶段会询问 `prefer_tdd / require_tdd / prefer_direct`。normal **不询问**，改为按 `tasks-template.md` 的规则**逐任务自动判定**：
 
 - 新功能 / Bug 修复 / 含分支逻辑 → `<!-- TDD 任务 -->`（5 步）
 - 配置修改 / 重命名 / 文档更新 / 依赖升级 / 构建脚本 / 脚手架 → `<!-- 非 TDD 任务 -->`（3 步）
@@ -561,7 +564,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 ## 上下文压缩恢复
 
-重载：`change_id`、draft 是否已 finalize、`intention.md` 当前所在路径、四件套是否已落盘并定稿、顶层任务数与勾选进度、`normal.*` / `propose.*` / `build.*` / `verify.*`、本 skill 停在哪一步。
+重载：`change_id`、draft 是否已 finalize、`intention.md` 当前所在路径、四件套是否已落盘并定稿、顶层任务数与勾选进度、`normal.*` / `plan.*` / `build.*` / `verify.*`、本 skill 停在哪一步。
 
 | 中断位置 | 恢复动作 |
 |----------|----------|
@@ -580,9 +583,9 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 - Step 7.2 合并主审已派发（或用户接受 SKIPPED 并记录原因）且无未消化 Critical
 - `tasks.md` 全部 checkbox 为 `- [x]`
 - 5 个 scorer 已跑完，`.polaris/metrics/<timestamp>-metrics.json` 已写入且含 `change_id`
-- `reviews/verify-report.md` 存在且 `verify.verification_report` 指向它
+- `reviews/verify-report.md` 存在且 `runtime.verify.verification_report` 指向它
 - 无未解决的 CRITICAL；IMPORTANT 已逐条决策
-- `build.status` / `verify.status=completed`，且 `phase=ship`
+- `runtime.build.status` / `runtime.verify.status=completed`，且 `phase=ship`
 
 ## 自动衔接下一阶段
 

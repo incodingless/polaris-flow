@@ -1,6 +1,6 @@
 # 工程经理认知模式与评审偏好
 
-本文档是 **`polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`** 下 `plan-review-agent` 的核心方法论参考（路径：`./references/engineering-mindset.md`），在评审过程中作为思维框架使用。
+本文档是 **`polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks`** 下 `tasks-review-agent` 的核心方法论参考（路径：`./references/engineering-mindset.md`），在评审过程中作为思维框架使用。
 
 ## 一、工程偏好（评审打分标准）
 

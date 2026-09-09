@@ -26,7 +26,7 @@ describe('install-layout', () => {
   it('shouldSkipAsset 跳过 backup / requirements-engineering', () => {
     expect(shouldSkipAsset('skills/backup/prd-draft-v0.1/SKILL.md')).toBe(true);
     expect(shouldSkipAsset('skills/requirements-engineering/prd-draft/SKILL.md')).toBe(true);
-    expect(shouldSkipAsset('skills/coding/clarify/SKILL.md')).toBe(false);
+    expect(shouldSkipAsset('skills/coding/specify/SKILL.md')).toBe(false);
   });
 
   it('isPackageCommonAsset 识别公共内容', () => {
@@ -36,13 +36,13 @@ describe('install-layout', () => {
     expect(isPackageCommonAsset('hooks/session-start.sh')).toBe(true);
     expect(isPackageCommonAsset('scripts/get-language-name.sh')).toBe(true);
     expect(isPackageCommonAsset('skills/hard-stops.md')).toBe(true);
-    expect(isPackageCommonAsset('skills/coding/clarify/SKILL.md')).toBe(false);
+    expect(isPackageCommonAsset('skills/coding/specify/SKILL.md')).toBe(false);
   });
 
   it('parseSkillAssetPath / getTopLevelSkillName 解析族与叶技能', () => {
-    expect(parseSkillAssetPath('coding/clarify/SKILL.md')).toEqual({
+    expect(parseSkillAssetPath('coding/specify/SKILL.md')).toEqual({
       family: 'coding',
-      skill: 'clarify',
+      skill: 'specify',
       underSkill: 'SKILL.md',
     });
     expect(parseSkillAssetPath('subagent-probe/SKILL.md')).toEqual({
@@ -50,13 +50,13 @@ describe('install-layout', () => {
       skill: 'subagent-probe',
       underSkill: 'SKILL.md',
     });
-    expect(getTopLevelSkillName('skills/coding/clarify/SKILL.md')).toBe('clarify');
+    expect(getTopLevelSkillName('skills/coding/specify/SKILL.md')).toBe('specify');
     expect(getTopLevelSkillName('skills/hard-stops.md')).toBeNull();
   });
 
   it('nested：族技能进入 polaris/<family>/<skill>', () => {
-    expect(resolveInstallDest('skills/coding/clarify/SKILL.md', claude)).toBe(
-      '.claude/skills/polaris/coding/clarify/SKILL.md',
+    expect(resolveInstallDest('skills/coding/specify/SKILL.md', claude)).toBe(
+      '.claude/skills/polaris/coding/specify/SKILL.md',
     );
     expect(resolveInstallDest('skills/prd/discovery/SKILL.md', claude)).toBe(
       '.claude/skills/polaris/prd/discovery/SKILL.md',
@@ -79,8 +79,8 @@ describe('install-layout', () => {
   });
 
   it('flat：叶技能扁平为 polaris-<family>-<skill>，公共内容仍在 plugin_root', () => {
-    expect(resolveInstallDest('skills/coding/clarify/SKILL.md', trae)).toBe(
-      '.trae/skills/polaris-coding-clarify/SKILL.md',
+    expect(resolveInstallDest('skills/coding/specify/SKILL.md', trae)).toBe(
+      '.trae/skills/polaris-coding-specify/SKILL.md',
     );
     expect(resolveInstallDest('skills/coding/verify/policies/constitution-audit.md', trae)).toBe(
       '.trae/skills/polaris-coding-verify/policies/constitution-audit.md',
@@ -101,8 +101,8 @@ describe('install-layout', () => {
   });
 
   it('resolveAgentInstallDest 落到平台 agents 目录', () => {
-    expect(resolveAgentInstallDest('plan-review-agent.md', claude)).toBe(
-      '.claude/agents/plan-review-agent.md',
+    expect(resolveAgentInstallDest('tasks-review-agent.md', claude)).toBe(
+      '.claude/agents/tasks-review-agent.md',
     );
     expect(resolveAgentInstallDest('openspec-review-agent', trae)).toBe(
       '.trae/agents/openspec-review-agent.md',

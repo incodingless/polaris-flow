@@ -10,7 +10,7 @@
 - **结构骨架**：必须 `read_file ./templates/repository-design-template.md`
 - **实践透镜**：生成前 `read_file ./references/ddd-repository-practices.md`；不得把参考文当作第二需求源
 - **抽象与实现分离**：只定义仓储**接口与行为契约**；禁止 SQL、ORM、驱动、框架代码、建表 DDL、索引全文
-- **深化不扩 scope**：不得扩大 propose 已锁定的目标 / Non-goals
+- **深化不扩 scope**：不得扩大 plan 已锁定的目标 / Non-goals
 
 ### 设计约束（必须遵守）
 

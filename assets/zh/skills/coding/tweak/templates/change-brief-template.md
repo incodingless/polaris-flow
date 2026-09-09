@@ -3,7 +3,7 @@
 > **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` skill Step 2.2 引用。主代理读取本模板后按节顺序填充，不得删节、不得改节顺序。
 >
 > 各节的 `→` 行内注释标注了该节在两处下游的映射去向：
-> 1. **升档转交**：生成符合 `intention-template.md` 结构的 `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}propose`（见 `policies/artifact-backfill.md` §2）
+> 1. **升档转交**：生成符合 `intention-template.md` 结构的 `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`（见 `policies/artifact-backfill.md` §2）
 > 2. **归档补齐**：生成 OpenSpec 四件套，供 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 归档前调用（见 `policies/artifact-backfill.md` §3）
 >
 > 因此**每节内容必须自洽完整**——下游只做格式转换，不补内容。

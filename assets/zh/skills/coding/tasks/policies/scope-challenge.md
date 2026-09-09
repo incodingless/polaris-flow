@@ -1,6 +1,6 @@
 # Step 0：范围挑战（Scope Challenge）
 
-> 归属：`polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` 技能。由 **`plan-review-agent`** 在评审入口执行。  
+> 归属：`polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks` 技能。由 **`tasks-review-agent`** 在评审入口执行。  
 > **一次性报告模式**：6 子节结论写入 Plan Review Report 的「Step 0 范围挑战结论」与相关 Findings；复杂度命中时**只给出缩 Scope 建议**，不向用户提问（决策由 plan skill 消化）。
 
 **评审任何东西之前**先完成以下 6 项。跳过会让后续 Section 1-4 失焦。

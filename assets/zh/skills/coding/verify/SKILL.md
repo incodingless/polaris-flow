@@ -9,7 +9,7 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 本 skill **仅**负责：在 **build 已完成** 的前提下，对实施产出做 Constitution 合规审计（注入点 D）、scorer 评分、以及对照 OpenSpec 四件套（+ `detailed-design.md` 若已深化）的实现验证；通过后推进到 ship。
 
 - **禁止**跳过 5 个 scorer 脚本（脚本缺失见 Step 3 降级；不得假装已跑）
-- **禁止**在 team 模式下，scorer / Constitution 形成 blocking 时把 `verify.blocked=false` 或标记通过
+- **禁止**在 team 模式下，scorer / Constitution 形成 blocking 时把 `runtime.verify.blocked=false` 或标记通过
 - **禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 且未完成出口校验就把 `phase` 推到 ship
 - **禁止**本阶段做分支合并 / PR / worktree 合回 / `/opsx:archive`（那是 ship）
 - **禁止**本阶段编写业务实现代码；用户确认修复后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`，不得在 verify 内静默改实现
@@ -23,16 +23,16 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 
 | 项 | 路径 / 值 |
 |----|-----------|
-| `change_id` | 与 clarify → build 同值 |
+| `change_id` | 与 specify → build 同值 |
 | OpenSpec 四件套 | `openspec/changes/<change_id>/`（proposal / design / specs / tasks） |
-| 深度设计（只读，`design.status=skipped` 时不存在） | `openspec/changes/<change_id>/detailed-design.md` |
+| 深度设计（只读，`runtime.design.status=skipped` 时不存在） | `openspec/changes/<change_id>/detailed-design.md` |
 | 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
 | 验证报告 | `openspec/changes/<change_id>/reviews/verify-report.md` |
 | Metrics | `.polaris/metrics/<timestamp>-metrics.json` |
 | Constitution 规则 | `./policies/constitution-audit.md` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 
-> **链路**：`clarify → propose → (design 可选) → plan → build → **verify** → ship`。
+> **链路**：`specify → plan → (design 可选) → tasks → build → **verify** → ship`。
 > 本阶段验证是否可交付；不交付、不归档。
 
 ## 前置条件
@@ -69,19 +69,19 @@ RTID_EXIT=$?
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 design 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design」
 
-> 若 entry 已是 `phase=plan`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
-> 若上次中断在 verify（`verify.status=in_progress`），从中断点续跑；不得因「已是 verify」而报零匹配。
+> 若 entry 已是 `phase=tasks`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+> 若上次中断在 verify（`runtime.verify.status=in_progress`），从中断点续跑；不得因「已是 verify」而报零匹配。
 
 **入口校验**（失败 → 阻断）：
 
 | 检查 | 条件 |
 |------|------|
-| build 已完成 | `state.yaml` 中 `build.status=completed`（或用户明示接受续跑） |
+| build 已完成 | `state.yaml` 中 `runtime.build.status=completed`（或用户明示接受续跑） |
 | tasks 已勾完 | `openspec/changes/<change_id>/tasks.md` 中不存在 `- [ ]` |
-| 四件套 + 深度设计 | `proposal.md` / `design.md` / `tasks.md` 非空，`specs/` 至少一非空文件；`detailed-design.md` 存在（**或 `design.status=skipped`，此时缺失合法**） |
+| 四件套 + 深度设计 | `proposal.md` / `design.md` / `tasks.md` 非空，`specs/` 至少一非空文件；`detailed-design.md` 存在（**或 `runtime.design.status=skipped`，此时缺失合法**） |
 | 工作目录 | 若 `worktree_path` 非空 → 后续读产物 / 跑命令 **以该 worktree 为仓库根**；否则用主仓 |
 
-通过后更新 `state.yaml`：`current_verb: verify`，`verify.status: in_progress`，`verify.blocked: false`（本轮重新判定）。  
+通过后更新 `state.yaml`：`phase: verify`，`runtime.verify.status: in_progress`，`runtime.verify.blocked: false`（本轮重新判定）。  
 输出：`[polaris-flow 开发]验证: change_id=<change_id> ; worktree=<path|main>`
 
 ### Step 1：处理dirty worktree
@@ -94,7 +94,7 @@ RTID_EXIT=$?
 | dirty 仅为本阶段产物（验证报告草稿等） | 可继续 |
 | 已实现但 `tasks.md` 仍有未勾选 | 视为 build 状态滞后 → [验证失败决策](#验证失败决策阻塞点) |
 
-用户选择「回 build 修复」后，才允许调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`；本 skill 只写 `verify.status: failed` 与失败原因，**不**改 `phase`（由用户确认后主代理再把 phase 设回 build，或由 build 入口接受「从 verify 回退」的显式选择）。
+用户选择「回 build 修复」后，才允许调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`；本 skill 只写 `runtime.verify.status: failed` 与失败原因，**不**改 `phase`（由用户确认后主代理再把 phase 设回 build，或由 build 入口接受「从 verify 回退」的显式选择）。
 
 ### Step 2：Constitution Compliance Audit（注入点 D）
 
@@ -112,7 +112,7 @@ bash "$PLUGIN_ROOT/scripts/constitution-validity.sh"   # 0=有效 / 1=无效 / 2
 - **无效**：按配置 `constitution_required`（来自 `.polaris/config.yaml` 或项目约定）告警或阻断
 
 将累计的 Critical+Important 条数记为后续 metrics 的 `audit.violations`；核对项总数记为 `audit.total_checks`（无明确分母时填 1）。  
-写入 `state.yaml`：`verify.constitution_valid: <true|false>`。
+写入 `state.yaml`：`runtime.verify.constitution_valid: <true|false>`。
 
 ### Step 3：Scorer 评分
 
@@ -171,7 +171,7 @@ overall_score = round( Σ(score_i × w_i) / Σ(w_i) )
 - `Σ(w_i) = 0` → `overall_score = 0`，reason 注明「所有 scorer 权重为 0」
 - 负权重 → 按 `1.0` 处理并警告
 
-写入 `state.yaml`：`verify.overall_score`、`verify.scorer_results`。
+写入 `state.yaml`：`runtime.verify.overall_score`、`runtime.verify.scorer_results`。
 
 #### 3.4 Mode 分发
 
@@ -183,9 +183,9 @@ else:  # team
 ```
 
 - **solo**：低分仅告警，可继续验证（完整验证倾向）
-- **team**：低分 → `verify.blocked: true`，需用户 override（记 overrides.log）后才可继续；未 override 禁止出口通过
+- **team**：低分 → `runtime.verify.blocked: true`，需用户 override（记 overrides.log）后才可继续；未 override 禁止出口通过
 
-写入 `verify.score_level: <high|low>`。
+写入 `runtime.verify.score_level: <high|low>`。
 
 ### Step 4：规模评估 + 实现验证
 
@@ -205,7 +205,7 @@ else:  # team
 git diff --stat <base-ref>...HEAD
 ```
 
-写入 `verify.verify_mode: <light|full>`。  
+写入 `runtime.verify.verify_mode: <light|full>`。  
 **覆盖**：agent 或用户可随时按 decision-point 改为 `light|full`。
 
 分流：
@@ -227,7 +227,7 @@ git diff --stat <base-ref>...HEAD
 3. 编译 / 构建通过（项目对应命令）
 4. 相关测试通过
 5. 无明显安全问题（无硬编码密钥、无新增 unsafe）
-6. 代码审查：若 `build.review_mode` 为 `standard`/`thorough`，加载 Superpowers `requesting-code-review`，**只**查正确性 / 安全 / 边界；`off` 则跳过并在报告记录原因
+6. 代码审查：若 `runtime.build.review_mode` 为 `standard`/`thorough`，加载 Superpowers `requesting-code-review`，**只**查正确性 / 安全 / 边界；`off` 则跳过并在报告记录原因
 
 **与 build 去重**：build Step 4 已审过且未再改动的 diff，本步聚焦「是否符合 spec/tasks」与「build 之后新增改动」，不整份重审。
 
@@ -246,11 +246,11 @@ git diff --stat <base-ref>...HEAD
 
 1. `tasks.md` 全部 `[x]`
 2. 实现符合高层 `openspec/changes/<change_id>/design.md`
-3. 实现符合 `openspec/changes/<change_id>/detailed-design.md`（**仅 `design.status=completed` 时检查；`skipped` 时跳过本项**）
+3. 实现符合 `openspec/changes/<change_id>/detailed-design.md`（**仅 `runtime.design.status=completed` 时检查；`skipped` 时跳过本项**）
 4. 能力规格场景可追溯通过（或明确记录未自动化项与手工结论）
 5. `proposal.md` 目标已满足
 6. specs / detailed-design（若有）无未记录矛盾（Build 中改过 spec 的，detailed-design 须有对应记录）
-7. `detailed-design.md` 可定位且与当前 change 相关（**仅 `design.status=completed` 时检查**）
+7. `detailed-design.md` 可定位且与当前 change 相关（**仅 `runtime.design.status=completed` 时检查**）
 
 **不通过** → [验证失败决策](#验证失败决策阻塞点)。
 
@@ -258,8 +258,8 @@ git diff --stat <base-ref>...HEAD
 
 | 选项 | 动作 |
 |------|------|
-| A | 在 `detailed-design.md` 追加 `## Implementation Divergence` 记录原因（本阶段允许产物；不得因此再触发 Step 1 dirty 失败环）；**`design.status=skipped` 时无此文件，改为在 `reviews/verify-report.md` 记录偏差** |
-| B | 用户确认后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`（或回 design/plan，由用户选），更新设计与 specs |
+| A | 在 `detailed-design.md` 追加 `## Implementation Divergence` 记录原因（本阶段允许产物；不得因此再触发 Step 1 dirty 失败环）；**`runtime.design.status=skipped` 时无此文件，改为在 `reviews/verify-report.md` 记录偏差** |
+| B | 用户确认后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`（或回 design/tasks，由用户选），更新设计与 specs |
 | C | 确认偏差可接受，继续；报告中记录接受原因与影响 |
 
 ### Step 5：落盘证据 + 出口推进
@@ -270,17 +270,18 @@ git diff --stat <base-ref>...HEAD
 2. 更新 `state.yaml`：
 
 ```yaml
-verify:
-  status: completed
-  constitution_valid: <true|false>
-  overall_score: <N>
-  score_level: <high|low>
-  verify_mode: <light|full>
-  blocked: false
-  verification_report: "openspec/changes/<change_id>/reviews/verify-report.md"
-  scorer_results: { ... }
-  finished_at: "<ISO>"
-current_verb: idle
+runtime:
+  verify:
+    status: completed
+    constitution_valid: <true|false>
+    overall_score: <N>
+    score_level: <high|low>
+    verify_mode: <light|full>
+    blocked: false
+    verification_report: "openspec/changes/<change_id>/reviews/verify-report.md"
+    scorer_results: { ... }
+    finished_at: "<ISO>"
+phase: idle
 ```
 
 4. 推进：
@@ -301,7 +302,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 **硬阻断（不得推进 phase）**：
 
-- `verify.blocked=true` 且用户未 override
+- `runtime.verify.blocked=true` 且用户未 override
 - 存在未解决的 CRITICAL / IMPORTANT
 - metrics 文件未写入
 - 验证报告未落盘
@@ -324,7 +325,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 | 选择 | 动作 |
 |------|------|
-| 全部修复 | 写 `verify.status: failed`；调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build` 修复（用户确认后） |
+| 全部修复 | 写 `runtime.verify.status: failed`；调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build` 修复（用户确认后） |
 | 逐项处理 | CRITICAL / IMPORTANT 必须修；WARNING / SUGGESTION 可接受偏差但须写入报告；存在任一 CRITICAL/IMPORTANT 时禁止「全部接受」 |
 | 接受偏差（仅非 blocking） | 记 overrides.log + 报告；team blocking 场景除外 |
 
@@ -336,15 +337,15 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 - 原则来源：`openspec/memory/constitution.md`（路径以仓库约定为准）
 - 详细规则：`policies/constitution-audit.md`
-- 输出格式见该 policy；结果进入 metrics 的 `audit.*` 嵌套段与 `verify.constitution_valid`
+- 输出格式见该 policy；结果进入 metrics 的 `audit.*` 嵌套段与 `runtime.verify.constitution_valid`
 
 ## 退出条件
 
 - 轻量或完整验证通过（无未解决 CRITICAL / IMPORTANT）
-- `verify.blocked=false`（或已合法 override）
+- `runtime.verify.blocked=false`（或已合法 override）
 - `.polaris/metrics/<timestamp>-metrics.json` 已写入且含 `change_id`
-- `verify-report.md` 存在且 `verify.verification_report` 指向它
-- `verify.status=completed`，且 `phase=ship`
+- `verify-report.md` 存在且 `runtime.verify.verification_report` 指向它
+- `runtime.verify.status=completed`，且 `phase=ship`
 
 ## 上下文压缩恢复
 

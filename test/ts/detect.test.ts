@@ -35,7 +35,7 @@ describe('hasSkills', () => {
     expect(await hasSkills(claudeSkills, 'polaris')).toBe(true);
 
     const traeSkills = path.join(projectRoot, '.trae', 'skills');
-    await mkdir(path.join(traeSkills, 'polaris-coding-clarify'), { recursive: true });
+    await mkdir(path.join(traeSkills, 'polaris-coding-specify'), { recursive: true });
     expect(await hasSkills(traeSkills, 'polaris')).toBe(true);
 
     const legacy = path.join(projectRoot, '.legacy', 'skills');

@@ -1,6 +1,6 @@
 # Section 1-4：四节评审
 
-> 归属：`polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` 技能。由 **`plan-review-agent`** 在范围挑战之后顺序执行。  
+> 归属：`polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks` 技能。由 **`tasks-review-agent`** 在范围挑战之后顺序执行。  
 > **一次性报告模式**：每节发现写入 Plan Review Report 对应章节与 Findings，**禁止** `ask_followup_question` / 一问一议；用户决策由 plan skill 消化 STATUS 时处理。
 
 ## Section 1：架构评审
@@ -51,7 +51,7 @@
 
 ### 测试评审产物（单一产物原则）
 
-测试评审产物**直接写入** `openspec/changes/<change_id>/reviews/plan-review-report.md` 的「测试评审」章节，**不另产出 test-plan.md**。
+测试评审产物**直接写入** `openspec/changes/<change_id>/reviews/tasks-review-report.md` 的「测试评审」章节，**不另产出 test-plan.md**。
 
 ## Section 4：性能评审
 

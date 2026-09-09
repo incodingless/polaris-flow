@@ -28,7 +28,7 @@ describe('findEntryByTaskId', () => {
   it('跨三个列表命中，返回对应 kind', () => {
     const state = emptyWorkflowState();
     state.change_tasks = [
-      { task_id: 'c1', phase: 'propose', worktree_path: '', started_at: '' },
+      { task_id: 'c1', phase: 'plan', worktree_path: '', started_at: '' },
     ];
     state.requirement_tasks = [
       { task_id: 'r1', phase: 'draft', worktree_path: '', started_at: '' },
@@ -36,7 +36,7 @@ describe('findEntryByTaskId', () => {
 
     expect(findEntryByTaskId(state, 'c1')).toEqual({
       kind: 'change',
-      entry: { task_id: 'c1', phase: 'propose', worktree_path: '', started_at: '' },
+      entry: { task_id: 'c1', phase: 'plan', worktree_path: '', started_at: '' },
     });
     expect(findEntryByTaskId(state, 'r1')?.kind).toBe('requirement');
     expect(findEntryByTaskId(state, 'missing')).toBeNull();
@@ -45,7 +45,7 @@ describe('findEntryByTaskId', () => {
 
 describe('resolveNextSkillName', () => {
   it('coding 各 phase 映射正确；delivery/archive 归一到 ship', () => {
-    expect(resolveNextSkillName('change', 'propose')).toBe('propose');
+    expect(resolveNextSkillName('change', 'plan')).toBe('plan');
     expect(resolveNextSkillName('change', 'build')).toBe('build');
     expect(resolveNextSkillName('change', 'verify')).toBe('verify');
     expect(resolveNextSkillName('change', 'ship')).toBe('ship');
@@ -58,14 +58,14 @@ describe('resolveNextSkillName', () => {
     expect(resolveNextSkillName('requirement', 'refine')).toBe('refine');
     expect(resolveNextSkillName('change', '')).toBeNull();
     expect(resolveNextSkillName('change', 'unknown-phase')).toBeNull();
-    expect(resolveNextSkillName('change', 'clarify')).toBeNull();
+    expect(resolveNextSkillName('change', 'specify')).toBeNull();
   });
 });
 
 describe('buildSkillName', () => {
   it('nested 用 `:`，flat 用 `-`', () => {
-    expect(buildSkillName(':', 'coding', 'propose')).toBe('polaris:coding:propose');
-    expect(buildSkillName('-', 'coding', 'propose')).toBe('polaris-coding-propose');
+    expect(buildSkillName(':', 'coding', 'plan')).toBe('polaris:coding:plan');
+    expect(buildSkillName('-', 'coding', 'plan')).toBe('polaris-coding-plan');
   });
 });
 
@@ -82,19 +82,19 @@ describe('formatStateNextOutput', () => {
   it('auto / manual / done 三种输出', () => {
     expect(formatStateNextOutput({ exitCode: 0, next: 'done' })).toEqual(['NEXT: done']);
     expect(
-      formatStateNextOutput({ exitCode: 0, next: 'auto', skill: 'polaris:coding:propose' }),
-    ).toEqual(['NEXT: auto', 'SKILL: polaris:coding:propose']);
+      formatStateNextOutput({ exitCode: 0, next: 'auto', skill: 'polaris:coding:plan' }),
+    ).toEqual(['NEXT: auto', 'SKILL: polaris:coding:plan']);
     expect(
       formatStateNextOutput({
         exitCode: 0,
         next: 'manual',
-        skill: 'polaris:coding:propose',
-        hint: '自动衔接已关闭，请手动运行 /polaris:coding:propose',
+        skill: 'polaris:coding:plan',
+        hint: '自动衔接已关闭，请手动运行 /polaris:coding:plan',
       }),
     ).toEqual([
       'NEXT: manual',
-      'SKILL: polaris:coding:propose',
-      'HINT: 自动衔接已关闭，请手动运行 /polaris:coding:propose',
+      'SKILL: polaris:coding:plan',
+      'HINT: 自动衔接已关闭，请手动运行 /polaris:coding:plan',
     ]);
   });
 });
@@ -113,25 +113,25 @@ describe('runStateNext', () => {
     expect(result.exitCode).toBe(3);
   });
 
-  it('phase=propose 且缺省 auto → NEXT auto + SKILL', async () => {
+  it('phase=plan 且缺省 auto → NEXT auto + SKILL', async () => {
     const repo = await tmpRepo();
     const state = emptyWorkflowState();
     state.change_tasks = [
-      { task_id: 'feat-1', phase: 'propose', worktree_path: '', started_at: '' },
+      { task_id: 'feat-1', phase: 'plan', worktree_path: '', started_at: '' },
     ];
     await saveWorkflowState(repo, state);
 
     const result = await runStateNext({ changeName: 'feat-1', repoRoot: repo });
     expect(result.exitCode).toBe(0);
     expect(result.next).toBe('auto');
-    expect(result.skill).toBe('polaris:coding:propose');
+    expect(result.skill).toBe('polaris:coding:plan');
   });
 
   it('config auto_transition=off → manual + HINT', async () => {
     const repo = await tmpRepo();
     const state = emptyWorkflowState();
     state.change_tasks = [
-      { task_id: 'feat-1', phase: 'propose', worktree_path: '', started_at: '' },
+      { task_id: 'feat-1', phase: 'plan', worktree_path: '', started_at: '' },
     ];
     await saveWorkflowState(repo, state);
     await writeFile(
@@ -142,15 +142,15 @@ describe('runStateNext', () => {
 
     const result = await runStateNext({ changeName: 'feat-1', repoRoot: repo });
     expect(result.next).toBe('manual');
-    expect(result.skill).toBe('polaris:coding:propose');
-    expect(result.hint).toContain('/polaris:coding:propose');
+    expect(result.skill).toBe('polaris:coding:plan');
+    expect(result.hint).toContain('/polaris:coding:plan');
   });
 
   it('未知 phase → done', async () => {
     const repo = await tmpRepo();
     const state = emptyWorkflowState();
     state.change_tasks = [
-      { task_id: 'feat-1', phase: 'clarify', worktree_path: '', started_at: '' },
+      { task_id: 'feat-1', phase: 'specify', worktree_path: '', started_at: '' },
     ];
     await saveWorkflowState(repo, state);
 

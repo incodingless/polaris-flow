@@ -99,7 +99,7 @@ export async function create(changeId: string, mainRepoRoot: string): Promise<Cr
   if (await fileExists(snapshotPath)) {
     return {
       exitCode: 1,
-      message: `上次 propose 残留快照目录 ${snapshotPath} 存在，请人工确认后删除`,
+      message: `上次 plan 残留快照目录 ${snapshotPath} 存在，请人工确认后删除`,
     };
   }
 

@@ -40,4 +40,4 @@
 
 ## 建议下一步
 
-**SKIP** — 可直接 `/psfl:clarify` 或 `/ezfl:propose`，explore 可跳过。
+**SKIP** — 可直接 `/psfl:clarify` 或 `/ezfl:plan`，explore 可跳过。

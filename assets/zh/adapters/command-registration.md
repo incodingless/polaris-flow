@@ -41,16 +41,16 @@ polaris-flow 的命令文件是**宿主中立的 Markdown**：一份 `assets/{zh
 
 | 命令 | 作用 |
 |---|---|
-| `/polaris-flow` | 总入口：弹出「实现 / 需求 / 测试」菜单，按选择路由到对应技能 |
-| `/polaris` | 启动完整工作流（brainstorm → plan → implement） |
-| `/polaris-tweak` | 小改动（跳过 brainstorming 与完整 plan） |
-| `/polaris-hotfix` | 快速修复 bug（跳过 brainstorming） |
+| `/polaris:flow` | 总入口：开发类路径走「前置需求预检 → 强制附需求 → 询问自动评估复杂度 → 按 4 档路由」；其他类直接菜单选择 |
+| `/polaris:normal` | 常规需求（P02 单入口：四件套 + 双向守门 + 合并主审） |
+| `/polaris:tweak` | 小改动（跳过 brainstorming 与完整 plan） |
+| `/polaris:hotfix` | 快速修复 bug（跳过 brainstorming、constitution 审计、出口检查） |
 
 ## 退化路径
 
 | 宿主能力 | 命令可用性 | 调用方式 |
 |---|---|---|
-| 完整命令支持 | `/polaris-flow` 可用 | 用户直接输入命令 |
+| 完整命令支持 | `/polaris:flow` 可用 | 用户直接输入命令 |
 | 仅 skill 加载 | 不可用 | 直接加载 `polaris:prd:discovery` 等技能 |
 | 不支持 skill | 不可用 | polaris-flow 不可用 |
 

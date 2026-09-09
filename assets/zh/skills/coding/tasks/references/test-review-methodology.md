@@ -1,8 +1,8 @@
 # 测试评审方法论
 
-本文档是 **`polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`** 下 `plan-review-agent` 在 Section 3「测试评审」中的详细执行规范（路径：`./references/test-review-methodology.md`）。
+本文档是 **`polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks`** 下 `tasks-review-agent` 在 Section 3「测试评审」中的详细执行规范（路径：`./references/test-review-methodology.md`）。
 
-测试评审的目标是 **100% 覆盖**。评估计划中的每条代码路径，确保每条路径都有对应的测试。若计划缺少测试，把测试缺口写入报告「建议加入 tasks」清单——**不直接改** `tasks.md`（由 plan skill 消化）。
+测试评审的目标是 **100% 覆盖**。评估计划中的每条代码路径，确保每条路径都有对应的测试。若计划缺少测试，把测试缺口写入报告「建议加入 tasks」清单——**不直接改** `tasks.md`（由 tasks skill 消化）。
 
 ## Step 1: 检测测试框架
 
@@ -186,7 +186,7 @@ LLM 集成: [GAP] [→EVAL] Prompt 模板变更——需要 eval 测试
 
 测试评审的产物**直接写入** review-report.md 的「测试评审」章节，**不另产出 test-plan.md 文件**。
 
-- **OpenSpec 场景**：写到 `openspec/changes/<name>/reviews/plan-review-report.md` 的「测试评审」节
+- **OpenSpec 场景**：写到 `openspec/changes/<name>/reviews/tasks-review-report.md` 的「测试评审」节
 - **独立调用场景**：写到调用方指定的 review-report 路径，路径由调用方决定
 
 结构如下：

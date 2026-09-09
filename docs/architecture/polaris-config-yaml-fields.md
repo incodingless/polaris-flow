@@ -56,7 +56,7 @@ archived: false
 | `plan` | 关联的 Superpowers Plan 路径，可为空 |
 | `base_ref` | init 时记录的 git commit SHA，用于 scale 评估。无 plan 时作为改动文件数统计基准 |
 | `build_mode` | 已选择的执行方式，可为空。取值：`subagent-driven-development`（隔离后台 subagent 逐任务实现并审查）、`executing-plans`（主会话按计划顺序执行）、`direct`（主会话直接编码，默认仅 hotfix/tweak 允许，full workflow 需 `direct_override: true`） |
-| `build_pause` | build 阶段内部暂停点。`null` 表示无暂停，`plan-ready` 表示 plan 已生成，用户选择切换模型后暂停 |
+| `build_pause` | build 阶段内部暂停点。`null` 表示无暂停，`tasks-ready` 表示 tasks 已生成，用户选择切换模型后暂停 |
 | `subagent_dispatch` | `null` 或 `confirmed`。仅当已确认当前平台存在真实后台 subagent / Task / multi-agent 调度能力时，`build_mode: subagent-driven-development` 才能写入并用于离开 build 阶段 |
 | `tdd_mode` | `tdd` 或 `direct`。full workflow 离开 build 阶段前必须已选择。`tdd` 强制每个任务先写失败测试再实现；`direct` 不强制逐任务 TDD，但仍需相关测试与 bug 回归证据。hotfix/tweak 默认 `direct` |
 | `review_mode` | `off`、`standard` 或 `thorough`。full workflow 离开 build 阶段前必须已选择；hotfix/tweak 默认 `off` |

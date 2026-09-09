@@ -54,7 +54,7 @@ bash "$PLUGIN_ROOT/scripts/constitution-validity.sh"   # 0=有效 / 1=无效 / 2
 
 输出格式照 `constitution-audit.md` §3。累计的 Critical + Important 条数记为 metrics 的 `audit.violations`，核对项总数记为 `audit.total_checks`（无明确分母时填 1）。
 
-写入 `state.yaml`：`verify.constitution_valid: <true|false>`。
+写入 `state.yaml`：`runtime.verify.constitution_valid: <true|false>`。
 
 ---
 
@@ -114,7 +114,7 @@ overall_score = round( Σ(score_i × w_i) / Σ(w_i) )
 - `w_i = 0` → 不参与 overall，但仍写入 `scorers[]`
 - `Σ(w_i) = 0` → `overall_score = 0`，reason 注明「所有 scorer 权重为 0」
 
-写入 `state.yaml`：`verify.overall_score`、`verify.scorer_results`。
+写入 `state.yaml`：`runtime.verify.overall_score`、`runtime.verify.scorer_results`。
 
 ### 3.4 Mode 分发
 
@@ -126,9 +126,9 @@ else:  # team
 ```
 
 - **solo**：低分仅告警，可继续
-- **team**：低分 → `verify.blocked: true`，需用户 override（记 `overrides.log`）后才可继续
+- **team**：低分 → `runtime.verify.blocked: true`，需用户 override（记 `overrides.log`）后才可继续
 
-写入 `verify.score_level: <high|low>`。
+写入 `runtime.verify.score_level: <high|low>`。
 
 ---
 
@@ -150,7 +150,7 @@ else:  # team
 
 | 选择 | 动作 |
 |------|------|
-| 全部修复 | 回 normal Step 8.3 重新 `/opsx:apply`（用户确认后）；本轮先写 `verify.status: failed` 与失败原因，**不**推进 phase |
+| 全部修复 | 回 normal Step 8.3 重新 `/opsx:apply`（用户确认后）；本轮先写 `runtime.verify.status: failed` 与失败原因，**不**推进 phase |
 | 逐项处理 | CRITICAL / IMPORTANT 必须修；WARNING / SUGGESTION 可接受偏差但须写入报告；存在任一 CRITICAL / IMPORTANT 时禁止「全部接受」 |
 | 接受偏差（仅非 blocking） | 记 `.polaris/overrides.log` + `verify-report.md`；team blocking 场景除外 |
 | 升到 P03 | 命中升档信号（`./tier-gate.md` §2）时可选；按其 §2.3 转交 design |
@@ -186,7 +186,7 @@ else:  # team
 - 任一 CRITICAL 未解决
 - `.polaris/metrics/<timestamp>-metrics.json` 未写入或不含 `change_id`
 - `reviews/verify-report.md` 未落盘
-- `verify.blocked=true` 且用户未 override
+- `runtime.verify.blocked=true` 且用户未 override
 
 ## 7. 断点恢复
 

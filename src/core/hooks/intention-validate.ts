@@ -1,12 +1,12 @@
 /**
- * intention.md 必含节完整性校验（对齐 propose Step 2.2 / intention-template）。
+ * intention.md 必含节完整性校验（对齐 plan Step 2.2 / intention-template）。
  * 由 `polaris intention-validate` 调用；本层只返回结果，不写 stdout/stderr。
  */
 import { readFile } from 'fs/promises';
 
 import { fileExists } from '../../utils/file-system.js';
 
-/** propose 必含节（节名须与模板一致） */
+/** plan 必含节（节名须与模板一致） */
 export const INTENTION_REQUIRED_SECTIONS = [
   '## Reframe 历程',
   '## 宪法对齐',
@@ -99,6 +99,6 @@ export async function runIntentionValidate(filePath: string): Promise<IntentionV
     exitCode: 2,
     missing,
     payload: { missing },
-    message: `intention.md 不完整，缺失节 ${missing.join(' ')}，请回到 /polaris-flow-clarify 补齐。`,
+    message: `intention.md 不完整，缺失节 ${missing.join(' ')}，请回到 /polaris-flow-specify 补齐。`,
   };
 }

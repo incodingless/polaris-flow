@@ -28,9 +28,9 @@ export type AutoTransition = 'auto' | 'off';
 export type BuildMode = 'tdd' | 'none';
 /** 工作流类型，可选值: sdd | tweak | bugfix | full */
 export type WorkflowType = 'sdd' | 'tweak' | 'bugfix' | 'full';
-/** 任务阶段 */
+/** 任务阶段；`delivery`/`archive` 为历史别名，仅用于读取兼容，写盘一律 `ship` */
 export type TaskPhase =
-  'idle' | 'clarify' | 'propose' | 'design' | 'plan' | 'build' | 'verify' | 'delivery' | string;
+  'idle' | 'specify' | 'plan' | 'design' | 'tasks' | 'build' | 'verify' | 'ship' | string;
 
 /** 语言, 可选值: en-英文 | zh-中文 */
 

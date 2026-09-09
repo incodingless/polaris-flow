@@ -15,7 +15,7 @@ bash "$PLUGIN_ROOT/scripts/harness-sync.sh" <worktree_path> <origin_repo> <chang
 - 3.3 用户选 A（已 PR 合并 / 不需本地合并）或 B（本地合并）
 - 3.2 检测到 `ALREADY_MERGED=1`（`finishing-a-development-branch` 已合并过）
 
-3.6 选项 C（保留 worktree）**跳过本 policy**——产物仍在 worktree 内，记录 `ship.harness_sync = "skipped_worktree_retained"`。
+3.6 选项 C（保留 worktree）**跳过本 policy**——产物仍在 worktree 内，记录 `runtime.ship.harness_sync = "skipped_worktree_retained"`。
 
 ## 关键约束
 

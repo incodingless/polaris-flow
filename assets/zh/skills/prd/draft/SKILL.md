@@ -47,7 +47,7 @@ RTID_EXIT=$?
 | draft 已完成 | `state.yaml` 中 `draft.status=completed` |
 
 执行：
-1. 更新 `state.yaml`：`current_verb: draft`，`draft.status: in_progress`。
+1. 更新 `state.yaml`：`phase: draft`，`draft.status: in_progress`。
 
 2. 设置语言
 

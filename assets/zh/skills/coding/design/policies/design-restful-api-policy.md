@@ -8,7 +8,7 @@
 
 - **输入真相**：以 `detailed-design.md` 为接口**能力来源**；若已有 `domain-model-design.md`，资源命名与聚合/实体对齐。辅以高层 `design.md`、`proposal.md`、`specs/*/spec.md`。**禁止**发明未出现的业务能力
 - **结构骨架**：必须 `read_file ./templates/restful-api-design-template.md`，按模板章节落盘
-- **深化不扩 scope**：不得扩大 propose 已锁定的目标 / Non-goals；缺口标 TBD，留给 Spec Patch
+- **深化不扩 scope**：不得扩大 plan 已锁定的目标 / Non-goals；缺口标 TBD，留给 Spec Patch
 - **契约视角**：只写可联调、可评审的 HTTP 契约；禁止堆砌实现、表结构、仓储接口（那些归 data-model / repository）
 
 ### 设计约束（必须遵守）

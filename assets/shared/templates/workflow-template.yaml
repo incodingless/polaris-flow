@@ -4,18 +4,18 @@
 # 职责：
 #   - 列出所有"未delivery 完结"的任务（change_tasks）
 #   - 仅承载"游标"语义（哪个任务在哪个阶段），不承载单任务的业务档案
-#   - 单任务的业务档案（clarify/propose/design/build/verify/delivery 状态）写入
+#   - 单任务的业务档案（specify/plan/design/build/verify/delivery 状态）写入
 #     .polaris/tasks/<task_id>/state.yaml
 #
-# 并发安全：每个任务在 change_tasks 中各占一项，多个 clarify 同时进行时
+# 并发安全：每个任务在 change_tasks 中各占一项，多个 specify 同时进行时
 # 各自只 append 自己的 entry，再各自维护 tasks/<task_id>/state.yaml，互不覆盖。
 # 注：task等同于 Openspec的change概念
 change_tasks: []
 # 每项结构（共 4 个字段）：
 #   - task_id: refactor-sdk-api-0701c0
-#     phase: design                      # clarify | propose | design | build | verify | delivery
-#     worktree_path: ""                  # 空表示该 change 仍在主仓；propose 后填 worktree 绝对路径
-#     started_at: 2026-05-25T14:30:00Z   # task 创建时间（clarify Step 1）
+#     phase: design                      # specify | plan | design | build | verify | delivery
+#     worktree_path: ""                  # 空表示该 change 仍在主仓；plan 后填 worktree 绝对路径
+#     started_at: 2026-05-25T14:30:00Z   # task 创建时间（specify Step 1）
 
 # 职责：
 #   - 列出所有归档的"需求"任务（requirement_tasks）

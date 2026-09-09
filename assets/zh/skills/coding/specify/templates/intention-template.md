@@ -1,35 +1,35 @@
 # 意图调研结果
 
-> **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` skill Step 4.1 引用。clarify 主代理读取本模板后，按节顺序填充；各节内容来源标注见行内注释。
+> **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` skill Step 4.1 引用。specify 主代理读取本模板后，按节顺序填充；各节内容来源标注见行内注释。
 
 ---
 
 # 意图调研结果: <task_id>
 
 ## Reframe 历程
-<!-- 来自 clarify Step 3.2，一行 -->
+<!-- 来自 specify Step 3.2，一行 -->
 - 原始诉求 X → 用户接受 Reframe 为 Y（或："用户拒绝 Reframe，保留原始 framing X"）
 
 ## 宪法对齐
-<!-- 来自 clarify Step 2，逐条对齐 Core Principle -->
+<!-- 来自 specify Step 2，逐条对齐 Core Principle -->
 - Principle 1: <如何对齐>
 - Principle 2: <如何对齐>
 - ...
 
 ## 前提
-<!-- 来自 clarify Step 3.4，用户已逐条确认的前提 -->
+<!-- 来自 specify Step 3.4，用户已逐条确认的前提 -->
 1. <前提原文>
 2. <前提原文>
 
 ## 前提历史
-<!-- 来自 clarify Step 3.4，被拒绝/修改过的前提及其历史 -->
+<!-- 来自 specify Step 3.4，被拒绝/修改过的前提及其历史 -->
 - <历史前提> → <修正后的前提>，原因：<...>
 
 ## 目标
 <!-- 任务的需要达成的目标概述 -->
 
 ## 结论（架构 + 技术选型）
-<!-- 来自 clarify Step 3.3 用户选定方案 -->
+<!-- 来自 specify Step 3.3 用户选定方案 -->
 
 ### 架构
 <...>
@@ -38,7 +38,7 @@
 <...>
 
 ## 备选方案
-<!-- 来自 clarify Step 3.3 未选方案 -->
+<!-- 来自 specify Step 3.3 未选方案 -->
 
 ### 方案 B（未选）
 - 优点：…

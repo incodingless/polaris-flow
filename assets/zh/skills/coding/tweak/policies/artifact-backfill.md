@@ -58,7 +58,7 @@
 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` Step 5（归档询问）之前，满足**任一**即触发：
 
 - `openspec/changes/<change_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
-- `state.yaml` 中 `tweak.mode == "tweak"`
+- `state.yaml` 中 `workflow.tweak.mode == "tweak"`
 
 未触发时（例如本次本就是 P02/P03 完整链路）跳过整节。
 
@@ -96,13 +96,13 @@
 
 ### 3.4 校验与失败处理
 
-补齐后按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}propose` Step 4.1 的机械终检标准自检：
+补齐后按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` Step 4.1 的机械终检标准自检：
 
 - 四件套存在且非空；`specs/` 为目录且含至少一个非空文件
 - `proposal.md` 含问题背景、目标、范围、非目标
 - `design.md` 含架构决策、方案选型，且含 `## Constitution Alignment` / `## Alternatives` / `## Premises`
 
-**失败处理**：不阻断交付。按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 现有规则处置——`ship.archive=failed`，写入 `archive_error`，`openspec/changes/<change_id>/` 保持原位，照常进入 Step 6.1 清游标。用户可事后手动补齐并运行 `openspec-cn archive <change_id>`。
+**失败处理**：不阻断交付。按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 现有规则处置——`runtime.ship.archive=failed`，写入 `archive_error`，`openspec/changes/<change_id>/` 保持原位，照常进入 Step 6.1 清游标。用户可事后手动补齐并运行 `openspec-cn archive <change_id>`。
 
 **禁止**：因补齐失败而回滚已完成的分支合并与 worktree 合回。
 

@@ -37,7 +37,7 @@ description: "用户触发 /polaris{{SKN_SPR}}constitution，或要求创建 / �
 脚本驻留 plugin 内部；缺失则按"不存在"处理并提示重启会话。
 
 ```bash
-bash "$PLUGIN_ROOT/hooks/constitution-validity.sh"
+bash "$PLUGIN_ROOT/scripts/constitution-validity.sh"
 # 退出码：0=有效 / 1=无效（含未替换占位符）/ 2=不存在
 ```
 
@@ -45,6 +45,6 @@ bash "$PLUGIN_ROOT/hooks/constitution-validity.sh"
 
 ```ymal
 constitution:
-    required = false  # true 时未生成有效宪法的项目阻断 propose/apply
+    required = false  # true 时未生成有效宪法的项目阻断 plan/apply
     path = "openspec/memory/constitution.md"
 ```

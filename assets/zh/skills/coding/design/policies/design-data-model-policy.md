@@ -8,7 +8,7 @@
 
 - **输入真相**：有 `repository-design.md` 时以其 **§7 持久化单元** 为表/集合清单来源；有 `domain-model-design.md` 时以聚合/实体约束字段含义。`detailed-design.md` 提供存储技术与容量假设。**禁止**发明上游没有的业务表
 - **结构骨架**：必须 `read_file ./templates/data-model-design-template.md`，按模板章节落盘
-- **深化不扩 scope**：不得扩大 propose 已锁定的目标 / Non-goals；缺口标 TBD，留给 Spec Patch
+- **深化不扩 scope**：不得扩大 plan 已锁定的目标 / Non-goals；缺口标 TBD，留给 Spec Patch
 - **实现形状、不是领域重写**：本文件写表/索引/DDL；禁止再定义一套与领域模型矛盾的实体
 
 ### 设计约束（必须遵守）

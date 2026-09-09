@@ -1,8 +1,8 @@
 ---
 name: hotfix
-command_prefix: polaris
-triggers: ["/polaris:hotfix"]
+command_prefix: pofol
+triggers: ["/pofol:hotfix"]
 description: Quick bug fix (skip brainstorming)
 ---
 
-Use the `polaris:hotfix` skill.
+Use the `polaris{{SKN_SPR}}coding{{SKN_SPR}}hotfix` skill.

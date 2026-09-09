@@ -2,8 +2,8 @@
 
 > **重要**：
 > - 本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 4.4 引用；生成前**必须** `read_file` 重读本文件。
-> - **tweak 没有 plan 阶段**，不会有人再来覆写。因此本模板产出的是**终版可执行细计划**，不是 propose 那种等 plan 覆写的粗骨架。
-> - 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}propose` 的任务模板（`tasks-template.md`）的差异：顶层任务数有硬上限（≤ 3）、TDD 类型改为自动判定（不询问用户）、文档同步组改为同步 `change-brief.md`（无 proposal/design/specs）。
+> - **tweak 没有 tasks 阶段**，不会有人再来覆写。因此本模板产出的是**终版可执行细计划**，不是 plan 那种等 tasks 覆写的粗骨架。
+> - 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` 的任务模板（`tasks-template.md`）的差异：顶层任务数有硬上限（≤ 3）、TDD 类型改为自动判定（不询问用户）、文档同步组改为同步 `change-brief.md`（无 proposal/design/specs）。
 
 ## 模板正文
 
@@ -11,7 +11,7 @@
 # {{CHANGE_ID}} — 实施任务计划（tweak）
 
 > **执行入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 5 通过 `/opsx:apply` 在当前会话内逐 task 执行。
-> **规划入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 4 生成，**不经过 plan 阶段覆写**。
+> **规划入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 4 生成，**不经过 tasks 阶段覆写**。
 
 **目标**：{{GOAL_ONE_SENTENCE}}
 

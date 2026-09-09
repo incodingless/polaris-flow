@@ -30,9 +30,9 @@ describe('resolveSkillNamePrefix / applySkillNamePrefix', () => {
   });
 
   it('替换全部占位符', () => {
-    const raw = `name: polaris${SKILL_NAME_PREFIX_PLACEHOLDER}flow${SKILL_NAME_PREFIX_PLACEHOLDER}clarify`;
-    expect(applySkillNamePrefix(raw, ':')).toBe('name: polaris:flow:clarify');
-    expect(applySkillNamePrefix(raw, '-')).toBe('name: polaris-flow-clarify');
+    const raw = `name: polaris${SKILL_NAME_PREFIX_PLACEHOLDER}flow${SKILL_NAME_PREFIX_PLACEHOLDER}specify`;
+    expect(applySkillNamePrefix(raw, ':')).toBe('name: polaris:flow:specify');
+    expect(applySkillNamePrefix(raw, '-')).toBe('name: polaris-flow-specify');
   });
 });
 
@@ -46,7 +46,7 @@ describe('installPolarisForPlatform layout', () => {
 
       expect(result.skills.copied).toBeGreaterThan(0);
 
-      await access(path.join(tmpDir, '.claude/skills/polaris/coding/clarify/SKILL.md'));
+      await access(path.join(tmpDir, '.claude/skills/polaris/coding/specify/SKILL.md'));
       await access(path.join(tmpDir, '.claude/skills/polaris/prd/discovery/SKILL.md'));
       await access(path.join(tmpDir, '.claude/skills/polaris/testing/case/SKILL.md'));
       await access(path.join(tmpDir, '.claude/skills/polaris/adapters'));
@@ -59,12 +59,12 @@ describe('installPolarisForPlatform layout', () => {
         await access(path.join(tmpDir, '.claude/agents'));
       }
 
-      const clarify = await readFile(
-        path.join(tmpDir, '.claude/skills/polaris/coding/clarify/SKILL.md'),
+      const specify = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/coding/specify/SKILL.md'),
         'utf-8',
       );
-      expect(clarify).toMatch(/^name: polaris:coding:clarify$/m);
-      expect(clarify).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+      expect(specify).toMatch(/^name: polaris:coding:specify$/m);
+      expect(specify).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
       const probe = await readFile(
         path.join(tmpDir, '.claude/skills/polaris/subagent-probe/SKILL.md'),
@@ -75,7 +75,7 @@ describe('installPolarisForPlatform layout', () => {
 
       // policies 注入到叶技能
       await access(
-        path.join(tmpDir, '.claude/skills/polaris/coding/clarify/policies/decision-point.md'),
+        path.join(tmpDir, '.claude/skills/polaris/coding/specify/policies/decision-point.md'),
       );
     },
   );
@@ -89,7 +89,7 @@ describe('installPolarisForPlatform layout', () => {
 
       expect(result.skills.copied).toBeGreaterThan(0);
 
-      await access(path.join(tmpDir, '.trae/skills/polaris-coding-clarify/SKILL.md'));
+      await access(path.join(tmpDir, '.trae/skills/polaris-coding-specify/SKILL.md'));
       await access(path.join(tmpDir, '.trae/skills/polaris-prd-discovery/SKILL.md'));
       await access(path.join(tmpDir, '.trae/skills/polaris-testing-case/SKILL.md'));
       await access(path.join(tmpDir, '.trae/skills/polaris/hooks/session-start.sh'));
@@ -97,12 +97,12 @@ describe('installPolarisForPlatform layout', () => {
       await access(path.join(tmpDir, '.trae/skills/polaris/scripts/_polaris-cli.sh'));
       await expect(access(path.join(tmpDir, '.trae/skills/polaris-README.md'))).rejects.toThrow();
 
-      const clarify = await readFile(
-        path.join(tmpDir, '.trae/skills/polaris-coding-clarify/SKILL.md'),
+      const specify = await readFile(
+        path.join(tmpDir, '.trae/skills/polaris-coding-specify/SKILL.md'),
         'utf-8',
       );
-      expect(clarify).toMatch(/^name: polaris-coding-clarify$/m);
-      expect(clarify).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+      expect(specify).toMatch(/^name: polaris-coding-specify$/m);
+      expect(specify).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
       const probe = await readFile(
         path.join(tmpDir, '.trae/skills/polaris-subagent-probe/SKILL.md'),
@@ -112,7 +112,7 @@ describe('installPolarisForPlatform layout', () => {
       expect(probe).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
       await access(
-        path.join(tmpDir, '.trae/skills/polaris-coding-clarify/policies/decision-point.md'),
+        path.join(tmpDir, '.trae/skills/polaris-coding-specify/policies/decision-point.md'),
       );
     },
   );
@@ -134,10 +134,10 @@ describe('copyPolarisSkillsForPlatform', () => {
         asset,
       );
 
-      await access(path.join(tmpDir, '.claude/skills/polaris/coding/clarify/SKILL.md'));
+      await access(path.join(tmpDir, '.claude/skills/polaris/coding/specify/SKILL.md'));
       await access(path.join(tmpDir, '.claude/skills/polaris/scripts/workflow-entry.sh'));
       await expect(
-        access(path.join(tmpDir, '.claude/agents/plan-review-agent.md')),
+        access(path.join(tmpDir, '.claude/agents/tasks-review-agent.md')),
       ).rejects.toThrow();
     },
   );
@@ -162,14 +162,14 @@ describe('validateSkillAssetsNoCrossSkillParentRefs', () => {
   it('跨技能 ../ 引用被检出', async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-ref-cross-'));
     const fullPath = path.join(tmpDir, 'SKILL.md');
-    await writeFile(fullPath, 'read_file ../clarify/policies/task-split-precheck.md\n', 'utf-8');
+    await writeFile(fullPath, 'read_file ../specify/policies/task-split-precheck.md\n', 'utf-8');
 
     const violations = await findSkillAssetRefViolations(
       makeAssets('coding/tweak/SKILL.md', fullPath),
     );
     expect(violations.length).toBe(1);
     expect(violations[0]).toContain('coding/tweak/SKILL.md');
-    expect(violations[0]).toContain('../clarify/policies/task-split-precheck.md');
+    expect(violations[0]).toContain('../specify/policies/task-split-precheck.md');
   });
 
   it('跨层 ../../../../policies/ 引用被检出', async () => {
@@ -194,7 +194,7 @@ describe('validateSkillAssetsNoCrossSkillParentRefs', () => {
     );
 
     const violations = await findSkillAssetRefViolations(
-      makeAssets('coding/plan/policies/four-section-review.md', fullPath),
+      makeAssets('coding/tasks/policies/four-section-review.md', fullPath),
     );
     expect(violations).toEqual([]);
   });

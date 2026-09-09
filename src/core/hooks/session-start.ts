@@ -44,9 +44,9 @@ const GITIGNORE_ENTRIES = [
 ] as const;
 
 const REVIEW_AGENTS = [
-  'propose-review-agent',
+  'plan-reviewer',
   'design-review-agent',
-  'plan-review-agent',
+  'tasks-review-agent',
   'openspec-review-agent',
 ] as const;
 
@@ -135,7 +135,7 @@ async function checkOpenspec(
     io.hint('注意：下游 skill 调用裸名 openspec；请将 openspec-cn 软链/别名为 openspec');
     return false;
   }
-  io.warn('openspec CLI not found — polaris-flow 的 propose/design/build/ship 依赖 openspec 命令');
+  io.warn('openspec CLI not found — polaris-flow 的 plan/design/build/ship 依赖 openspec 命令');
   for (const line of getInstallHints(platform.id, 'openspec')) {
     io.hint(line);
   }

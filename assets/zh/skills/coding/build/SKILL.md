@@ -12,7 +12,7 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 - **禁止**跳过 Constitution 注入点 C（subagent 启动 prompt 必须含 C；inline 时由主代理按 task 输出 C）
 - **禁止**主代理在 `/opsx:apply` 之外直接编写业务实现代码（补丁、新模块、改 API 等）
 - **禁止**调用 `superpowers:subagent-driven-development` / `superpowers:executing-plans`（H13）
-- **禁止**未完成出口校验（Step 5）就写 `build.status: completed` 或把 `phase` 推到 verify
+- **禁止**未完成出口校验（Step 5）就写 `runtime.build.status: completed` 或把 `phase` 推到 verify
 - **禁止**本阶段强制 `git commit`（提交策略交 ship；apply 过程产生的未提交改动保留在工作区 / worktree）
 - **禁止**重写 `proposal.md` / 高层 `design.md` / `detailed-design.md` / 覆写整份 `tasks.md` 范围；发现计划缺陷 → pause 回 plan，不在 build 静默改 Scope
 - **禁止**用全局开关覆盖 tasks.md 内已有的 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->` 标注（要改标注回 plan）
@@ -26,15 +26,15 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 
 | 项 | 路径 / 值 |
 |----|-----------|
-| `change_id` | 与 clarify / propose / design / plan 同值 |
+| `change_id` | 与 specify / plan / design / tasks 同值 |
 | 实施计划（唯一） | `openspec/changes/<change_id>/tasks.md` |
-| 评审报告（`plan-review-agent` 写入） | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
-| 深度设计（只读，`design.status=skipped` 时不存在） | `openspec/changes/<change_id>/detailed-design.md` |
+| 评审报告（`tasks-review-agent` 写入） | `openspec/changes/<change_id>/reviews/tasks-review-report.md` |
+| 深度设计（只读，`runtime.design.status=skipped` 时不存在） | `openspec/changes/<change_id>/detailed-design.md` |
 | 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 | implementer prompt 模板 | `./assets/implementer-prompt.md` |
 
-> **链路**：`clarify → propose → (design 可选) → plan → **build** → verify → ship`。  
+> **链路**：`specify → plan → (design 可选) → tasks → **build** → verify → ship`。  
 > 本阶段不写计划、不审设计；只执行已评审的 `tasks.md`。  
 > 若本阶段落盘代码评审报告，写入 `openspec/changes/<change_id>/reviews/code-review-report.md`（无流程则不强造）。
 
@@ -59,20 +59,20 @@ RTID_EXIT=$?
 
 - **唯一匹配**：直接读取 `change_id`
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 plan 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan」
+- **零匹配**：阻断，提示「未找到 tasks 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks」
 
-> 若 选择的任务已是 `phase=plan`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
-> 若上次中断在 plan 中（`plan.status=in_progress` / apply paused），从中断点续跑；不得因「已是 build」而报零匹配。
+> 若 选择的任务已是 `phase=tasks`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+> 若上次中断在 plan 中（`runtime.tasks.status=in_progress` / apply paused），从中断点续跑；不得因「已是 build」而报零匹配。
 
 **入口校验**（失败 → 阻断）：
 
 | 检查 | 条件 |
 |------|------|
-| plan 已完成 | `state.yaml` 中 `plan.status=completed`（或用户明示接受续跑且 `tasks.md` 已是可执行细计划） |
+| plan 已完成 | `state.yaml` 中 `runtime.tasks.status=completed`（或用户明示接受续跑且 `tasks.md` 已是可执行细计划） |
 | tasks 可执行 | `openspec/changes/<change_id>/tasks.md` 非空，且含至少一个 `- [ ]` 或（续跑时）未完成项可定位 |
 | 工作目录 | 若 `worktree_path` 非空 → 后续 apply / 读 tasks **以该 worktree 为仓库根**；否则用主仓 |
 
-通过后更新 `state.yaml`：`current_verb: build`，`build.status: in_progress`。
+通过后更新 `state.yaml`：`phase: build`，`runtime.build.status: in_progress`。
 输出：`[polaris-flow 开发]构建: change_id=<change_id> ; worktree=<path|main>`
 
 ### Step 1：选择执行方式与审查模式（用户决策点）
@@ -92,7 +92,7 @@ RTID_EXIT=$?
 - 未完成任务数 ≤ 2 且无跨模块依赖 → 推荐 **B**
 - hotfix / 极小改动路径 → 推荐 **B**
 
-写入 `state.yaml`：`build.build_mode: <subagent_dispatch|inline>`。
+写入 `state.yaml`：`runtime.build.build_mode: <subagent_dispatch|inline>`。
 
 #### 1.2 代码审查模式 `review_mode`
 
@@ -102,12 +102,12 @@ RTID_EXIT=$?
 | `standard`（默认推荐） | apply 全部完成后做**一次**轻量最终审查（正确性 / 安全 / 边界） | 大多数普通改动 |
 | `thorough` | apply 全部完成后做**一次**完整最终审查（覆盖面更宽：含与 tasks/spec 一致性关注点） | 高风险、多模块、架构或安全相关 |
 
-写入 `state.yaml`：`build.review_mode: <off|standard|thorough>`。
+写入 `state.yaml`：`runtime.build.review_mode: <off|standard|thorough>`。
 
 > **刻意不做**：全局 `tdd_mode`。每个 task 是否 TDD 已由 plan 写在 `tasks.md` HTML 注释里；`/opsx:apply` / implementer 必须遵守注释，不得用 build 级开关覆盖。  
 > **刻意不做**：apply 循环内的「每任务 reviewer」——与「implementer 唯一动作是 `/opsx:apply`」冲突；需要更密审查时选 `thorough`，或事后在 verify 再审。
 
-若续跑且 `build.build_mode` / `build.review_mode` 已存在 → 展示当前值，问是否沿用（沿用则跳过写入）。
+若续跑且 `runtime.build.build_mode` / `runtime.build.review_mode` 已存在 → 展示当前值，问是否沿用（沿用则跳过写入）。
 
 ### Step 2：Subagent Probe（仅 `build_mode=subagent_dispatch`）
 
@@ -167,7 +167,7 @@ Working directory: <worktree_path 或 main repo root>
 #### apply 中途 pause / error
 
 - **paused**：按 apply 给出的原因与选项，用 decision-point 问用户；用户选继续 → 同模式再次 `/opsx:apply`（不要重跑 Step 1，除非用户要求改模式）
-- **errored**：阻断，报告错误；不写 `build.status=completed`
+- **errored**：阻断，报告错误；不写 `runtime.build.status=completed`
 
 ### Step 4：最终代码审查（按 `review_mode`）
 
@@ -175,7 +175,7 @@ Working directory: <worktree_path 或 main repo root>
 
 | `review_mode` | 动作 |
 |---------------|------|
-| `off` | 跳过；在 state 记 `build.final_review: skipped:off` |
+| `off` | 跳过；在 state 记 `runtime.build.final_review: skipped:off` |
 | `standard` | 加载 Superpowers `requesting-code-review`，范围：本次 diff + `tasks.md` + 必要测试结果；只查正确性 / 安全 / 边界 |
 | `thorough` | 同上，并额外要求对照 `tasks.md` 与相关 specs 做覆盖与一致性关注（仍是一次最终审查，不是每任务审查） |
 
@@ -204,15 +204,16 @@ Working directory: <worktree_path 或 main repo root>
 
 ```yaml
 # state.yaml
-build:
-  status: completed
-  build_mode: <subagent_dispatch|inline>
-  review_mode: <off|standard|thorough>
-  final_review: <done|skipped:off|skipped:<reason>|accepted_risk>
-  completed_tasks: <N>
-  total_tasks: <N>
-  finished_at: "<ISO>"
-current_verb: idle
+runtime:
+  build:
+    status: completed
+    build_mode: <subagent_dispatch|inline>
+    review_mode: <off|standard|thorough>
+    final_review: <done|skipped:off|skipped:<reason>|accepted_risk>
+    completed_tasks: <N>
+    total_tasks: <N>
+    finished_at: "<ISO>"
+phase: idle
 ```
 
 workflow阶段推进至验收阶段：
@@ -242,12 +243,12 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 - `tasks.md` 全部 checkbox 为 `- [x]`
 - apply 已 completed（非 pause/error 未解决）
-- `build.status=completed`，且 `phase=verify`
+- `runtime.build.status=completed`，且 `phase=verify`
 - Step 4 审查已按 `review_mode` 处理完毕
 
 ## 上下文压缩恢复
 
-重载：`change_id`、`worktree_path`、`build.build_mode` / `review_mode`、当前 `tasks.md` 勾选进度、apply 上次 pause 原因（若有）、本 skill 停在哪一步。  
+重载：`change_id`、`worktree_path`、`runtime.build.build_mode` / `runtime.build.review_mode`、当前 `tasks.md` 勾选进度、apply 上次 pause 原因（若有）、本 skill 停在哪一步。  
 - 停在 apply pause → 从 Step 3 续，勿重选模式（除非用户要求）  
 - 停在 Step 4 审查未完成 → 从 Step 4 续  
 - 勿重新跑 plan / 勿调用 `writing-plans`

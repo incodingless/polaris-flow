@@ -1,6 +1,6 @@
 # 工作流 Hooks / Scripts：调用顺序与作用
 
-本文档说明 Polaris Flow 主链路（clarify → … → delivery）中，插件内薄包装与 TypeScript 实现（`src/core/hooks/` + `polaris-flow <name>`）的**谁调用谁、何时调用、做什么**。
+本文档说明 Polaris Flow 主链路（specify → … → delivery）中，插件内薄包装与 TypeScript 实现（`src/core/hooks/` + `polaris-flow <name>`）的**谁调用谁、何时调用、做什么**。
 
 - **宿主注册入口**：`assets/shared/hooks/`（安装后 `$PLUGIN_ROOT/hooks/`）— 当前仅 `session-start.sh`
 - **Skill 调用薄包装**：`assets/shared/scripts/`（安装后 `$PLUGIN_ROOT/scripts/`）— workflow / worktree / lint 等
@@ -20,7 +20,7 @@ flowchart TB
     SS --> CLI0
   end
 
-  subgraph clarify [clarify]
+  subgraph specify [specify]
     TI[task-init.sh]
     DC[draft-create]
     WE1[workflow-entry]
@@ -29,13 +29,13 @@ flowchart TB
     TF --> WE1
   end
 
-  subgraph propose [propose]
+  subgraph plan [plan]
     WT[worktree-create]
     WE2[workflow-entry]
     TL1[tasks-lint]
   end
 
-  subgraph mid [design / plan / build]
+  subgraph mid [design / tasks / build]
     WE3[workflow-entry]
     TL2[tasks-lint]
   end
@@ -54,16 +54,16 @@ flowchart TB
     CL --> WE5[workflow-entry delete-active]
   end
 
-  session --> clarify --> propose --> mid --> verify --> delivery
+  session --> specify --> plan --> mid --> verify --> delivery
 ```
 
 | 阶段 | 脚本（调用顺序） | 作用（一句话） |
 |------|------------------|----------------|
 | **SessionStart** | `session-start.sh` → `polaris session-start` | 环境自检、依赖 WARN、agent/model 注入 |
-| **clarify** | `task-init.sh` →（内）`draft-create`；可选 `workflow-entry delete-active`；出口 `task-finalize.sh` → `rename-active` | 建 draft → 正式 `change_id` + 游标重命名 |
-| **propose** | 可选 `worktree-create`；多次 `workflow-entry update-active`；出口 `tasks-lint`；再推进 phase | 隔离 worktree；切换游标；校验 tasks |
+| **specify** | `task-init.sh` →（内）`draft-create`；可选 `workflow-entry delete-active`；出口 `task-finalize.sh` → `rename-active` | 建 draft → 正式 `change_id` + 游标重命名 |
+| **plan** | 可选 `worktree-create`；多次 `workflow-entry update-active`；出口 `tasks-lint`；再推进 phase | 隔离 worktree；切换游标；校验 tasks |
 | **design** | 入口/出口 `workflow-entry update-active` | 仅推进 phase |
-| **plan** | `workflow-entry`；`tasks-lint`；再 `workflow-entry` | 细计划合规 + 游标 |
+| **tasks** | `workflow-entry`；`tasks-lint`；再 `workflow-entry` | 细计划合规 + 游标 |
 | **build** | 出口 `workflow-entry update-active` | 推进到 verify |
 | **verify** | `constitution-validity` → `scorers/*.sh`（未迁）→ `workflow-entry` | 宪法 + 评分 + 游标 |
 | **delivery** | `worktree-merge-status` →（可选）`worktree-rebase-ff` → `harness-sync` → `ship-cleanup` | 合回 / rebase-ff / 产物合回 / 清游标 |
@@ -99,7 +99,7 @@ bash "$PLUGIN_ROOT/scripts/<script>.sh" [args…]
 
 ---
 
-### 3.1 clarify
+### 3.1 specify
 
 ```text
 Step 1     task-init.sh --kind change → polaris task-init
@@ -121,17 +121,17 @@ Step 4.4   task-finalize.sh → polaris task-finalize
 
 | kind | 存储根 | draft | 初始 phase | 初始 state |
 |------|--------|-------|------------|------------|
-| `change` | `.polaris/tasks/` | `draft-*` → finalize | `clarify` | change 型（intention / clarify 块） |
+| `change` | `.polaris/tasks/` | `draft-*` → finalize | `specify` | change 型（intention / specify 块） |
 | `requirement` | `.polaris/tasks/` | **无**；须 `--task-id` 直建正式目录 | `discovery` | PRD 型 |
 | `testcase` | `.polaris/testcases/` | `draft-*` | `discovery` | testcase 型 + `testcase_plan.md` |
 
 ---
 
-### 3.2 propose
+### 3.2 plan
 
 ```text
 Step 1.3.A   worktree-create.sh              # 用户选 worktree 时
-             workflow-entry.sh update-active # phase=propose + worktree_path
+             workflow-entry.sh update-active # phase=plan + worktree_path
 Step 1.3.B   workflow-entry.sh update-active # 主仓模式，无 worktree
 …校验 intention → /opsx:propose 生成四件套…
 Step 4       tasks-lint.sh                   # 粗骨架 tasks 准出
@@ -161,13 +161,13 @@ Step 5+      workflow-entry.sh update-active # 推进到 design（或下一 phas
 ### 3.4 plan
 
 ```text
-入口   workflow-entry.sh update-active --skill plan
-…TDD 策略 → 覆写 tasks.md → plan-review…
+入口   workflow-entry.sh update-active --skill tasks
+…TDD 策略 → 覆写 tasks.md → tasks-review…
 Step 5.2  tasks-lint.sh                    # 细计划准出（禁止脑补）
 出口   workflow-entry.sh update-active     # 推进到 build
 ```
 
-与 propose 共用 `tasks-lint.sh`，但对象是**覆写后的可执行细计划**。
+与 plan 共用 `tasks-lint.sh`，但对象是**覆写后的可执行细计划**。
 
 ---
 
@@ -233,7 +233,7 @@ Step 6.1  ship-cleanup.sh
 |----|--------------|------|
 | `get-active-changes` | 各 skill Step 0 | 只读；stdout 输出选定列表的 `task_id` JSON 数组；可 `--phase` 过滤 |
 | `append-active` | 任务初始化（若启用） | 向选定列表追加 entry |
-| `update-active` | propose / design / plan / build / verify 等 | 改 `phase` / `worktree_path` |
+| `update-active` | plan / design / tasks / build / verify 等 | 改 `phase` / `worktree_path` |
 | `rename-active` | task-finalize | `draft-*` → 正式 `task_id` |
 | `delete-active` | 丢弃 draft；ship-cleanup | 移除 entry |
 
@@ -271,7 +271,7 @@ workflow-entry.sh → polaris workflow-entry
 |------|------|----------------|------|
 | `session-start.sh` | `hooks/` | 是（宿主） | → `polaris-flow host-hook` / session-start |
 | `workflow-entry.sh` | `scripts/` | 是 | → `polaris-flow workflow-entry`（H12） |
-| `task-init.sh` / `clarify-finalize.sh` | `scripts/` | 是 | → `task-init` / `task-finalize` |
+| `task-init.sh` / `specify-finalize.sh` | `scripts/` | 是 | → `task-init` / `task-finalize` |
 | `tasks-lint.sh` | `scripts/` | 是 | → `polaris-flow tasks-lint` |
 | `constitution-validity.sh` | `scripts/` | 是 | → `polaris-flow constitution-validity` |
 | `worktree-create.sh` | `scripts/` | 是 | → `polaris-flow worktree-create` |
@@ -303,10 +303,10 @@ workflow-entry.sh → polaris workflow-entry
 
 | 命令 / 机制 | 阶段 | 作用 |
 |-------------|------|------|
-| `/opsx:propose` 等 OpenSpec 命令 | propose / build / archive | 生成或应用变更规格 |
+| `/opsx:propose` 等 OpenSpec 命令 | plan / build / archive | 生成或应用变更规格 |
 | `openspec-cn archive` | delivery Step 5 | 归档 `openspec/changes/<id>/` |
-| `git worktree add/remove` | propose / delivery | 隔离与清理；部分由 hook 封装，remove 多在 skill 内联 |
-| Subagent（design-review / plan-review / implementer） | design / plan / build | 评审与实施，不写 workflow.yaml |
+| `git worktree add/remove` | plan / delivery | 隔离与清理；部分由 hook 封装，remove 多在 skill 内联 |
+| Subagent（design-review / tasks-review / implementer） | design / tasks / build | 评审与实施，不写 workflow.yaml |
 
 ---
 
@@ -314,15 +314,15 @@ workflow-entry.sh → polaris workflow-entry
 
 ```text
 [会话] session-start.sh → polaris session-start
-[clarify] task-init → draft-create
+[specify] task-init → draft-create
           …用户确认任务名…
           task-finalize → workflow-entry(rename)
-[propose] (可选) worktree-create → workflow-entry(update)
+[plan] (可选) worktree-create → workflow-entry(update)
           …生成四件套…
           tasks-lint → workflow-entry(update→design)
 [design]  workflow-entry(update) …评审… workflow-entry(update→plan)
 [plan]    workflow-entry(update) …覆写 tasks… tasks-lint
-          …plan-review… workflow-entry(update→build)
+          …tasks-review… workflow-entry(update→build)
 [build]   …apply… workflow-entry(update→verify)
 [verify]  constitution-validity → scorers×5 → workflow-entry(update→delivery)
 [delivery] (若有 worktree) merge-status → [rebase-ff?] → sync → worktree remove

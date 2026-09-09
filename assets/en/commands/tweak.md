@@ -1,8 +1,8 @@
 ---
 name: tweak
-command_prefix: polaris
-triggers: ["/polaris:tweak"]
+command_prefix: pofol
+triggers: ["/pofol:tweak"]
 description: Small change (skip brainstorming and full plan)
 ---
 
-Use the `polaris:tweak` skill.
+Use the `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` skill.

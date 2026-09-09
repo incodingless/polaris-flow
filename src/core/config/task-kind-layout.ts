@@ -33,7 +33,7 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
   change: {
     kind: 'change',
     storageSegment: 'tasks',
-    initialPhase: 'clarify',
+    initialPhase: 'specify',
     stateFactory: 'change',
     usesDraft: true,
     bootstrapFiles: [],

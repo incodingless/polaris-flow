@@ -220,10 +220,10 @@ describe('runSessionStart', () => {
   it('注入 review agent model', async () => {
     const tmp = await makeProject({ platform: 'claude', challengerModel: 'test-model' });
     await mkdir(path.join(tmp, '.claude', 'agents'), { recursive: true });
-    const agentPath = path.join(tmp, '.claude', 'agents', 'propose-review-agent.md');
+    const agentPath = path.join(tmp, '.claude', 'agents', 'plan-reviewer.md');
     await writeFile(
       agentPath,
-      '---\nname: propose-review-agent\nmodel: inherit\n---\nbody\n',
+      '---\nname: plan-reviewer\nmodel: inherit\n---\nbody\n',
       'utf-8',
     );
 
@@ -232,13 +232,13 @@ describe('runSessionStart', () => {
       io,
       tmp,
       claudePlatform,
-      'propose-review-agent',
+      'plan-reviewer',
       'test-model',
     );
     expect(ok).toBe(true);
     const updated = await readFile(agentPath, 'utf-8');
     expect(updated).toContain('model: test-model');
-    expect(lines.ok.some((l) => l.includes('propose-review-agent model'))).toBe(true);
+    expect(lines.ok.some((l) => l.includes('plan-reviewer model'))).toBe(true);
   });
 
   it('依赖缺失时 WARN 且 exitCode 1', async () => {

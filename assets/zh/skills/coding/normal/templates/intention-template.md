@@ -2,7 +2,7 @@
 
 > **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 1.5 引用。normal 主代理读取本模板后，按节顺序填充；各节内容来源标注见行内注释。
 >
-> 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 完整版的差异：P02 轻量澄清收敛为**一次理解确认 + 至多一轮聚焦追问**，因此 `## Reframe 历程` 与 `## 前提历史` 按声明行填充；其余节结构与完整版**完全一致**——这是升 P03 转交时 design 阶段可直接消费、tweak 降档转交时理解摘要可直接收敛的前提。
+> 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 完整版的差异：P02 轻量澄清收敛为**一次理解确认 + 至多一轮聚焦追问**，因此 `## Reframe 历程` 与 `## 前提历史` 按声明行填充；其余节结构与完整版**完全一致**——这是升 P03 转交时 design 阶段可直接消费、tweak 降档转交时理解摘要可直接收敛的前提。
 
 ---
 

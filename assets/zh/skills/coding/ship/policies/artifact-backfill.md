@@ -2,7 +2,7 @@
 
 > `change-brief.md` 的节结构是刻意按四件套的关系设计的，因此两条下游路径都只做**格式转换**，不补内容：
 >
-> - **§2 升档路径**：brief → `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}propose`（由 `upgrade-check.md` §3.1 调用）
+> - **§2 升档路径**：brief → `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`（由 `upgrade-check.md` §3.1 调用）
 > - **§3 归档路径**：brief → 四件套，供 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 归档前调用
 >
 > **硬规则**：brief 每一节必须自洽完整。下游禁止新增简报里没有的需求、模块或验收标准。
@@ -45,9 +45,9 @@
 
 ### 2.2 校验
 
-生成后必须能通过 `polaris{{SKN_SPR}}coding{{SKN_SPR}}propose` Step 2.2 的必含节检查：目标、任务范围、验收场景及标准、宪法对齐、前提、结论（架构 + 技术选型）、待决问题、备选方案均存在且**非空**。
+生成后必须能通过 `polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` Step 2.2 的必含节检查：目标、任务范围、验收场景及标准、宪法对齐、前提、结论（架构 + 技术选型）、待决问题、备选方案均存在且**非空**。
 
-缺节或为空 → 补齐后重跑，不得带着缺口转交（会让 propose 走 fallback，丢失简报的结构化信息）。
+缺节或为空 → 补齐后重跑，不得带着缺口转交（会让 plan 走 fallback，丢失简报的结构化信息）。
 
 ---
 
@@ -58,7 +58,7 @@
 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` Step 5（归档询问）之前，满足**任一**即触发：
 
 - `openspec/changes/<change_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
-- `state.yaml` 中 `tweak.mode == "tweak"`
+- `state.yaml` 中 `workflow.tweak.mode == "tweak"`
 
 未触发时（例如本次本就是 P02/P03 完整链路）跳过整节。
 
@@ -96,13 +96,13 @@
 
 ### 3.4 校验与失败处理
 
-补齐后按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}propose` Step 4.1 的机械终检标准自检：
+补齐后按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` Step 4.1 的机械终检标准自检：
 
 - 四件套存在且非空；`specs/` 为目录且含至少一个非空文件
 - `proposal.md` 含问题背景、目标、范围、非目标
 - `design.md` 含架构决策、方案选型，且含 `## Constitution Alignment` / `## Alternatives` / `## Premises`
 
-**失败处理**：不阻断交付。按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 现有规则处置——`ship.archive=failed`，写入 `archive_error`，`openspec/changes/<change_id>/` 保持原位，照常进入 Step 6.1 清游标。用户可事后手动补齐并运行 `openspec-cn archive <change_id>`。
+**失败处理**：不阻断交付。按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 现有规则处置——`runtime.ship.archive=failed`，写入 `archive_error`，`openspec/changes/<change_id>/` 保持原位，照常进入 Step 6.1 清游标。用户可事后手动补齐并运行 `openspec-cn archive <change_id>`。
 
 **禁止**：因补齐失败而回滚已完成的分支合并与 worktree 合回。
 

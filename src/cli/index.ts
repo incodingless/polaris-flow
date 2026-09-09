@@ -239,7 +239,7 @@ program
 
 program
   .command('task-finalize')
-  .description('Clarify: rename draft to change_id + workflow rename-active')
+  .description('Specify: rename draft to change_id + workflow rename-active')
   .argument('<repo_root>', 'project root')
   .argument('<draft_name>', 'draft-* name')
   .argument('<change_id>', 'final change id')
@@ -250,7 +250,7 @@ program
 
 program
   .command('tasks-lint')
-  .description('Lint tasks.md for propose/plan gate')
+  .description('Lint tasks.md for plan/tasks gate')
   .argument('<file>', 'path to tasks.md')
   .option(...PLATFORM_OPTION)
   .action(async (file: string) => {
@@ -322,7 +322,7 @@ program
 
 program
   .command('intention-validate')
-  .description('Validate intention.md required sections (propose gate)')
+  .description('Validate intention.md required sections (plan gate)')
   .argument('<file>', 'path to intention.md')
   .option(...PLATFORM_OPTION)
   .action(async (file: string) => {

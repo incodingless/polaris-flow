@@ -16,14 +16,14 @@ const trae = PLATFORMS.find((p) => p.id === 'trae')!;
 /** 菜单命令中引用的五个技能，按布局展开后的期望形态 */
 const referencedSkills = {
   nested: [
-    'polaris:coding:clarify',
+    'polaris:coding:specify',
     'polaris:prd:discovery',
     'polaris:prd:draft',
     'polaris:testing:case',
     'polaris:testing:acceptance',
   ],
   flat: [
-    'polaris-coding-clarify',
+    'polaris-coding-specify',
     'polaris-prd-discovery',
     'polaris-prd-draft',
     'polaris-testing-case',

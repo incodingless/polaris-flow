@@ -36,6 +36,6 @@ describe('workflow fixture', () => {
       change_tasks: Array<{ task_id: string; phase: string }>;
     };
     expect(parsed.change_tasks[0]?.task_id).toBe('add-feature-x');
-    expect(parsed.change_tasks[0]?.phase).toBe('propose');
+    expect(parsed.change_tasks[0]?.phase).toBe('plan');
   });
 });

@@ -34,7 +34,7 @@
 ## 5. 后续
 
 - 继续度量：对进行中 change 跑 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（worktree 场景需经 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 合回）
-- 新变更：`/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 或 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}propose`
+- 新变更：`/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 或 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`
 
 ## 约束速查
 

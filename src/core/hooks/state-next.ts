@@ -34,7 +34,7 @@ export type StateNextArgs = {
 export type StateNextResult = {
   exitCode: number;
   next: NextAction;
-  /** next != done 时的下一 skill 名（如 `polaris:coding:propose`） */
+  /** next != done 时的下一 skill 名（如 `polaris:coding:plan`） */
   skill?: string;
   /** next == manual 时的人工提示 */
   hint?: string;
@@ -57,9 +57,9 @@ const FAMILY_BY_KIND: Record<WorkflowTaskKind, string> = {
  */
 const PHASE_TO_SKILL: Record<string, Record<string, string>> = {
   coding: {
-    propose: 'propose',
-    design: 'design',
     plan: 'plan',
+    design: 'design',
+    tasks: 'tasks',
     build: 'build',
     verify: 'verify',
     ship: 'ship',

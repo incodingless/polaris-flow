@@ -1,9 +1,9 @@
 # 单 change 业务档案模板（仅运行态）
 # 路径：.polaris/tasks/<change_id>/state.yaml
-# （clarify 起草：.polaris/tasks/draft-<session_suffix>-<unix_ts>/state.yaml；
+# （specify 起草：.polaris/tasks/draft-<session_suffix>-<unix_ts>/state.yaml；
 #  finalize 后 mv 到 .polaris/tasks/<change_id>/state.yaml）
 #
-# 叙事文档不在本目录：propose 成功后 intention / 四件套 / detailed-design / *-design.md / reviews/*
+# 叙事文档不在本目录：plan 成功后 intention / 四件套 / detailed-design / *-design.md / reviews/*
 # 均在 openspec/changes/<change_id>/。本文件只维护阶段状态与 worktree 等运行态。
 #
 # worktree 阶段拷贝整个 .polaris/tasks/<change_id>/ 到 worktree 内同名路径，
@@ -29,24 +29,81 @@ worktree-dir: "<project_root>/.worktrees"
 # 运行配置 
 ####################
 # 变更ID
-# 与父目录名一致；draft-* 阶段为占位，clarify finalize 回填
+# 与父目录名一致；draft-* 阶段为占位，specify finalize 回填
 change_id: ""
 
 # 阶段
-# 可选值: idle-空闲 | clarify-澄清 | propose-提案 | design-设计 | plan-计划 | build-构建 | verify-验证 | delivery-交付
+# 可选值: idle-空闲 | specify-澄清 | plan-提案 | design-设计 | tasks-任务 | build-构建 | verify-验证 | ship-交付
 phase: idle
 
 # 当前层级
 # 可选值: trivial-简单 | standard-标准 | critical-关键
 current_tier: ""
 
+# 工作流配置
+####################
 # 工作流类型
 # 可选值: sdd-需求开发 | tweak-需求优化 | bugfix-缺陷修复 | full-全栈开发
-workflow: sdd
+workflow:
+  mode: sdd
+
+  # 仅 mode=tweak 时使用
+  tweak:
+    # 工作流模式（与 workflow.mode 冗余但方便单点查询）
+    mode: tweak
+    # 状态
+    # 可选值: in_progress-进行中 | completed-完成 | upgraded-已升档
+    status: ""
+    # TDD 模式
+    # 可选值: auto_by_task_type-按任务类型自动 | prefer_tdd-优先TDD | require_tdd-强制TDD | prefer_direct-优先直接
+    tdd_mode: ""
+    # 构建模式
+    # 可选值: inline-内联执行 | subagent_dispatch-子代理派发
+    build_mode: ""
+    # 命中的升档信号编号列表（Step 3 选 B 时记录）
+    signals: []
+    # 升档原因（命中的信号编号，如 "U1,U5"）
+    upgrade_reason: ""
+    # 升档目标
+    # 可选值: normal-需求开发 | design-深度设计
+    upgrade_target: ""
+    # 完成时间
+    # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+    finished_at: ""
+
+  # 仅 mode=sdd 时使用（与 tier-gate 联动）
+  normal:
+    # 工作流模式
+    mode: normal
+    # 状态
+    # 可选值: in_progress-进行中 | completed-完成 | downgraded-已降档 | upgraded-已升档
+    status: ""
+    # TDD 模式
+    # 可选值: auto_by_task_type-按任务类型自动 | prefer_tdd-优先TDD | require_tdd-强制TDD | prefer_direct-优先直接
+    tdd_mode: ""
+    # 构建模式
+    # 可选值: inline-内联执行 | subagent_dispatch-子代理派发
+    build_mode: ""
+    # 命中的守门/升档信号编号列表（Step 5 选 B 时记录）
+    signals: []
+    # 降档原因（命中的条件编号，如 "D1',D3'"）
+    downgrade_reason: ""
+    # 降档目标
+    # 可选值: tweak-需求优化
+    downgrade_target: ""
+    # 升档原因（命中的信号编号，如 "D2,D4"）
+    upgrade_reason: ""
+    # 升档目标
+    # 可选值: design-深度设计
+    upgrade_target: ""
+    # 完成时间
+    # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+    finished_at: ""
 
 # 制品审查模式
 # 可选值: after_all -全部生成后审查 | per_batch -每批次生成后审查
 artifact_review_mode: "per_batch"
+
 # 制品审查最大轮次，默认5轮
 artifact_max_round: 5
 
@@ -94,8 +151,8 @@ worktree:
 
 runtime:
 
-  ####### clarify阶段 #############
-  clarify:
+  ####### specify阶段 #############
+  specify:
     # 路径
     # 可选值: .polaris/tasks/draft-<session_suffix>-<unix_ts>/intention.md（暂存）或 openspec/changes/<change_id>/intention.md（迁入后）
     intention_path: ""
@@ -112,7 +169,7 @@ runtime:
     finished_at: ""
 
   ####### 提案信息 #############
-  propose:
+  plan:
     # 状态
     # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
     status: ""
@@ -125,9 +182,13 @@ runtime:
     # 审查轮次
     # 可选值: 0-第一轮 | 1-第二轮 | 2-第三轮 | ...
     review_round: 0
+    # 审查日志文件
     review_log_file: "openspec/changes/<change_id>/review-log.md"
+    # 审查模式
+    # 可选值: per_batch-分批审查 | after_all-齐套审查
+    review_mode: ""
     # 审查报告
-    # 可选值: openspec/changes/<change_id>/reviews/propose-review-report.md 或 skipped:<reason>
+    # 可选值: openspec/changes/<change_id>/reviews/plan-review-report.md 或 skipped:<reason>
     review_report: ""
     # 外部声音
     # 可选值: ran-运行 | skipped:<reason>-跳过 | not_run:<reason>-未运行
@@ -159,7 +220,7 @@ runtime:
   ####### 设计信息 #############
   design:
     # 状态
-    # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（propose 决策跳过深化 / trivial 直跳过）
+    # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（plan 决策跳过深化 / trivial 直跳过）
     status: ""
     # 路径
     # 可选值: openspec/changes/<change_id>/detailed-design.md
@@ -183,18 +244,21 @@ runtime:
     finished_at: ""
 
   ####### 计划信息 #############
-  plan:
+  tasks:
     # 状态
     # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
     status: ""
     # TDD 策略
     # 可选值: prefer_tdd-优先TDD | require_tdd-强制TDD | prefer_direct-优先直接
     tdd_policy: ""
+    # 计划审查状态（tasks 阶段内 subagent 评审产出）
+    # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
+    plan_review_status: ""
     # 任务路径
     # 可选值: openspec/changes/<change_id>/tasks.md
     tasks_path: ""
     # 审查报告
-    # 可选值: openspec/changes/<change_id>/reviews/plan-review-report.md
+    # 可选值: openspec/changes/<change_id>/reviews/tasks-review-report.md
     review_report: ""
     # 外部声音
     # 可选值: ran-运行 | skipped:<reason>-跳过 | not_run:<reason>-未运行
@@ -210,32 +274,20 @@ runtime:
     # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
     finished_at: ""
 
-  ####### 审查信息 #############
-  review:
-    # 状态
-    # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
-    status: ""
-    # 计划审查状态
-    # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
-    plan_review_status: ""
-    # 宪法合规
-    # 可选值: true-合规 | false-不合规
-    constitution_compliance: ""
-    # 审查报告
-    # 可选值: openspec/changes/<change_id>/reviews/review-report.md
-    review_report: ""
-    # 外部声音
-    # 可选值: ran-运行 | skipped:<reason>-跳过 | not_run:<reason>-未运行
-    outside_voice: ""
-    # 外部声音报告
-    # 可选值: openspec/changes/<change_id>/reviews/openspec-review-report.md
-    outside_voice_report: ""
-
   ####### 构建信息 #############
   build:
     # 状态
     # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
     status: ""
+    # 构建模式
+    # 可选值: inline-内联执行 | subagent_dispatch-子代理派发
+    build_mode: ""
+    # 代码审查模式
+    # 可选值: off-关闭 | standard-标准 | thorough-完整
+    review_mode: ""
+    # 最终审查结果
+    # 可选值: done-已完成 | skipped:off-关闭而跳过 | skipped:<reason>-因故跳过 | accepted_risk-接受风险
+    final_review: ""
     # 当前任务
     # 可选值: openspec/changes/<change_id>/tasks/<task_id>.md
     current_task: ""
@@ -253,13 +305,48 @@ runtime:
     # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
     finished_at: ""
 
+  ####### 验证信息 #############
+  verify:
+    # 状态
+    # 可选值: in_progress-进行中 | completed-完成 | failed-失败 | skipped-跳过
+    status: ""
+    # 验证模式
+    # 可选值: light-轻量验证 | full-完整验证
+    verify_mode: ""
+    # 宪法合规（constitution 子规则逐条合规结果）
+    # 可选值: true-合规 | false-不合规
+    constitution_compliance: ""
+    # 宪法整体合规（聚合判定）
+    # 可选值: true-合规 | false-不合规
+    constitution_valid: ""
+    # 综合得分
+    overall_score: 0
+    # 得分等级
+    # 可选值: high-高 | low-低
+    score_level: ""
+    # 是否阻断
+    # 可选值: true-阻断 | false-不阻断
+    blocked: false
+    # 验证报告
+    # 可选值: openspec/changes/<change_id>/reviews/verify-report.md
+    verification_report: ""
+    # 评分器结果
+    scorer_results: {}
+
+    # 开始时间
+    # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+    start_time: ""
+    # 完成时间
+    # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+    finished_at: ""
+
   ####### 交付信息 #############
   ship:
     # 状态
-    # 可选值: in_progress-进行中 | completed-完成 | skipped-跳过（trivial 直跳过）
+    # 可选值: delivered-已交付
     status: ""
     # 合并策略
-    # 可选值: merge-合并 | rebase-重基 | squash-压缩
+    # 可选值: rebase-ff-变基快进 | pr-only-仅PR合入 | abandoned-已放弃 | n/a-未执行
     merge_strategy: ""
     # 同步状态
     # 可选值: synced-同步 | partial_failure-部分失败 | skipped_no_source-跳过无源 | skipped_worktree_retained-跳过工作树保留 | deferred_archive_conflict-延迟归档冲突 | n/a-未执行
@@ -267,6 +354,9 @@ runtime:
     # 归档目录
     # 可选值: .polaris/archive/<change_id>（运行态快照；叙事随 openspec archive）
     archive_dir: ""
+    # 产物补齐（P01 快速通道：change-brief → 四件套）
+    # 可选值: done-已补齐 | skipped:no_need-无需补齐 | failed:<reason>-补齐失败
+    backfill: ""
     # 归档状态
     # 可选值: archived-归档 | deferred-延迟 | skipped-跳过 | failed-失败
     archive: ""
@@ -283,6 +373,7 @@ runtime:
     # 完成时间
     # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
     finished_at: ""
+
 
   ################ 深度阅读信息 #############
   deepread:

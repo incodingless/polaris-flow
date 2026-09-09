@@ -12,7 +12,7 @@ description: "verify 通过后做终验、分支收尾、worktree 产物合回�
 - **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 3.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
 - **禁止**未按 `./reference/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
 - **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 6.1
-- **P01 快速通道**：`tweak.mode=tweak` 时**必须**执行 Step 4.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
+- **P01 快速通道**：`workflow.tweak.mode=tweak` 时**必须**执行 Step 4.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
 - **禁止**本阶段编写业务实现代码；终验失败 → 回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（必要时再回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`）
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]交付 - 进入Step <N>: <动作>`
 </HARD-GATE>
@@ -27,7 +27,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 
 | 项 | 路径 / 值 |
 |----|-----------|
-| `change_id` | 与 clarify → verify 同值 |
+| `change_id` | 与 specify → verify 同值 |
 | 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
 | OpenSpec 变更目录 | `openspec/changes/<change_id>/`（四件套 + intention / detailed-design / `*-design.md` / `reviews/`；归档后进 `openspec/changes/archive/`） |
 | 产物快照 | `.polaris/archive/<change_id>/`（合回的 **state** 等运行态；叙事文档随 openspec archive） |
@@ -39,7 +39,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 | P01 产物补齐策略 | `./policies/artifact-backfill.md`（仅快速通道触发） |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 hooks） |
 
-> **链路**：`clarify → propose → (design 可选) → plan → build → verify → **ship**`（P01 快速通道为 `tweak → **ship**`）。
+> **链路**：`specify → plan → (design 可选) → tasks → build → verify → **ship**`（P01 快速通道为 `tweak → **ship**`）。
 > 本阶段交付与归档；不再做 Constitution / scorer（那是 verify / tweak 出口检查）。
 >
 > **P01 差异**：tweak 只产出 `change-brief.md` + `tasks.md`，没有 proposal / design / specs。归档前必须由本阶段按 `./policies/artifact-backfill.md` 补齐四件套（Step 4.5），否则 `openspec-cn archive` 会失败。
@@ -70,11 +70,11 @@ RTID_EXIT=$?
 
 | 检查 | 条件 | 失败动作 |
 |------|------|----------|
-| verify 已完成 | `verify.status=completed` | 阻断，提示先 `/polaris-flow-verify` |
-| 未阻塞 | `verify.blocked != true`（或已合法 override） | 阻断，提示回 `/polaris-flow-verify` 处理 |
+| verify 已完成 | `runtime.verify.status=completed` | 阻断，提示先 `/polaris-flow-verify` |
+| 未阻塞 | `runtime.verify.blocked != true`（或已合法 override） | 阻断，提示回 `/polaris-flow-verify` 处理 |
 | worktree 合回分支 | `worktree.created_by_polaris_flow == true` | 触发本 skill Step 3；否则 Step 3 整段跳过 |
 
-通过后更新：`current_verb: ship`。
+通过后更新：`phase: ship`。
 
 ## 流程
 
@@ -169,7 +169,7 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 不执行 3.5。写入：
 
 - `worktree.status: abandoned`
-- `ship.harness_sync: skipped_worktree_retained`（字段名沿用模板；语义=产物未合回）
+- `runtime.ship.harness_sync: skipped_worktree_retained`（字段名沿用模板；语义=产物未合回）
 
 提醒用户：后续清理前须先手动合回 `.polaris/` 产物。
 
@@ -178,29 +178,30 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 更新 `.polaris/tasks/<change_id>/state.yaml`（worktree 仍在则写 worktree 内；已 remove 则写主仓；**本步不删目录**——Step 5/6 仍需 `change_id`）：
 
 ```yaml
-ship:
-  status: "delivered"
-  finished_at: "<ISO>"
-  merge_strategy: "<rebase-ff|pr-only|abandoned|n/a>"
-  harness_sync: "<synced|partial_failure|skipped_no_source|skipped_worktree_retained|deferred_archive_conflict|n/a>"
-  archive_dir: ".polaris/archive/<change_id>"   # 仅 harness_sync ∈ {synced, partial_failure} 时有值
-  archive: ""            # Step 5 回填
-  archive_path: ""
-  archive_error: ""
+runtime:
+  ship:
+    status: "delivered"
+    finished_at: "<ISO>"
+    merge_strategy: "<rebase-ff|pr-only|abandoned|n/a>"
+    harness_sync: "<synced|partial_failure|skipped_no_source|skipped_worktree_retained|deferred_archive_conflict|n/a>"
+    archive_dir: ".polaris/archive/<change_id>"   # 仅 harness_sync ∈ {synced, partial_failure} 时有值
+    archive: ""            # Step 5 回填
+    archive_path: ""
+    archive_error: ""
 worktree:
   status: "<merged|abandoned>"   # 仅 created_by_polaris_flow=true 时更新
-current_verb: idle
+phase: idle
 ```
 
 `harness_sync = "n/a"`：本次未创建 worktree，无需合回。
 
-> Step 4 在 archive **之前**写入 `ship.status=delivered`，确保 archive 跳过/失败时分支与合回结果不丢失。
+> Step 4 在 archive **之前**写入 `runtime.ship.status=delivered`，确保 archive 跳过/失败时分支与合回结果不丢失。
 
 ### Step 4.5：P01 产物补齐（条件执行）
 
 **触发条件**（满足任一即执行，否则整步跳过）：
 
-- `state.yaml` 中 `tweak.mode == "tweak"`
+- `state.yaml` 中 `workflow.tweak.mode == "tweak"`
 - `openspec/changes/<change_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
 
 **执行**：`read_file ./policies/artifact-backfill.md`，按 **§3 归档路径**把 `change-brief.md` 转换为四件套（`proposal.md` / `design.md` / `specs/<capability>/spec.md`）。
@@ -214,8 +215,9 @@ current_verb: idle
 写状态：
 
 ```yaml
-ship:
-  backfill: "<done|skipped:no_need|failed:<reason>>"
+runtime:
+  ship:
+    backfill: "<done|skipped:no_need|failed:<reason>>"
 ```
 
 输出：`[polaris-flow 开发]交付 - 产物补齐：<done | 无需补齐 | 失败：<reason>>（源：change-brief.md）`
@@ -226,7 +228,7 @@ ship:
 
 #### 5.1 询问是否归档
 
-按 decision-point 呈现 `change_id` 与 `ship.status=delivered`，三选项：
+按 decision-point 呈现 `change_id` 与 `runtime.ship.status=delivered`，三选项：
 
 - **A**：立即归档（推荐）——将 `openspec/changes/<change_id>/` 移到 `openspec/changes/archive/YYYY-MM-DD-<change_id>/`
 - **B**：暂不归档（PR 仍在 review / 稍后手动）
@@ -240,15 +242,15 @@ openspec-cn archive "$change_id" --yes
 
 | 结果 | 处理 |
 |------|------|
-| 成功（含 warnings） | `ship.archive=archived`，写入 `archive_path`；warnings 追加到 Step 6 摘要 |
-| exit ≠ 0 | **不做归档**：保持 `openspec/changes/<change_id>/` 原位；`ship.archive=failed`，写入 `archive_error`；摘要注明失败原因。不阻断交付收尾 |
+| 成功（含 warnings） | `runtime.ship.archive=archived`，写入 `archive_path`；warnings 追加到 Step 6 摘要 |
+| exit ≠ 0 | **不做归档**：保持 `openspec/changes/<change_id>/` 原位；`runtime.ship.archive=failed`，写入 `archive_error`；摘要注明失败原因。不阻断交付收尾 |
 
 无论成功或失败，进入 Step 6（含 6.1）。用户若要事后补归档，可手动 `openspec-cn archive <change_id>`。
 
 #### 5.3 用户选 B / C
 
-- **B** → `ship.archive=deferred`；提示稍后手动 `openspec-cn archive <change_id>` 或 `/opsx:archive`
-- **C** → `ship.archive=skipped`
+- **B** → `runtime.ship.archive=deferred`；提示稍后手动 `openspec-cn archive <change_id>` 或 `/opsx:archive`
+- **C** → `runtime.ship.archive=skipped`
 
 然后进入 Step 6（含 6.1）。
 
@@ -262,16 +264,16 @@ openspec-cn archive "$change_id" --yes
   分支          : <feature/...>
   worktree      : <已合回并清理 / 已保留 / 未创建>
   产物合回      : <已合回主仓 .polaris/archive/<change_id>/ | 未合回（worktree 保留）| 部分失败：<失败项> | n/a>
-  verify 总分   : <X>（来自 state.verify.overall_score）
+  verify 总分   : <X>（来自 state.yaml 的 `runtime.verify.overall_score`）
   产物补齐      : <已补齐四件套（源：change-brief.md）| 无需补齐 | 补齐失败：<reason>>   # 仅 P01 显示
   archive       : <已归档于 <archive_path> | 已延迟（B）| 已跳过（C）| 未归档（失败：<archive_error>）>
 
-后续：下一个变更 /polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify 或 /polaris{{SKN_SPR}}coding{{SKN_SPR}}propose；度量回顾 /polaris{{SKN_SPR}}coding{{SKN_SPR}}retro。
+后续：下一个变更 /polaris{{SKN_SPR}}coding{{SKN_SPR}}specify 或 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan；度量回顾 /polaris{{SKN_SPR}}coding{{SKN_SPR}}retro。
 ```
 
 #### 6.1 主仓游标重置 + 清理
 
-**必做**（含 `ship.archive=failed`：OpenSpec 目录仍在原位，仅清 polaris 游标与 tasks 档案）。
+**必做**（含 `runtime.ship.archive=failed`：OpenSpec 目录仍在原位，仅清 polaris 游标与 tasks 档案）。
 
 调用 `ship-cleanup.sh`（删 `change_tasks` 对应 entry + `rm -rf .polaris/tasks/<change_id>{,.snapshot}`）：
 
@@ -284,7 +286,7 @@ bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$change_id" "$ORIGIN_REPO" || exit 
 ## 退出条件
 
 - ship lock 已获取并在流程结束时由 trap 释放
-- `ship.status=delivered` 已写入
+- `runtime.ship.status=delivered` 已写入
 - 若 `created_by_polaris_flow`：已完成 3.5，或用户选 C 且已标注 abandoned
 - Step 4.5 已处理（补齐 done / 无需补齐 / 失败已记录）
 - archive 已询问；选 A 成功则为 archived，失败则为 failed（**未**移动 openspec）

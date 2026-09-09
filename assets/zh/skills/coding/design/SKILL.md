@@ -1,12 +1,12 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}design
-description: "把 propose 的高层 design.md 深化为可实施的详细技术设计并完成评审。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design，或要求把 OpenSpec 高层 design.md 深化为 detailed-design.md / 深度技术设计时必须使用本 skill。"
+description: "把 plan 的高层 design.md 深化为可实施的详细技术设计并完成评审。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design，或要求把 OpenSpec 高层 design.md 深化为 detailed-design.md / 深度技术设计时必须使用本 skill。"
 ---
 
 # Polaris 工作流 - 阶段：深度设计（design）
 
 <HARD-GATE>
-本 skill **仅**负责把 propose 阶段的高层 `design.md` **深化**为 `openspec/changes/<change_id>/detailed-design.md`。
+本 skill **仅**负责把 plan 阶段的高层 `design.md` **深化**为 `openspec/changes/<change_id>/detailed-design.md`。
 
 - **禁止**跳过 Superpowers `brainstorming`（不可用则阻断，禁止用普通对话替代）
 - **禁止**跳过专项设计补充预检（`./policies/detailed-design-precheck.md`）：`detailed-design.md` 落盘后必须基于 proposal / design / detailed-design 给出专项建议，并经 decision-point 确认
@@ -15,8 +15,8 @@ description: "把 propose 的高层 design.md 深化为可实施的详细技术�
 - **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<change_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
 - **禁止**跳过 Step 4 主审：必须派发 `design-review-agent`（评审逻辑在 agent 内，禁止在本 skill 内联重写或主代理自审冒充）
 - **禁止**跳过 Step 4 Outside Voice **询问**（按 `.polaris/policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
-- **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`；写代码是 build）
-- **禁止**把本 skill 当成 plan 主审：不派 `plan-review-agent`、不写 `plan-review-report.md`
+- **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks`；写代码是 build）
+- **禁止**把本 skill 当成 tasks 主审：不派 `tasks-review-agent`、不写 `tasks-review-report.md`
 - **禁止**将专项设计写成 `design.md` 或放入任何子目录；专项必须为变更根目录下的 `<slug>-design.md`
 - **禁止**把设计/评审产物写回 `.polaris/tasks/`（运行态 `state.yaml` 除外）
 </HARD-GATE>
@@ -25,9 +25,9 @@ description: "把 propose 的高层 design.md 深化为可实施的详细技术�
 
 ## 标识约定
 
-- **`change_id`**：与 clarify finalize / propose 同值
+- **`change_id`**：与 specify finalize / plan 同值
 - 任务目录（运行态）：`.polaris/tasks/<change_id>/state.yaml`
-- 意图（只读）：`openspec/changes/<change_id>/intention.md`（propose 已迁入）
+- 意图（只读）：`openspec/changes/<change_id>/intention.md`（plan 已迁入）
 - 深度设计产物：`openspec/changes/<change_id>/detailed-design.md`
 - 专项设计（可选，扁平）：`openspec/changes/<change_id>/<slug>-design.md`
 - 设计主审报告：`openspec/changes/<change_id>/reviews/design-review-report.md`（由 Step 4 落盘）
@@ -36,7 +36,7 @@ description: "把 propose 的高层 design.md 深化为可实施的详细技术�
 - OpenSpec 四件套：`openspec/changes/<change_id>/`
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`）
 
-> **职责边界**：propose 的 `design.md` = 高层方案框架；本阶段 `detailed-design.md` = 深度技术细化。深化，不替代。  
+> **职责边界**：plan 的 `design.md` = 高层方案框架；本阶段 `detailed-design.md` = 深度技术细化。深化，不替代。  
 > **专项命名**：禁止叫 `design.md`；例：领域模型 → `domain-model-design.md`。不建 `design/` 子目录。
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
@@ -57,7 +57,7 @@ RTID_EXIT=$?
 
 - **唯一匹配**（恰好 1 个 id）→ 直接取该 `task_id`
 - **多个匹配** → 按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配** → 阻断，提示「未找到 clarify 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify」
+- **零匹配** → 阻断，提示「未找到 specify 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}specify」
 
 > 若 entry 已是 `phase=design`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
 
@@ -66,8 +66,8 @@ RTID_EXIT=$?
 | 检查 | 条件 |
 | ---- | ---- |
 | 四件套存在 | `openspec/changes/<change_id>/` 下 `proposal.md`、`design.md`、`tasks.md` 非空，且 `specs/` 含至少一个非空文件 |
-| 提案评审 | 若存在 `reviews/propose-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 propose |
-| 尚未锁定 | 若 `design.status=completed` 且 `detailed-design.md` 已存在 → 询问 A 续写修订 / B 退出（禁止静默覆盖） |
+| 提案评审 | 若存在 `reviews/plan-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 plan |
+| 尚未锁定 | 若 `runtime.design.status=completed` 且 `detailed-design.md` 已存在 → 询问 A 续写修订 / B 退出（禁止静默覆盖） |
 
 通过后：
 
@@ -75,7 +75,7 @@ RTID_EXIT=$?
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill design --where-task-id "$change_id" --set phase=design
 ```
 
-更新 `state.yaml`：`current_verb: design`，`design.status: in_progress`。  
+更新 `state.yaml`：`phase: design`，`runtime.design.status: in_progress`。  
 输出：`[polaris-flow 开发]设计: change_id=<change_id> ; phase=design`
 
 ### Step 1：读取上游事实源
@@ -191,7 +191,7 @@ canonical_spec: openspec
 
    D-1 下 agent 按 `design-review-agent.md`「输入」节自读上述路径；D-2 下主代理 Read 全部全文拼入 `Materials:` 段。评审标准在 agent 内（frontmatter 已载入）。
 
-3. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；将完整 **Design Review Report** 写入 `openspec/changes/<change_id>/reviews/deep-design-review-report.md`。
+3. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；将完整 **Design Review Report** 写入 `openspec/changes/<change_id>/reviews/design-review-report.md`。
 
 #### 4.2 Outside Voice（询问后可选）
 
@@ -230,21 +230,22 @@ canonical_spec: openspec
 更新 `state.yaml`：
 
 ```yaml
-design:
-  status: completed
-  path: openspec/changes/<change_id>/detailed-design.md
-  review_report: openspec/changes/<change_id>/reviews/design-review-report.md  # 或 skipped:<reason>
-  outside_voice: ran | skipped:<reason> | not_run:<reason>
-  outside_voice_report: openspec/changes/<change_id>/reviews/openspec-review-report.md  # 若 ran
+runtime:
+  design:
+    status: completed
+    path: openspec/changes/<change_id>/detailed-design.md
+    review_report: openspec/changes/<change_id>/reviews/design-review-report.md  # 或 skipped:<reason>
+    outside_voice: ran | skipped:<reason> | not_run:<reason>
+    outside_voice_report: openspec/changes/<change_id>/reviews/openspec-review-report.md  # 若 ran
 ```
 
 workflow阶段推进至规划阶段：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill design --where-task-id "$task_id" --set phase=plan
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill design --where-task-id "$task_id" --set phase=tasks
 ```
 
-输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan。`
+输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks。`
 
 ## 退出条件
 
@@ -252,7 +253,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 - Step 2.3 用户已确认方案
 - Step 4 主审已派发（或用户接受主审 SKIPPED）且无未消化 Critical
 - Outside Voice 已询问并完成（ran / 用户跳过 / 宿主无法运行已标注）
-- `phase=plan`
+- `phase=tasks`
 
 ## 上下文压缩恢复
 

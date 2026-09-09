@@ -26,7 +26,7 @@ import { parseSkillAssetPath } from '../assets/layout.js';
 export const SKILL_NAME_PREFIX_PLACEHOLDER = '{{SKN_SPR}}';
 
 /**
- * 匹配技能文本中的 `../` 相对引用（如 `../clarify/x.md`、`../../../../policies/y.md`）。
+ * 匹配技能文本中的 `../` 相对引用（如 `../specify/x.md`、`../../../../policies/y.md`）。
  * 负向前瞻 `(?<!\.)` 排除 `.../`（省略号 / shell glob），避免误报。
  */
 const CROSS_SKILL_PARENT_REF_RE = /(?<!\.)\.\.\/[A-Za-z0-9._\-\/]+/g;
@@ -58,7 +58,7 @@ export function shouldSkipSkillShortPath(shortPath: string): boolean {
 
 /**
  * 从 skills 资产相对路径取出顶层目录名（兼容旧调用）。
- * 例：`clarify/SKILL.md` → `clarify`；`coding/clarify/x` → `coding`。
+ * 例：`specify/SKILL.md` → `specify`；`coding/specify/x` → `coding`。
  */
 export function getSkillDirNameFromShortPath(shortPath: string): string | null {
   const normalized = shortPath.replace(/\\/g, '/');
@@ -232,7 +232,7 @@ function resolveSkillAssetLocation(shortPath: string): { skillRootRel: string; f
  * 扫描技能资产，找出「逃出技能自身目录」的 `../` 相对引用与幽灵占位符 {{SKILL_NAME_PREFIX}}。
  *
  * 背景：flat 安装布局把每个叶技能平铺为独立目录（如 `polaris-coding-tweak/`），
- * 源文件里的跨技能 `../clarify/...`、跨层 `../../../../policies/...` 相对路径在 flat 下必然断裂。
+ * 源文件里的跨技能 `../specify/...`、跨层 `../../../../policies/...` 相对路径在 flat 下必然断裂。
  * 正确做法是技能名引用（`use_skill` / `/命令`）或技能内自包含路径（`./policies/`、`./templates/`）。
  * 安装器只替换 `{{SKN_SPR}}`，不重写 `../` 与 `{{SKILL_NAME_PREFIX}}`，因此源资产扫描等价于产物扫描。
  */

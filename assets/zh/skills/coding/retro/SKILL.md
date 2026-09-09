@@ -30,7 +30,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 | OpenSpec 变更（可选叙事） | `openspec/changes/<change_id>/` 或 `openspec/changes/archive/*-<change_id>/` |
 | 配置 | `.polaris/config.yaml`（`mode` 等） |
 
-> **链路位置**：`clarify → … → verify → ship` 之后的**旁路复盘**，不占用 phase 游标、不推进阶段。  
+> **链路位置**：`specify → … → verify → ship` 之后的**旁路复盘**，不占用 phase 游标、不推进阶段。  
 > verify 写入 metrics；ship 把 worktree 内 metrics / overrides 合回主仓顶层；retro 只读聚合。
 
 ## 触发与范围
@@ -128,7 +128,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 - 必须能指回具体低分 scorer、违规计数或 override 聚类  
 - 禁止与数据矛盾的空话（如数据全绿却写「测试覆盖急需提升」）  
-- 建议指向流程动作时用现行命令：`/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`、`/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`、`/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 等
+- 建议指向流程动作时用现行命令：`/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`、`/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`、`/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 等
 
 ### Step 5：输出报告
 

@@ -1,6 +1,6 @@
 ---
-name: polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify
-description: "经结构化探索与确认，把用户需求落地为 intention.md。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
+name: polaris{{SKN_SPR}}coding{{SKN_SPR}}specify
+description: "经结构化探索与确认，把用户需求落地为 intention.md。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}specify 或 要求进入需求澄清 或 产出 intention.md 时必须使用本 skill。"
 version: 0.1
 ---
 # Polaris 工作流 - 阶段1：澄清
@@ -16,7 +16,7 @@ version: 0.1
 - **禁止**未读取 `./templates/intention-template.md` 就生成 `intention.md`（Step 4 强制前置）
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]澄清需求 - 进入澄清阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]澄清需求 - 进入澄清阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}specify 技能。`
 
 ---
 
@@ -30,7 +30,7 @@ version: 0.1
 
 读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）。无配置时回退到当前用户请求语言。
 
-本阶段所有提问、澄清摘要、`intention.md` 均以该语言为主语言。OpenSpec 三件套语言由后续 propose 阶段继承同一配置，**本阶段不创建**那些文件。
+本阶段所有提问、澄清摘要、`intention.md` 均以该语言为主语言。OpenSpec 三件套语言由后续 plan 阶段继承同一配置，**本阶段不创建**那些文件。
 
 ### Step 1：准备 draft 目录 + workflow entry
 
@@ -64,12 +64,12 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 
 - **A. 续写最新一个**：`draft_name` = 列表最后一项 → 进入 Step 2
 - **B. 选择一个**：列出所有的 `draft_name` 候选让用户选择之后，再进入 Step 2
-- **C. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `clarify-init.sh`，再进入 Step 1.5：
+- **C. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `task-init.sh`，再进入 Step 1.5：
 
 ```bash
 for d in <existing 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind change --skill clarify --repo-root "$REPO_ROOT" --where-task-id "$d"
+  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind change --skill specify --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
 
@@ -77,7 +77,7 @@ done
 
 #### 1.5 状态行输出（H8）
 
-输出：`[polaris-flow 开发]澄清需求 - 开始编写(意图)澄清草稿：.polaris/tasks/<draft_name>/; workflow: appended entry phase=clarify`
+输出：`[polaris-flow 开发]澄清需求 - 开始编写(意图)澄清草稿：.polaris/tasks/<draft_name>/; workflow: appended entry phase=specify`
 
 ### Step 2：加载宪法（注入点 A）
 
@@ -208,7 +208,7 @@ LINT_EXIT=$?
 将 draft 目录 `mv` 为正式 `task_id`，回填 intention 首行，更新 state / workflow：
 
 ```bash
-FINAL_RESULT=$(bash "$PLUGIN_ROOT/scripts/clarify-finalize.sh" "$REPO_ROOT" "<draft_name>" "<task_id>")
+FINAL_RESULT=$(bash "$PLUGIN_ROOT/scripts/specify-finalize.sh" "$REPO_ROOT" "<draft_name>" "<task_id>")
 FINAL_EXIT=$?
 echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 ```

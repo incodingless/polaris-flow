@@ -5,7 +5,7 @@
 - 拆分预检**必须**基于已形成的澄清摘要（目标、非目标、范围边界、关键未知项、验收场景草案），不得凭空拆分
 - 拆分决策是阻塞点，必须按 `./policies/decision-point.md` 协议暂停并等待用户选择
 - 不得在用户完成拆分选择前创建 `proposal.md`、`design.md` 或 `tasks.md`
-- 每个被接受的拆分项必须通过 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 创建独立 change，**禁止**直接调用 `/opsx:new`
+- 每个被接受的拆分项必须通过 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 创建独立 change，**禁止**直接调用 `/opsx:new`
 
 ---
 
@@ -99,13 +99,13 @@
 
 | 选择 | 后续动作 |
 |------|---------|
-| A（创建多个） | 进入 **§5 批量拆分模式**；当前 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 调用仅完成拆分确认与调度 |
-| B（保持单 change） | 记录「用户选择不拆分」及理由，跳过批量模式，继续 clarify 后续步骤 |
+| A（创建多个） | 进入 **§5 批量拆分模式**；当前 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 调用仅完成拆分确认与调度 |
+| B（保持单 change） | 记录「用户选择不拆分」及理由，跳过批量模式，继续 specify 后续步骤 |
 | C（调整方案） | 合并用户调整说明，重新输出 §3 候选拆分清单，再次呈现 §4 决策点（**最多 3 轮**） |
 
 > 用户回复未使用 A/B/C 但语义明确时按对应分支处理。语义不明确时必须重新呈现选项，禁止主观判定。
 
-**禁止**：未收到用户明确选择前创建任何 OpenSpec artifacts 或执行 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify`。
+**禁止**：未收到用户明确选择前创建任何 OpenSpec artifacts 或执行 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`。
 
 ---
 
@@ -115,14 +115,14 @@
 
 ### 5.1 创建规则
 
-- 每个被接受的拆分项**必须**通过 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 创建独立 change
+- 每个被接受的拆分项**必须**通过 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 创建独立 change
 - **禁止**直接调用 `/opsx:new`
-- 按用户确认的顺序（或推荐执行顺序）逐个调度 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify`
-- 当前会话的 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 调用**仅负责**拆分确认与调度，不推进 design 阶段
+- 按用户确认的顺序（或推荐执行顺序）逐个调度 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`
+- 当前会话的 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 调用**仅负责**拆分确认与调度，不推进 design 阶段
 
 ### 5.2 单个拆分项的调用要求
 
-进入每个拆分项的 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 时，**必须**明确标注：
+进入每个拆分项的 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 时，**必须**明确标注：
 
 ```
 [已确认拆分项] <change 名称>
@@ -138,8 +138,8 @@
 
 ### 5.3 批量完成后的暂停规则
 
-- 单个拆分项完成 clarify 阶段后，**不得**自动流转到 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}propose`
-- 全部分拆项 clarify 完毕后，**必须**暂停并询问用户：
+- 单个拆分项完成 specify 阶段后，**不得**自动流转到 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`
+- 全部分拆项 specify 完毕后，**必须**暂停并询问用户：
 
 ```
 以下 change 已创建并就绪：
@@ -147,10 +147,10 @@
   · <change-2>
   · ...
 
-请选择要先推进 propose 阶段的 change（回复名称或编号）：
+请选择要先推进 plan 阶段的 change（回复名称或编号）：
 ```
 
-- 用户选择后，**仅**推进该 change 进入 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}propose`
+- 用户选择后，**仅**推进该 change 进入 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`
 - 其他 change 保持 active，稍后通过 `/polaris-flow` 恢复
 
 ---
@@ -179,8 +179,8 @@
 
 | 状态 | 动作 |
 |------|------|
-| 拆分项已存在且含 `state.yaml` | **不得**重复创建，标记为「已完成 propose」 |
-| 拆分项尚未创建 | 按已确认清单继续通过 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 创建 |
+| 拆分项已存在且含 `state.yaml` | **不得**重复创建，标记为「已完成 plan」 |
+| 拆分项尚未创建 | 按已确认清单继续通过 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 创建 |
 | 对话中已确认的拆分清单不可恢复 | **必须**按 `./policies/ask-question-react.md` 重新向用户确认拆分清单（重新呈现 §3 + §4），确认后再继续 |
 
 ### 7.3 恢复后继续

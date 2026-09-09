@@ -4,7 +4,7 @@
 
 ## 任意入口恢复原则
 
-用户可能直接从 `/{{SKILL_NAME_PREFIX}}clarify`、`/{{SKILL_NAME_PREFIX}}design`、`/{{SKILL_NAME_PREFIX}}build`、`/{{SKILL_NAME_PREFIX}}verify`、`/{{SKILL_NAME_PREFIX}}ship`、`/{{SKILL_NAME_PREFIX}}hotfix` 或 `/{{SKILL_NAME_PREFIX}}tweak` 回到流程。进入任意子 Skill 时，都先按 `./reference/scripts.md` 定位脚本，再用当前子 Skill 对应 phase 运行入口检查或恢复检查。不得依赖对话历史判断阶段。
+用户可能直接从 `/{{SKILL_NAME_PREFIX}}specify`、`/{{SKILL_NAME_PREFIX}}design`、`/{{SKILL_NAME_PREFIX}}build`、`/{{SKILL_NAME_PREFIX}}verify`、`/{{SKILL_NAME_PREFIX}}ship`、`/{{SKILL_NAME_PREFIX}}hotfix` 或 `/{{SKILL_NAME_PREFIX}}tweak` 回到流程。进入任意子 Skill 时，都先按 `./reference/scripts.md` 定位脚本，再用当前子 Skill 对应 phase 运行入口检查或恢复检查。不得依赖对话历史判断阶段。
 
 ```bash
 node polaris state check <change-name> <phase> --recover

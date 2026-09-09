@@ -1,6 +1,6 @@
 # Outside Voice 协议
 
-由 **propose** / **design** / **plan** 在主审 subagent 报告落盘后执行。挑战主审结论的 subagent 固定为 `openspec-review-agent`。
+由 **plan** / **design** / **tasks** 在主审 subagent 报告落盘后执行。挑战主审结论的 subagent 固定为 `openspec-review-agent`。
 
 ## 核心定位
 
@@ -14,9 +14,9 @@
 
 | 阶段 | 主审 agent | 主审报告 |
 |------|------------|----------|
-| propose | `propose-review-agent` | `openspec/changes/<change_id>/reviews/propose-review-report.md` |
+| plan | `plan-reviewer` | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
 | design  | `design-review-agent`  | `openspec/changes/<change_id>/reviews/design-review-report.md` |
-| plan    | `plan-review-agent`    | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
+| tasks   | `tasks-review-agent`    | `openspec/changes/<change_id>/reviews/tasks-review-report.md` |
 
 然后：`read_file` 本文件（或已安装的 `./reference/outside-voice.md`），按下列步骤。
 
@@ -54,8 +54,8 @@ B. 跳过
 ## Step OV-3：派发
 
 1. **填充启动模板**：
-   - **plan 阶段**：优先 `skills/plan/prompts/main-review-summary.tmpl.md`
-   - **propose / design 阶段**：`templates/outside-voice-prompt.tmpl.md`（或同等字段手工 prompt）
+   - **tasks 阶段**：优先 `skills/tasks/prompts/main-review-summary.tmpl.md`
+   - **plan / design 阶段**：`templates/outside-voice-prompt.tmpl.md`（或同等字段手工 prompt）
 2. 按宿主原生机制派发 `openspec-review-agent`（init 已装到 `.<platform>/agents/`）。
 3. 启动 prompt **必须**含：`Change`、`Stage`、`PrimaryReport`（主审报告路径）、`Materials` 列表。
 4. **禁止**把用户对主审 findings 的采纳/拒绝决策喂给 challenger（保独立性）。

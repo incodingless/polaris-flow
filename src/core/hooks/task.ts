@@ -1,5 +1,5 @@
 /**
- * Clarify / discovery / testcase 任务生命周期：init（建目录 + state）与 finalize（draft → 正式 id）。
+ * Specify / discovery / testcase 任务生命周期：init（建目录 + state）与 finalize（draft → 正式 id）。
  * 由 `polaris task-init` / `polaris task-finalize` 调用。
  *
  * - change / testcase：先建 draft-*，再由 finalize（或后续流程）落到正式 id
@@ -76,12 +76,14 @@ async function writeKindStateAndBootstrap(
       phase: layout.initialPhase,
       kind: 'change',
     });
-    state.intention = {
-      path: getTaskIntentionRelPath(taskId),
-    };
-    state.clarify = {
-      status: 'in_progress',
-      draft_dir: taskId,
+    state.runtime = {
+      ...state.runtime,
+      specify: {
+        ...state.runtime?.specify,
+        intention_path: getTaskIntentionRelPath(taskId),
+        status: 'in_progress',
+        start_time: new Date().toISOString(),
+      },
     };
     await saveTaskStateToFile(statePath, state);
   } else if (layout.stateFactory === 'requirement') {
@@ -237,14 +239,13 @@ export async function finalize(
   await patchTaskStateFile(stateYaml, {
     change_id: changeId,
     task_id: changeId,
-    phase: 'clarify',
-    intention: {
-      path: intentionRel,
-    },
-    clarify: {
-      status: 'completed',
-      draft_dir: '',
-      path: intentionRel,
+    phase: 'specify',
+    runtime: {
+      specify: {
+        intention_path: intentionRel,
+        status: 'completed',
+        finished_at: new Date().toISOString(),
+      },
     },
   });
 
@@ -256,7 +257,7 @@ export async function finalize(
 
   const wf = await runWorkflowEntry({
     op: 'rename-active',
-    skill: 'clarify',
+    skill: 'specify',
     kind: 'change',
     repoRoot: root,
     from: draftName,

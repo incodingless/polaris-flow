@@ -51,11 +51,11 @@ describe('draft-create / task-init / task-finalize', () => {
 
     await runWorkflowEntry({
       op: 'append-active',
-      skill: 'clarify',
+      skill: 'specify',
       kind: 'change',
       repoRoot: root,
       taskId: draftName,
-      phase: 'clarify',
+      phase: 'specify',
       worktreePath: '',
       startedAt: '2026-07-21T00:00:00Z',
     });
@@ -79,7 +79,7 @@ describe('draft-create / task-init / task-finalize', () => {
       'utf-8',
     );
     expect(stateRaw).toContain('change_id: feat-abc123');
-    expect(stateRaw).toMatch(/phase:\s*clarify/);
+    expect(stateRaw).toMatch(/phase:\s*specify/);
   });
 
   it('task-init requirement 须 --task-id，直建正式目录（无 draft）', async () => {

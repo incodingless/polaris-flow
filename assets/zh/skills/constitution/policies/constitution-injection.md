@@ -16,11 +16,11 @@
 
 ### 注入点 B：lock 完成后
 
-**位置**：`/ezfl:lock` command，plan-review 完成后
+**位置**：`/ezfl:lock` command，tasks-review 完成后
 **行为**：
 1. lock subagent 追加 `## Constitution Compliance` 节到评审报告
 2. 逐条评估计划是否可能违反宪法
-3. STATUS 聚合规则：取 plan-review 与 Constitution Compliance 中更严者
+3. STATUS 聚合规则：取 tasks-review 与 Constitution Compliance 中更严者
 
 ### 注入点 C：build 入口
 

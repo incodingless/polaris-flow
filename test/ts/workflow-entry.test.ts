@@ -30,7 +30,7 @@ describe('applyWorkflowOp', () => {
       skill: 't',
       kind: 'change',
       taskId: 'draft-1',
-      phase: 'clarify',
+      phase: 'specify',
       worktreePath: '',
       startedAt: '2026-01-01T00:00:00Z',
     });
@@ -43,9 +43,9 @@ describe('applyWorkflowOp', () => {
       skill: 't',
       kind: 'change',
       whereTaskId: 'draft-1',
-      setPhase: 'propose',
+      setPhase: 'plan',
     });
-    expect(r.state.change_tasks[0].phase).toBe('propose');
+    expect(r.state.change_tasks[0].phase).toBe('plan');
 
     r = applyWorkflowOp(r.state, {
       op: 'rename-active',
@@ -103,7 +103,7 @@ describe('runWorkflowEntry', () => {
       kind: 'change',
       repoRoot: repo,
       taskId: 'draft-xyz',
-      phase: 'clarify',
+      phase: 'specify',
       worktreePath: '',
       startedAt: '2026-07-21T00:00:00Z',
     });
@@ -112,7 +112,7 @@ describe('runWorkflowEntry', () => {
     expect(state.change_tasks).toEqual([
       makeTaskEntry({
         task_id: 'draft-xyz',
-        phase: 'clarify',
+        phase: 'specify',
         worktree_path: '',
         started_at: '2026-07-21T00:00:00Z',
       }),
@@ -169,7 +169,7 @@ describe('runWorkflowEntry', () => {
       kind: 'change',
       repoRoot: repo,
       taskId: 'c1',
-      phase: 'clarify',
+      phase: 'specify',
       startedAt: '2026-07-21T00:00:00Z',
     });
     await runWorkflowEntry({
@@ -178,7 +178,7 @@ describe('runWorkflowEntry', () => {
       kind: 'change',
       repoRoot: repo,
       taskId: 'p1',
-      phase: 'propose',
+      phase: 'plan',
       startedAt: '2026-07-21T01:00:00Z',
     });
     await runWorkflowEntry({
@@ -200,19 +200,19 @@ describe('runWorkflowEntry', () => {
     expect(allChange.exitCode).toBe(0);
     expect(allChange.taskIds).toEqual(['c1', 'p1']);
 
-    const clarifyOnly = await runWorkflowEntry({
+    const specifyOnly = await runWorkflowEntry({
       op: 'get-active-changes',
       skill: 'test',
       kind: 'change',
       repoRoot: repo,
-      phase: 'clarify',
+      phase: 'specify',
     });
-    expect(clarifyOnly.exitCode).toBe(0);
-    expect(clarifyOnly.taskIds).toEqual(['c1']);
-    expect(clarifyOnly.tasks).toEqual([
+    expect(specifyOnly.exitCode).toBe(0);
+    expect(specifyOnly.taskIds).toEqual(['c1']);
+    expect(specifyOnly.tasks).toEqual([
       makeTaskEntry({
         task_id: 'c1',
-        phase: 'clarify',
+        phase: 'specify',
         worktree_path: '',
         started_at: '2026-07-21T00:00:00Z',
       }),

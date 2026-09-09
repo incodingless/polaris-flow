@@ -73,7 +73,7 @@ export function isPackageCommonAsset(assetRelPath: string): boolean {
 
 /**
  * 解析 skills 资产相对路径中的族 / 叶技能。
- * - `coding/clarify/SKILL.md` → family=coding, skill=clarify
+ * - `coding/specify/SKILL.md` → family=coding, skill=specify
  * - `subagent-probe/SKILL.md` → family=null, skill=subagent-probe
  */
 export function parseSkillAssetPath(shortPath: string): {

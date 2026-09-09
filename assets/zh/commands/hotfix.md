@@ -2,7 +2,7 @@
 name: hotfix
 command_prefix: pofol
 triggers: ["/pofol:hotfix"]
-description: 快速修复 bug
+description: 修复 bug
 ---
 
-Use the `polaris:hotfix` skill.
+使用 `polaris{{SKN_SPR}}coding{{SKN_SPR}}hotfix` 技能。
