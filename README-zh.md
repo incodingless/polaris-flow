@@ -96,14 +96,15 @@ bug  →  tasks  →  build  →  ship
 `/pofol:flow` 在第一步类别询问之前会做：
 
 1. **前置需求预检**：识别开发意图（4 选 1：动作+目标+2 项 / 关键字 ≥ 80 字 / 附加文件含需求要素 / 引用 PRD·OpenSpec 制品目录）；开发类若无要求附带，最多 2 轮强制后仍空 → 强制 `complex` 档（让复杂度评估兜底）。
-2. **可选复杂度评估**：复用 idea-discovery 4 档；按评估结果自动路由：
+2. **可选复杂度评估**：复用 idea-discovery 3 档；按评估结果自动路由：
 
 | 评估档 | 入口技能 | 链路 |
 |---|---|---|
 | `simple` | `polaris:coding:tweak` | brief → tasks → build → ship |
 | `standard` | `polaris:coding:normal` | specify → plan → design → tasks → build → verify → ship |
 | `complex` | `polaris:coding:specify`（`/pofol:sdd` 别名） | specify → plan → design(可选) → tasks → build → verify → ship → retro(可选) |
-| `needs_split` | **STOP** | 不加载任何技能；输出「建议拆分」清单 |
+
+需要拆分的需求并入 `complex`：由 specify 阶段的 `task-split-precheck` 接手拆分（规模检测 → 候选拆分清单 → 决策点 → 批量模式），入口不 STOP。
 
 复杂度评估仅对开发类强制；`/pofol:tweak` / `/pofol:normal` / `/pofol:sdd` / `/pofol:hotfix` 直达技能命令不受此预检约束。
 

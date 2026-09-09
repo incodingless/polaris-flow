@@ -129,7 +129,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "header": "自动评估",
     "multiSelect": false,
     "options": [
-      { "label": "是 — 自动评估并路由", "description": "按 4 档（simple / standard / complex / needs_split）自动判定并跳到对应技能" },
+      { "label": "是 — 自动评估并路由", "description": "按 3 档（simple / standard / complex）自动判定并跳到对应技能" },
       { "label": "否 — 我手动选 P01/P02/P03", "description": "跳过自动评估，按原流程走第一步 + 第二步手动选择" }
     ]
   }]
@@ -143,7 +143,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 
 ### 0.4 自动评估（仅开发类，且用户选「是」时）
 
-按 `policies/complexity-router.md` 跑 4 档评估（信号：模糊点 / 范围 / 方案分叉 / 风险）。
+按 `policies/complexity-router.md` 跑 3 档评估（信号：模糊点 / 范围 / 方案分叉 / 风险）。需要拆分的需求直接判 `complex`，拆分由 specify 阶段的 `task-split-precheck` 接手，入口不单独 STOP。
 
 **输出必须同条消息展示给用户**（含评分、依据、路由目标），让用户能立刻看到判定理由。
 
@@ -151,16 +151,13 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 
 **路由覆盖**：
 
-| 评估结果 | 覆盖到 | 状态填写 |
-|---------|-------|---------|
 | 评估结果 | 覆盖到 | 入口技能 | 状态填写 |
 |---------|-------|---------|---------|
 | `simple` | P01 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` | `已选类别 = 开发`，`已选功能 = P01` |
 | `standard` | P02 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` | `已选类别 = 开发`，`已选功能 = P02` |
 | `complex` | P03（也是 `/polaris:sdd` 别名） | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` | `已选类别 = 开发`，`已选功能 = P03` |
-| `needs_split` | **STOP** | — | 不填 `已选功能`；命令端输出「建议拆分」清单，**不**加载任何技能 |
 
-`needs_split` 时：把"按以下维度拆分"清单（基于 4 个信号各一项）一并输出，让用户能据此重新组织需求后再次触发本命令。
+需要拆分的需求由 `complex` 档承接：specify 阶段的 `task-split-precheck` 会做规模检测与拆分决策（候选清单 + 决策点 + 批量模式），入口**不**在此 STOP。
 
 ### 0.5 状态衔接
 

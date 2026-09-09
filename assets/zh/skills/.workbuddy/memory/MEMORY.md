@@ -52,6 +52,7 @@
 
 - 复杂度评分：业务 11 + 技术 15 + 合规 7 = 33 分制，简单 0-5 / 标准 6-12 / 复杂 13+，含高危强制升档（`prd/discovery/policies/complexity-assessment-policy.md`）
 - 规模判定：≤1 delta spec 且 ≤3 大任务 → 免拆分（`coding/specify/policies/task-split-precheck.md`）
+- **polaris-flow 入口复杂度路由为 3 档**（simple/standard/complex，`commands/policies/complexity-router.md`）；`needs_split` 已并入 complex——「需要拆分 / 分多期 / 跨季度」判 complex 走 specify，由 `task-split-precheck` 接手拆分，入口不 STOP（2026-09-09 拍板）
 - 共享策略来自 `assets/zh/policies/`（decision-point / ask-question-react / outside-voice / auto-transition / response-posture / hard-stops），技能目录内不存放，打包时注入
 
 ## 技能命名与文档引用铁律
