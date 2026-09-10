@@ -23,12 +23,12 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 
 | 项 | 路径 / 值 |
 |----|-----------|
-| `change_id` | 与 specify → build 同值 |
-| OpenSpec 四件套 | `openspec/changes/<change_id>/`（proposal / design / specs / tasks） |
-| 深度设计（只读，`runtime.design.status=skipped` 时不存在） | `openspec/changes/<change_id>/detailed-design.md` |
-| 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
-| 验证报告 | `openspec/changes/<change_id>/reviews/verify-report.md` |
-| Metrics | `.polaris/metrics/<timestamp>-metrics.json` |
+| `task_id` | 与 specify → build 同值 |
+| OpenSpec 四件套 | `openspec/changes/<task_id>/`（proposal / design / specs / tasks） |
+| 深度设计（只读，`runtime.design.status=skipped` 时不存在） | `openspec/changes/<task_id>/detailed-design.md` |
+| 业务档案 | `.polaris/tasks/<task_id>/state.yaml` |
+| 验证报告 | `openspec/changes/<task_id>/reviews/verify-report.md` |
+| Metrics | `.polaris/tasks/<task_id>/metrics/<timestamp>-metrics.json` |
 | Constitution 规则 | `./policies/constitution-audit.md` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 
@@ -44,16 +44,16 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 
 - 目录：`.polaris/metrics/`（**当前工作目录**的 `.polaris/`——若在 worktree 内即 worktree 的 metrics；ship 合回主仓）
 - 文件名：`<timestamp>-metrics.json`，每次 verify 写一个新文件，**不覆盖**历史，`<timestamp>`格式：`date -u +%Y%m%d-%H%M%S`（UTC）
-- JSON 顶层**必含** `change_id`
+- JSON 顶层**必含** `task_id`
 - **禁止**写到 `.polaris/metrics.json`（单文件形式）——会破坏按时间戳叠加语义
 - **禁止**把顶层 metrics 当冗余清理——retro 靠全局 glob
 - 单个 scorer 也通过 `ls -t .polaris/metrics/*-metrics.json | head -1` 取最近一次结果
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：定位 change_id + 入口校验
+### Step 0：定位任务ID + 入口校验
 
-用 bash 读取工作流配置中有效变更的`change_id`：
+用 bash 读取工作流配置中有效变更的`task_id`：
 
 ```bash
 TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill verify --repo-root "$REPO_ROOT" --phase verify)
@@ -65,11 +65,11 @@ RTID_EXIT=$?
 
 按 `$TASK_IDS` 数组长度解读：
 
-- **唯一匹配**：直接读取 `change_id`
+- **唯一匹配**：直接读取 `task_id`
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 design 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design」
+- **零匹配**：阻断，提示「未找到构建(build)阶段的活动任务，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}build」
 
-> 若 entry 已是 `phase=tasks`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+> 若 entry 已是 `phase=build`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
 > 若上次中断在 verify（`runtime.verify.status=in_progress`），从中断点续跑；不得因「已是 verify」而报零匹配。
 
 **入口校验**（失败 → 阻断）：
@@ -77,12 +77,12 @@ RTID_EXIT=$?
 | 检查 | 条件 |
 |------|------|
 | build 已完成 | `state.yaml` 中 `runtime.build.status=completed`（或用户明示接受续跑） |
-| tasks 已勾完 | `openspec/changes/<change_id>/tasks.md` 中不存在 `- [ ]` |
+| tasks 已勾完 | `openspec/changes/<task_id>/tasks.md` 中不存在 `- [ ]` |
 | 四件套 + 深度设计 | `proposal.md` / `design.md` / `tasks.md` 非空，`specs/` 至少一非空文件；`detailed-design.md` 存在（**或 `runtime.design.status=skipped`，此时缺失合法**） |
 | 工作目录 | 若 `worktree_path` 非空 → 后续读产物 / 跑命令 **以该 worktree 为仓库根**；否则用主仓 |
 
 通过后更新 `state.yaml`：`phase: verify`，`runtime.verify.status: in_progress`，`runtime.verify.blocked: false`（本轮重新判定）。  
-输出：`[polaris-flow 开发]验证: change_id=<change_id> ; worktree=<path|main>`
+输出：`[polaris-flow 开发]验证: 任务ID=<task_id> ; worktree=<path|main>`
 
 ### Step 1：处理dirty worktree
 
@@ -131,7 +131,7 @@ done
 #### 3.2 聚合写入 metrics
 
 ```bash
-mkdir -p .polaris/metrics
+mkdir -p .polaris/tasks/$task_id/metrics
 TS=$(date -u +%Y%m%d-%H%M%S)
 # 写入 .polaris/metrics/${TS}-metrics.json
 ```
@@ -141,7 +141,7 @@ TS=$(date -u +%Y%m%d-%H%M%S)
 ```json
 {
   "timestamp": "20260525-074800",
-  "change_id": "<change_id>",
+  "task_id": "<task_id>",
   "mode": "solo",
   "audit": {
     "violations": 0,
@@ -236,7 +236,7 @@ git diff --stat <base-ref>...HEAD
 **通过**：6 项全 OK，无 CRITICAL / IMPORTANT。  
 **不通过** → [验证失败决策](#验证失败决策阻塞点)。
 
-报告：简表 6 项 + PASS/FAIL，写入 `reviews/verify-report.md`（先确保 `openspec/changes/<change_id>/reviews/` 存在）。
+报告：简表 6 项 + PASS/FAIL，写入 `reviews/verify-report.md`（先确保 `openspec/changes/<task_id>/reviews/` 存在）。
 
 #### 4.2b 完整验证
 
@@ -245,8 +245,8 @@ git diff --stat <base-ref>...HEAD
 检查项：
 
 1. `tasks.md` 全部 `[x]`
-2. 实现符合高层 `openspec/changes/<change_id>/design.md`
-3. 实现符合 `openspec/changes/<change_id>/detailed-design.md`（**仅 `runtime.design.status=completed` 时检查；`skipped` 时跳过本项**）
+2. 实现符合高层 `openspec/changes/<task_id>/design.md`
+3. 实现符合 `openspec/changes/<task_id>/detailed-design.md`（**仅 `runtime.design.status=completed` 时检查；`skipped` 时跳过本项**）
 4. 能力规格场景可追溯通过（或明确记录未自动化项与手工结论）
 5. `proposal.md` 目标已满足
 6. specs / detailed-design（若有）无未记录矛盾（Build 中改过 spec 的，detailed-design 须有对应记录）
@@ -266,7 +266,7 @@ git diff --stat <base-ref>...HEAD
 
 验证通过后：
 
-1. 确保 `openspec/changes/<change_id>/reviews/verify-report.md` 已写完整结论（含 Constitution 摘要、overall_score、light/full、各检查项）
+1. 确保 `openspec/changes/<task_id>/reviews/verify-report.md` 已写完整结论（含 Constitution 摘要、overall_score、light/full、各检查项）
 2. 更新 `state.yaml`：
 
 ```yaml
@@ -278,7 +278,7 @@ runtime:
     score_level: <high|low>
     verify_mode: <light|full>
     blocked: false
-    verification_report: "openspec/changes/<change_id>/reviews/verify-report.md"
+    verification_report: "openspec/changes/<task_id>/reviews/verify-report.md"
     scorer_results: { ... }
     finished_at: "<ISO>"
 phase: idle
@@ -286,17 +286,17 @@ phase: idle
 
 4. 推进：
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill verify --where-task-id "$change_id" --set phase=ship
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill verify --where-task-id "$task_id" --set phase=ship
 ```
 
 3. 输出：
 
 ```
 验证阶段完成：
-  change_id : <change_id>
+  task_id : <task_id>
   mode      : <light|full>
   score     : <overall_score> (<score_level>)
-  report    : openspec/changes/<change_id>/reviews/verify-report.md
+  report    : openspec/changes/<task_id>/reviews/verify-report.md
 下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}ship。
 ```
 
@@ -343,13 +343,13 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 
 - 轻量或完整验证通过（无未解决 CRITICAL / IMPORTANT）
 - `runtime.verify.blocked=false`（或已合法 override）
-- `.polaris/metrics/<timestamp>-metrics.json` 已写入且含 `change_id`
+- `.polaris/tasks/<task_id>/metrics/<timestamp>-metrics.json` 已写入且含 `task_id`
 - `verify-report.md` 存在且 `runtime.verify.verification_report` 指向它
 - `runtime.verify.status=completed`，且 `phase=ship`
 
 ## 上下文压缩恢复
 
-重载：`change_id`、`worktree_path`、`verify.*`（status / mode / score_level / blocked）、最新 metrics 文件、本 skill 停在哪一步、失败项清单（若有）。  
+重载：`task_id`、`worktree_path`、`verify.*`（status / mode / score_level / blocked）、最新 metrics 文件、本 skill 停在哪一步、失败项清单（若有）。  
 - 停在 Step 2/3 → 从该步续，勿重复已写入的 metrics（可追加新 timestamp 文件）  
 - 停在 Step 4 失败决策 → 从决策点续，勿重跑已通过的检查项（除非用户要求全量重跑）  
 - 勿重新跑 build apply；勿进入 ship 直到出口校验通过

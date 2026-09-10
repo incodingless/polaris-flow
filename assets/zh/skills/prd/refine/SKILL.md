@@ -16,7 +16,7 @@ version: 0.3
 | 定位 | 迭代工作稿 | 正式交付文档 |
 | 章节 | 5章轻量结构 | 严格模板11章+4附录完整结构 |
 | 目标 | 需求逻辑完整表达，减少人工审核量 | 可交付、可评审、可执行的完整需求文档 |
-| 评审 | 不执行完整评审 | 执行7维度+可测性双维度完整评审 |
+| 评审 | 不执行完整评审 | 执行7维度业务评审+可测性检查完整评审（准出判定在 ship） |
 | 输入 | Baseline | 初稿 + Baseline + coding-knowledge |
 
 <HARD-STOP>
@@ -164,7 +164,7 @@ LANG_EXIT=$?
 - 确认一章，再进入下一章；禁止批量生成多章节
 - 继承章节先优化确认，再开始新增章节生成
 
-**输出落盘**：每章一个文件落 `sessions/`，文件名按固定枚举（Step 2.5 与 4.2 均按此顺序拼接）：
+**输出落盘**：每章一个文件落 `final/`，文件名按固定枚举（Step 2.5 与 4.2 均按此顺序拼接）：
 
 | 文件名 | 对应模板章节 |
 |---|---|
@@ -184,7 +184,7 @@ LANG_EXIT=$?
 | `_appendix-c.md` | 附录 C 参考资料 |
 | `_appendix-d.md` | 附录 D 评审签署 |
 
-**章节状态文件**：`sessions/chapter_state.md`，每章落盘或确认后立即更新：
+**章节状态文件**：`final/chapter_state.md`，每章落盘或确认后立即更新：
 
 | 章节文件 | 状态 | 确认时间 | L2验证结论 |
 |---|---|---|---|
@@ -244,14 +244,14 @@ LANG_EXIT=$?
 
 ## Step 2.5：合并终稿全文（Step 3 评审输入）
 
-**输入**：`sessions/` 下全部状态为「已确认」的章节文件
-**输出落盘**：`sessions/prd_final_draft.md`
+**输入**：`final/` 下全部状态为「已确认」的章节文件
+**输出落盘**：`final/prd_final_draft.md`
 
 - 按 Step 2 文件名表顺序拼接，前置文档头与版本修订记录，后置附录 A~D
 - **定稿前清理**：删除模板「模板使用约定」整节与所有 `【填写指引】`，确认无 `{{...}}` 残留占位符
 - 生成全文目录，统一标题层级与跨章锚点跳转
 - 合并时设定**初始版本 V1.0**：文档头「当前版本」= V1.0，文档编号 = `{前缀}-PRD-V1.0`，「修订记录」表登记首行（V1.0 / 创建 / 初始版本 / 全文）
-- 该文件是 Step 3 两个评审 subagent 的**唯一评审对象**；自此刻起，全文成为评审-修复阶段的**唯一真源**，分章文件完成历史使命并冻结，不再回写
+- 该文件是 Step 3 两个评审 subagent（3.1 业务评审 / 3.2 可测性）的**唯一评审对象**；自此刻起，全文成为评审-修复阶段的**唯一真源**，分章文件完成历史使命并冻结，不再回写
 - 后续评审修复一律**直接在本文上修改并递增版本号**，不再回改分章文件、不再重跑本步骤（见 Step 3.3）
 
 ---
@@ -259,8 +259,12 @@ LANG_EXIT=$?
 ## Step 3：完整评审与人工评审支撑
 
 **输出落盘**：
-- `full_review_report.md`
+- `full_review_report.md`（业务评审 + 可测性检查汇总）
 - `review-package/`（人工评审支撑包）
+
+**执行顺序约束**：3.1 与 3.2 可并行；3.3 的 P0/T0 修复闭环完成后进入 3.4。
+
+> 本阶段只保证**文档质量达标**（P0/T0 清零）。**能否交付研发进入技术设计**由 `polaris{{SKN_SPR}}prd{{SKN_SPR}}ship` 的研发就绪度评估独立判定——判定者与执行者分离，且评估对象为定稿后的最终版本，避免「评估 A 版本、交付 A' 版本」。
 
 ### 3.0 探测可用 subagent（Step 3 入口，一次探测全程复用）
 
@@ -298,7 +302,7 @@ LANG_EXIT=$?
   - `task_description`：对 PRD 终稿执行 7 维度业务评审。加载并遵循 `polaris{{SKN_SPR}}prd{{SKN_SPR}}review` 技能的评审方法与 Phase 4 报告格式，产出含分级问题清单、基线追溯矩阵、问题ID锚点链接的完整评审报告。
   - `task_type`：`doc_review`
   - `materials`：
-    - `sessions/prd_final_draft.md`（Step 2.5 合并出的终稿全文，3.1 与 3.2 共用同一文件）
+    - `final/prd_final_draft.md`（Step 2.5 合并出的终稿全文，3.1 与 3.2 共用同一文件）
     - Baseline 路径
     - `polaris{{SKN_SPR}}prd{{SKN_SPR}}review` 技能 SKILL.md 路径（供 subagent 加载评审方法）
   - `constraints`：
@@ -336,7 +340,7 @@ LANG_EXIT=$?
 
 subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
-- `DONE` / `DONE_WITH_CONCERNS`：接收 `result.output`（评审报告内容或路径），落盘到 `sessions/full_review_report.md` 的业务评审部分
+- `DONE` / `DONE_WITH_CONCERNS`：接收 `result.output`（评审报告内容或路径），落盘到 `final/full_review_report.md` 的业务评审部分
 - `BLOCKED`：记录 `result.concerns`，向用户报告阻塞原因，暂停 Step 3 后续
 - `NEEDS_CONTEXT`：按 `result.concerns` 补充上下文后重新派发（同一 agent）
 - `FAILED`：降级为主代理 inline 执行（自动，见上方「inline 降级」）
@@ -359,7 +363,7 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
   - `task_description`：对 PRD 终稿执行可测性专项检查。加载并遵循 `polaris{{SKN_SPR}}prd{{SKN_SPR}}testability` 技能的检查方法与 Phase 4 报告格式，产出含四维度检查记录、分级问题清单（T0~T3）、验收标准补全建议、问题ID锚点链接的完整可测性报告。
   - `task_type`：`doc_review`
   - `materials`：
-    - `sessions/prd_final_draft.md`（与 3.1 共用同一文件，禁止各自指向不同版本）
+    - `final/prd_final_draft.md`（与 3.1 共用同一文件，禁止各自指向不同版本）
     - `polaris{{SKN_SPR}}prd{{SKN_SPR}}testability` 技能 SKILL.md 路径（供 subagent 加载检查方法）
   - `constraints`：
     - 只评审，**禁止**修改任何文档文件
@@ -425,6 +429,8 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 ### 3.5 输出完整评审报告
 
 包含：评审维度得分、问题清单（分级）、修复记录、评审结论（通过/不通过）、评审支撑包使用说明
+
+> 准出结论（PASS/CONDITIONAL/FAIL）不在本阶段产出，由 `polaris{{SKN_SPR}}prd{{SKN_SPR}}ship` 调用 `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness` 判定。
 
 ---
 
