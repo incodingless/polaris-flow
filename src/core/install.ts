@@ -8,7 +8,7 @@
 import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
 import { parseDocument } from 'yaml';
-import { getPlatformSkillsDir, type Platform } from './domain/platforms.js';
+import { getCommandLayout, getPlatformSkillsDir, type Platform } from './domain/platforms.js';
 import {
   type InstallScope,
   type Languages,
@@ -109,12 +109,13 @@ export async function installPolarisForPlatform(
   // 3.1.1 替换 scripts/_polaris-cli.sh 平台占位符，并为 hooks/scripts 设可执行位
   await rewritePolarisCliPlatformId(platformLayout.skillsDir, platform.id);
 
-  // 3.2 复制命令
+  // 3.2 复制命令（落盘路径按平台 commandLayout：nested 保留子目录；flat 扁平为 polaris-<路径>）
   const commands = await installPolarisCommandsForPlatform(
     platformLayout.commandsDir,
     overwrite,
     asset,
     platform.skillsLayout,
+    getCommandLayout(platform),
   );
 
   // 3.3 复制代理（按平台映射 tools，写入 config 解析的 model）

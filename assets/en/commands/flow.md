@@ -1,7 +1,7 @@
 ---
 name: flow
-command_prefix: pofol
-triggers: ["/pofol:flow"]
+command_prefix: polaris
+triggers: ["/polaris{{CMD_SPR}}flow"]
 description: Polaris Flow entry point. Asks the user to pick a function category and a specific function, then routes to the corresponding skill.
 ---
 

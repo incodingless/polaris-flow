@@ -12,7 +12,7 @@ import {
   type InstallScope,
 } from '../assets/polaris-paths.js';
 import { type Languages } from '../config/polaris-project-config.js';
-import { getPlatformContextDir, type Platform } from '../domain/platforms.js';
+import { getCommandLayout, getPlatformContextDir, type Platform } from '../domain/platforms.js';
 
 import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 
@@ -102,7 +102,12 @@ export async function initializeProjectLayout(
     scope === 'global' ? globalContextDir : getPlatformContextDir(platform, scope, projectPath);
 
   const skillBase = path.join(contextDir, platform.skillsDir, POLARIS_PLUGIN_NAME);
-  const commandBase = path.join(contextDir, platform.commandsDir, POLARIS_PLUGIN_NAME);
+  // 命令根：nested 带 polaris 命名空间目录；flat 直接落平台命令目录
+  // （Cursor CLI 不递归子目录，多一层 polaris/ 就完全读不到）
+  const commandBase =
+    getCommandLayout(platform) === 'flat'
+      ? path.join(contextDir, platform.commandsDir)
+      : path.join(contextDir, platform.commandsDir, POLARIS_PLUGIN_NAME);
   const agentBase = path.join(contextDir, platform.agentsDir);
   const ruleBase = path.join(contextDir, platform.rulesDir);
 

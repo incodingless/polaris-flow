@@ -1,7 +1,7 @@
 ---
 name: hotfix
-command_prefix: pofol
-triggers: ["/pofol:hotfix"]
+command_prefix: polaris
+triggers: ["/polaris{{CMD_SPR}}maintance{{CMD_SPR}}hotfix"]
 description: 修复 bug
 ---
 

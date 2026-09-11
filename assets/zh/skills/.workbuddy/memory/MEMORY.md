@@ -60,11 +60,54 @@
 6. 坑：陈旧 `.git/index.lock` 导致 `git mv` 假失败；vitest 4.x 不支持 `--reporter=basic`；**本机 BSD grep 不支持 `\b`**（用 `grep -w` 或 `-E "(^|[^a-zA-Z])x([^a-zA-Z]|$)"`）；行级保护规则整行跳过会漏改同行的其他目标
 7. 相邻改名撞键时用**特征字段**分流（如含 `tdd_policy` → `runtime.tasks`），不按键名分
 
+## 入口菜单（`assets/zh/commands/flow.md`）
+
+共 11 项，4 类：开发 P01–P03（tweak / normal / specify）、维护 M01–M03（hotfix / codereview⚠️ / refactor⚠️）、需求 R01–R03（discovery / draft / **readiness**）、测试 T01–T02（case / acceptance）。
+
+- 命令树（2026-09-11 起）：`commands/flow.md`（入口）+ `coding/{tweak,normal,sdd}.md` + `prd/readiness.md` + `maintance/hotfix.md`。**目录即命名空间、文件名即叶子名**，命令名由落盘相对路径推导
+- 需求类的 R01 discovery / R02 draft **没有独立命令文件**，只能走菜单；R03 有独立命令 `/polaris:prd:readiness`
+- **R03 · 需求就绪度评估**：菜单项 → `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness`；独立命令 `assets/zh/commands/prd/readiness.md`。是 `ship` Step 1 准出评估的独立入口，含免评 E1~E3 / 强制信号 F1~F5
+- 加菜单项要同步改 5 处：状态字段行、第一步类别描述（如需）、第二步 options、第四步路由表、「需求类与测试类选项的前置依赖」表；另外 `test/ts/commands-install.test.ts` 的 `referencedSkills` + 编号断言 + 落盘路径断言、`adapters/command-registration.md` 的已注册命令表
+- 新命令 frontmatter：`command_prefix: polaris` + `triggers: ["/polaris{{CMD_SPR}}<family>{{CMD_SPR}}<name>"]`（根级命令为 `/polaris{{CMD_SPR}}<name>`）；正文引**技能**用 `{{SKN_SPR}}`、引**命令**用 `{{CMD_SPR}}`，**两者都不写死**；安装器扫目录自动分发，无需改安装代码
+
+## 编辑工具铁律
+
+- **同一条消息里对同一个文件发两个 Edit 会丢更新**（并行写竞态：后写的覆盖先写的）。同一文件多处修改必须**串行**发，改完后再 Read/Grep 复核
+- 本机 BSD grep **既不支持 `\b` 也不支持 `\|` 交替**（静默返回 0 匹配，极易误判为"无引用"）；Bash 里 `--include=*.md` 在 zsh 下报 no matches —— 一律改用 Grep 工具。注意 Grep 工具的 `head_limit` 会静默截断，判断"全仓有无引用"时不要设限或要复核
+
+## 命令目录布局与命名空间（2026-09-11 实测 + 定案）
+
+- 安装器行为：`commands.ts` → `collectContentPaths`（`walkFilesSafe` 递归**无过滤**）→ 按 `shortPath` 落盘 **子目录原样保留**，所有 `.md` 都会被注册成 slash command
+- `Platform` 只有 `skillsLayout`，**没有 commandLayout**；命令树对所有平台一致拷贝，**不做扁平化**
+- **命令子目录的平台支持（2026-09-11 官方文档取证，修正此前"只有 Claude 支持"的误判）**：
+  - **Claude Code** ✅ 递归 `.claude/commands/**`，子目录 → `:` 命名空间（`frontend/component.md` → `/frontend:component`）；文档中唯一的"跳过"只针对保留名 `synced` 与名称冲突
+  - **Trae** ✅ `.trae/commands` **支持最多 3 层嵌套**（v3.5.56 / 2026-05 起，官方文档有完整树示例）→ **此前据 `openspec.ts:267` 注释断言"Trae 走扁平"是错的/过时的**，OpenSpec 用扁平 `opsx-*` 是它自己的兼容选择
+  - **Cursor** ⚠️ **IDE 递归扫子目录**（官方人员论坛 2026-03 确认）；**CLI 只读顶层 `.md`、完全跳过子目录** → 缺口仅在 Cursor CLI
+  - 结论：分类子目录对 Claude / Trae / Cursor IDE 均可用；**Cursor CLI 读不到任何子目录** → 已由 `commandLayout: 'flat'` 解决（2026-09-11，见下）
+- **命令名推导只认路径**；`_` / `.` 前缀**不是**任何平台的忽略约定（三平台官方文档均无此规则）
+- **铁律：`commands/` 下不放非命令文件**。安装器无过滤（`walkFilesSafe` 纯递归；`layout.ts:50 shouldSkipAsset` 的跳过机制只服务 skills 域，commands 安装不调用）→ 任何 `.md` 都会落盘并注册。命令的伴生资料要么**内联进命令正文**，要么放语言包顶层 `policies/`（→ `plugin_root/policies/`，不进命令树）
+  - 反例已修：`commands/policies/complexity-router.md` 会被注册成 `/polaris:policies:complexity-router`。2026-09-11 用户选**「内联进 flow.md」**，内容并入 `flow.md` 0.4 节（372 → 411 行），文件与目录已删；`README-zh` 与 `command-registration.md` 同步
+  - **「改下划线前缀规避」不可行**：加过滤 = 不拷贝 = 删文件（宿主里「文件在 `commands/` 下」**就是**注册机制，无独立注册步骤），会连带打断 `flow.md` 对它的相对引用；平台侧也无下划线豁免
+- **命令布局 = 独立能力 `Platform.commandLayout`（2026-09-11 新增）**，**不可由 `skillsLayout` 推导**（Trae 就是「技能 flat、命令 nested」）：
+  - `nested`（默认）：`<contextDir>/commands/polaris/<相对路径>` → 命令名 `/polaris:coding:normal`
+  - `flat`：`<contextDir>/commands/polaris-<相对路径，/ → ->.md` → 命令名 `/polaris-coding-normal`。**连 `polaris/` 命名空间目录一起去掉**（Cursor CLI 连这层都不递归），命名空间由 `polaris-` 文件名前缀承担
+  - 当前：`claude` nested / `trae`+`trae-cn` nested / **`cursor` flat**（其 CLI 只读顶层 `.md`，IDE 才递归）
+  - 实现：`install/layout.ts` 算命令根 → `install/commands.ts` 的 `resolveCommandDest()` 算相对路径。**换平台只改一个字段，源文件不动**
+- **占位符一分为二**：`{{SKN_SPR}}` 按 `skillsLayout` 展开、**`{{CMD_SPR}}` 按 `commandLayout` 展开**（同为 `:` 或 `-`）。命令正文与 frontmatter `triggers` 都必须用占位符，写死 `/polaris:*` 会在 flat 平台产生不存在的命令名
+  - 批量替换注意：多段名要逐段拆（`/polaris:coding:sdd` → `/polaris{{CMD_SPR}}coding{{CMD_SPR}}sdd`），**不能简单把 `/polaris:` 换成 `/polaris{{CMD_SPR}}`**
+- **定案（用户 2026-09-11 决策）**：保留分类子目录 + 命名空间统一为 `/polaris:*` + en 不建分类目录（en 仍扁平，命令名为 `/polaris:<name>`）。**决策时误以为「Cursor/Trae 全面缺口」，实为仅 Cursor CLI**（见上）
+- Claude Code 的 frontmatter `name` **只是显示标签**，不参与命令名推导（证据：`.claude/commands/opsx/explore.md` 的 `name: "OPSX: Explore"`，实际命令 `/opsx:explore`）→ **改文件名 = 改命令名**
+- `command_prefix` / `triggers` 是**无消费者的声明性元数据**（生成 triggers 的 `install/command-adapters/` 已删除）
+- `pofol` 前缀来自 `5b309eb 调整命名配置`（2026-09-04，把 `polaris` 改 `pofol`），但落盘目录始终是 `commands/polaris/` → 已统一回 `polaris`（2026-09-11）
+- **连带改名**：`commands/polaris-flow.md` → `commands/flow.md`（否则路径推导出 `/polaris:polaris-flow`，与文档宣称的 `/polaris:flow` 不符）
+
 ## 已知未修的不一致
 
 - `skills/README.md` 写 `delivery`，实际目录 `ship`；代码层（src/）仍用 `delivery`（`TaskDeliveryState`/`runDeliveryCleanup`），功能自洽、风险高暂不动
 - 幽灵 policy：`subagent-delegate-policy.md` 被 tasks/design/plan 引用但文件不存在（normal 已内联 D-1/D-2 判定规避）
 - plan 的 `design-template.md` 节名为中文，与其 Step 4.1 的英文节名校验不匹配（normal 副本已改英文规避）
 - `assets/zh/skills/README.md` L21 仍写「命令入口一般为 `/polaris-flow-<阶段>`」（实际是 `/polaris:flow` + `use_skill`）
-- en/commands/flow.md 比 zh/polaris-flow.md 薄（前者是入口 stub，未做翻译对齐）
+- `assets/en/commands/` 比 zh 薄且无分类目录（en 的 `flow.md` 只是入口 stub，未做翻译对齐）
 - **prd 链与 coding 链无正式输入契约**：`coding/specify`、`coding/plan` 全文无任何 PRD 字样（2026-09-10 核查）
+- **`test/ts/command-adapters.test.ts` 已坏**：import `src/core/install/command-adapters/command-adapters.js` 不存在（`Cannot find module`）。这是**既有失败基线**，跑全量 vitest 时先排除，别误判为本次改动引入（2026-09-11 确认）
+- **Trae 命令名推导未验证**：Trae 官方文档只说明 `.trae/commands` 支持 3 层嵌套，**未明确子目录是否计入命令名**（Claude 会计入 → `/polaris:flow`）。若实测 Trae 侧不是 `/polaris:flow`，把 `platforms.ts` 里 trae / trae-cn 的 `commandLayout` 改成 `flat` 即可（2026-09-11 记）

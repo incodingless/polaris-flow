@@ -1,7 +1,7 @@
 ---
 name: hotfix
-command_prefix: pofol
-triggers: ["/pofol:hotfix"]
+command_prefix: polaris
+triggers: ["/polaris{{CMD_SPR}}hotfix"]
 description: Quick bug fix (skip brainstorming)
 ---
 

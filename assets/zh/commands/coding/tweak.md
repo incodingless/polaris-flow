@@ -1,7 +1,7 @@
 ---
 name: tweak
-command_prefix: pofol
-triggers: ["/pofol:tweak"]
+command_prefix: polaris
+triggers: ["/polaris{{CMD_SPR}}coding{{CMD_SPR}}tweak"]
 description: 小改动（跳过 brainstorming 与完整 plan）
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: flow
-command_prefix: pofol
-triggers: ["/pofol:flow"]
+command_prefix: polaris
+triggers: ["/polaris{{CMD_SPR}}flow"]
 description: Polaris Flow 总入口。按平台查表选用询问工具，单选让用户依次选择功能类别与具体功能，收集附加上下文（文件/目录/说明）后加载对应技能并进入相应工作流。
 ---
 
@@ -53,7 +53,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 执行本命令期间维护四个状态，只有**全部填好**才允许进入第四步（查表并加载技能）：
 
 - `已选类别`：需求 / 开发 / 测试 / 维护，四者之一
-- `已选功能`：P01–P03 / M01–M03 / R01–R02 / T01–T02，其中之一
+- `已选功能`：P01–P03 / M01–M03 / R01–R03 / T01–T02，其中之一
 - `需求内容`：`待预检` / `无` / 具体清单（文字描述 / 文件路径 / 两者）。**仅开发类（M01 / P01–P03 / M03）必须非空**；其他类允许为空
 - `附加上下文`：`待收集` / `无` / 具体清单（文件路径、目录、或文字说明）
 
@@ -138,20 +138,48 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 }
 ```
 
-**单次会话有效**：本选择**不**持久化，下次调用 polaris-flow 时重新问。
+**单次会话有效**：本选择**不**持久化，下次调用 `/polaris{{CMD_SPR}}flow` 时重新问。
 
 - 选「是」→ 跳 0.4 自动评估
 - 选「否」→ 把 `需求内容` 保留，跳过 0.4；正常走第一步 + 第二步（用户手动选 P01/P02/P03），`需求内容` 随技能加载一并交接
 
 ### 0.4 自动评估（仅开发类，且用户选「是」时）
 
-按 `policies/complexity-router.md` 跑 3 档评估（信号：模糊点 / 范围 / 方案分叉 / 风险）。需要拆分的需求直接判 `complex`，拆分由 specify 阶段的 `task-split-precheck` 接手，入口不单独 STOP。
+按 3 档（`simple` / `standard` / `complex`）评估需求复杂度。需要拆分的需求直接判 `complex`，拆分由 specify 阶段的 `task-split-precheck` 接手，入口不单独 STOP。
 
-**输出必须同条消息展示给用户**（含评分、依据、路由目标），让用户能立刻看到判定理由。
+**① 判定信号（4 个）**
+
+| 信号 | simple | standard | complex |
+|------|--------|----------|---------|
+| **模糊点** | 0 个（或 1 trivial 可自解） | 1–3 个 | 4+ 或架构级 |
+| **范围** | 单文件/单模块 | 2–3 模块 | 多子系统/新 capability |
+| **方案分叉** | 代码库唯一路径 | 2 种可行 | 3+ 或 BREAKING |
+| **风险** | 低、易回滚 | 中 | 高（安全/数据/兼容/合规） |
+
+> 「模糊点」= 需求描述里**未明确**且实现时**必须假设**的点（如"未指定语言 / 未指定库 / 未指定数据格式"）。trivially solvable（一眼能看出该用什么，比如"前端"指 React）不算模糊点。
+> 「范围」= 改动涉及的代码模块数。「方案分叉」= 调研后可选实现路径数，唯一路径计 0。「风险」= 改动失败/回滚对用户/数据/业务/合规的影响。
+
+**② 评分与分档**：按 4 个信号分别打分（0=simple / 1=standard / 2=complex），求和后映射 —— 0 → `simple`；1–3 → `standard`；4+ → `complex`。
+
+**强制升档（无视总分）**：触及安全 / 数据迁移 / 对外 API breaking change；任一信号打到 complex；用户显式提到"分多期 / 拆里程碑 / 跨季度 / 需要拆分" —— 三者任一即强制 `complex`。
+
+**③ 输出格式**（**必须同条消息展示给用户**，含评分、依据、路由目标，让用户能立刻看到判定理由）：
+
+```markdown
+## 复杂度判定
+- 级别：<simple | standard | complex>
+- 信号评分：模糊点=<0|1+|4+> 范围=<single|few|many> 方案=<unique|few|many> 风险=<low|med|high>
+- 总分：<N>
+- 强制升档：<无 | reason>
+- 依据：
+  1. <具体证据：从需求原文 / 附加上下文里摘录的句子或文件名>
+  2. <具体证据>
+- 路由目标：<tweak | normal | specify>
+```
 
 **用户反对时**：可**上调**一档（不得下调）；如认为"太复杂"也不能下调为 simple。
 
-**路由覆盖**：
+**④ 路由覆盖**：
 
 | 评估结果 | 覆盖到 | 入口技能 | 状态填写 |
 |---------|-------|---------|---------|
@@ -160,6 +188,17 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 | `complex` | P03 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` | `已选类别 = 开发`，`已选功能 = P03` |
 
 需要拆分的需求由 `complex` 档承接：specify 阶段的 `task-split-precheck` 会做规模检测与拆分决策（候选清单 + 决策点 + 批量模式），入口**不**在此 STOP。
+
+**⑤ 边界与失败处理**
+
+| 情况 | 处理 |
+|------|------|
+| 需求内容为空 / 仅有"实现 XX"且无任何细节 | 视为 4 个信号都算模糊点，强制 `complex`（提示用户补充细节） |
+| 需求内容**已含** OpenSpec 四件套 / 完整 PRD | 视为 0 模糊点 + 范围已定，判 `standard` 或 `complex`（按方案分叉） |
+| 用户在 0.3 选了"否 — 我手动选" | 不执行本步骤，跳过 0.4，正常走第一 / 二步 |
+| 信号之间矛盾（范围 = single 但方案分叉 = many） | 走**较高**那档（宁严勿松，与 `complexity-assessment-policy.md` 第 1.2 条一致） |
+
+> **与 33 分制的关系**：`prd/discovery/policies/complexity-assessment-policy.md` 是 **PRD 阶段**的细粒度评分（业务 11 + 技术 15 + 合规 7，5 档）；本节是 **flow 入口**的轻量 3 档判定，**不**替代 33 分制 —— normal / specify 阶段需要细化时再调它。两者都遵循"宁严勿松"。
 
 ### 0.5 状态衔接
 
@@ -179,7 +218,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "header": "功能类别",
     "multiSelect": false,
     "options": [
-      { "label": "需求", "description": "编写用户需求（需求基线）或产品需求（PRD）" },
+      { "label": "需求", "description": "编写用户需求（需求基线）、产品需求（PRD），或做研发就绪度评估" },
       { "label": "开发", "description": "实现新功能，按复杂度分简单 / 常规 / 复杂三档" },
       { "label": "测试", "description": "编写测试用例或验收标准" },
       { "label": "维护", "description": "修复 Bug、代码评审、重构既有代码" }
@@ -239,7 +278,8 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "multiSelect": false,
     "options": [
       { "label": "R01 · 编写用户需求", "description": "产出用户需求，说明需求目标" },
-      { "label": "R02 · 编写产品需求", "description": "基于用户需求产出产品需求文档" }
+      { "label": "R02 · 编写产品需求", "description": "基于用户需求产出产品需求文档" },
+      { "label": "R03 · 需求就绪度评估", "description": "对定稿终稿做研发准出判定：五维度加权评分 + PASS/CONDITIONAL/FAIL" }
     ]
   }]
 }
@@ -255,7 +295,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "multiSelect": false,
     "options": [
       { "label": "T01 · 编写测试用例", "description": "基于产品需求文档产出用例集" },
-      { "label": "编写验收标准", "description": "产出 GWT 验收标准清单" }
+      { "label": "T02 · 编写验收标准", "description": "产出 GWT 验收标准清单" }
     ]
   }]
 }
@@ -320,6 +360,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 | **M03** 重构 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}refactor` | ⚠️ 暂不可用 · 该技能尚未提供 |
 | **R01** 编写用户需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery` | discovery（产出需求基线，含功能架构草案） |
 | **R02** 编写产品需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}draft` | draft → refine → review → ship |
+| **R03** 需求就绪度评估 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness` | readiness（五维度加权评分 + PASS/CONDITIONAL/FAIL 准出判定；FAIL 阻断交付回 refine） |
 | **T01** 编写测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}case` | case（产出用例集 + 追溯矩阵） |
 | **T02** 编写验收标准 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}acceptance` | acceptance（产出 GWT 验收标准清单） |
 
@@ -355,6 +396,7 @@ P01 / P02 / P03 的差别在于**走的阶段数**，选择时按以下标准判
 | 选项 | 前置条件 | 缺失时的处理 |
 |---|---|---|
 | **R02** 编写产品需求 | 需已存在《需求基线》 | 提示用户先执行 **R01** 产出需求基线 |
+| **R03** 需求就绪度评估 | 需已定稿的 PRD 终稿（`prd-final-v1.0.md`） | **阻断**：提示用户先执行 **R02** 完成终稿定稿。前置两份评审报告（`review` / `testability`）缺失**不阻断**，对应维度按「证据不足」3 分封顶 |
 | **T01** 编写测试用例 | 需已定稿的 PRD 且含验收标准 | 提示用户先执行 **R02** 或 **T02** |
 | **T02** 编写验收标准 | 需需求条目或 PRD 功能点 | 提示用户先执行 **R01 / R02** |
 

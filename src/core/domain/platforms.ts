@@ -22,6 +22,19 @@ export const PLATFORM_ROOT_DIR_NAMES = ['skills', 'commands', 'agents'] as const
 /** 技能目录布局：nested 嵌套进 polaris；flat 子 skill 扁平为 polaris-<family>-<skill>（如 Trae） */
 export type SkillsLayout = 'nested' | 'flat';
 
+/**
+ * 命令目录布局。与 `SkillsLayout` **互相独立**（如 Trae：技能 flat、命令 nested）。
+ * - `nested`（默认）：`<contextDir>/commands/polaris/<相对路径>`，命令名 = 相对路径的 `/` → `:`
+ *   （如 `commands/polaris/coding/normal.md` → `/polaris:coding:normal`）
+ * - `flat`：`<contextDir>/commands/polaris-<相对路径，/ → ->.md`，命令名 = 文件名
+ *   （如 `commands/polaris-coding-normal.md` → `/polaris-coding-normal`）
+ *
+ * `flat` 用于 **Cursor**：官方行为是 **CLI 只读 `.cursor/commands/` 顶层的 `.md`、跳过全部子目录**
+ * （IDE 才递归扫描）。因此即便保留 `polaris/` 这一层，CLI 也读不到 —— 必须去掉命名空间目录，
+ * 改用 `polaris-` 文件名前缀（与 OpenSpec 的 `opsx-*.md` 同构）。
+ */
+export type CommandLayout = 'nested' | 'flat';
+
 /** 平台元数据：探测路径、skills/rules/hooks 能力与布局 */
 export interface Platform {
   id: string;
@@ -38,6 +51,8 @@ export interface Platform {
 
   /** 技能安装布局，默认 nested */
   skillsLayout: SkillsLayout;
+  /** 命令安装布局，默认 nested；与 skillsLayout 互相独立 */
+  commandLayout?: CommandLayout;
   /** 是否支持 PreToolUse hooks */
   supportsHooks?: boolean;
   hooksConfigFile: string;
@@ -132,6 +147,11 @@ const CURSOR_AGENT_TOOL_MAP: Record<string, string> = {
 /** 返回平台技能布局，缺省为 nested */
 export function getSkillsLayout(platform: Platform): SkillsLayout {
   return platform.skillsLayout ?? 'nested';
+}
+
+/** 返回平台命令布局，缺省为 nested */
+export function getCommandLayout(platform: Platform): CommandLayout {
+  return platform.commandLayout ?? 'nested';
 }
 
 /** 返回平台 settings 相对路径（project→settings.local.json，global→settings.json） */
@@ -279,6 +299,8 @@ export const PLATFORMS: Platform[] = [
     rulesDir: 'rules',
     rulesFormat: 'mdc',
     skillsLayout: 'nested',
+    /** Cursor CLI 只读 `.cursor/commands/` 顶层 `.md`、跳过全部子目录 → 命令必须扁平落盘 */
+    commandLayout: 'flat',
     supportsHooks: true,
     /** project/global 实际文件由 hooks.ts 按 scope 选择 settings.local.json / settings.json */
     hooksConfigFile: 'settings.local.json',
