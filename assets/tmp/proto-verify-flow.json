@@ -1,0 +1,13 @@
+{
+  "name": "黄金任务流夹具：工作台 → 任务列表",
+  "size": "1440x900",
+  "steps": [
+    { "page": "workbench" },
+    { "expect": "今日待办 12 项" },
+    { "expectSelector": "#btn-go" },
+    { "click": "#btn-go" },
+    { "page": "task-list" },
+    { "expect": "TK-2026-0001" },
+    { "expect": "已加载 1 条" }
+  ]
+}

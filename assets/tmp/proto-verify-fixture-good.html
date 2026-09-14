@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>verify.mjs 正例夹具</title>
+<style>
+  :root{
+    --text-primary:#333333;
+    --text-secondary:#5a6178;
+    --bg-page:#f1f4fd;
+    --bg-white:#ffffff;
+  }
+  body{margin:0;font-family:system-ui,sans-serif;background:var(--bg-page);color:var(--text-primary)}
+  header{height:56px;background:#fff;display:flex;align-items:center;padding:0 24px}
+  nav{display:flex;gap:8px;padding:12px 24px}
+  section{display:none;padding:24px}
+  section.active{display:block}
+  button{cursor:pointer}
+  .meta{font-size:13px;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24"><path d="M2 2h4v4H2z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M10 10h4v4h-4z"/></symbol>
+</svg>
+
+<header><span>业务中台</span></header>
+<nav>
+  <button data-goto="workbench"><svg width="16" height="16"><use href="#i-search"/></svg>工作台</button>
+  <button data-goto="task-list"><svg width="16" height="16"><use href="#i-plus"/></svg>任务列表</button>
+</nav>
+
+<main>
+  <section id="workbench" class="active">
+    <h2>工作台</h2>
+    <p class="meta">今日待办 12 项</p>
+    <button id="btn-go" data-goto="task-list">进入任务列表</button>
+  </section>
+
+  <section id="task-list">
+    <h2>任务列表</h2>
+    <p id="status" class="meta">加载中</p>
+    <table><thead><tr><th>单号</th><th>状态</th></tr></thead>
+      <tbody><tr><td>TK-2026-0001</td><td>待审批</td></tr></tbody></table>
+  </section>
+</main>
+
+<script>
+  window.goto = function (id) {
+    var secs = document.querySelectorAll('section[id]');
+    for (var i = 0; i < secs.length; i++) {
+      secs[i].classList.remove('active');
+      secs[i].style.display = 'none';
+    }
+    var el = document.getElementById(id);
+    if (el) { el.classList.add('active'); el.style.display = ''; }
+  };
+  document.getElementById('btn-go').addEventListener('click', function () {
+    document.getElementById('status').textContent = '已加载 1 条';
+  });
+  window.goto('workbench');
+</script>
+</body>
+</html>

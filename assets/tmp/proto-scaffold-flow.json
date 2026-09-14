@@ -1,0 +1,14 @@
+{
+  "name": "脚手架闭环：工作台 → 列表 → 详情 → 审批",
+  "size": "1440x900",
+  "steps": [
+    { "page": "workbench" },
+    { "expect": "工作台" },
+    { "page": "order-list" },
+    { "expectSelector": "#order-list" },
+    { "click": "[data-goto=\"order-detail\"]" },
+    { "expect": "订单详情" },
+    { "click": "[data-goto=\"approval-center\"]" },
+    { "expect": "审批中心" }
+  ]
+}

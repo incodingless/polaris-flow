@@ -1,0 +1,10 @@
+{
+  "name": "公司规范原型：工作台 → 合同列表",
+  "size": "1440x900",
+  "steps": [
+    { "page": "workbench" },
+    { "expect": "工作台" },
+    { "click": "[data-goto=\"contract-list\"]" },
+    { "expectSelector": "#contract-list" }
+  ]
+}

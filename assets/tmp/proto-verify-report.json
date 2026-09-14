@@ -1,0 +1,173 @@
+{
+  "target": "/Users/weiliu/Documents/work/projects/polaris/polaris-flow/assets/tmp/proto-verify-fixture-good.html",
+  "generatedAt": "2026-09-11T06:55:26.935Z",
+  "node": "v22.22.2",
+  "browser": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "options": {
+    "layers": [
+      1,
+      2,
+      3
+    ],
+    "sizes": [
+      "1366x768",
+      "1440x900",
+      "1920x1080"
+    ],
+    "contrastMin": 4.5,
+    "strict": false
+  },
+  "layers": [
+    {
+      "id": 1,
+      "name": "静态检查",
+      "ran": true,
+      "required": true,
+      "hard": 0,
+      "warn": 0,
+      "skipped": false,
+      "note": ""
+    },
+    {
+      "id": 2,
+      "name": "无头浏览器逐页冒烟",
+      "ran": true,
+      "required": true,
+      "hard": 0,
+      "warn": 0,
+      "skipped": false,
+      "note": ""
+    },
+    {
+      "id": 3,
+      "name": "黄金流 + 三档分辨率",
+      "ran": true,
+      "required": true,
+      "hard": 0,
+      "warn": 0,
+      "skipped": false,
+      "note": ""
+    }
+  ],
+  "scriptStats": {
+    "scriptsChecked": 1,
+    "pages": 2,
+    "jumps": 4,
+    "uses": 2,
+    "tokens": 4
+  },
+  "findings": [],
+  "layer2": {
+    "skipped": false,
+    "pages": 2,
+    "errors": 0,
+    "detail": {
+      "ok": true,
+      "innerWidth": 1366,
+      "innerHeight": 681,
+      "docScrollW": 1366,
+      "docClientW": 1366,
+      "bodyScrollW": 1366,
+      "mode": "smoke",
+      "pages": [
+        {
+          "id": "workbench",
+          "how": "fn:goto",
+          "found": true,
+          "visible": true,
+          "len": 93,
+          "overflow": []
+        },
+        {
+          "id": "task-list",
+          "how": "fn:goto",
+          "found": true,
+          "visible": true,
+          "len": 164,
+          "overflow": []
+        }
+      ],
+      "flow": [],
+      "errors": []
+    }
+  },
+  "layer3": {
+    "sizes": [
+      {
+        "size": "1366x768",
+        "ok": true,
+        "docOverflow": 0,
+        "offenders": 0,
+        "pages": 2,
+        "errors": 0
+      },
+      {
+        "size": "1440x900",
+        "ok": true,
+        "docOverflow": 0,
+        "offenders": 0,
+        "pages": 2,
+        "errors": 0
+      },
+      {
+        "size": "1920x1080",
+        "ok": true,
+        "docOverflow": 0,
+        "offenders": 0,
+        "pages": 2,
+        "errors": 0
+      }
+    ],
+    "flow": {
+      "skipped": false,
+      "steps": 7,
+      "passed": 7,
+      "log": [
+        {
+          "i": 0,
+          "action": "page workbench",
+          "ok": true,
+          "reason": ""
+        },
+        {
+          "i": 1,
+          "action": "expect \"今日待办 12 项\"",
+          "ok": true,
+          "reason": ""
+        },
+        {
+          "i": 2,
+          "action": "expectSelector #btn-go",
+          "ok": true,
+          "reason": ""
+        },
+        {
+          "i": 3,
+          "action": "click #btn-go",
+          "ok": true,
+          "reason": ""
+        },
+        {
+          "i": 4,
+          "action": "page task-list",
+          "ok": true,
+          "reason": ""
+        },
+        {
+          "i": 5,
+          "action": "expect \"TK-2026-0001\"",
+          "ok": true,
+          "reason": ""
+        },
+        {
+          "i": 6,
+          "action": "expect \"已加载 1 条\"",
+          "ok": true,
+          "reason": ""
+        }
+      ]
+    }
+  },
+  "hard": 0,
+  "warn": 0
+}

@@ -1,0 +1,10 @@
+{
+  "name": "回归：工作台 → 订单列表",
+  "size": "1440x900",
+  "steps": [
+    { "page": "workbench" },
+    { "expect": "工作台" },
+    { "click": "[data-goto=\"order-list\"]" },
+    { "expectSelector": "#order-list" }
+  ]
+}

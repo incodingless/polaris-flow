@@ -1,0 +1,10 @@
+{
+  "name": "故意走不通的链路",
+  "size": "1366x768",
+  "steps": [
+    { "page": "workbench" },
+    { "expect": "这段文字页面上并不存在" },
+    { "click": "#nope" },
+    { "page": "task-list" }
+  ]
+}

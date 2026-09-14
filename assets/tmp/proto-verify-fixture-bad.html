@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>verify.mjs 反例夹具</title>
+<style>
+  :root{
+    --text-primary:#333333;
+    --text-secondary:#666666;
+    --text-placeholder:#999999;
+    --bg-page:#f1f4fd;
+    --bg-white:#ffffff;
+  }
+  .m1{font-size:12px} .m2{font-size:12px} .m3{font-size:12px} .m4{font-size:12px} .m5{font-size:12px}
+  .m6{font-size:12px} .hint{font-size:11px}
+  .card:has(.title){padding:12px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><path d="M2 2h4v4H2z"/></symbol></svg>
+
+<header><span class="brand icon">▶ 业务中台</span></header>
+<nav>
+  <button data-goto="workbench"><use href="#i-search"/>工作台</button>
+  <button data-goto="task-list">任务列表</button>
+  <button data-goto="missing-page">打不开的页</button>
+  <button data-goto="ghost-page">幽灵页</button>
+</nav>
+
+<main>
+  <section id="workbench">
+    <h2>早上好，林远</h2>
+    <p class="m1 m2" style="display:none"></p>
+    <div class="card"><span>交叉嵌套在这里</div></span>
+  </section>
+
+  <section id="task-list">
+    <p>联系电话 13812345678</p>
+    <p>工号: A10293</p>
+    <p>邮箱 zhangwei@qq.com</p>
+  </section>
+
+  <section id="">
+    <p>这个 section 没有 id</p>
+  </section>
+</main>
+
+<script>
+  window.goto = function (id) {
+    var secs = document.querySelectorAll('section[id]');
+    for (var i = 0; i < secs.length; i++) { secs[i].style.display = 'none'; }
+    var el = document.getElementById(id);
+    if (el) { el.style.display = ''; }
+  };
+  window.goto('workbench');
+</script>
+
+<script>
+  function broken( { return 1; }
+</script>
+</body>
+</html>

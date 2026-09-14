@@ -1,0 +1,16 @@
+{
+  "name": "黄金任务流：工作台 → 待审合同 → AI 初审 → 人工确认通过",
+  "size": "1440x900",
+  "steps": [
+    { "page": "workbench" },
+    { "expect": "待我处理" },
+    { "click": "[data-goto=\"contract-list\"]" },
+    { "expectSelector": "#contract-list" },
+    { "click": "#btn-open-review" },
+    { "expectSelector": "#contract-review" },
+    { "click": "#btn-run-ai" },
+    { "expect": "正在解析" },
+    { "click": "#btn-approve" },
+    { "expect": "已通过" }
+  ]
+}

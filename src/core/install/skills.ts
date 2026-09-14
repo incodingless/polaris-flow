@@ -46,7 +46,11 @@ const SKILL_FAMILIES = new Set(['coding', 'prd', 'testing']);
  */
 export function shouldSkipSkillShortPath(shortPath: string): boolean {
   const normalized = shortPath.replace(/\\/g, '/');
-  if (normalized === 'README.md') {
+  const base = normalized.includes('/')
+    ? normalized.slice(normalized.lastIndexOf('/') + 1)
+    : normalized;
+  // 与 manifest ignoredFiles 兜底对齐：任意层级 README / .DS_Store 不安装
+  if (base === 'README.md' || base === '.DS_Store') {
     return true;
   }
   if (normalized.includes('/.workbuddy/') || normalized.startsWith('.workbuddy/')) {

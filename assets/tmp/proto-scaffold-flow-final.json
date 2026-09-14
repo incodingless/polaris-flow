@@ -1,0 +1,16 @@
+{
+  "name": "合同审查：工作台 → 合同列表 → 合同详情 → AI 审查 → 人工确认",
+  "size": "1440x900",
+  "steps": [
+    { "page": "workbench" },
+    { "expect": "工作台" },
+    { "click": "[data-goto=\"contract-list\"]" },
+    { "expect": "合同列表" },
+    { "click": "[data-goto=\"contract-detail\"]" },
+    { "expectSelector": "#contract-detail" },
+    { "click": "[data-goto=\"ai-review\"]" },
+    { "expect": "AI 审查" },
+    { "click": "[data-goto=\"approval\"]" },
+    { "expect": "人工确认" }
+  ]
+}

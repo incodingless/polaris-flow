@@ -1,0 +1,70 @@
+/* 示例：需求方（某公司）提供的设计规范 —— 完整 CSS，带 :root 外壳。
+ * 用途：验证 --tokens 覆盖路径能生效，且 :root{} 外壳会被自动拆掉。 */
+
+/* 圆角与阴影按公司规范调过 */
+.should-be-ignored { color: #123456; }
+
+:root {
+  /* 品牌主色：公司蓝，与技能兜底基线的紫不同 —— 用来证明覆盖真的生效 */
+  --primary-color: #0b5fff;
+  --primary-hover: #0952dd;
+  --primary-active: #0847bb;
+  --primary-light: rgba(11, 95, 255, 0.1);
+
+  /* 功能色 */
+  --success-color: #12a150;
+  --warning-color: #e08a00;
+  --error-color: #d92d20;
+  --info-color: #0b5fff;
+
+  /* 文本色：对白底均 >= 4.5:1 */
+  --title-color: #102a56;
+  --heading-color: rgba(0, 0, 0, 0.88);
+  --text-primary: #1d2939;
+  --text-secondary: #475467;
+  --text-placeholder: #bbbbbb;
+
+  /* 背景 */
+  --bg-page: #f5f7fa;
+  --bg-white: #ffffff;
+  --bg-section: #eef2f7;
+
+  /* 边框与分隔线 */
+  --border-color: #d0d5dd;
+  --divider-color: #e4e7ec;
+  --divider-soft: #f2f4f7;
+
+  /* 间距刻度：公司规范只用 8 的倍数 + 4 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* 圆角：公司规范统一 6px 系 */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* 阴影 */
+  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08);
+
+  /* 字号 */
+  --fs-caption: 12px;
+  --fs-sm: 13px;
+  --fs-body: 14px;
+  --fs-card-title: 15px;
+  --fs-section: 16px;
+  --fs-page-title: 20px;
+  --fs-kpi: 28px;
+  --fs-display: 32px;
+
+  /* 比例基线：公司规范 Header 更矮 */
+  --header-h: 52px;
+  --sidebar-w: 224px;
+  --page-pad-x: 24px;
+  --ctl-h: 36px;
+  --ctl-h-compact: 32px;
+}

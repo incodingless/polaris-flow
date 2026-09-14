@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>verify.mjs 运行期反例夹具</title>
+<style>
+  :root{--text-primary:#333333;--bg-white:#ffffff}
+  body{margin:0;font-family:system-ui,sans-serif}
+  section{display:none;padding:24px}
+  section.active{display:block}
+</style>
+</head>
+<body>
+<header><span>业务中台</span></header>
+<main>
+  <section id="workbench" class="active">
+    <h2>工作台</h2>
+    <div style="width:1800px;height:40px;background:#eee">这一行在 1366 分辨率下必然横向溢出</div>
+  </section>
+  <section id="blank"></section>
+  <section id="task-list">
+    <h2>任务列表</h2>
+  </section>
+</main>
+<script>
+  window.goto = function (id) {
+    var secs = document.querySelectorAll('section[id]');
+    for (var i = 0; i < secs.length; i++) { secs[i].classList.remove('active'); }
+    var el = document.getElementById(id);
+    if (el) { el.classList.add('active'); }
+  };
+  document.body.appendChild(nothingHere());
+  window.goto('workbench');
+</script>
+</body>
+</html>
