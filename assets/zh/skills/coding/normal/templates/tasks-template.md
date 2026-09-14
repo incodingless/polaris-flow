@@ -129,7 +129,7 @@
 | 上游 / 下游 | 期待本文件提供什么 |
 |-------------|-------------------|
 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 6.3 | 可被 `tasks-lint.sh` 校验的结构化任务清单 |
-| Step 7.2 合并主审（plan-reviewer） | 终版细计划（与四件套 + intention 一并送审） |
+| Step 7.2 合并主审（plan-review-agent） | 终版细计划（与四件套 + intention 一并送审） |
 | `/opsx:apply`（Step 8.3） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
 | Step 9 出口检查 | 逐条核对「改动文件与 tasks 描述一致」「specs 验收场景可追溯」 |
 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` | 四件套已齐，**无需** artifact-backfill；`tasks.md` 保持原样归档 |

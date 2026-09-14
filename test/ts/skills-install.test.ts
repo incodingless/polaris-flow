@@ -15,6 +15,7 @@ import {
   validateSkillAssetsNoCrossSkillParentRefs,
 } from '../../src/core/install/skills.js';
 import { readAssets, type Assets } from '../../src/core/assets/manifest.js';
+import { parseSkillAssetPath } from '../../src/core/assets/layout.js';
 import { PLATFORMS } from '../../src/core/domain/platforms.js';
 
 const claude = PLATFORMS.find((p) => p.id === 'claude')!;
@@ -22,6 +23,28 @@ const trae = PLATFORMS.find((p) => p.id === 'trae')!;
 
 // 安装类用例会拷贝全部资产（约 200+ 文件），单测需放宽默认 5s 超时
 const INSTALL_TIMEOUT = 60_000;
+
+/**
+ * 技能族解析。
+ * 回归背景：2026-09-14 原型技能从 `prd/prototype*` 迁为独立族 `prototype/{generate,review}`，
+ * 若 `prototype` 未登记为族，会被降级识别成「顶层叶技能 prototype」，
+ * 导致两技能塌缩为同一技能根、policies 注入层级错位。
+ */
+describe('parseSkillAssetPath 技能族识别', () => {
+  it('prototype 是技能族，其下 generate / review 各为独立叶技能', () => {
+    const gen = parseSkillAssetPath('prototype/generate/SKILL.md');
+    expect(gen).toEqual({ family: 'prototype', skill: 'generate', underSkill: 'SKILL.md' });
+
+    const rev = parseSkillAssetPath('prototype/review/SKILL.md');
+    expect(rev).toEqual({ family: 'prototype', skill: 'review', underSkill: 'SKILL.md' });
+  });
+
+  it('既有族不受影响；未登记目录降级为顶层叶技能', () => {
+    expect(parseSkillAssetPath('coding/specify/SKILL.md')?.family).toBe('coding');
+    expect(parseSkillAssetPath('prd/discovery/SKILL.md')?.family).toBe('prd');
+    expect(parseSkillAssetPath('subagent-probe/SKILL.md')?.family).toBeNull();
+  });
+});
 
 describe('resolveSkillNamePrefix / applySkillNamePrefix', () => {
   it('nested 用冒号，flat 用连字符', () => {
@@ -73,10 +96,34 @@ describe('installPolarisForPlatform layout', () => {
       expect(probe).toMatch(/^name: polaris:subagent-probe$/m);
       expect(probe).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
-      // policies 注入到叶技能
+      // prototype 独立族：建造 / 评审为两个独立叶技能，各自有独立名称
+      const gen = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/prototype/generate/SKILL.md'),
+        'utf-8',
+      );
+      expect(gen).toMatch(/^name: polaris:prototype:generate$/m);
+      expect(gen).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+
+      const rev = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/prototype/review/SKILL.md'),
+        'utf-8',
+      );
+      expect(rev).toMatch(/^name: polaris:prototype:review$/m);
+      expect(rev).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+
+      // policies 注入到叶技能（prototype 两技能各自收到，而非注入到族根）
       await access(
         path.join(tmpDir, '.claude/skills/polaris/coding/specify/policies/decision-point.md'),
       );
+      await access(
+        path.join(tmpDir, '.claude/skills/polaris/prototype/generate/policies/decision-point.md'),
+      );
+      await access(
+        path.join(tmpDir, '.claude/skills/polaris/prototype/review/policies/decision-point.md'),
+      );
+      await expect(
+        access(path.join(tmpDir, '.claude/skills/polaris/prototype/policies/decision-point.md')),
+      ).rejects.toThrow();
     },
   );
 
@@ -111,8 +158,29 @@ describe('installPolarisForPlatform layout', () => {
       expect(probe).toMatch(/^name: polaris-subagent-probe$/m);
       expect(probe).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
+      // flat 布局下 prototype 两技能平铺为各自的 polaris-prototype-* 目录
+      const gen = await readFile(
+        path.join(tmpDir, '.trae/skills/polaris-prototype-generate/SKILL.md'),
+        'utf-8',
+      );
+      expect(gen).toMatch(/^name: polaris-prototype-generate$/m);
+      expect(gen).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+
+      const rev = await readFile(
+        path.join(tmpDir, '.trae/skills/polaris-prototype-review/SKILL.md'),
+        'utf-8',
+      );
+      expect(rev).toMatch(/^name: polaris-prototype-review$/m);
+      expect(rev).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+
+      // 族目录本身不应被当作技能安装
+      await expect(access(path.join(tmpDir, '.trae/skills/polaris-prototype/SKILL.md'))).rejects.toThrow();
+
       await access(
         path.join(tmpDir, '.trae/skills/polaris-coding-specify/policies/decision-point.md'),
+      );
+      await access(
+        path.join(tmpDir, '.trae/skills/polaris-prototype-generate/policies/decision-point.md'),
       );
     },
   );

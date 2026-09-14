@@ -12,7 +12,7 @@
 
 - 产物：P01=`change-brief.md`+`tasks.md`；P02=OpenSpec 四件套+`intention.md`（design.md 常规深度，不产 detailed-design）；P03=四件套+`detailed-design.md`+专项设计（design 可跳过，写 `design.status=skipped`）
 - 档位由入口用户选择，执行中三档可互转（tweak 升档 U1–U8；normal 双向守门，降档保留四件套）
-- P02 评审压缩为 1 次合并主审（复用 `plan-reviewer`），无 OV；tasks 一次写成终版细计划
+- P02 评审压缩为 1 次合并主审（复用 `plan-review-agent`），无 OV；tasks 一次写成终版细计划
 - P01/P02 的 TDD 按任务性质自动判定（`tdd_mode: auto_by_task_type`），不询问用户
 
 ## 8 阶段重构蓝图（gstack 思路，进行中）

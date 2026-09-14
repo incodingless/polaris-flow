@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>合同智能审核工作台</title>
+<style>
+/* 设计 Token —— 具体取值不写在这里，取自 Token 文件（references/05 §14.2）：
+   默认 assets/default-tokens.css；需求方提供了设计规范时用 --tokens=<规范.css> 覆盖。
+   品牌化与主题调整只改这一区；文本 Token 对白底必须 ≥4.5:1（verify L1-9 强制，不可放宽）。 */
+:root {
+  /* @TOKENS:BEGIN */
+  /* 设计 Token · 取值来源：技能兜底基线（zh/skills/prototype/generate/assets/default-tokens.css）（references/05 §14.2） */
+  --primary-color: #4b55fa;
+  --primary-hover: #3b45ea;
+  --primary-active: #2b35da;
+  --primary-light: rgba(75, 85, 250, 0.1);
+  --success-color: #37b874;
+  --warning-color: #faad14;
+  --error-color: #fa4c6e;
+  --info-color: #1890ff;
+  --title-color: #2d3b8d;
+  --heading-color: rgba(0, 0, 0, 0.85);
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-placeholder: #646b85;
+  --bg-page: #f1f4fd;
+  --bg-white: #ffffff;
+  --bg-section: #f8f9ff;
+  --border-color: #d8dce9;
+  --divider-color: #e5e8f2;
+  --divider-soft: #eef0f7;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --fs-caption: 12px;
+  --fs-sm: 13px;
+  --fs-body: 14px;
+  --fs-card-title: 15px;
+  --fs-section: 16px;
+  --fs-page-title: 22px;
+  --fs-kpi: 28px;
+  --fs-display: 32px;
+  --header-h: 56px;
+  --sidebar-w: 216px;
+  --page-pad-x: 24px;
+  --ctl-h: 36px;
+  --ctl-h-compact: 32px;
+  /* ── 项目补充 Token（本示例新增）─────────────────────────────
+     命名带 text 后缀 = 声明为文本色，verify L1-9 会按 4.5:1 强制校验；
+     若只做色块/描边用，请用不带 text 的名字（如 --risk-high-fill），别让校验空转。 */
+  --risk-high-text: #b3261e;   /* 对白底 6.54:1 */
+  --risk-mid-text: #8a5200;    /* 对白底 6.39:1 */
+  --risk-low-text: #166b45;    /* 对白底 6.52:1 */
+  --info-text: #0f5cab;        /* 对白底 6.69:1 */
+  /* @TOKENS:END */
+}
+
+/* ── 基础 ─────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-page);
+}
+/* 线性图标：统一 2px 描边，颜色跟随文字（§05） */
+.icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── App Shell ────────────────────────────────────────────── */
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.app-header {
+  height: var(--header-h); flex: none; display: flex; align-items: center; gap: var(--sp-4);
+  padding: 0 var(--page-pad-x); background: var(--bg-white); border-bottom: 1px solid var(--divider-color);
+}
+.app-brand { display: flex; align-items: center; gap: var(--sp-2); font-weight: 600; color: var(--title-color); }
+.app-brand .icon { width: 20px; height: 20px; color: var(--primary-color); }
+.app-header .spacer { flex: 1; }
+.app-body { flex: 1; display: flex; min-height: 0; }
+.app-sidebar {
+  width: var(--sidebar-w); flex: none; padding: var(--sp-3) var(--sp-2);
+  background: var(--bg-white); border-right: 1px solid var(--divider-color);
+}
+.app-main { flex: 1; min-width: 0; padding: var(--sp-5) var(--page-pad-x); }
+
+/* ── 导航 ─────────────────────────────────────────────────── */
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; gap: var(--sp-2); height: 40px; padding: 0 var(--sp-3);
+  border-radius: var(--radius-md); color: var(--text-secondary); text-decoration: none; cursor: pointer;
+}
+.nav-item:hover { background: var(--bg-section); color: var(--text-primary); }
+.nav-item.active { background: var(--primary-light); color: var(--primary-color); font-weight: 500; }
+
+/* ── 页面容器：一次只显示一个，goto() 切换 .active ─────────── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── 通用零件 ─────────────────────────────────────────────── */
+.card {
+  background: var(--bg-white); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card); padding: var(--sp-4) var(--sp-5);
+}
+.page-head { margin-bottom: var(--sp-4); }
+.page-title { margin: 0; font-size: var(--fs-page-title); font-weight: 600; color: var(--title-color); }
+.page-desc { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); color: var(--text-placeholder); }
+.btn {
+  display: inline-flex; align-items: center; gap: var(--sp-1); height: var(--ctl-h);
+  padding: 0 var(--sp-4); border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  background: var(--bg-white); color: var(--text-primary); font: inherit; cursor: pointer;
+}
+.btn:hover { border-color: var(--primary-hover); color: var(--primary-hover); }
+.btn-primary { border-color: var(--primary-color); background: var(--primary-color); color: #fff; }
+.btn-primary:hover { border-color: var(--primary-hover); background: var(--primary-hover); color: #fff; }
+/* 表格：横向可分页的容器用 overflow-x:auto，避免整页横向溢出（verify 第三层） */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 0 var(--sp-3); height: 44px; text-align: left; border-bottom: 1px solid var(--divider-soft); }
+th { height: 42px; font-weight: 500; color: var(--text-secondary); background: var(--bg-section); }
+/* 状态：11 种交互状态在此扩展（§33.3） */
+.state { padding: var(--sp-8) 0; text-align: center; color: var(--text-placeholder); }
+
+/* ── 页面布局零件（一律用 Token 取值，字号走 --fs-* 不写死 px）───── */
+.stack { display: flex; flex-direction: column; gap: var(--sp-4); }
+.row { display: flex; align-items: center; gap: var(--sp-3); }
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-4); }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+@media (max-width: 1500px) { .cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.review { display: grid; grid-template-columns: 236px minmax(0, 1fr) minmax(0, 1.05fr); gap: var(--sp-4); align-items: start; }
+@media (max-width: 1560px) { .review { grid-template-columns: 210px minmax(0, 1fr) minmax(0, 1fr); } }
+.mt-2 { margin-top: var(--sp-2); }
+.mt-3 { margin-top: var(--sp-3); }
+.mt-4 { margin-top: var(--sp-4); }
+
+/* ── 标题与指标 ─────────────────────────────────────────────── */
+.card-title { margin: 0 0 var(--sp-3); font-size: var(--fs-section); font-weight: 600; color: var(--text-primary); }
+.card-sub { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); color: var(--text-secondary); }
+.kpi { display: flex; flex-direction: column; gap: var(--sp-1); }
+.kpi-label { font-size: var(--fs-sm); color: var(--text-secondary); }
+.kpi-value { font-size: var(--fs-kpi); font-weight: 600; color: var(--title-color); line-height: 1.2; }
+.kpi-foot { font-size: var(--fs-caption); color: var(--text-placeholder); }
+.muted { color: var(--text-secondary); }
+.hint { color: var(--text-placeholder); font-size: var(--fs-sm); }
+
+/* ── 徽标与按钮 ─────────────────────────────────────────────── */
+.chip {
+  display: inline-flex; align-items: center; gap: var(--sp-1); height: 22px; padding: 0 var(--sp-2);
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  font-size: var(--fs-caption); font-weight: 500; white-space: nowrap;
+}
+.chip-high { color: var(--risk-high-text); background: rgba(179, 38, 30, .08); border-color: rgba(179, 38, 30, .24); }
+.chip-mid { color: var(--risk-mid-text); background: rgba(138, 82, 0, .08); border-color: rgba(138, 82, 0, .24); }
+.chip-low { color: var(--risk-low-text); background: rgba(22, 107, 69, .08); border-color: rgba(22, 107, 69, .24); }
+.chip-info { color: var(--info-text); background: rgba(15, 92, 171, .08); border-color: rgba(15, 92, 171, .24); }
+.chip-neutral { color: var(--text-secondary); background: var(--bg-section); border-color: var(--border-color); }
+.btn-sm { height: var(--ctl-h-compact); padding: 0 var(--sp-3); font-size: var(--fs-sm); }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--info-text); }
+.btn-ghost:hover { border-color: var(--info-text); color: var(--info-text); }
+.btn-line-danger { border-color: var(--risk-high-text); color: var(--risk-high-text); }
+.btn-line-danger:hover { border-color: var(--risk-high-text); color: var(--risk-high-text); background: rgba(179, 38, 30, .06); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn[disabled]:hover { border-color: var(--border-color); color: var(--text-primary); }
+.btn-primary[disabled]:hover { border-color: var(--primary-color); background: var(--primary-color); color: #fff; }
+
+/* ── 筛选与表单 ─────────────────────────────────────────────── */
+.toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-3); margin-bottom: var(--sp-4); }
+.field { display: flex; flex-direction: column; gap: var(--sp-1); }
+.field-label { font-size: var(--fs-sm); color: var(--text-secondary); }
+.input, .select {
+  height: var(--ctl-h); padding: 0 var(--sp-3); border: 1px solid var(--border-color);
+  border-radius: var(--radius-md); background: var(--bg-white); color: var(--text-primary);
+  font: inherit; font-size: var(--fs-body);
+}
+.input::placeholder { color: var(--text-placeholder); }
+.input-wide { min-width: 240px; }
+.header-search {
+  display: flex; align-items: center; gap: var(--sp-2); height: var(--ctl-h); min-width: 260px;
+  padding: 0 var(--sp-3); border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  background: var(--bg-section); color: var(--text-placeholder);
+}
+.header-search input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; font-size: var(--fs-body); color: var(--text-primary); outline: none; }
+
+/* ── 表格 ───────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; }
+.table-wrap table { min-width: 820px; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.strong { font-weight: 500; color: var(--title-color); }
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--text-secondary); }
+
+/* ── 步骤条 / AI 处理过程 ───────────────────────────────────── */
+.steps { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-4); }
+.step { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text-placeholder); }
+.step-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1px solid var(--border-color); border-radius: 50%; font-size: var(--fs-caption); }
+.step.done { color: var(--risk-low-text); }
+.step.done .step-num { border-color: var(--risk-low-text); color: var(--risk-low-text); background: rgba(22, 107, 69, .08); }
+.step.current { color: var(--primary-color); font-weight: 500; }
+.step.current .step-num { border-color: var(--primary-color); color: var(--primary-color); background: var(--primary-light); }
+.ai { border: 1px solid var(--divider-color); border-radius: var(--radius-md); overflow: hidden; }
+.ai-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--divider-soft); background: var(--bg-section); font-weight: 600; color: var(--text-primary); }
+.ai-body { padding: var(--sp-4); }
+.ai-track { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ai-step { display: flex; align-items: flex-start; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text-placeholder); }
+.ai-step .dot { flex: none; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--border-color); }
+.ai-step.active { color: var(--primary-color); }
+.ai-step.active .dot { background: var(--primary-color); animation: pulse 1.2s ease-in-out infinite; }
+.ai-step.done { color: var(--text-secondary); }
+.ai-step.done .dot { background: var(--risk-low-text); }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+/* ── 骨架屏与状态层 ─────────────────────────────────────────── */
+.skeleton {
+  height: 16px; border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--divider-soft), var(--divider-color), var(--divider-soft));
+  background-size: 200% 100%; animation: shimmer 1.4s linear infinite;
+}
+.skeleton-row { display: flex; flex-direction: column; gap: var(--sp-3); }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .spin, .ai-step.active .dot, .skeleton { animation: none; } }
+.state-layer { display: none; }
+.state-layer.on { display: block; }
+.state-box { padding: var(--sp-8) var(--sp-4); text-align: center; border: 1px dashed var(--border-color); border-radius: var(--radius-md); background: var(--bg-white); }
+.state-box .icon { width: 32px; height: 32px; color: var(--text-placeholder); }
+.state-title { margin: var(--sp-3) 0 var(--sp-1); font-size: var(--fs-section); font-weight: 600; color: var(--text-primary); }
+.state-desc { margin: 0 auto var(--sp-4); max-width: 420px; font-size: var(--fs-sm); color: var(--text-secondary); }
+
+/* ── 主从详情：条款清单 / 原文 / 结论 ────────────────────────── */
+.clause-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.clause { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--radius-sm); font-size: var(--fs-sm); color: var(--text-primary); cursor: pointer; }
+.clause:hover { background: var(--bg-section); }
+.clause.on { background: var(--primary-light); color: var(--primary-color); font-weight: 500; }
+.clause .idx { color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
+.clause .flag { margin-left: auto; }
+.quote { margin: 0; padding: var(--sp-3) var(--sp-4); border-left: 3px solid var(--border-color); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--bg-section); font-size: var(--fs-body); color: var(--text-primary); }
+.quote mark { padding: 0 2px; background: rgba(179, 38, 30, .12); color: var(--risk-high-text); }
+.kv { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: var(--sp-2) var(--sp-3); margin: 0; font-size: var(--fs-sm); }
+.kv dt { color: var(--text-secondary); }
+.kv dd { margin: 0; color: var(--text-primary); }
+.findings { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.finding { padding: var(--sp-3); border: 1px solid var(--divider-color); border-left: 3px solid var(--risk-high-text); border-radius: var(--radius-sm); background: var(--bg-white); }
+.finding.mid { border-left-color: var(--risk-mid-text); }
+.finding-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-1); font-size: var(--fs-sm); font-weight: 500; color: var(--text-primary); }
+.finding-meta { font-size: var(--fs-caption); color: var(--text-placeholder); }
+
+/* ── 侧栏页脚 / 吐司 / 演示浮层 ─────────────────────────────── */
+.app-sidebar { display: flex; flex-direction: column; }
+.sidebar-foot { margin-top: auto; padding-top: var(--sp-3); border-top: 1px solid var(--divider-soft); font-size: var(--fs-caption); color: var(--text-placeholder); }
+.toast {
+  position: fixed; left: 50%; bottom: var(--sp-8); z-index: 20; transform: translateX(-50%);
+  display: none; padding: var(--sp-3) var(--sp-5); border-radius: var(--radius-md);
+  background: var(--title-color); color: #fff; font-size: var(--fs-sm); box-shadow: var(--shadow-card);
+}
+.toast.on { display: block; }
+/* 演示浮层：?demo=1 才显示，收拢「上帝视角」操作，不与业务按钮混排（§33.6） */
+.demo {
+  position: fixed; right: var(--sp-4); bottom: var(--sp-4); z-index: 30; display: none; max-width: 560px;
+  padding: var(--sp-3); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+  background: var(--bg-white); box-shadow: var(--shadow-card);
+}
+.demo.on { display: block; }
+.demo-title { margin: 0 0 var(--sp-2); font-size: var(--fs-sm); font-weight: 600; color: var(--text-primary); }
+.demo-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); margin-bottom: var(--sp-1); }
+.demo-line:last-child { margin-bottom: 0; }
+.demo-name { margin-right: var(--sp-1); font-size: var(--fs-caption); color: var(--text-placeholder); }
+.demo-btn {
+  height: 26px; padding: 0 var(--sp-2); border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+  background: var(--bg-white); color: var(--text-secondary); font: inherit; font-size: var(--fs-caption); cursor: pointer;
+}
+.demo-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+.demo-btn.on { border-color: var(--primary-color); background: var(--primary-light); color: var(--primary-color); }
+</style>
+</head>
+<body>
+
+<!-- 图标 sprite：内联 SVG symbol 定义区。页面内以 use 元素的 href 指向 i- 前缀的 symbol id 引用（§05）。 -->
+<svg class="icon-sprite" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
+<!-- @ICONS:BEGIN -->
+<symbol id="i-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L19 7"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m14 6 4 4"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12m0 0 5-5m-5 5-5-5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2 20h20z"/><path d="M12 10v5M12 18h.01"/></symbol>
+<symbol id="i-spinner" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<symbol id="i-contract" viewBox="0 0 24 24"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h4"/></symbol>
+<!-- @ICONS:END -->
+</svg>
+
+<div class="app">
+  <header class="app-header">
+    <div class="app-brand">
+      <svg class="icon" aria-hidden="true"><use href="#i-dashboard"/></svg>
+      <span>合同审核台</span>
+    </div>
+    <div class="header-search">
+      <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+      <input type="search" placeholder="搜索合同名称 / 编号 / 相对方" aria-label="全局搜索">
+    </div>
+    <div class="spacer"></div>
+    <span class="chip chip-neutral">原型 v0.4 · 第二迭代</span>
+    <button class="btn" type="button" title="通知">
+      <svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg>
+    </button>
+    <button class="btn" type="button" title="账户">
+      <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+    </button>
+  </header>
+
+  <div class="app-body">
+    <aside class="app-sidebar">
+      <nav class="nav" aria-label="主导航">
+        <!-- @NAV:BEGIN -->
+        <a class="nav-item" data-goto="workbench" href="#workbench"><svg class="icon" aria-hidden="true"><use href="#i-dashboard"/></svg><span>工作台</span></a>
+        <a class="nav-item" data-goto="contract-list" href="#contract-list"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg><span>合同列表</span></a>
+        <a class="nav-item" data-goto="contract-review" href="#contract-review"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>合同审核</span></a>
+        <a class="nav-item" data-goto="contract-create" href="#contract-create"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span>新建送审</span></a>
+        <!-- @NAV:END -->
+      </nav>
+      <div class="sidebar-foot">
+        <div>登录身份：法务专员（演示账号）</div>
+        <div class="mt-2">规则库 v12 · 数据截至 2026-09</div>
+      </div>
+    </aside>
+
+    <main class="app-main" id="main">
+      <!-- @PAGES:BEGIN -->
+      <section id="workbench" class="page" data-title="工作台">
+        <div class="page-head">
+          <h1 class="page-title">工作台</h1>
+          <p class="page-desc"><span id="greeting">正在读取时间</span>　·　<span id="today">—</span>　·　规则库 v12</p>
+        </div>
+
+        <div class="state-layer" data-state="ready">
+          <div class="grid-4">
+            <div class="card kpi">
+              <span class="kpi-label">待我处理</span>
+              <strong class="kpi-value">12</strong>
+              <span class="kpi-foot">其中高风险 5 份</span>
+            </div>
+            <div class="card kpi">
+              <span class="kpi-label">AI 初审已完成</span>
+              <strong class="kpi-value">8</strong>
+              <span class="kpi-foot">平均耗时 46 秒 / 份</span>
+            </div>
+            <div class="card kpi">
+              <span class="kpi-label">待人工复核</span>
+              <strong class="kpi-value">2</strong>
+              <span class="kpi-foot">规则库未覆盖，需人工判断</span>
+            </div>
+            <div class="card kpi">
+              <span class="kpi-label">今日已归档</span>
+              <strong class="kpi-value">3</strong>
+              <span class="kpi-foot">目标 10 份</span>
+            </div>
+          </div>
+
+          <div class="cols mt-4">
+            <div class="card">
+              <div class="row-between">
+                <h2 class="card-title">待我处理（按风险从高到低）</h2>
+                <button class="btn btn-sm" type="button" data-goto="contract-list">
+                  <svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>
+                  <span>查看全部 12 份</span>
+                </button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>合同编号</th><th>合同名称</th><th>相对方</th><th>风险</th><th>状态</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="num">HT-2026-0413</td>
+                      <td class="strong">华东区域仓储服务年度框架协议</td>
+                      <td>云枢供应链有限公司</td>
+                      <td><span class="chip chip-high">高</span></td>
+                      <td><span class="chip chip-info">待审核</span></td>
+                    </tr>
+                    <tr>
+                      <td class="num">HT-2026-0398</td>
+                      <td class="strong">冷链运输服务补充协议</td>
+                      <td>冰原冷链科技有限公司</td>
+                      <td><span class="chip chip-high">高</span></td>
+                      <td><span class="chip chip-info">人工复核中</span></td>
+                    </tr>
+                    <tr>
+                      <td class="num">HT-2026-0409</td>
+                      <td class="strong">智能分拣设备采购合同</td>
+                      <td>恒达智能装备股份有限公司</td>
+                      <td><span class="chip chip-mid">中</span></td>
+                      <td><span class="chip chip-info">待审核</span></td>
+                    </tr>
+                    <tr>
+                      <td class="num">HT-2026-0402</td>
+                      <td class="strong">第三方物流运力补充协议</td>
+                      <td>远洲物流集团有限公司</td>
+                      <td><span class="chip chip-low">低</span></td>
+                      <td><span class="chip chip-neutral">待运行 AI</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="hint mt-3">队列按「风险等级、送审时间」排序，高风险不会被低风险插队。</p>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title">AI 初审执行情况</h2>
+              <p class="card-sub">今天这一批 12 份合同的机械比对进度。每一步都可回溯到规则编号。</p>
+              <div class="ai-track">
+                <div class="ai-step done"><span class="dot"></span><span>解析合同条款：12 / 12 份</span></div>
+                <div class="ai-step done"><span class="dot"></span><span>检索规则库：12 / 12 份</span></div>
+                <div class="ai-step active"><span class="dot"></span><span>比对历史案例：8 / 12 份</span></div>
+                <div class="ai-step"><span class="dot"></span><span>生成结论：待上一步完成</span></div>
+              </div>
+              <div class="state-box mt-4">
+                <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
+                <p class="state-title">AI 只做初筛，不做结论</p>
+                <p class="state-desc">命中风险条款会给出规则编号与命中位置，最终「通过 / 驳回」必须由法务确认，AI 结果不可直接归档。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="state-layer" data-state="loading">
+          <div class="grid-4">
+            <div class="card"><div class="skeleton-row"><span class="skeleton" style="width:60%"></span><span class="skeleton" style="width:40%;height:28px"></span></div></div>
+            <div class="card"><div class="skeleton-row"><span class="skeleton" style="width:60%"></span><span class="skeleton" style="width:40%;height:28px"></span></div></div>
+            <div class="card"><div class="skeleton-row"><span class="skeleton" style="width:60%"></span><span class="skeleton" style="width:40%;height:28px"></span></div></div>
+            <div class="card"><div class="skeleton-row"><span class="skeleton" style="width:60%"></span><span class="skeleton" style="width:40%;height:28px"></span></div></div>
+          </div>
+          <div class="card mt-4">
+            <div class="skeleton-row">
+              <span class="skeleton" style="width:30%"></span>
+              <span class="skeleton" style="width:100%"></span>
+              <span class="skeleton" style="width:100%"></span>
+              <span class="skeleton" style="width:86%"></span>
+            </div>
+          </div>
+          <p class="hint mt-3">正在加载待办队列与指标，通常 1 秒内返回。</p>
+        </div>
+
+        <div class="state-layer" data-state="denied">
+          <div class="state-box">
+            <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+            <p class="state-title">无权限查看工作台</p>
+            <p class="state-desc">当前账号不在「合同管理」数据域内。请联系合同管理员开通「法务审核」角色，或直接进入分配给自己的合同列表。</p>
+            <button class="btn" type="button" data-goto="contract-list">进入合同列表</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="contract-list" class="page" data-title="合同列表">
+        <div class="page-head">
+          <h1 class="page-title">合同列表</h1>
+          <p class="page-desc">共 12 份待处理合同，按风险等级与送审时间排序；筛选条件与分页同时生效。</p>
+        </div>
+
+        <div class="toolbar">
+          <div class="field">
+            <label class="field-label" for="f-keyword">关键词</label>
+            <input class="input input-wide" id="f-keyword" type="search" placeholder="合同名称 / 编号 / 相对方">
+          </div>
+          <div class="field">
+            <label class="field-label" for="f-risk">风险等级</label>
+            <select class="select" id="f-risk">
+              <option>全部</option><option>高</option><option>中</option><option>低</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="f-status">审核状态</label>
+            <select class="select" id="f-status">
+              <option>全部</option><option>待审核</option><option>人工复核中</option><option>已通过</option><option>已驳回</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+            <span>查询</span>
+          </button>
+          <button class="btn" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg>
+            <span>重置</span>
+          </button>
+        </div>
+
+        <div class="state-layer" data-state="ready">
+          <div class="card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>合同编号</th><th>合同名称</th><th>相对方</th><th>合同金额（元）</th>
+                    <th>风险</th><th>状态</th><th>送审日期</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="num">HT-2026-0413</td>
+                    <td class="strong">华东区域仓储服务年度框架协议</td>
+                    <td>云枢供应链有限公司</td>
+                    <td class="num">1,280,000.00</td>
+                    <td><span class="chip chip-high">高</span></td>
+                    <td><span class="chip chip-info">待审核</span></td>
+                    <td class="num">2026-09-10</td>
+                    <td>
+                      <button class="btn btn-sm" type="button" id="btn-open-review" data-goto="contract-review">
+                        <svg class="icon" aria-hidden="true"><use href="#i-contract"/></svg>
+                        <span>打开审核</span>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="num">HT-2026-0398</td>
+                    <td class="strong">冷链运输服务补充协议</td>
+                    <td>冰原冷链科技有限公司</td>
+                    <td class="num">156,000.00</td>
+                    <td><span class="chip chip-high">高</span></td>
+                    <td><span class="chip chip-info">人工复核中</span></td>
+                    <td class="num">2026-09-09</td>
+                    <td>
+                      <button class="btn btn-sm" type="button" data-goto="contract-review">
+                        <svg class="icon" aria-hidden="true"><use href="#i-contract"/></svg>
+                        <span>打开审核</span>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="num">HT-2026-0409</td>
+                    <td class="strong">智能分拣设备采购合同</td>
+                    <td>恒达智能装备股份有限公司</td>
+                    <td class="num">864,500.00</td>
+                    <td><span class="chip chip-mid">中</span></td>
+                    <td><span class="chip chip-info">待审核</span></td>
+                    <td class="num">2026-09-10</td>
+                    <td>
+                      <button class="btn btn-sm" type="button" data-goto="contract-review">
+                        <svg class="icon" aria-hidden="true"><use href="#i-contract"/></svg>
+                        <span>打开审核</span>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="num">HT-2026-0402</td>
+                    <td class="strong">第三方物流运力补充协议</td>
+                    <td>远洲物流集团有限公司</td>
+                    <td class="num">420,000.00</td>
+                    <td><span class="chip chip-low">低</span></td>
+                    <td><span class="chip chip-neutral">待运行 AI</span></td>
+                    <td class="num">2026-09-09</td>
+                    <td>
+                      <button class="btn btn-sm" type="button" data-goto="contract-review">
+                        <svg class="icon" aria-hidden="true"><use href="#i-contract"/></svg>
+                        <span>打开审核</span>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="num">HT-2026-0391</td>
+                    <td class="strong">包装材料年度采购合同</td>
+                    <td>嘉禾包装制品有限公司</td>
+                    <td class="num">238,000.00</td>
+                    <td><span class="chip chip-low">低</span></td>
+                    <td><span class="chip chip-low">已通过</span></td>
+                    <td class="num">2026-09-08</td>
+                    <td>
+                      <button class="btn btn-sm" type="button" data-goto="contract-review">
+                        <svg class="icon" aria-hidden="true"><use href="#i-contract"/></svg>
+                        <span>查看</span>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pager">
+              <span>共 12 条 · 每页 5 条</span>
+              <button class="btn btn-sm" type="button" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+                <span>上一页</span>
+              </button>
+              <button class="btn btn-sm" type="button">
+                <span>下一页</span>
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="state-layer" data-state="loading">
+          <div class="card">
+            <div class="skeleton-row">
+              <span class="skeleton" style="width:100%;height:42px"></span>
+              <span class="skeleton" style="width:100%;height:44px"></span>
+              <span class="skeleton" style="width:100%;height:44px"></span>
+              <span class="skeleton" style="width:100%;height:44px"></span>
+              <span class="skeleton" style="width:100%;height:44px"></span>
+            </div>
+            <p class="hint mt-3">正在按筛选条件拉取合同列表，保留当前筛选条件。</p>
+          </div>
+        </div>
+
+        <div class="state-layer" data-state="empty">
+          <div class="state-box">
+            <svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>
+            <p class="state-title">没有符合条件的合同</p>
+            <p class="state-desc">当前筛选组合下没有数据。放宽「风险等级」或清空关键词后重试；如果确认应有数据，请检查是否被其他法务同事领取。</p>
+            <button class="btn" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg>
+              <span>清空筛选条件</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="state-layer" data-state="error">
+          <div class="state-box">
+            <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+            <p class="state-title">合同列表加载失败</p>
+            <p class="state-desc">合同服务在 10 秒内没有响应（错误码 CONTRACT-LIST-TIMEOUT）。这份列表可以重试；如果连续三次失败，请带着错误码联系合同管理员。</p>
+            <div class="row" style="justify-content:center">
+              <button class="btn btn-primary" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-spinner"/></svg>
+                <span>重新加载</span>
+              </button>
+              <button class="btn" type="button">返回工作台</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="state-layer" data-state="denied">
+          <div class="state-box">
+            <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+            <p class="state-title">无权限查看该列表</p>
+            <p class="state-desc">该列表包含「华东大区」的相对方与金额信息，当前账号未被授权。可向合同管理员申请数据域授权，或查看分配给你本人的待办队列。</p>
+            <button class="btn" type="button" data-goto="workbench">返回工作台</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="contract-review" class="page" data-title="合同审核">
+        <div class="state-layer" data-state="ready">
+          <div class="page-head">
+            <div class="row-between">
+              <div>
+                <h1 class="page-title">华东区域仓储服务年度框架协议</h1>
+                <p class="page-desc">HT-2026-0413　·　云枢供应链有限公司　·　¥1,280,000.00　·　送审 2026-09-10</p>
+              </div>
+              <div class="row">
+                <span class="chip chip-neutral" id="status-chip">待审核</span>
+                <button class="btn btn-sm" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+                  <span>导出审核记录</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="review">
+            <div class="card">
+              <h2 class="card-title">条款清单（12）</h2>
+              <ul class="clause-list">
+                <li class="clause on"><span class="idx">01</span><span>合作范围</span></li>
+                <li class="clause"><span class="idx">02</span><span>服务标准</span></li>
+                <li class="clause"><span class="idx">03</span><span>结算与账期</span><span class="flag"><span class="chip chip-high">风险</span></span></li>
+                <li class="clause"><span class="idx">04</span><span>仓储责任</span></li>
+                <li class="clause"><span class="idx">05</span><span>保险与赔偿</span></li>
+                <li class="clause"><span class="idx">06</span><span>人员管理</span></li>
+                <li class="clause"><span class="idx">07</span><span>违约责任</span><span class="flag"><span class="chip chip-high">风险</span></span></li>
+                <li class="clause"><span class="idx">08</span><span>保密义务</span></li>
+                <li class="clause"><span class="idx">09</span><span>数据与合规</span><span class="flag"><span class="chip chip-high">风险</span></span></li>
+                <li class="clause"><span class="idx">10</span><span>合同期限</span></li>
+                <li class="clause"><span class="idx">11</span><span>变更与解除</span></li>
+                <li class="clause"><span class="idx">12</span><span>争议解决</span><span class="flag"><span class="chip chip-mid">关注</span></span></li>
+              </ul>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title">第 03 条　结算与账期</h2>
+              <p class="quote">「甲方应在收到乙方开具的合规发票后 <mark>180 日内</mark> 完成付款。若甲方逾期支付，应按同期银行贷款利率的 <mark>0.5 倍</mark> 支付违约金。」</p>
+              <dl class="kv mt-4">
+                <dt>条款类型</dt><dd>付款条款</dd>
+                <dt>命中规则</dt><dd>R-FIN-014 账期上限 / R-FIN-022 违约金下限</dd>
+                <dt>命中位置</dt><dd>第 4 页 · 第 2 段 · 第 1 行</dd>
+                <dt>合同金额</dt><dd>¥1,280,000.00</dd>
+                <dt>相对方</dt><dd>云枢供应链有限公司</dd>
+              </dl>
+              <p class="hint mt-4">条款原文只展示命中段落，避免把整份合同铺满屏幕；完整原文由「查看原件」在浮层中打开。</p>
+            </div>
+
+            <div class="stack">
+              <div class="card">
+                <h2 class="card-title">AI 初审</h2>
+
+                <div id="ai-idle">
+                  <p class="card-sub">AI 负责机械比对，给出「规则编号 + 命中位置」；它不下结论，也不能直接归档。</p>
+                  <button class="btn btn-primary" type="button" id="btn-run-ai">
+                    <svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>
+                    <span>运行 AI 初审</span>
+                  </button>
+                </div>
+
+                <div id="ai-progress" hidden>
+                  <div class="ai-track">
+                    <div class="ai-step active" data-step="0"><span class="dot"></span><span>正在解析条款：12 / 12</span></div>
+                    <div class="ai-step" data-step="1"><span class="dot"></span><span>检索规则库：R-FIN / R-LEG / R-DAT</span></div>
+                    <div class="ai-step" data-step="2"><span class="dot"></span><span>比对历史案例：近 2 年同相对方 7 份</span></div>
+                    <div class="ai-step" data-step="3"><span class="dot"></span><span>生成结论：待上一步完成</span></div>
+                  </div>
+                  <p class="hint mt-4"><svg class="icon spin" aria-hidden="true"><use href="#i-spinner"/></svg>正在解析条款，这一步不需要你等待，可以先去处理队列里的下一份。</p>
+                </div>
+
+                <div id="ai-result" hidden>
+                  <div class="row-between">
+                    <span class="chip chip-high">4 项风险 · 2 项需人工判断</span>
+                    <span class="finding-meta">耗时 41 秒 · 规则库 v12</span>
+                  </div>
+                  <ul class="findings mt-3">
+                    <li class="finding">
+                      <div class="finding-head"><span class="chip chip-high">高</span><span>账期 180 日超出制度上限 90 日</span></div>
+                      <div class="finding-meta">依据 R-FIN-014 · 命中第 4 页第 2 段第 1 行 · 置信度 0.96</div>
+                    </li>
+                    <li class="finding">
+                      <div class="finding-head"><span class="chip chip-high">高</span><span>违约金按贷款利率 0.5 倍，低于下限 1 倍</span></div>
+                      <div class="finding-meta">依据 R-FIN-022 · 命中第 4 页第 2 段第 3 行 · 置信度 0.93</div>
+                    </li>
+                    <li class="finding">
+                      <div class="finding-head"><span class="chip chip-high">高</span><span>未约定数据出境与留存期限</span></div>
+                      <div class="finding-meta">依据 R-DAT-007 · 命中第 9 条全文 · 置信度 0.88</div>
+                    </li>
+                    <li class="finding mid">
+                      <div class="finding-head"><span class="chip chip-mid">关注</span><span>争议解决地约定为对方所在地</span></div>
+                      <div class="finding-meta">依据 R-LEG-031 · 命中第 12 页第 1 段 · 置信度 0.71 · 建议人工判断</div>
+                    </li>
+                  </ul>
+                  <p class="hint mt-3">置信度低于 0.8 的条目不会自动标记为风险，需你逐条确认后再给结论。</p>
+                </div>
+
+                <div id="ai-error" hidden>
+                  <div class="state-box">
+                    <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+                    <p class="state-title">AI 初审服务不可用</p>
+                    <p class="state-desc">规则库服务在 30 秒内没有响应（错误码 AI-RULE-SVC-503）。这份合同可以先走人工审核，AI 恢复后再补跑，补跑结果会追加到同一条审核记录上。</p>
+                    <div class="row" style="justify-content:center">
+                      <button class="btn btn-primary" type="button" id="btn-ai-retry">
+                        <svg class="icon" aria-hidden="true"><use href="#i-spinner"/></svg>
+                        <span>重试 AI 初审</span>
+                      </button>
+                      <button class="btn" type="button">转人工审核</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="ai-partial" hidden>
+                  <div class="row-between">
+                    <span class="chip chip-mid">部分成功 · 3 项已判 / 1 项规则库未覆盖</span>
+                    <span class="finding-meta">规则库 v12</span>
+                  </div>
+                  <ul class="findings mt-3">
+                    <li class="finding">
+                      <div class="finding-head"><span class="chip chip-high">高</span><span>账期 180 日超出制度上限 90 日</span></div>
+                      <div class="finding-meta">依据 R-FIN-014 · 置信度 0.96</div>
+                    </li>
+                    <li class="finding">
+                      <div class="finding-head"><span class="chip chip-high">高</span><span>违约金按贷款利率 0.5 倍，低于下限 1 倍</span></div>
+                      <div class="finding-meta">依据 R-FIN-022 · 置信度 0.93</div>
+                    </li>
+                    <li class="finding mid">
+                      <div class="finding-head"><span class="chip chip-mid">待人工</span><span>第 09 条数据与合规条款未命中任何规则</span></div>
+                      <div class="finding-meta">规则库暂无对应条目 · 需人工比对《数据合规指引》</div>
+                    </li>
+                  </ul>
+                  <p class="hint mt-3">「部分成功」不是失败：已判定的部分有效，未覆盖的部分明确交回人工，不允许静默跳过。</p>
+                </div>
+
+                <div class="mt-4 row">
+                  <button class="btn btn-primary" type="button" id="btn-approve">
+                    <svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>
+                    <span>确认通过并归档</span>
+                  </button>
+                  <button class="btn btn-line-danger" type="button" id="btn-reject">
+                    <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+                    <span>驳回并退回修改</span>
+                  </button>
+                </div>
+                <p class="hint mt-3" id="confirm-hint">AI 结论仅作参考；「通过」需要你确认后才会写入审核记录并归档。</p>
+              </div>
+
+              <div class="card" id="archive-card" hidden>
+                <h2 class="card-title">审核结论已写入</h2>
+                <dl class="kv">
+                  <dt>结论</dt><dd id="archive-result">通过</dd>
+                  <dt>确认人</dt><dd>法务专员（演示账号）</dd>
+                  <dt>确认时间</dt><dd id="archive-time">—</dd>
+                  <dt>审核记录号</dt><dd>AR-2026-0413-01</dd>
+                </dl>
+                <p class="hint mt-3">共 12 条条款已确认，其中 4 条风险条款与 8 条常规条款；记录可导出给研发与审计。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="state-layer" data-state="denied">
+          <div class="page-head">
+            <h1 class="page-title">合同审核</h1>
+            <p class="page-desc">HT-2026-0413</p>
+          </div>
+          <div class="state-box">
+            <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+            <p class="state-title">无权限查看这份合同</p>
+            <p class="state-desc">该合同归属「华东大区」，且金额超过 100 万，需要「法务主管」角色才能查看条款原文与金额。可申请授权，或请主管代为审核。</p>
+            <div class="row" style="justify-content:center">
+              <button class="btn btn-primary" type="button">申请查看授权</button>
+              <button class="btn" type="button" data-goto="contract-list">返回合同列表</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="contract-create" class="page" data-title="新建送审">
+        <div class="page-head">
+          <h1 class="page-title">新建送审</h1>
+          <p class="page-desc">三步完成：上传合同、填写送审信息、确认提交。提交后进入「待审批」，可在合同列表追踪。</p>
+        </div>
+
+        <div class="steps">
+          <div class="step current"><span class="step-num">1</span><span>上传合同</span></div>
+          <div class="step"><span class="step-num">2</span><span>填写送审信息</span></div>
+          <div class="step"><span class="step-num">3</span><span>确认提交</span></div>
+        </div>
+
+        <div class="state-layer" data-state="form">
+          <div class="cols">
+            <div class="card">
+              <h2 class="card-title">1 · 上传合同</h2>
+              <div class="state-box">
+                <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
+                <p class="state-title">把合同文件拖到这里，或选择文件</p>
+                <p class="state-desc">支持 PDF、DOCX，单份不超过 50MB。原型不上传真实文件，仅演示交互与校验规则。</p>
+                <button class="btn" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
+                  <span>选择文件</span>
+                </button>
+              </div>
+              <p class="hint mt-3">已选：仓储服务年度框架协议_终版_20260910.pdf（2.4MB）</p>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title">2 · 填写送审信息</h2>
+              <div class="grid-2">
+                <div class="field">
+                  <label class="field-label" for="c-name">合同名称（必填）</label>
+                  <input class="input" id="c-name" type="text" placeholder="例如：华东区域仓储服务年度框架协议">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="c-party">相对方（必填）</label>
+                  <input class="input" id="c-party" type="text" placeholder="填写合同相对方全称">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="c-amount">合同金额（必填）</label>
+                  <input class="input" id="c-amount" type="text" placeholder="单位：元">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="c-scope">业务归属（必填）</label>
+                  <select class="select" id="c-scope">
+                    <option>请选择</option><option>华东大区</option><option>华南大区</option><option>华北大区</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field mt-4">
+                <label class="field-label" for="c-note">送审说明</label>
+                <input class="input" id="c-note" type="text" placeholder="例如：对方要求 180 日账期，请重点看付款条款">
+              </div>
+              <p class="hint mt-3" id="form-hint">四项必填完成后「提交送审」才可点击；这是为了在源头拦住缺字段的送审单。</p>
+              <div class="row mt-4">
+                <button class="btn btn-primary" type="button" id="btn-submit" disabled>
+                  <svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>
+                  <span>提交送审</span>
+                </button>
+                <button class="btn" type="button">保存草稿</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="state-layer" data-state="upload-error">
+          <div class="card">
+            <div class="state-box">
+              <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+              <p class="state-title">文件解析失败</p>
+              <p class="state-desc">这份 PDF 是扫描件，没有可提取的文字层（错误码 UPLOAD-OCR-EMPTY）。可以先跑一次 OCR，或改用 DOCX 版本重新上传。</p>
+              <div class="row" style="justify-content:center">
+                <button class="btn btn-primary" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#i-spinner"/></svg>
+                  <span>重新选择文件</span>
+                </button>
+                <button class="btn" type="button">改为手动录入条款</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="state-layer" data-state="success">
+          <div class="card">
+            <div class="state-box">
+              <svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>
+              <p class="state-title">提交成功，已进入待审批</p>
+              <p class="state-desc">送审单号 SUB-2026-0912-007。系统已自动排入 AI 初审队列，预计 1 分钟内出结论；结论出来后会在工作台「待我处理」中出现。</p>
+              <div class="row" style="justify-content:center">
+                <button class="btn btn-primary" type="button" data-goto="contract-list">
+                  <svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>
+                  <span>查看我的送审</span>
+                </button>
+                <button class="btn" type="button" id="btn-create-again">再送一份</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- @PAGES:END -->
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 演示浮层：只有 URL 带 ?demo=1 时才显示。
+     把「上帝视角」的演示操作收拢在这里，不与业务按钮混排，避免评审者误点（§33.6 演示入口收拢）。 -->
+<div class="demo" id="demo">
+  <p class="demo-title">演示状态切换（?demo=1 才显示，不属于交付内容）</p>
+  <div class="demo-line" data-demo-scope="workbench">
+    <span class="demo-name">工作台</span>
+    <button class="demo-btn" type="button" data-set-state="ready">初始</button>
+    <button class="demo-btn" type="button" data-set-state="loading">加载中</button>
+    <button class="demo-btn" type="button" data-set-state="denied">无权限</button>
+  </div>
+  <div class="demo-line" data-demo-scope="contract-list">
+    <span class="demo-name">合同列表</span>
+    <button class="demo-btn" type="button" data-set-state="ready">初始</button>
+    <button class="demo-btn" type="button" data-set-state="loading">加载中</button>
+    <button class="demo-btn" type="button" data-set-state="empty">空</button>
+    <button class="demo-btn" type="button" data-set-state="error">加载失败</button>
+    <button class="demo-btn" type="button" data-set-state="denied">无权限</button>
+  </div>
+  <div class="demo-line" data-demo-scope="contract-review">
+    <span class="demo-name">合同审核</span>
+    <button class="demo-btn" type="button" data-set-ai="idle">未运行</button>
+    <button class="demo-btn" type="button" data-set-ai="progress">AI 处理中</button>
+    <button class="demo-btn" type="button" data-set-ai="result">完整结论</button>
+    <button class="demo-btn" type="button" data-set-ai="partial">部分成功</button>
+    <button class="demo-btn" type="button" data-set-ai="error">服务不可用</button>
+    <button class="demo-btn" type="button" data-set-state="denied">无权限</button>
+  </div>
+  <div class="demo-line" data-demo-scope="contract-create">
+    <span class="demo-name">新建送审</span>
+    <button class="demo-btn" type="button" data-set-state="form">填写中</button>
+    <button class="demo-btn" type="button" data-fill-form="1">填满必填项</button>
+    <button class="demo-btn" type="button" data-set-state="upload-error">上传失败</button>
+    <button class="demo-btn" type="button" data-set-state="success">提交成功</button>
+  </div>
+</div>
+
+<script>
+/* 路由：verify 第二层通过 window.goto(id) 激活页面，第三层按 .active 页面测溢出与链路。
+   注意：本块内刻意不写「函数名 + 带引号的页面 id」这种字面量调用——verify 第一层会把源码里
+   这类写法一律当作「跳转声明」纳入完整性校验，而页面 id 是运行时才知道的，写成字面量会
+   制造假断链。跳转一律走 data-goto 属性与事件代理。 */
+(function () {
+  var APP_TITLE = '合同审核台';
+
+  function sections() {
+    return document.querySelectorAll('section[id]');
+  }
+
+  function goto(id) {
+    var list = sections();
+    var hit = false;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === id) { list[i].classList.add('active'); hit = true; }
+      else { list[i].classList.remove('active'); }
+    }
+    var items = document.querySelectorAll('[data-goto]');
+    for (var j = 0; j < items.length; j++) {
+      var on = items[j].getAttribute('data-goto') === id;
+      items[j].classList.toggle('active', on);
+    }
+    if (hit) {
+      var el = document.getElementById(id);
+      var t = el.getAttribute('data-title') || id;
+      document.title = t + ' · ' + APP_TITLE;
+      if (location.hash !== '#' + id) { location.hash = '#' + id; }
+    }
+    return hit;
+  }
+  window.goto = goto;
+  window.showPage = goto;
+
+  /* 所有 [data-goto] 元素统一走事件代理，新增入口不必再绑监听 */
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    while (el && el.nodeType === 1) {
+      if (el.hasAttribute && el.hasAttribute('data-goto')) {
+        e.preventDefault();
+        goto(el.getAttribute('data-goto'));
+        return;
+      }
+      el = el.parentNode;
+    }
+  });
+
+  function fromHash() {
+    var id = (location.hash || '').replace(/^#/, '');
+    if (!id) { return false; }
+    var el = document.getElementById(id);
+    if (!el || el.tagName.toLowerCase() !== 'section') { return false; }
+    return goto(id);
+  }
+
+  if (!fromHash()) {
+    var first = sections()[0];
+    if (first) { goto(first.id); }
+  }
+  window.addEventListener('hashchange', fromHash);
+})();
+</script>
+
+<script>
+/* 业务演示脚本：动态问候 / 页面状态层 / AI 处理过程 / 人工确认 / 演示浮层。
+   约束：跳转一律走 data-goto 属性与事件代理，本块不出现「函数名 + 带引号页面 id」的字面量调用，
+   否则 verify 第一层会把它当成跳转声明而误报断链（见 references/07 §27.1）。 */
+(function () {
+  'use strict';
+
+  var DEFAULT_STATE = {
+    workbench: 'ready',
+    'contract-list': 'ready',
+    'contract-review': 'ready',
+    'contract-create': 'form'
+  };
+  var AI_BLOCK = {
+    idle: 'ai-idle',
+    progress: 'ai-progress',
+    result: 'ai-result',
+    partial: 'ai-partial',
+    error: 'ai-error'
+  };
+  var REQUIRED_FIELDS = ['c-name', 'c-party', 'c-amount', 'c-scope'];
+  var pageState = {};
+  var aiState = { 'contract-review': 'idle' };
+  var aiTimer = null;
+
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function show(el, on) {
+    if (!el) { return; }
+    if (on) { el.removeAttribute('hidden'); } else { el.setAttribute('hidden', ''); }
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function nowText() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  /* ── 动态内容：问候语与日期由脚本按当前时间生成，HTML 里不写死（§33.6 / §34 第 29 条）── */
+  function renderGreeting() {
+    var h = new Date().getHours();
+    var bands = [
+      { to: 6, text: '夜里好' },
+      { to: 12, text: '上午好' },
+      { to: 14, text: '中午好' },
+      { to: 18, text: '下午好' },
+      { to: 24, text: '晚上好' }
+    ];
+    var word = bands[bands.length - 1].text;
+    for (var i = 0; i < bands.length; i++) {
+      if (h < bands[i].to) { word = bands[i].text; break; }
+    }
+    var g = document.getElementById('greeting');
+    if (g) { g.textContent = word + '，法务专员'; }
+    var t = document.getElementById('today');
+    if (t) { t.textContent = '今天是 ' + nowText().slice(0, 10); }
+  }
+
+  /* ── 页面状态层：一次只显示一个 [data-state]，切不到就保持原样（不静默失败）── */
+  function setPageState(pageId, state) {
+    var page = document.getElementById(pageId);
+    if (!page) { return false; }
+    var layers = $$('.state-layer', page);
+    var hit = false;
+    for (var i = 0; i < layers.length; i++) {
+      var on = layers[i].getAttribute('data-state') === state;
+      layers[i].classList.toggle('on', on);
+      if (on) { hit = true; }
+    }
+    if (hit) { pageState[pageId] = state; syncDemoButtons(); }
+    return hit;
+  }
+
+  /* ── AI 处理过程：四步推进，过程中给出「正在做什么」而不是只转圈（§34 第 8 条）── */
+  function markAiStep(n) {
+    var steps = $$('#ai-progress .ai-step');
+    for (var i = 0; i < steps.length; i++) {
+      steps[i].classList.toggle('done', i < n);
+      steps[i].classList.toggle('active', i === n);
+    }
+  }
+  function setAiState(state) {
+    var known = Object.prototype.hasOwnProperty.call(AI_BLOCK, state);
+    if (!known) { return false; }
+    aiState['contract-review'] = state;
+    Object.keys(AI_BLOCK).forEach(function (k) { show(document.getElementById(AI_BLOCK[k]), k === state); });
+    syncDemoButtons();
+    return true;
+  }
+  function runAi() {
+    setAiState('progress');
+    markAiStep(0);
+    if (aiTimer) { clearTimeout(aiTimer); }
+    var step = 0;
+    function tick() {
+      step += 1;
+      if (step <= 3) { markAiStep(step); aiTimer = setTimeout(tick, 240); }
+      else { setAiState('result'); }
+    }
+    aiTimer = setTimeout(tick, 240);
+  }
+
+  /* ── 人工确认：AI 结论不落库，只有人工确认才写审核记录（§33.6 业务闭环）── */
+  function setStatusChip(text, cls) {
+    var chip = document.getElementById('status-chip');
+    if (!chip) { return; }
+    chip.textContent = text;
+    chip.className = 'chip ' + cls;
+  }
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    if (!t) { return; }
+    t.textContent = msg;
+    t.classList.add('on');
+    setTimeout(function () { t.classList.remove('on'); }, 2600);
+  }
+  function approve() {
+    setStatusChip('已通过', 'chip-low');
+    var card = document.getElementById('archive-card');
+    show(card, true);
+    var r = document.getElementById('archive-result');
+    if (r) { r.textContent = '通过（4 条风险条款已逐条确认）'; }
+    var tm = document.getElementById('archive-time');
+    if (tm) { tm.textContent = nowText(); }
+    var hint = document.getElementById('confirm-hint');
+    if (hint) { hint.textContent = '结论已写入审核记录 AR-2026-0413-01，可在合同列表「已通过」中查看并导出。'; }
+    toast('已确认通过，合同已归档');
+  }
+  function reject() {
+    setStatusChip('已驳回', 'chip-high');
+    var hint = document.getElementById('confirm-hint');
+    if (hint) { hint.textContent = '已退回业务发起人修改，退回原因会随审核记录一并发送。'; }
+    toast('已驳回，合同退回业务发起人');
+  }
+
+  /* ── 新建送审：必填未齐时提交按钮保持禁用（§33.3 禁用态）── */
+  function formReady() {
+    for (var i = 0; i < REQUIRED_FIELDS.length; i++) {
+      var el = document.getElementById(REQUIRED_FIELDS[i]);
+      if (!el) { return false; }
+      var v = (el.value || '').replace(/^\s+|\s+$/g, '');
+      if (!v || v === '请选择') { return false; }
+    }
+    return true;
+  }
+  function refreshSubmit() {
+    var btn = document.getElementById('btn-submit');
+    if (!btn) { return; }
+    var ok = formReady();
+    btn.disabled = !ok;
+    var hint = document.getElementById('form-hint');
+    if (hint) {
+      hint.textContent = ok
+        ? '必填项已齐，可以提交送审。'
+        : '四项必填完成后「提交送审」才可点击；这是为了在源头拦住缺字段的送审单。';
+    }
+  }
+  function fillForm() {
+    var demo = { 'c-name': '华东区域仓储服务年度框架协议', 'c-party': '云枢供应链有限公司', 'c-amount': '1280000', 'c-scope': '华东大区' };
+    Object.keys(demo).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) { el.value = demo[id]; }
+    });
+    refreshSubmit();
+  }
+  function submitForm() {
+    if (!formReady()) { return; }
+    setPageState('contract-create', 'success');
+    var steps = $$('#contract-create .step');
+    for (var i = 0; i < steps.length; i++) {
+      steps[i].classList.remove('current');
+      steps[i].classList.add('done');
+    }
+    toast('送审单已提交，进入待审批');
+  }
+
+  /* ── 演示浮层：只有 ?demo=1 时出现；按钮高亮跟随当前状态 ── */
+  function syncDemoButtons() {
+    $$('.demo-btn').forEach(function (b) {
+      var line = b.closest ? b.closest('[data-demo-scope]') : null;
+      if (!line) { return; }
+      var scope = line.getAttribute('data-demo-scope');
+      var key = b.getAttribute('data-set-state') || b.getAttribute('data-set-ai');
+      var cur = b.getAttribute('data-set-ai') ? aiState[scope] : pageState[scope];
+      b.classList.toggle('on', !!key && cur === key);
+    });
+  }
+  function bindDemo() {
+    var panel = document.getElementById('demo');
+    if (!panel) { return; }
+    if (!/[?&]demo=1(&|$)/.test(location.search)) { return; }
+    panel.classList.add('on');
+    panel.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('button') : null;
+      if (!btn) { return; }
+      var line = btn.closest('[data-demo-scope]');
+      var scope = line ? line.getAttribute('data-demo-scope') : '';
+      if (btn.getAttribute('data-fill-form')) { fillForm(); return; }
+      var ai = btn.getAttribute('data-set-ai');
+      if (ai) { setPageState(scope, 'ready'); setAiState(ai); return; }
+      var st = btn.getAttribute('data-set-state');
+      if (st && scope) { setPageState(scope, st); if (window.goto) { window.goto(scope); } }
+    });
+  }
+
+  function bindBusiness() {
+    var run = document.getElementById('btn-run-ai');
+    if (run) { run.addEventListener('click', runAi); }
+    var retry = document.getElementById('btn-ai-retry');
+    if (retry) { retry.addEventListener('click', runAi); }
+    var ok = document.getElementById('btn-approve');
+    if (ok) { ok.addEventListener('click', approve); }
+    var no = document.getElementById('btn-reject');
+    if (no) { no.addEventListener('click', reject); }
+    var submit = document.getElementById('btn-submit');
+    if (submit) { submit.addEventListener('click', submitForm); }
+    var again = document.getElementById('btn-create-again');
+    if (again) {
+      again.addEventListener('click', function () {
+        setPageState('contract-create', 'form');
+        var steps = $$('#contract-create .step');
+        for (var i = 0; i < steps.length; i++) { steps[i].classList.remove('done', 'current'); }
+        if (steps[0]) { steps[0].classList.add('current'); }
+      });
+    }
+    REQUIRED_FIELDS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) { return; }
+      el.addEventListener('input', refreshSubmit);
+      el.addEventListener('change', refreshSubmit);
+    });
+  }
+
+  function init() {
+    Object.keys(DEFAULT_STATE).forEach(function (id) { setPageState(id, DEFAULT_STATE[id]); });
+    renderGreeting();
+    bindBusiness();
+    refreshSubmit();
+    bindDemo();
+    syncDemoButtons();
+  }
+
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
+  else { init(); }
+})();
+</script>
+
+</body>
+</html>

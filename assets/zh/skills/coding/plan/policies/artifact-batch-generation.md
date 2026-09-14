@@ -9,7 +9,7 @@
 - `artifact_review_mode` 只改变**批内审查是否发生**，不改变批次顺序，不绕过 OpenSpec instructions
 - **Mode A（`per_batch`）**：每批生成后必须走 §4 反思循环（intention / explore 基线 + `review-log.md`）→ 冻结 → 下一批；全部批次完成后返回 skill
 - **Mode B（`after_all`）**：只跑 §3 生成后返回 skill；**禁止**在本 policy 内跑 §4 / `Batch: all`。制品主审出口是 skill **Step 4.2**
-- 批内审查派发 `plan-reviewer`；主代理**禁止**自审冒充通过
+- 批内审查派发 `plan-review-agent`；主代理**禁止**自审冒充通过
 - **机械终检**不在本 policy：由 skill **Step 4.1** 执行
 
 ---
@@ -95,7 +95,7 @@ openspec/changes/<change_id>/
 
 **仅当** `artifact_review_mode == per_batch` 时执行。Mode B **禁止**进入本节。
 
-对本批制品跑完整反思循环。审查智能体为 `plan-reviewer`（下文称 **批内审查者**）。
+对本批制品跑完整反思循环。审查智能体为 `plan-review-agent`（下文称 **批内审查者**）。
 
 ### 4.0 审查基线（每次派发必附）
 
@@ -117,7 +117,7 @@ openspec/changes/<change_id>/
 
 ### 4.2 派发批内审查者（计一轮）
 
-- Agent：`plan-reviewer`（须已安装；缺失 → 阻断，提示 `polaris-flow init/update`）
+- Agent：`plan-review-agent`（须已安装；缺失 → 阻断，提示 `polaris-flow init/update`）
 - 按 `subagent-delegate-policy.md`：D-0 → D-1 / D-2
 
 **调用时必须告知审查者：**

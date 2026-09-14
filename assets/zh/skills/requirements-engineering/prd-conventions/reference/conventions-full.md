@@ -170,7 +170,7 @@ Long skills (discovery / draft / update L2) must confirm per chapter:
 
 | Artifact | Location | Owner |
 |:---|:---|:---|
-| Change proposal | `changes/change-suggestion-v{N}.md` | prd-update / prd-prototype |
+| Change proposal | `changes/change-suggestion-v{N}.md` | prd-update / polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate（原型侧只**提出**变更建议，改写 PRD 一律经 `prd-update`） |
 | Review report | `reviews/review-report-v{N}.md` | prd-review |
 | Testability report | `reviews/testability-report-v{N}.md` | prd-testability |
 | Chapter confirmations | `sessions/*_confirmed_sections.json` | All long skills |

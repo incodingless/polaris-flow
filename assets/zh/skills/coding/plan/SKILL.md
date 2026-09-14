@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}plan
-description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 plan-reviewer 独立主审（可选 Outside Voice）后，询问是否进入可选 design 深化：深化则进 design，跳过则直接进 tasks（runtime.design.status=skipped）。"
+description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 plan-review-agent 独立主审（可选 Outside Voice）后，询问是否进入可选 design 深化：深化则进 design，跳过则直接进 tasks（runtime.design.status=skipped）。"
 version: 0.1
 ---
 
@@ -278,7 +278,7 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
 
 > **fallback**（无 intention、仅用户原始 prompt）：若 proposal/design 缺第 2/3 项部分节，可放宽不阻断，仅在摘要标 `(fallback)`；**四件套存在性与 `tasks-lint` 仍必须通过**。
 
-#### 4.2 主审 — `plan-reviewer`
+#### 4.2 主审 — `plan-review-agent`
 
 本步派发主审 subagent。评审对象是**四件套 + intention**；禁止内联重写评审标准。
 
@@ -286,7 +286,7 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
 - **Mode B**：本步为**唯一**制品主审出口（policy 未跑 §4）。
 
 1. **`subagent-probe`**：加载 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → 标注并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。
-2. **派发**：`plan-reviewer`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。
+2. **派发**：`plan-review-agent`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。
 
    **按 `subagent-delegate-policy.md` 执行派发**（D-0 工具可用性判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
 
@@ -305,7 +305,7 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
      5. 若有：`openspec/changes/<change_id>/intention.md`
      6. 若有（Mode A 常见）：`openspec/changes/<change_id>/review-log.md`
 
-   D-1 下 agent 按 `plan-reviewer.md` 自读上述路径；D-2 下主代理 Read 全部全文拼入 `Materials:` 段。
+   D-1 下 agent 按 `plan-review-agent.md` 自读上述路径；D-2 下主代理 Read 全部全文拼入 `Materials:` 段。
 
 3. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；写入 `openspec/changes/<change_id>/reviews/plan-review-report.md`。
 

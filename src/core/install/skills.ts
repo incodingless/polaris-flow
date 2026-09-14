@@ -20,7 +20,7 @@ import {
 } from '../../utils/file-system.js';
 import { Assets } from '../assets/manifest.js';
 import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
-import { parseSkillAssetPath } from '../assets/layout.js';
+import { parseSkillAssetPath, SKILL_FAMILIES } from '../assets/layout.js';
 
 /** 技能资产中的名称分隔符占位符 */
 export const SKILL_NAME_PREFIX_PLACEHOLDER = '{{SKN_SPR}}';
@@ -34,12 +34,8 @@ const CROSS_SKILL_PARENT_REF_RE = /(?<!\.)\.\.\/[A-Za-z0-9._\-\/]+/g;
 /** 幽灵占位符：源码中从未定义 / 替换，安装后会原样残留，必须清理。 */
 const GHOST_SKILL_NAME_PLACEHOLDER = '{{SKILL_NAME_PREFIX}}';
 
-/**
- * 技能族目录名（其下为叶技能）。
- * 注意：族名必须与 `assets/<lang>/skills/` 下的实际目录名一致，否则族目录会被误判为独立技能。
- * 测试族固定为 `testing`——**不可用 `test`**，与仓库根 `test/`（单元测试）及保留目录冲突。
- */
-const SKILL_FAMILIES = new Set(['coding', 'prd', 'testing']);
+/** 再导出技能族清单：唯一来源是 `core/assets/layout.ts`，此处禁止再抄一份。 */
+export { SKILL_FAMILIES };
 
 /**
  * 是否应跳过该 skills 短路径。
@@ -387,5 +383,3 @@ export async function copyPolarisSkillsForPlatform(
 
   return runCopyJobs(jobs);
 }
-
-export { SKILL_FAMILIES };

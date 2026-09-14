@@ -1,79 +1,63 @@
 ---
 name: prd-prototype
 description: >
-  Use when the user says "生成原型", "做个 HTML 原型", "画一下页面",
-  "原型验证一下交互", or wants to validate interaction design before development.
-  Optional skill for interactive prototype generation and iteration.
+  Deprecated pointer holding no independent content; selected only when `prd-workflow` routes
+  here to reach the Prototype stage. Prototype construction is owned by
+  polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate and delivery judgement by
+  polaris{{SKN_SPR}}prototype{{SKN_SPR}}review; route any end-user prototype request there
+  instead. No user-facing trigger of its own.
 ---
 
-# PRD Prototype
+# prd-prototype · Deprecated pointer
 
-## Overview
+> **This skill has no content of its own.** Everything it used to do now lives in
+> `polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate` (9 stages · 6+1 deliverables · gate at stage 9.3)
+> and `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review` (pass/fail judgement).
+> This file exists only so that `prd-workflow`'s Prototype stage does not route into nothing.
 
-Three-phase closed loop: interaction evaluation → single-file HTML prototype → feedback back to requirements. Prototype must be a standalone HTML file with zero external dependencies.
+## Why this shell is kept rather than deleted
 
-## When to Use
+`prd-workflow`'s stage matrix includes a **Prototype** stage reachable from Draft / Final / Reviewed.
+Deleting this directory would leave that route pointing at a missing skill. Keeping a shell that
+carries **zero duplicated specification** is the cheapest way to keep the old family intact while
+removing the duplicate source of truth.
 
-- User says "生成原型" or "做个 HTML 原型"
-- Need to validate interaction design before development
-- Want to discover interaction issues early
-- After PRD draft/final, before development
+## Routing table
 
-## Quick Reference
-
-| Phase | Action | Output |
-|:---:|:---|:---|
-| 1 | Interaction design evaluation | ≥1 improvement suggestion |
-| 2 | Generate HTML prototype | `prototypes/prototype-v{N}.html` |
-| 3 | Feedback → update requirements | Via `prd-update` |
-
-**HTML Constraints:**
-
-| Item | Rule |
+| Intent | Go to |
 |:---|:---|
-| Files | Single HTML only |
-| Dependencies | Zero (no CDN, no external CSS/JS) |
-| Resources | CSS in `<style>`, JS in `<script>` |
-| Data | Mock data inline (arrays in JS) |
-| Interaction | Real clickable (buttons, forms, tabs) |
-| Storage | Memory variables only (no localStorage) |
+| Build a prototype from a requirement doc | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate` |
+| Judge whether an existing prototype is deliverable | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review` |
+| Low-fidelity wireframe only | `lofi-prototype` |
+| Feed prototype findings back into the PRD | `prd-update` (this family — see below) |
 
-**Coverage Requirements:**
+## Where the old capabilities went
 
-| PRD Section | Prototype Must Show |
+| Old (`prd-prototype`) | Now |
 |:---|:---|
-| §2 Main flow | Key steps have corresponding pages |
-| §3 Capabilities | List/form/detail/exception states |
-| §3 Scenarios | ≥1 complete end-to-end walkthrough |
-| §3 Exceptions | ≥1 exception state (e.g. "no permission") |
+| Phase 1 interaction evaluation, ≥1 improvement | Stages 1–8 (judgement layer) of the target skill; 6 artifacts written to disk |
+| Phase 2 single-file HTML: zero deps, inline resources, mock data, genuinely clickable | Stage 9.1 + `scaffold.mjs`; constraints machine-enforced by `verify.mjs` (single file / no external refs / `<section id>` / `data-goto`) |
+| ≥1 exception state, ≥1 end-to-end walkthrough | Stage 7 (11 states) + 9.2 three-layer verification incl. golden-flow path test |
+| Phase 3 feedback back into requirements via `prd-update` L2 | **Still owned by this family** — see below |
 
-## Implementation
+## ⚠️ The one thing the new skill deliberately does NOT do
 
-### Phase 1: Generate Prototype
+`polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate` explicitly refuses to rewrite requirements
+(findings are reported back to the product manager, then stop). So the closed loop that used to
+live in old Phase 3 — *prototype finding → PRD change proposal* — has **no home in the new skill**.
 
-1. **Interaction evaluation**: Propose ≥1 improvement after reading PRD
-2. **User selects**: Adopt all / partial / none / custom
-3. **Generate HTML**: Single file, inline everything, mock data
+Do the loop here, in this family:
 
-### Phase 2: Confirm Feedback
+1. Prototype finding touches **requirements content** → route through `prd-update` L2
+   (artifact: `changes/change-suggestion-v{N}.md`).
+2. Finding touches **the prototype itself** → back to `polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate`.
 
-- User previews in browser
-- A. Prototype OK → done
-- B. Found issues → classify: affects Discovery? If yes, `prd-update` L2
-- C. Prototype needs change → regenerate v{N+1}
+Do **not** edit the PRD directly on the strength of a prototype finding — that bypasses change
+management and was old mistake #6.
 
-### Phase 3: Update Requirements
+## Naming note
 
-Convert feedback to `prd-update` input. Route through full change management.
-
-## Common Mistakes
-
-| # | Anti-pattern | Correct Approach |
-|:---:|:---|:---|
-| 1 | Skipping interaction evaluation | Phase 1 step 1 is mandatory |
-| 2 | Using CDN UI frameworks | Single file + inline resources |
-| 3 | Using localStorage | Memory variables only |
-| 4 | Static images only | Must be really clickable |
-| 5 | Feedback not flowing back to PRD | Phase 3 calls `prd-update` |
-| 6 | Editing PRD directly from feedback | Must route through `prd-update` |
-| 7 | No exception state | At least 1 exception page |
+`name` stays `prd-prototype` on purpose: it breaks the `polaris{{SKN_SPR}}` convention, but
+renaming it alone would desynchronise this whole family (all 11 skills here share the plain
+`prd-*` form) and `prd-workflow` routes by these names. Fixing the convention is a family-wide
+decision, not a local one.

@@ -14,7 +14,7 @@
 
 | 阶段 | 主审 agent | 主审报告 |
 |------|------------|----------|
-| plan | `plan-reviewer` | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
+| plan | `plan-review-agent` | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
 | design  | `design-review-agent`  | `openspec/changes/<change_id>/reviews/design-review-report.md` |
 | tasks   | `tasks-review-agent`    | `openspec/changes/<change_id>/reviews/tasks-review-report.md` |
 

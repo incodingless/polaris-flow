@@ -38,7 +38,7 @@ normal 是 P02（常规功能）的执行体。它把完整链路的 `specify �
 | 适用 | 单模块 / 单文件级、≤ 3 顶层任务、≤ 1 delta spec | 多模块协作、需规格契约、≤ 8 顶层任务 | 跨服务 / 高风险、需专项设计与复盘 |
 | 阶段数 | 1 个技能内部跑完 4 步 | 1 个技能内部跑完 10 步 | specify → plan → design(可选) → tasks → build → verify → ship（→ retro） |
 | 规格产物 | `change-brief.md` + `tasks.md` | **OpenSpec 四件套** + `intention.md` + 终版 `tasks.md` | 四件套 + `detailed-design.md` + 专项设计 |
-| 设计 / 评审 | 无独立设计，无主审 | 设计并入四件套 `design.md`；**1 次合并主审**（plan-reviewer） | design 主审 + tasks 主审 + 可选 Outside Voice |
+| 设计 / 评审 | 无独立设计，无主审 | 设计并入四件套 `design.md`；**1 次合并主审**（plan-review-agent） | design 主审 + tasks 主审 + 可选 Outside Voice |
 | 用户确认 | 3 次 | **~5 次**（理解确认 / 任务名 / 规格定稿 + 条件性的主审消化、出口决策） | ≥ 10 次 |
 | workflow 写入 | 仅 1 次（出口推进 ship） | **1 次**（出口推进 ship；升档转交时条件性 +1） | 每阶段 1 次 |
 | 收尾 | 交 ship（归档前补齐四件套） | 交 ship（四件套已齐，无需补齐） | 交 ship |
@@ -383,7 +383,7 @@ phase: build
 
 ### Step 7：合并主审（阻塞点）
 
-P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**（复用 `plan-reviewer`，评审对象天然就是四件套 + intention）。不做 design / tasks 独立主审，不询问 Outside Voice。
+P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**（复用 `plan-review-agent`，评审对象天然就是四件套 + intention）。不做 design / tasks 独立主审，不询问 Outside Voice。
 
 #### 7.1 机械终检
 
@@ -396,10 +396,10 @@ P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**�
 
 任一失败 → 回 Step 4.3 / 6.2 补齐，不得进入 7.2。
 
-#### 7.2 派发主审 — `plan-reviewer`
+#### 7.2 派发主审 — `plan-review-agent`
 
 1. **probe**：`use_skill("polaris{{SKN_SPR}}subagent-probe")`（传入 `platform`）。返回 `inline` / `unsupported` → 标注并 decision-point：**A 接受跳过主审（记录原因）** / **B 阻断**。不得 inline 假评审。
-2. **派发**：`plan-reviewer`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。派发执行按 probe 返回的平台能力选择形态：
+2. **派发**：`plan-review-agent`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。派发执行按 probe 返回的平台能力选择形态：
    - **路径引用型**（agent 可自读文件）：`materials` 传路径清单
    - **内容注入型**（agent 无法读文件）：主代理 Read 全部全文拼入 `Materials:` 段
 3. **传入参数**：

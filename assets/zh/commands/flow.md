@@ -363,8 +363,8 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 | **R01** 编写用户需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery` | discovery（产出需求基线，含功能架构草案） |
 | **R02** 编写产品需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}draft` | draft → refine → review → ship |
 | **R03** 需求就绪度评估 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness` | readiness（五维度加权评分 + PASS/CONDITIONAL/FAIL 准出判定；FAIL 阻断交付回 refine） |
-| **R11** 由需求文档生成原型 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}prototype` | prototype **建造**：9 阶段（需求理解 → 黄金任务流 → IA → 页面体系 → 页面模式 → 页面结构 → 交互状态 → 视觉系统 → 实现/验收/交接），产出 6+1 交付物；本技能只负责建造，**不含评审** |
-| **R12** 评审已有原型 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}prototype-review` | prototype-review（**只评不改**）：实际执行三层验证 + 五维质量审查 + 一票否决 31 条 → 结论（可交付 / 修复后可交付 / 不得交付）+ P0–P3 分级问题清单与整改建议；**不从阶段 1 重做**。判据以 `polaris{{SKN_SPR}}prd{{SKN_SPR}}prototype` 的 `references/07 §33 / §34 / §27.1` 为唯一来源 |
+| **R11** 由需求文档生成原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate` | prototype **建造**：9 阶段（1–8 判断层：需求理解 → 黄金任务流 → IA → 页面体系 → 页面模式 → 页面结构 → 交互状态 → 视觉系统；**9 执行层**：9.1 实现 → 9.2 验证 → **9.3 评审 → 调用 R12** → 9.4 交接），产出 6+1 交付物（均落盘）；**9.3 是交付前门禁**——评审结论为「不得交付」即停在 9.3，不得进 9.4 |
+| **R12** 评审已有原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review` | prototype-review（**只评不改**）：实际执行三层验证 + 五维质量审查 + 一票否决 31 条 → 结论（可交付 / 修复后可交付 / 不得交付）+ P0–P3 分级问题清单与整改建议；**不从阶段 1 重做**。判据（`§33` 五维 / `§34` 一票否决 / `§36` 最终判断标准）的唯一来源是该技能自己的 `references/01-quality-criteria.md`；三层验证执行体 `scripts/verify.mjs` 在 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate` |
 | **T01** 编写测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}case` | case（产出用例集 + 追溯矩阵） |
 | **T02** 编写验收标准 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}acceptance` | acceptance（产出 GWT 验收标准清单） |
 

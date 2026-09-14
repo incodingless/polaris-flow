@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>评测原型</title>
+<style>
+/* 设计 Token —— 具体取值不写在这里，取自 Token 文件（references/05 §14.2）：
+   默认 assets/default-tokens.css；需求方提供了设计规范时用 --tokens=<规范.css> 覆盖。
+   品牌化与主题调整只改这一区；文本 Token 对白底必须 ≥4.5:1（verify L1-9 强制，不可放宽）。 */
+:root {
+  /* @TOKENS:BEGIN */
+  /* 设计 Token · 取值来源：evals/fixtures/design-system-bad-contrast.css（references/05 §14.2） */
+  --primary-color: #0b6bcb;
+  --primary-hover: #095bb0;
+  --primary-active: #074a91;
+  --primary-light: rgba(11, 107, 203, 0.1);
+  --success-color: #1f9254;
+  --warning-color: #d98600;
+  --error-color: #d92d20;
+  --info-color: #0b6bcb;
+  --title-color: #12324f;
+  --heading-color: rgba(17, 24, 39, 0.88);
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-placeholder: #a9afc0;
+  --bg-page: #f4f6f9;
+  --bg-white: #ffffff;
+  --bg-section: #f7f9fc;
+  --border-color: #d5dbe3;
+  --divider-color: #e3e8ef;
+  --divider-soft: #edf1f6;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --radius-sm: 2px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --shadow-card: 0 1px 8px rgba(15, 23, 42, 0.06);
+  --fs-caption: 12px;
+  --fs-sm: 13px;
+  --fs-body: 14px;
+  --fs-card-title: 15px;
+  --fs-section: 16px;
+  --fs-page-title: 24px;
+  --fs-kpi: 30px;
+  --fs-display: 34px;
+  --header-h: 60px;
+  --sidebar-w: 224px;
+  --page-pad-x: 24px;
+  --ctl-h: 36px;
+  --ctl-h-compact: 32px;
+  /* @TOKENS:END */
+}
+
+/* ── 基础 ─────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-page);
+}
+/* 线性图标：统一 2px 描边，颜色跟随文字（§05） */
+.icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── App Shell ────────────────────────────────────────────── */
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.app-header {
+  height: var(--header-h); flex: none; display: flex; align-items: center; gap: var(--sp-4);
+  padding: 0 var(--page-pad-x); background: var(--bg-white); border-bottom: 1px solid var(--divider-color);
+}
+.app-brand { display: flex; align-items: center; gap: var(--sp-2); font-weight: 600; color: var(--title-color); }
+.app-brand .icon { width: 20px; height: 20px; color: var(--primary-color); }
+.app-header .spacer { flex: 1; }
+.app-body { flex: 1; display: flex; min-height: 0; }
+.app-sidebar {
+  width: var(--sidebar-w); flex: none; padding: var(--sp-3) var(--sp-2);
+  background: var(--bg-white); border-right: 1px solid var(--divider-color);
+}
+.app-main { flex: 1; min-width: 0; padding: var(--sp-5) var(--page-pad-x); }
+
+/* ── 导航 ─────────────────────────────────────────────────── */
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; gap: var(--sp-2); height: 40px; padding: 0 var(--sp-3);
+  border-radius: var(--radius-md); color: var(--text-secondary); text-decoration: none; cursor: pointer;
+}
+.nav-item:hover { background: var(--bg-section); color: var(--text-primary); }
+.nav-item.active { background: var(--primary-light); color: var(--primary-color); font-weight: 500; }
+
+/* ── 页面容器：一次只显示一个，goto() 切换 .active ─────────── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── 通用零件 ─────────────────────────────────────────────── */
+.card {
+  background: var(--bg-white); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card); padding: var(--sp-4) var(--sp-5);
+}
+.page-head { margin-bottom: var(--sp-4); }
+.page-title { margin: 0; font-size: var(--fs-page-title); font-weight: 600; color: var(--title-color); }
+.page-desc { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); color: var(--text-placeholder); }
+.btn {
+  display: inline-flex; align-items: center; gap: var(--sp-1); height: var(--ctl-h);
+  padding: 0 var(--sp-4); border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  background: var(--bg-white); color: var(--text-primary); font: inherit; cursor: pointer;
+}
+.btn:hover { border-color: var(--primary-hover); color: var(--primary-hover); }
+.btn-primary { border-color: var(--primary-color); background: var(--primary-color); color: #fff; }
+.btn-primary:hover { border-color: var(--primary-hover); background: var(--primary-hover); color: #fff; }
+/* 表格：横向可分页的容器用 overflow-x:auto，避免整页横向溢出（verify 第三层） */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 0 var(--sp-3); height: 44px; text-align: left; border-bottom: 1px solid var(--divider-soft); }
+th { height: 42px; font-weight: 500; color: var(--text-secondary); background: var(--bg-section); }
+/* 状态：11 种交互状态在此扩展（§33.3） */
+.state { padding: var(--sp-8) 0; text-align: center; color: var(--text-placeholder); }
+</style>
+</head>
+<body>
+
+<!-- 图标 sprite：内联 SVG symbol 定义区。页面内以 use 元素的 href 指向 i- 前缀的 symbol id 引用（§05）。 -->
+<svg class="icon-sprite" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
+<!-- @ICONS:BEGIN -->
+<symbol id="i-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L19 7"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m14 6 4 4"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12m0 0 5-5m-5 5-5-5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2 20h20z"/><path d="M12 10v5M12 18h.01"/></symbol>
+<symbol id="i-spinner" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<!-- @ICONS:END -->
+</svg>
+
+<div class="app">
+  <header class="app-header">
+    <div class="app-brand">
+      <svg class="icon" aria-hidden="true"><use href="#i-dashboard"/></svg>
+      <span>评测台</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" type="button" title="通知">
+      <svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg>
+    </button>
+    <button class="btn" type="button" title="账户">
+      <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+    </button>
+  </header>
+
+  <div class="app-body">
+    <aside class="app-sidebar">
+      <nav class="nav" aria-label="主导航">
+        <!-- @NAV:BEGIN -->
+        <a class="nav-item" data-goto="workbench" href="#workbench"><svg class="icon" aria-hidden="true"><use href="#i-dashboard"/></svg><span>工作台</span></a>
+        <a class="nav-item" data-goto="order-list" href="#order-list"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg><span>订单列表</span></a>
+        <!-- @NAV:END -->
+      </nav>
+    </aside>
+
+    <main class="app-main" id="main">
+      <!-- @PAGES:BEGIN -->
+      <section id="workbench" class="page" data-title="工作台">
+        <div class="page-head">
+          <h1 class="page-title">工作台</h1>
+          <p class="page-desc">页面主体待填充。本区块与下方注释均为脚手架占位，写业务内容时整体替换；删除前不要交付。</p>
+        </div>
+        <!-- TODO: 页面主体 —— 业务信息层级 / 状态覆盖（空·加载·错误·无权限…）/ 交互入口 -->
+      </section>
+      <section id="order-list" class="page" data-title="订单列表">
+        <div class="page-head">
+          <h1 class="page-title">订单列表</h1>
+          <p class="page-desc">页面主体待填充。本区块与下方注释均为脚手架占位，写业务内容时整体替换；删除前不要交付。</p>
+        </div>
+        <!-- TODO: 页面主体 —— 业务信息层级 / 状态覆盖（空·加载·错误·无权限…）/ 交互入口 -->
+      </section>
+      <!-- @PAGES:END -->
+    </main>
+  </div>
+</div>
+
+<script>
+/* 路由：verify 第二层通过 window.goto(id) 激活页面，第三层按 .active 页面测溢出与链路。
+   注意：本块内刻意不写「函数名 + 带引号的页面 id」这种字面量调用——verify 第一层会把源码里
+   这类写法一律当作「跳转声明」纳入完整性校验，而页面 id 是运行时才知道的，写成字面量会
+   制造假断链。跳转一律走 data-goto 属性与事件代理。 */
+(function () {
+  var APP_TITLE = '评测台';
+
+  function sections() {
+    return document.querySelectorAll('section[id]');
+  }
+
+  function goto(id) {
+    var list = sections();
+    var hit = false;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === id) { list[i].classList.add('active'); hit = true; }
+      else { list[i].classList.remove('active'); }
+    }
+    var items = document.querySelectorAll('[data-goto]');
+    for (var j = 0; j < items.length; j++) {
+      var on = items[j].getAttribute('data-goto') === id;
+      items[j].classList.toggle('active', on);
+    }
+    if (hit) {
+      var el = document.getElementById(id);
+      var t = el.getAttribute('data-title') || id;
+      document.title = t + ' · ' + APP_TITLE;
+      if (location.hash !== '#' + id) { location.hash = '#' + id; }
+    }
+    return hit;
+  }
+  window.goto = goto;
+  window.showPage = goto;
+
+  /* 所有 [data-goto] 元素统一走事件代理，新增入口不必再绑监听 */
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    while (el && el.nodeType === 1) {
+      if (el.hasAttribute && el.hasAttribute('data-goto')) {
+        e.preventDefault();
+        goto(el.getAttribute('data-goto'));
+        return;
+      }
+      el = el.parentNode;
+    }
+  });
+
+  function fromHash() {
+    var id = (location.hash || '').replace(/^#/, '');
+    if (!id) { return false; }
+    var el = document.getElementById(id);
+    if (!el || el.tagName.toLowerCase() !== 'section') { return false; }
+    return goto(id);
+  }
+
+  if (!fromHash()) {
+    var first = sections()[0];
+    if (first) { goto(first.id); }
+  }
+  window.addEventListener('hashchange', fromHash);
+})();
+</script>
+
+</body>
+</html>
