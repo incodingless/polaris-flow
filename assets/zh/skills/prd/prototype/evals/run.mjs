@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * generate-prototype 评测器（零外部依赖，Node >= 18）
+ * prd:prototype 评测器（零外部依赖，Node >= 18）
  *
  * 评的是「技能能不能按需求正确交付原型」，所以判定尽量压在**可执行**的东西上：
  * verify 的退出码、产物里必须出现 / 不允许出现的标记、守卫是否按预期失败。
@@ -28,7 +28,7 @@ const abs = (rel) => (path.isAbsolute(rel) ? rel : path.join(ROOT, rel));
 const rel = (p) => path.relative(ROOT, p) || p;
 
 const USAGE = `
-评测器 · generate-prototype
+评测器 · prd:prototype
 
   --list                     列出用例与断言的构成
   --case=<id>[,<id>…]        跑指定用例（默认全部）

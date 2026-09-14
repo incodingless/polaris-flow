@@ -99,6 +99,50 @@
   ＋ 删 `SKILL.md` 开头版本标语。行数 SKILL.md 246→241 · ref01 101→77 · ref05 1039→1029 · ref07 468→465。
   完整清单与执行记录见 `tmp/generate-prototype-commentary-audit.md`。
 
+## flow 入口：菜单结构、选项上限与技能名对齐（2026-09-14）
+
+- **询问选项上限 = 10**（2026-09-14 由 4 放宽）。**唯一来源已是注册表**：
+  `zh/policies/ask-question-react.md` 的平台询问工具注册表；`zh/commands/flow.md`「发问方式」内联表
+  必须与之同步（命令文件安装位置旁没有 `policies/`，故内联一份）。**改一处必须改另一处。**
+  派生影响：`zh/skills/prd/discovery/SKILL.md` 里「任务多于 N 个就按业务系统分组」的阈值随之为 10。
+- **需求菜单现有 5 项**（`flow.md` 第二步「类别 = 需求」）：R01 编写用户需求 / R02 编写产品需求 /
+  R03 需求就绪度评估 / **R04 由需求文档生成原型** / **R05 评审已有原型**。R04/R05 是**同一个入口技能**
+  （`polaris{{SKN_SPR}}prd{{SKN_SPR}}prototype`）的两种模式：建造模式走 9 阶段、评审模式走
+  `references/07 §33` 五维审查 + `§34` 一票否决、**不从阶段 1 重做**。
+- **R04 有意不进「零步：前置需求预检」**：它的需求输入由《需求类与测试类选项的前置依赖》把关，
+  且 0.3/0.4 的复杂度自动路由（→ tweak/normal/specify）对原型无意义。（`flow.md` 零步触发条件句已写明理由。）
+- **技能 `name` 必须与资产路径一致**：安装器 `src/core/assets/layout.ts` 用**资产路径**定族 / 叶
+  （`SKILL_FAMILIES = {coding, prd, testing}`），frontmatter 的 `{{SKN_SPR}}` 只被替换成分隔符
+  （nested→`:` / flat→`-`），**不参与路径推导**。原型技能曾因 `name: polaris:generate-prototype`
+  与目录 `zh/skills/prd/prototype/` 不一致而漂移（2026-09-14 已改为 `polaris:prd:prototype`）。
+  新增技能时先定目录再定 name。
+- **`en/` 是语言包但只维护了指针**：`en/commands/*.md` 是真实英文译文，但 `en/commands/flow.md`
+  只有 8 行（指向 zh 的 routing 说法），**从来没有过菜单**。改菜单类内容只需动 `zh/commands/flow.md`；
+  用户在对话里 @ 到 en 路径时先核对文件规模（`wc -c`）再动手。
+
+## 技能拆分与接线的硬约束（polaris 仓库，2026-09-14 查实）
+
+- **拆技能时，判据不跟着走**。正确切法：新技能只拥有「方法与输出」（输入契约、流程、取证要求、
+  分级、报告模板、硬约束），**判据本体留在原技能**，用「以 X 为准，此处不重复」划界（范式见
+  `zh/skills/prd/readiness/SKILL.md` 第 16 行）。判据单向流动：评审侧 → 生成侧。
+  照抄先例：`prd:refine → prd:review`、`prd:ship → prd:readiness`。
+  **两个技能不得抢同一个触发词**——拆出来后要把原 `description` 里的对应触发改列进「不触发」。
+- **拆技能必须连「调用话术」一起搬**：`调用本技能，做 X` 这类句子属**路由信息**，要跟着**服务它的技能**走；
+  漏搬的后果是「照文档办事被引到错的技能」。判据留在原技能、话术跟新技能——这两类东西容易混为一谈。
+  拆完的自检清单：①判据有没有被复制（不许）②触发词有没有重复（不许）③调用话术搬没搬（容易漏）
+  ④交叉引用指向的节号还对不对（拆完最容易漂的就是 § 号）⑤入口表/README 指没指对技能名。
+- **安装器 `src/core/install/skills.ts` 的两条路径规则**（写技能正文引用前必看）：
+  ①顶层 `zh/policies/*` 会**注入每个叶技能**的 `./policies/`，所以 `./policies/…`、`./templates/…` 可用；
+  ②跨技能相对路径（`../specify/…`、`../../policies/…`）**在 flat 布局下必然断裂**——只能按**技能名**引用
+  （`use_skill` / 技能名 + 文件内章节），或走技能内自包含路径。
+- **`README.md` 不入仓**：用户全局 gitignore（`~/.gitignore_global`）忽略所有 `README.md`，
+  `zh/skills/prd/README.md`、各 `evals/README.md` 都**从未被 git 跟踪**（`manifest.json` 的 `ignoredFiles`
+  也含它，安装器同样不装）。改这些文件的改动**不会随提交走**；要入库得 `git add -f`。
+  **因此「文档没跟上」可能是没入仓，不是漏改——先 `git check-ignore -v` 再下结论。**
+- **评测器纪律**：每个用例必须同时有**参照物（应 PASS）**与**反例（应 FAIL）**，`--selftest` 两边都跑；
+  **参照物过不去，先修断言，不要改参照物去迁就断言**。可复用的断言口径：**等级可以来自所在小节标题
+  （如「### P3 待确认」），定位证据必须落在该问题自己的行内**（小节标题是维度名，不是证据）。
+
 ## HTML 原型验证的通用手法（可复用于 lofi-prototype 等）
 
 免装 Playwright：用系统 Chrome/Edge/Chromium + `--headless=new --dump-dom --virtual-time-budget=4000 --window-size=W,H`，
