@@ -39,7 +39,7 @@ version: 0.7
 
 1. 大写 ASCII（`A-Z`、`0-9`、连字符 `-`），长度 2–16，不得以连字符开头或结尾
 2. **由用户在确认任务命名时直接输入**（见 Step 2.6.1）；用户未提供时**禁止**自动派生或默认填充
-3. **唯一性**：与 `$REPO_ROOT/.polaris/tasks/` 下已有任务的 `naming.req_prefix` 冲突时，回显冲突并请用户改填（如追加 `-2`、`-3` 或换用更长片段），不得静默消歧
+3. **唯一性**：与 `$REPO_ROOT/.polaris/tasks/` 下已有任务的 `req_prefix` 冲突时，回显冲突并请用户改填（如追加 `-2`、`-3` 或换用更长片段），不得静默消歧
 4. **一经确认全程不变**：后续所有编号、锚点、交付文档名均以此为命名空间。确需变更时视同需求变更——记录前后对比与依据，并同步修订已产出的全部文档（见 Step 7.4）
 
 ### 编号命名空间（下游阶段消费）
@@ -131,9 +131,9 @@ done
 | `phase=draft` 或更后 | 提示用户该任务已过 discovery，引导到对应后续技能 |
 | 无法判定 | 按 `./policies/decision-point.md` 询问用户从哪个步骤继续 |
 
-**命名标识补齐**（续写既有任务时先查 `state.yaml` 的 `naming` 块）：
+**命名标识补齐**（续写既有任务时先查 `state.yaml`）：
 
-| `naming` 状态 | 后续动作 |
+|  状态 | 后续动作 |
 |---|---|
 | 缺失 / `status: pending` | 补走 **Step 2.6.1** 确认中文名与编号前缀后，再进入对应步骤继续 |
 | `status: confirmed` | 直接沿用，后续步骤的编号与文档名一律以该前缀为准 |
@@ -207,17 +207,15 @@ done
 
 未知章节保留模板占位，**禁止**编造内容。
 
-3. **写入命名标识占位**（`state.yaml`，直接编辑，无专用脚本）——中文名与编号前缀的唯一权威存储，下游 draft / refine / ship 均读此处；本步只建占位，实际值在 2.6.1 用户确认后回填：
+3. **写入命名标识占位**（`task-state-entry`）——中文名与编号前缀的唯一权威存储，下游 draft / refine / ship 均读此处；本步只建占位，实际值在 2.6.1 用户确认后回填：
 
-```yaml
-naming:
-  req_name_cn: ""                 # 待 2.6.1 用户选择/输入后回填
-  req_prefix: ""                  # 待 2.6.1 用户输入后回填，大写，如 UAP / CRM-ORDER
-  status: pending                 # pending → confirmed（2.6.1 确认后改写）
-  confirmed_at: null
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
+  --repo-root "$REPO_ROOT" --task-id "$TASK" \
+  --req-name "" --req-name-cn "" --req-prefix ""
 ```
 
-> 每个任务目录都要写，一个都不少；`status: pending` 期间下游阶段读到即视为**未定稿命名**，须按各自技能的补齐流程处理。
+> 每个任务目录都要写，一个都不少；`req_prefix` 为空期间下游阶段读到即视为**未定稿命名**，须按各自技能的补齐流程处理。
 
 4. 全部写入后输出：`[polaris-flow PRD] 已创建 N 个需求任务：<任务名列表>`
 
@@ -275,7 +273,7 @@ done
 
 | 用户答复 | 判定 | 后续动作 |
 |---|---|---|
-| 选中文名候选 + 给出前缀 | 命名齐备 | 写入 `req_baseline.md` 元数据区、第 1 章需求名称与 `state.yaml` 的 `naming`（回填 `req_name_cn` / `req_prefix`，`status` 置 `confirmed`、写 `confirmed_at`），落盘后进入 Step 3 |
+| 选中文名候选 + 给出前缀 | 命名齐备 | 写入 `req_baseline.md` 元数据区、第 1 章需求名称与 `state.yaml`（回填 `req_name_cn` / `req_prefix`，`status`），落盘后进入 Step 3 |
 | 中文名自拟 + 给出前缀 | 命名齐备 | 同上（自拟中文名经合规校验后写入） |
 | 只给了其中一项 | 命名不全 | 回显已填项，请用户补齐另一项，不得默认补全 |
 | 对中文名候选或前缀提出调整 | 命名调整 | 按调整后值重新回显并再次确认 |
@@ -561,7 +559,7 @@ done
 
 **命名与编号一致性（必检）**：
 
-- 《需求基线》元数据区、第 1 章需求名称、《需求澄清纪要》头部、`state.yaml` 的 `naming` ——四处**中文名完全一致**
+- 《需求基线》元数据区、第 1 章需求名称、《需求澄清纪要》头部、`state.yaml`中的 `req_name`, `req_name_cn`, `req_prefix`等**中文名完全一致**
 - 上述四处的**编号前缀完全一致**，且满足「大写 ASCII、2–16 位、不以连字符开头结尾」
 - 第 6 章功能模块明细表的规则 ID（`R001`）能按编号前缀推导至终稿 `{前缀}-BR-1xx`，映射关系可追溯
 - 与 `$REPO_ROOT/.polaris/tasks/` 下其它已确认任务的前缀无冲突；有冲突须回到 2.6.1 由用户改填
@@ -611,13 +609,12 @@ done
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=draft
 ```
 
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（直接编辑，无专用脚本）：
+2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
 
-```yaml
-phase: draft
-discovery:
-  status: completed
-  finished_at: "<ISO>"   # 保留既有 started_at
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
+  --phase discovery --next-phase draft
 ```
 
 3. 清空上下文并输出：

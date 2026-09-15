@@ -30,7 +30,7 @@ version: 0.3
 - ❌ 禁止状态枚举（4.3、第7章）不标注中间态/终态属性
 - ❌ 禁止验收标准不使用 Given/When/Then 格式
 - ❌ 禁止业务规则不分配唯一规则编码（`{前缀}-BR-XXX`），或在本章以外重复定义已汇总的规则
-- ❌ 禁止功能模块 / 功能点 / 业务规则 / 锚点使用无编号前缀的裸编号（`F01`、`BR-101`、`cap-001`）；全部编号必须落在 `state.yaml` 的 `naming.req_prefix` 命名空间下
+- ❌ 禁止功能模块 / 功能点 / 业务规则 / 锚点使用无编号前缀的裸编号（`F01`、`BR-101`、`cap-001`）；全部编号必须落在 `state.yaml` 的 `req_prefix` 命名空间下
 - ❌ 禁止在终稿阶段修改初稿已确认的核心业务逻辑与范围；如需修改必须走正式变更确认流程
 - ❌ 禁止脱离 Baseline 凭空新增需求项；所有终稿内容必须有明确的 Baseline 来源并纳入追溯矩阵
 - ❌ 禁止 L2 验证阶段编造代码细节；数据模型与接口契约的字段、枚举、默认值必须来自真实 coding-knowledge
@@ -71,6 +71,11 @@ EXIT_CODE=$?
 通过后执行：
 1. 更新 `state.yaml`：`phase: refine`，`refine.status: in_progress`。
 
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine
+```
+
 2. 设置语言
 
 执行脚本：
@@ -92,12 +97,12 @@ LANG_EXIT=$?
 
 ### 1.0 加载命名标识与编号前缀（其它步骤的前置）
 
-读取 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml` 的 `naming` 块，取 `req_name_cn`（需求中文名）与 `req_prefix`（需求编号前缀）；`state.yaml` 缺失时回退读取 Baseline 元数据区同名两项。
+读取 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml`取 `req_name_cn`（需求中文名）与 `req_prefix`（需求编号前缀）；`state.yaml` 缺失时回退读取 Baseline 元数据区同名两项。
 
 | 读取结果 | 处理 |
 |---|---|
-| 有前缀且 `status: confirmed` | 直接采用，作为终稿全部编号的命名空间 |
-| 缺失 / `status: pending` | **不阻断**：按 `./policies/ask-question-react.md` 询问补齐一次（中文名由 AI 建议 3 个候选，编号前缀由用户输入）；确认后回写 `state.yaml` 的 `naming`（`status: confirmed`）与 Baseline 元数据区 |
+| 有前缀| 直接采用，作为终稿全部编号的命名空间 |
+| 缺失| **不阻断**：按 `./policies/ask-question-react.md` 询问补齐一次（中文名由 AI 建议 3 个候选，编号前缀由用户输入）；确认后回写 `state.yaml`，与 Baseline 元数据区 |
 
 **编号规则（终稿全文强制统一）**：
 
@@ -231,7 +236,7 @@ LANG_EXIT=$?
 6. **异常覆盖自检**：7 类标准异常场景（网络 / 服务 / 权限 / 数据 / 并发 / 第三方依赖 / 业务状态）是否覆盖
 7. **可测性自检**：验收标准是否全部为 Given/When/Then 且可独立判定
 8. **占位符自检**：本章是否残留 `{{...}}` 占位符或 `【填写指引】`
-9. **编号前缀自检**：本章的模块 `F{dd}` / 功能点 `F{dd}-{dd}` / 规则 `BR-{ddd}` / 继承锚点 `cap`、`scene` 是否**全部带本需求的编号前缀**、且与 `state.yaml` 的 `naming.req_prefix` 一致；出现裸编号或异前缀一律判定不通过
+9. **编号前缀自检**：本章的模块 `F{dd}` / 功能点 `F{dd}-{dd}` / 规则 `BR-{ddd}` / 继承锚点 `cap`、`scene` 是否**全部带本需求的编号前缀**、且与 `state.yaml` 的 `req_prefix` 一致；出现裸编号或异前缀一律判定不通过
 
 自检通过后，按 `./policies/decision-point.md` 暂停确认（**不粘贴章节全文**——全文已落盘，仅展示【本章要点摘要 + 自检结果 + 本章重点校验表 + 章节文件路径】引导用户预览确认）：
 > 本章（<章节文件名>）是否确认通过？
@@ -502,13 +507,12 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind requirement --skill refine --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=ship
 ```
 
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（直接编辑，无专用脚本）：
+2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
 
-```yaml
-phase: ship
-refine:
-  status: completed
-  finished_at: "<ISO>"   # 保留既有 started_at
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
+  --phase refine --next-phase ship
 ```
 
 3. 输出：

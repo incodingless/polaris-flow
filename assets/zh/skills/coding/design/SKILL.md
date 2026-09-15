@@ -75,7 +75,12 @@ RTID_EXIT=$?
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill design --where-task-id "$change_id" --set phase=design
 ```
 
-更新 `state.yaml`：`phase: design`，`runtime.design.status: in_progress`。  
+更新 `state.yaml`：`phase: design`，`runtime.design.status: in_progress`。
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change --phase design
+```
 输出：`[polaris-flow 开发]设计: change_id=<change_id> ; phase=design`
 
 ### Step 1：读取上游事实源
@@ -229,14 +234,15 @@ canonical_spec: openspec
 
 更新 `state.yaml`：
 
-```yaml
-runtime:
-  design:
-    status: completed
-    path: openspec/changes/<change_id>/detailed-design.md
-    review_report: openspec/changes/<change_id>/reviews/design-review-report.md  # 或 skipped:<reason>
-    outside_voice: ran | skipped:<reason> | not_run:<reason>
-    outside_voice_report: openspec/changes/<change_id>/reviews/openspec-review-report.md  # 若 ran
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change --phase design
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change \
+  --set runtime.design.path=openspec/changes/<change_id>/detailed-design.md \
+  --set runtime.design.review_report=openspec/changes/<change_id>/reviews/design-review-report.md \
+  --set "runtime.design.outside_voice=<ran|skipped:<reason>|not_run:<reason>>" \
+  --set runtime.design.outside_voice_report=openspec/changes/<change_id>/reviews/openspec-review-report.md
 ```
 
 workflow阶段推进至规划阶段：

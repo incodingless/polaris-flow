@@ -149,8 +149,10 @@ ship:
 从 `state.yaml` 取 `page_prefix` 与 `name`（`blueprint` 环节确认后写入，缺失时按 Step 0.5 的命名补齐流程处理）：
 
 ```bash
-PREFIX=$(grep -E '^\s*page_prefix:' "$REPO_ROOT/.polaris/tasks/$task_id/state.yaml" | head -1 | sed 's/.*: *//')
-NAME=$(grep -E '^\s*name:' "$REPO_ROOT/.polaris/tasks/$task_id/state.yaml" | head -1 | sed 's/.*: *//')
+PREFIX=$(bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" get \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --path page_prefix)
+NAME=$(bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" get \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --path name)
 
 PROTOTYPE_DOC_DIR="${PROTOTYPE_DOC_DIR:-$REPO_ROOT/docs/prototype/$NAME}"
 mkdir -p "$PROTOTYPE_DOC_DIR"
@@ -174,16 +176,18 @@ mv -R $REPO_ROOT/.polaris/tasks/$task_id/prototype $PROTOTYPE_DOC_DIR
 
 1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
 
-```yaml
-status: completed
-finished_at: "<ISO>"
-delivered_to: "<归档目录路径>"
-delivered_name: "<归档后的原型文件名>"
-
-ship:
-  status: completed
-  archive_verdict: "<最终结论；风险接受时记 不得交付(risk-accepted)>"
-  finished_at: "<ISO>"
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind prototype --phase ship
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" \
+  --delivered-name "<归档后的原型文件名>"
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" \
+  --set status=completed \
+  --set "finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --set "delivered_to=<归档目录路径>" \
+  --set "ship.archive_verdict=<最终结论；风险接受时记 不得交付(risk-accepted)>"
 ```
 
 2. 将任务移出活跃列表：

@@ -1,9 +1,9 @@
 /**
- * `.polaris/.locks/workflow.lock` 获取与释放。
- * 对齐 hooks/workflow-entry.sh 与 policies/workflow-lock.md（H12）：
- * noclobber 创建、5s stale、6s 自旋、持有者写入。
+ * 排他锁文件获取（noclobber + stale + 自旋）。
+ * workflow.lock 与 task-state-*.lock 共用本实现。
  */
 import fs from 'fs';
+import path from 'path';
 import { setTimeout as delay } from 'timers/promises';
 
 import { getLocksDir, getWorkflowLockPath } from '../assets/polaris-paths.js';
@@ -18,6 +18,15 @@ export type WorkflowLockHandle = {
   lockPath: string;
   /** 释放锁（幂等） */
   release: () => void;
+};
+
+export type AcquireLockOptions = {
+  staleMs?: number;
+  spinMs?: number;
+  pollMs?: number;
+  now?: () => number;
+  /** 超时错误文案前缀 */
+  label?: string;
 };
 
 /**
@@ -36,40 +45,34 @@ function tryCreateExclusive(lockPath: string): boolean {
   }
 }
 
-/** 写入锁内容：skill pid unix_ts ISO */
-function writeLockPayload(lockPath: string, skill: string): void {
+/** 写入锁内容：writer pid unix_ts ISO */
+function writeLockPayload(lockPath: string, writer: string): void {
   const nowSec = Math.floor(Date.now() / 1000);
   const iso = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const payload = `${skill} ${process.pid} ${nowSec} ${iso}\n`;
+  const payload = `${writer} ${process.pid} ${nowSec} ${iso}\n`;
   fs.writeFileSync(lockPath, payload, 'utf-8');
 }
 
 /**
- * 获取 workflow.lock；超时抛错（调用方映射为 exit 1）。
+ * 获取指定路径的排他锁；超时抛 WorkflowLockError。
  */
-export async function acquireWorkflowLock(
-  repoRoot: string,
-  skill: string,
-  options?: {
-    staleMs?: number;
-    spinMs?: number;
-    pollMs?: number;
-    now?: () => number;
-  },
+export async function acquireExclusiveLock(
+  lockPath: string,
+  writer: string,
+  options?: AcquireLockOptions,
 ): Promise<WorkflowLockHandle> {
   const staleMs = options?.staleMs ?? WORKFLOW_LOCK_STALE_MS;
   const spinMs = options?.spinMs ?? WORKFLOW_LOCK_SPIN_MS;
   const pollMs = options?.pollMs ?? WORKFLOW_LOCK_POLL_MS;
   const now = options?.now ?? Date.now;
+  const label = options?.label ?? path.basename(lockPath);
 
-  const lockDir = getLocksDir(repoRoot);
-  fs.mkdirSync(lockDir, { recursive: true });
-  const lockPath = getWorkflowLockPath(repoRoot);
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
 
   const acquireStart = now();
   while (true) {
     if (tryCreateExclusive(lockPath)) {
-      writeLockPayload(lockPath, skill);
+      writeLockPayload(lockPath, writer);
       let released = false;
       const release = () => {
         if (released) return;
@@ -107,7 +110,7 @@ export async function acquireWorkflowLock(
         // ignore
       }
       throw new WorkflowLockError(
-        `workflow.lock 持续 ${spinMs / 1000}s 未能获取（HARD STOP H12）`,
+        `${label} 持续 ${spinMs / 1000}s 未能获取`,
         holder,
         lockPath,
       );
@@ -115,6 +118,22 @@ export async function acquireWorkflowLock(
 
     await delay(pollMs);
   }
+}
+
+/**
+ * 获取 workflow.lock；超时抛错（调用方映射为 exit 1）。
+ */
+export async function acquireWorkflowLock(
+  repoRoot: string,
+  skill: string,
+  options?: AcquireLockOptions,
+): Promise<WorkflowLockHandle> {
+  const lockDir = getLocksDir(repoRoot);
+  fs.mkdirSync(lockDir, { recursive: true });
+  return acquireExclusiveLock(getWorkflowLockPath(repoRoot), skill, {
+    ...options,
+    label: options?.label ?? 'workflow.lock',
+  });
 }
 
 /** 锁获取失败错误 */

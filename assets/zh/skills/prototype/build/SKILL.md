@@ -61,6 +61,11 @@ RTID_EXIT=$?
 执行：
 1. 更新 `state.yaml`：`phase: build`，`build.status: in_progress`。
 
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind prototype --phase build
+```
+
 2. 设置语言
 
 执行脚本：
@@ -86,12 +91,12 @@ LANG_EXIT = $?
 | 原型 + `flow.json` + `handoff.md` 齐备 | 本环节已完成 | 进入 **Step 5** 的交付阻塞点——是否进 `ship` 由用户选择，不自作主张 |
 | 无法判定 | — | 按 `./policies/decision-point.md` 询问用户从哪个步骤继续 |
 
-**命名标识补齐**（续写既有任务时先查 `state.yaml` 的 `naming` 块）：
+**命名标识补齐**（续写既有任务时先查 `state.yaml`）：
 
-| `naming` 状态 | 后续动作 |
+| `name` 状态 | 后续动作 |
 |---|---|
-| 缺失 / `status: pending` | 补走 **Step 2.1** 确认中文名与编号前缀后，再进入对应步骤继续 |
-| `status: confirmed` | 直接沿用，后续步骤的编号与文档名一律以该前缀为准 |
+| 缺失| 补走 **Step 2.1** 确认中文名与编号前缀后，再进入对应步骤继续 |
+| 存在 | 直接沿用，后续步骤的编号与文档名一律以该前缀为准 |
 
 ### Step 2: 初始化
 
@@ -247,17 +252,13 @@ node scripts/verify.mjs --help                                      # 全部选�
 
 **仅在用户在 Step 5 选择 A（进入交付）后执行**——选 B / C 时不推进阶段、不写任何状态。
 
-1. 推进 workflow 阶段至 ship，并更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（直接编辑，无专用脚本）
+1. 推进 workflow 阶段至 ship，并更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind prototype --skill build --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=ship
-```
-
-```yaml
-phase: ship
-build:
-  status: completed
-  finished_at: "<ISO>"   # 保留既有 started_at / work_dir / naming
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind prototype \
+  --phase build --next-phase ship
 ```
 
 未关闭的 `WEB-DESIGN-CHANGE-XXX` 与 Step 5 复核里的 ⚠️ 项随交接材料一并交给 `ship`，作为它派发评审时的取证输入

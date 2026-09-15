@@ -4,6 +4,7 @@
 
 ### Added
 
+- **task-state-entry**: 新增 `polaris task-state-entry` / `scripts/task-state-entry.sh`，对 `.polaris/tasks/<id>/state.yaml` 做持锁 RMW；支持 `get`/`get-json`/`set`、`enter-phase`/`complete-phase`、`set-identity`/`get-identity`（身份字段均为顶层键，无 `naming` 块）；coding 走 `runtime.<phase>`，prd/prototype 走顶层阶段块
 - **workflow `--kind prototype`**: `workflow.yaml` 新增 `prototype_tasks` 列表；`workflow-entry` / `task-init` / `draft-create` / `state next` / `status` 接受 `--kind prototype`（对齐 blueprint/build/ship 脚本调用）；原型任务不建 draft，须 `--task-id` 直建 `.polaris/tasks/<id>/`，初始 phase=`blueprint`
 - **manifest ignoredFiles**: `assets/manifest.json` 的 `ignoredFiles` 在 `readAssets` 收集阶段生效；支持精确路径、`dir/name` 目录树同名、以及纯 basename（默认 `README.md` / `.DS_Store`）；skills 安装另有同名兜底跳过
 - **polaris-flow 功能入口命令**: 新增 `assets/zh/commands/polaris-flow.md` 作为统一入口，让用户先选再做而非直接开工——按 `.polaris/config.yaml` 的 `platform` 查询问工具注册表确定工具名（不写死 `AskUserQuestion`），依次单选「功能类别（开发/维护/需求/测试）→ 具体功能（共 11 项）」，再收集附加上下文（文件/目录/文字说明），最后按选择路由到对应入口技能；命令本身只做选择与路由，不产出任何需求、设计、代码或测试产物

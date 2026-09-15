@@ -73,6 +73,11 @@ RTID_EXIT=$?
 | 工作目录 | 若 `worktree_path` 非空 → 后续 apply / 读 tasks **以该 worktree 为仓库根**；否则用主仓 |
 
 通过后更新 `state.yaml`：`phase: build`，`runtime.build.status: in_progress`。
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change --phase build
+```
 输出：`[polaris-flow 开发]构建: change_id=<change_id> ; worktree=<path|main>`
 
 ### Step 1：选择执行方式与审查模式（用户决策点）

@@ -81,7 +81,15 @@ RTID_EXIT=$?
 | 四件套 + 深度设计 | `proposal.md` / `design.md` / `tasks.md` 非空，`specs/` 至少一非空文件；`detailed-design.md` 存在（**或 `runtime.design.status=skipped`，此时缺失合法**） |
 | 工作目录 | 若 `worktree_path` 非空 → 后续读产物 / 跑命令 **以该 worktree 为仓库根**；否则用主仓 |
 
-通过后更新 `state.yaml`：`phase: verify`，`runtime.verify.status: in_progress`，`runtime.verify.blocked: false`（本轮重新判定）。  
+通过后更新 `state.yaml`：`phase: verify`，`runtime.verify.status: in_progress`，`runtime.verify.blocked: false`（本轮重新判定）。
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind change --phase verify
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind change \
+  --set runtime.verify.blocked=false
+```
 输出：`[polaris-flow 开发]验证: 任务ID=<task_id> ; worktree=<path|main>`
 
 ### Step 1：处理dirty worktree
@@ -269,19 +277,19 @@ git diff --stat <base-ref>...HEAD
 1. 确保 `openspec/changes/<task_id>/reviews/verify-report.md` 已写完整结论（含 Constitution 摘要、overall_score、light/full、各检查项）
 2. 更新 `state.yaml`：
 
-```yaml
-runtime:
-  verify:
-    status: completed
-    constitution_valid: <true|false>
-    overall_score: <N>
-    score_level: <high|low>
-    verify_mode: <light|full>
-    blocked: false
-    verification_report: "openspec/changes/<task_id>/reviews/verify-report.md"
-    scorer_results: { ... }
-    finished_at: "<ISO>"
-phase: idle
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind change --phase verify
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind change \
+  --set runtime.verify.constitution_valid=<true|false> \
+  --set runtime.verify.overall_score=<N> \
+  --set runtime.verify.score_level=<high|low> \
+  --set runtime.verify.verify_mode=<light|full> \
+  --set runtime.verify.blocked=false \
+  --set runtime.verify.verification_report=openspec/changes/<task_id>/reviews/verify-report.md \
+  --set phase=idle
+# scorer_results 等复杂对象可用 get-json 读出后由 Agent 合并，或多次 --set 扁平键
 ```
 
 4. 推进：

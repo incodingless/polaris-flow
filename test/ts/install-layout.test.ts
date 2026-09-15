@@ -73,6 +73,9 @@ describe('install-layout', () => {
     expect(resolveInstallDest('scripts/workflow-entry.sh', claude)).toBe(
       '.claude/skills/polaris/scripts/workflow-entry.sh',
     );
+    expect(resolveInstallDest('scripts/task-state-entry.sh', claude)).toBe(
+      '.claude/skills/polaris/scripts/task-state-entry.sh',
+    );
     expect(resolveInstallDest('skills/hard-stops.md', claude)).toBe(
       '.claude/skills/polaris/hard-stops.md',
     );

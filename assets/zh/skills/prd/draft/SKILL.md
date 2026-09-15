@@ -49,6 +49,11 @@ RTID_EXIT=$?
 执行：
 1. 更新 `state.yaml`：`phase: draft`，`draft.status: in_progress`。
 
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase draft
+```
+
 2. 设置语言
 
 执行脚本：
@@ -77,8 +82,7 @@ LANG_EXIT = $?
 4. 复杂度等级声明：读取 Baseline 元数据区「复杂度最终等级（简单/标准/复杂）」，据此确定初稿内容深度（见 Step 2 复杂度联动规则），并在 Gate 报告中标注。
 5. 初稿边界预声明：声明本初稿为「方案大逻辑评审对齐」稿，不含完整权限矩阵/接口字段/数据模型/排期/埋点等终稿细节。
 6. 命名标识校验（编号前缀是本初稿全部锚点的命名空间，缺失即无法落锚点）：
-   - 读取 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml` 的 `naming` 块，取 `req_name_cn`（需求中文名）与 `req_prefix`（需求编号前缀）；`state.yaml` 缺失时回退读取 Baseline 元数据区同名两项。
-   - `naming.status != confirmed` 或前缀缺失 → **不阻断**：按 `./policies/ask-question-react.md` 询问补齐一次（中文名由 AI 建议 3 个候选，编号前缀由用户输入），确认后回写 `state.yaml` 的 `naming`（`status: confirmed`）与 Baseline 元数据区。
+   - 读取 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml`，取 `req_name_cn`（需求中文名）与 `req_prefix`（需求编号前缀）；`state.yaml` 缺失时回退读取 Baseline 元数据区同名两项。
    - 前缀须满足「大写 ASCII、2–16 位、不以连字符开头结尾」；不合规则规范化后回显再确认。
    - 初稿全部锚点 ID 一律以**前缀小写形式**开头：`{前缀小写}-cap-001` / `{前缀小写}-scene-001`（如 `uap-cap-001`）。
 
@@ -243,13 +247,12 @@ draft:
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind requirement --skill draft --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=refine
 ```
 
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（直接编辑，无专用脚本）：
+2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
 
-```yaml
-phase: refine
-draft:
-  status: completed
-  finished_at: "<ISO>"   # 保留既有 started_at、gate
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
+  --phase draft --next-phase refine
 ```
 
 3. 输出：

@@ -102,7 +102,12 @@ RTID_EXIT=$?
 | 设计评审 | 若存在 `reviews/design-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 design |
 | 已有细计划 | 若 `runtime.tasks.status=completed` 且 `tasks.md` 已细计划 → 询问 A 修订覆写 / B 退出（禁止静默覆盖） |
 
-通过后更新 `state.yaml`：`phase: tasks`，`runtime.tasks.status: in_progress`。  
+通过后更新 `state.yaml`：`phase: tasks`，`runtime.tasks.status: in_progress`。
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change --phase tasks
+```
 输出：`[polaris-flow 开发]任务规划: change_id=<change_id> ; phase=tasks`
 
 ### Step 1：读取规划依据（OpenSpec 四件套 + detailed-design 若有）
@@ -351,17 +356,17 @@ LINT_EXIT=$?
 
 更新 `state.yaml`：
 
-```yaml
-runtime:
-  plan:
-    status: completed
-    tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
-    tasks_path: openspec/changes/<change_id>/tasks.md
-    review_report: openspec/changes/<change_id>/reviews/tasks-review-report.md
-    outside_voice: ran | skipped:<reason>
-    outside_voice_report: openspec/changes/<change_id>/reviews/openspec-review-report.md  # 若 ran
-    finished_at: "<ISO>"
-phase: idle
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change --phase tasks
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change \
+  --set runtime.plan.status=completed \
+  --set runtime.plan.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \
+  --set runtime.plan.tasks_path=openspec/changes/<change_id>/tasks.md \
+  --set runtime.plan.review_report=openspec/changes/<change_id>/reviews/tasks-review-report.md \
+  --set "runtime.plan.outside_voice=<ran|skipped:<reason>>" \
+  --set phase=idle
 ```
 
 workflow阶段推进至详细构建阶段：

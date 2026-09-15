@@ -54,7 +54,7 @@ EXIT_CODE=$?
 
 ### 1.1 先解析交付名与评估对象
 
-读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml` 的 `naming` 块（`req_name_cn` 需求中文名、`req_prefix` 需求编号前缀）；缺失时回退读取 `req_baseline.md` 元数据区同名两项；仍缺失则向用户询问补齐（中文名由 AI 建议 3 个候选，编号前缀由用户输入），确认后补写 `state.yaml`。
+读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml` 的 `req_name_cn` 需求中文名、`req_prefix` 需求编号前缀；缺失时回退读取 `req_baseline.md` 元数据区同名两项；仍缺失则向用户询问补齐（中文名由 AI 建议 3 个候选，编号前缀由用户输入），确认后补写 `state.yaml`。
 
 交付文档名固定为：`{前缀}-{中文名}-需求终稿-v1.0.md`（如 `UAP-用户权限精细化-需求终稿-v1.0.md`）。
 
@@ -171,11 +171,13 @@ test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}
 
 ### 3.1 转移终稿至文档库
 
-从 `state.yaml` 的 `naming` 解析出两个变量（无 `yq` 时读取文本手工赋值即可）：
+从 `state.yaml` 解析出两个变量：
 
 ```bash
-REQ_PREFIX=$(grep -E '^\s+req_prefix:' "$REPO_ROOT/.polaris/tasks/$task_id/state.yaml" | head -1 | sed 's/.*: *//')
-REQ_NAME_CN=$(grep -E '^\s+req_name_cn:' "$REPO_ROOT/.polaris/tasks/$task_id/state.yaml" | head -1 | sed 's/.*: *//')
+REQ_PREFIX=$(bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" get \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --path req_prefix)
+REQ_NAME_CN=$(bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" get \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --path req_name_cn)
 ```
 
 再执行迁移：
@@ -197,12 +199,23 @@ cp "$SRC" "$DST"
 ### 3.2 更新任务状态
 
 1. 写 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
-   - `ship.status: completed`
-   - `status: completed`
-   - `finished_at: <ISO 时间>`
-   - `delivered_to: <文档库目标路径>`
-   - `naming.delivered_name: <交付文档名>`（命名快照，便于事后追溯）
-   - `ship.readiness_verdict: <最终判定>`（免评记 `PASS(waived)`；若走了 1.5 的 B 分支，此处记 `FAIL(risk-accepted)`）
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase ship
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" \
+  --set status=completed \
+  --set "finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --set "delivered_to=<文档库目标路径>" \
+  --set "delivered_name=<交付文档名>" \
+  --set "ship.readiness_verdict=<最终判定>"
+# 也可用 set-identity --delivered-name "<交付文档名>"
+```
+
+   - `ship.status: completed`（由 `complete-phase` 写入）
+   - `status: completed` / `finished_at` / `delivered_to` / `delivered_name` / `ship.readiness_verdict`（见上）
+   - 免评记 `PASS(waived)`；若走了 1.5 的 B 分支，`ship.readiness_verdict` 记 `FAIL(risk-accepted)`
 
 2. 将任务移出活跃列表：
 

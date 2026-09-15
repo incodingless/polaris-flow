@@ -72,6 +72,15 @@ export function getWorkflowLockPath(projectPath: string): string {
   return path.join(getLocksDir(projectPath), 'workflow.lock');
 }
 
+/**
+ * 返回 `.polaris/.locks/task-state-<taskId>.lock`。
+ * taskId 中不安全路径字符替换为 `_`，避免越出 locks 目录。
+ */
+export function getTaskStateLockPath(projectPath: string, taskId: string): string {
+  const safe = taskId.replace(/[^a-zA-Z0-9._-]+/g, '_');
+  return path.join(getLocksDir(projectPath), `task-state-${safe}.lock`);
+}
+
 /** 返回 `.polaris/sessions` 目录 */
 export function getSessionsDir(projectPath: string): string {
   return path.join(getPolarisDir(projectPath), 'sessions');

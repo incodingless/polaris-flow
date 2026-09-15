@@ -88,7 +88,7 @@ done
 
 #### Step 1.5：读取任务进展，继续执行任务
 
-读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml` 与 `output_dir` 下已落盘的产物：
+读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml` 与 `work_dir` 下已落盘的产物：
 
 | 判断依据 | 进入步骤 |
 |---|---|
@@ -100,14 +100,14 @@ done
 | `phase=build` 或更后 | 提示用户该任务已过蓝图阶段，引导到 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` |
 | 无法判定 | 按 `./policies/decision-point.md` 询问用户从哪个步骤继续 |
 
-**进度以落盘产物为准**（产物即状态），`state.yaml` 只记身份与指针（`task_id` / `phase` / `naming` / `output_dir`），不记「做到第几步」。
+**进度以落盘产物为准**（产物即状态），`state.yaml` 只记身份与指针（`task_id` / `phase` / `name` / `work_dir`），不记「做到第几步」。
 
-**命名标识补齐**（续写既有任务时先查 `state.yaml` 的 `naming` 块）：
+**命名标识补齐**（续写既有任务时先查 `state.yaml` 的 `name`）：
 
-| `naming` 状态 | 后续动作 |
+| `name` 状态 | 后续动作 |
 |---|---|
-| 缺失 / `status: pending` | 补走 **Step 2.1** 确认原型名与 Page ID 前缀后，再进入对应步骤继续 |
-| `status: confirmed` | 直接沿用，后续文档名与 Page ID 一律以该前缀为准 |
+| 缺失 | 补走 **Step 2.1** 确认原型名与 Page ID 前缀后，再进入对应步骤继续 |
+| 存在 | 直接沿用，后续文档名与 Page ID 一律以该前缀为准 |
 
 ### Step 2: 初始化
 
@@ -120,19 +120,12 @@ done
 
 确认后写入 `state.yaml`：
 
-```yaml
-# 原型名称
-name: "<原型名>"
-
-# 页面前缀
-page_prefix: "<前缀>"
-
-# 工作目录
-work_dir: "<工作目录路径>"
-
-blueprint:
-  status: "in_progress"
-  started_at: <ISO>
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" \
+  --name "<原型名>" --page-prefix "<前缀>" --work-dir "<工作目录路径>"
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind prototype --phase blueprint
 ```
 
 **前缀经确认即冻结**——后续 `page-list.md` 的 Page ID、下一环节的原型文件名与 `flow.json` 一律以它为准，不得改写。
@@ -264,13 +257,12 @@ blueprint:
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind prototype --skill blueprint --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=build
 ```
 
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（直接编辑，无专用脚本）：
+2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
 
-```yaml
-phase: build
-blueprint:
-  status: completed
-  finished_at: "<ISO>"   # 保留既有 started_at
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind prototype \
+  --phase blueprint --next-phase build
 ```
 
 3. 清空上下文并输出：
@@ -281,6 +273,6 @@ blueprint:
 
 1. 《原型蓝图》`blueprint.md` 已落盘，且 `task-card.md` / `golden-flow.md` / `ia.md` / `page-list.md` 四份分项齐全、内容互相一致；
 2. **已取得人工明确确认**（Step 4 判定表的「完成」，其余三种回复均不算）；
-3. `state.yaml` 已写入 `phase: build` 与 `blueprint.status: completed`，`naming.status: confirmed`。
+3. `state.yaml` 已写入 `phase: build` 与 `blueprint.status: completed`。
 
 未同时满足三条，不得宣告本环节结束，也不得让流程进入制作环节。

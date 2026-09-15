@@ -10,6 +10,7 @@ import { configGetCommand } from '../commands/config.js';
 import { hostHookCommand, sessionStartCommand } from '../commands/hooks/host-hook.js';
 import { stateNextCommand } from '../commands/hooks/state.js';
 import { workflowEntryCommand } from '../commands/hooks/workflow-entry.js';
+import { taskStateEntryCommand } from '../commands/hooks/task-state-entry.js';
 import {
   constitutionValidityCommand,
   draftCreateCommand,
@@ -201,6 +202,71 @@ program
       from: options.from,
       to: options.to,
       set: options.set,
+    });
+  });
+
+program
+  .command('task-state-entry')
+  .description('RMW .polaris/tasks/<id>/state.yaml (get/set/enter-phase/complete-phase/identity)')
+  .argument(
+    '<op>',
+    'get|get-json|set|enter-phase|complete-phase|set-identity|get-identity',
+  )
+  .option('--repo-root <path>', 'main repo root')
+  .option('--task-id <id>', 'task id under .polaris/tasks (or testcases)')
+  .option('--state-path <path>', 'override absolute state.yaml path')
+  .option('--kind <kind>', 'change|requirement|testcase|prototype (block-style hint)')
+  .option(
+    '--path <dotted>',
+    'get: dotted path (repeatable)',
+    (val, prev: string[]) => {
+      prev.push(val);
+      return prev;
+    },
+    [] as string[],
+  )
+  .option('--paths <csv>', 'get-json: comma-separated paths subset')
+  .option(
+    '--set <kv>',
+    'set: path=value (repeatable)',
+    (val, prev: string[]) => {
+      prev.push(val);
+      return prev;
+    },
+    [] as string[],
+  )
+  .option('--phase <phase>', 'enter-phase / complete-phase')
+  .option('--next-phase <phase>', 'complete-phase: advance top-level phase')
+  .option('--block-style <style>', 'runtime|top-level|auto')
+  .option('--skill <name>', 'lock writer id')
+  .option('--req-name <v>')
+  .option('--req-name-cn <v>')
+  .option('--req-prefix <v>')
+  .option('--name <v>')
+  .option('--page-prefix <v>')
+  .option('--work-dir <v>')
+  .option('--delivered-name <v>')
+  .option(...PLATFORM_OPTION)
+  .action(async (op: string, options) => {
+    await taskStateEntryCommand(op, {
+      repoRoot: options.repoRoot,
+      taskId: options.taskId,
+      statePath: options.statePath,
+      kind: options.kind,
+      path: options.path,
+      paths: options.paths,
+      set: options.set,
+      phase: options.phase,
+      nextPhase: options.nextPhase,
+      blockStyle: options.blockStyle,
+      skill: options.skill,
+      reqName: options.reqName,
+      reqNameCn: options.reqNameCn,
+      reqPrefix: options.reqPrefix,
+      name: options.name,
+      pagePrefix: options.pagePrefix,
+      workDir: options.workDir,
+      deliveredName: options.deliveredName,
     });
   });
 
