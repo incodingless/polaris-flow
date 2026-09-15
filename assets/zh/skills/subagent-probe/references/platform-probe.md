@@ -3,6 +3,8 @@
 本文件是 `subagent-probe` 的平台能力表。执行扫描前**必须**先读本文件，再按当前 `platform` 行执行；**禁止**跨平台混扫。
 本文档定义「某个 platform 去哪里找 subagent」；扫描由 `subagent-probe` skill 执行，选 agent / 派发 / 降级决策由调用方（编排型技能）完成。
 
+> **能力列同源**：下表 `supports_subagent` / 对应的 `platform_degradation` 语义与 `src/core/domain/subagent-capability.ts`（SessionStart 注入 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`）必须保持一致；改一处必须改另一处。
+
 > **禁止**对所有平台做全目录混扫。必须先有 `platform`，再只扫该平台策略允许的目录。
 
 ## `main_repo_root` 解析

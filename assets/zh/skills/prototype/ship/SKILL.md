@@ -55,7 +55,7 @@ RTID_EXIT=$?
 | 检查 | 条件 | 不满足时 |
 |---|---|---|
 | 建造 已完成 | `state.yaml` 中 `build.status=completed` | **阻断**：提示先完成 `build` |
-| ship 已完成 | `ship.status=completed` | **阻断重跑** |
+| 交付 已完成 | `ship.status=completed` | **阻断重跑** |
 
 #### Step 0.5：读取任务进展
 
@@ -73,9 +73,15 @@ RTID_EXIT=$?
 
 **为什么必须派发**：评审由建造者在**同一会话**内接着做时，评审者 = 建造者，独立性受限——只能靠报告如实标注来兜底。派到独立上下文执行，这个缺口从根上不成立。
 
-**编排方式**：`subagent-probe` → 选定 agent → `subagent-dispatch` 三段式。
+**编排方式**（能力结论 → 决策 → dispatch）：本技能为编排方。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose` 启动。须遵守 `subagent-probe` 跳过规则：若 SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → 可跳过 probe，直接走下方降级分支；否则本步传 `task_type: doc_review` → **必须** probe，选定后 `subagent-dispatch`。
 
-1. **探测**：调用 `polaris{{SKN_SPR}}subagent-probe`，传入 `platform`（从项目配置读）与 `task_type: doc_review`，取回 `matched_agents` 与 `platform_degradation`；
+**general 决策**（本步骤无专用 agent 要求，按能力匹配取通用型）：
+
+- `matched_agents` 非空 → 取 `matched_agents[0]`（预筛已按「专精在前、通用在后」排序；通常为通用型 agent）进入派发
+- `matched_agents` 与 `agents` 均为空 → 调用 dispatch 时传 `agent=null` 且 `task_spec.constraints` 加 `"dispatch_mode_hint: default_subagent"`（派宿主默认 subagent，独立上下文执行）
+- `platform_degradation=inline/unsupported`（注入或 probe）→ 跳过派发，主代理直接 inline 执行（见下方「inline 降级」）
+
+1. **能力 / 探测**：注入已为 inline/unsupported → 跳过本步 probe；否则调用 `polaris{{SKN_SPR}}subagent-probe`，传入 `platform`（`PLATFORM_ID` 或项目配置）与 `task_type: doc_review`，取回 `matched_agents` 与 `platform_degradation`；
 2. **选定**：取 `matched_agents` 第一项；**平台不支持 subagent**（`platform_degradation` 为 `inline` / `unsupported`）或 `matched_agents` 为空 → 转降级分支；
 3. **派发**：调用 `polaris{{SKN_SPR}}subagent-dispatch` 执行 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review`。
 

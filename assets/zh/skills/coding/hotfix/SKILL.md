@@ -58,7 +58,7 @@ hotfix 是 P01（紧急 bug 修复）的执行体。它把完整链路的 `speci
 | ID | 在本 skill 的适用方式 |
 |----|---------------------|
 | H8 | 每个 Step 入口输出可见状态行 |
-| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 3.1）时，派发前必须先 `use_skill("polaris{{SKN_SPR}}subagent-probe")` 并传入 `platform`。默认 inline 路径不派发 subagent，不触发本条 |
+| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 3.1）时。须先有平台能力结论（SessionStart 注入或 `subagent-probe`）；仅默认通用且注入支持时可跳过 probe 直接 dispatch(`agent=null`)，否则必须 probe。默认 inline 路径不派发 subagent，不触发本条 |
 | H12 | 写 `.polaris/workflow.yaml` 走 `scripts/workflow-entry.sh`（内含 workflow.lock + 写后校验），不自写文件 |
 | H13 | 不调用两个 superpowers 派发驱动器 |
 

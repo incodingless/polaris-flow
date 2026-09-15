@@ -4,6 +4,7 @@
 
 ### Added
 
+- **SessionStart subagent 能力注入**: SessionStart 按宿主 `platformId` 解析并注入 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`（与路径变量同渠道：additionalContext / Cursor env / `runtime-env` / `CLAUDE_ENV_FILE`）；core `resolveSubagentCapability` 与 `platform-probe.md` 能力列同源；编排在仅用默认通用 Agent 时可跳过空转 probe
 - **task-state-entry**: 新增 `polaris task-state-entry` / `scripts/task-state-entry.sh`，对 `.polaris/tasks/<id>/state.yaml` 做持锁 RMW；支持 `get`/`get-json`/`set`、`enter-phase`/`complete-phase`、`set-identity`/`get-identity`（身份字段均为顶层键，无 `naming` 块）；coding 走 `runtime.<phase>`，prd/prototype 走顶层阶段块
 - **workflow `--kind prototype`**: `workflow.yaml` 新增 `prototype_tasks` 列表；`workflow-entry` / `task-init` / `draft-create` / `state next` / `status` 接受 `--kind prototype`（对齐 blueprint/build/ship 脚本调用）；原型任务不建 draft，须 `--task-id` 直建 `.polaris/tasks/<id>/`，初始 phase=`blueprint`
 - **manifest ignoredFiles**: `assets/manifest.json` 的 `ignoredFiles` 在 `readAssets` 收集阶段生效；支持精确路径、`dir/name` 目录树同名、以及纯 basename（默认 `README.md` / `.DS_Store`）；skills 安装另有同名兜底跳过

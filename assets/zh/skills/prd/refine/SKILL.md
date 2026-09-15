@@ -273,14 +273,16 @@ LANG_EXIT=$?
 
 ### 3.0 探测可用 subagent（Step 3 入口，一次探测全程复用）
 
+**能力结论优先**：若 SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → **可跳过 probe**，3.1 与 3.2 直接按下方表降级 inline。若注入为支持（`SUPPORTS_SUBAGENT=true` 且 degradation 空）或**缺注入**，因本入口需要 `task_type: doc_review` 预筛 → **必须**调用 probe（不可因「只要通用 Agent」而跳过）。
+
 **探测方式**：调用 `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入：
 
-- `platform`：从项目配置读取
+- `platform`：SessionStart 注入的 `PLATFORM_ID`，或从项目配置读取
 - `task_type`：`doc_review`（3.1 与 3.2 同类型，共用 `matched_agents` 预筛结果）
 
 > 本步骤的两个评审任务均为**通用型**（general）——不要求专用 agent，只要在独立上下文中执行即可。因此**不传 `subagent_id`**；若项目 `.agents/` 下恰好存在声明 `task_types: doc_review` 的专精 agent，`matched_agents` 预筛会将其排在前面，属能力匹配的正常结果，同样直接使用。
 
-**探测结果消费**：
+**探测结果消费**（注入已判定 inline/unsupported 时视同下表对应行）：
 
 | `platform_degradation` | 处理动作 |
 |---|---|
@@ -291,7 +293,7 @@ LANG_EXIT=$?
 
 ### 3.1 7维度业务评审（subagent-probe + subagent-dispatch 编排）
 
-**编排方式**（probe → 决策 → dispatch）：本技能为编排方。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose` 启动——必须先经 `subagent-probe` 探测、由本技能选定 agent 后调用 `subagent-dispatch` 派发。
+**编排方式**（能力结论 → 决策 → dispatch）：本技能为编排方。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose` 启动。须遵守 `subagent-probe` 跳过规则：本步依赖 3.0 的 `task_type` 预筛结果 → 不得自行跳过 probe；选定 agent 后调用 `subagent-dispatch` 派发。
 
 **general 决策**（本步骤无专用 agent 要求，按能力匹配取通用型）：
 

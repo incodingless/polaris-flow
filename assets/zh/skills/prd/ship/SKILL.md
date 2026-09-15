@@ -93,7 +93,7 @@ test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}
 
 ### 1.4 执行评估
 
-**编排方式**：与 `polaris{{SKN_SPR}}prd{{SKN_SPR}}refine` Step 3.1 相同的 `subagent-probe` → 选定 agent → `subagent-dispatch` 三段式。
+**编排方式**：与 `polaris{{SKN_SPR}}prd{{SKN_SPR}}refine` Step 3.0/3.1 相同——能力结论优先；本步 `task_type: doc_review` → 须 probe（注入已为 inline/unsupported 时可跳过 probe 直接降级）→ 选定 agent → `subagent-dispatch`。
 
 - `task_type`：`doc_review`
 - `materials`：

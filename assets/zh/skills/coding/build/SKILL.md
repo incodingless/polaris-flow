@@ -120,8 +120,10 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 若 `build_mode=subagent_dispatch`：
 
-1. **必须** `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入 `platform="$PLATFORM"`
-2. 按 `subagent-probe` 的返回结构消费（`platform_degradation` + `agents`）：
+1. 读 SessionStart 注入：`PLATFORM_DEGRADATION=inline|unsupported` → **强制**本会话 inline；输出原因；进入 Step 3.3（可跳过 probe）
+2. 若本步只要默认通用且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ 可跳过 probe，记 `dispatch=default`，进入派发
+3. 否则 **必须** `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入 `platform="$PLATFORM"`（或注入的 `PLATFORM_ID`）
+4. 按 `subagent-probe` 的返回结构消费（`platform_degradation` + `agents`）：
 
 | probe 返回 | 动作 |
 |---------------|------|
@@ -129,7 +131,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 | `platform_degradation=null` 且 `agents=[]` | 记 `dispatch=default`（宿主默认 subagent，不绑 path） |
 | `platform_degradation=inline` / `unsupported` | **强制**改为本会话 inline 执行 apply；输出原因；进入 Step 3.3（不违反 HARD-GATE 例外） |
 
-禁止跳过 probe 直接假设宿主有某 agent。禁止回退到 superpowers 派发驱动器。
+禁止在缺能力结论时假设宿主有某 agent。禁止回退到 superpowers 派发驱动器。
 
 ### Step 3：执行 `/opsx:apply`
 

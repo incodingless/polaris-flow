@@ -48,7 +48,7 @@ tweak 是 P01（简单功能）的执行体。它把完整链路的 `specify →
 | ID | 在本 skill 的适用方式 |
 |----|---------------------|
 | H8 | 每个 Step 入口输出可见状态行 |
-| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 5.1）时，派发前必须先 `use_skill("polaris{{SKN_SPR}}subagent-probe")` 并传入 `platform`。默认 inline 路径不派发 subagent，不触发本条 |
+| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 5.1）时。须先有平台能力结论（SessionStart 注入或 `subagent-probe`）；仅默认通用且注入支持时可跳过 probe 直接 dispatch(`agent=null`)，否则必须 probe。默认 inline 路径不派发 subagent，不触发本条 |
 | H12 | 写 `.polaris/workflow.yaml` 走 `scripts/workflow-entry.sh`（内含 workflow.lock + 写后校验），不自写文件 |
 | H13 | 不调用两个 superpowers 派发驱动器 |
 
@@ -344,11 +344,12 @@ phase: build
 
 默认 `build_mode=inline`：主代理在本会话内执行 `/opsx:apply`。**不发起询问**（简单需求问执行方式属于过度确认）。
 
-仅当用户**显式**要求 subagent 时：
+仅当用户**显式**要求 subagent 时（H10）：
 
-1. 必须先 `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入 `platform`（H10）
-2. 按 probe 返回值选 agent，再按 `polaris{{SKN_SPR}}subagent-dispatch` 派发
-3. probe 返回 `degradation=inline|unsupported` → 强制回退 inline，输出原因
+1. 读 SessionStart 注入；若 `PLATFORM_DEGRADATION=inline|unsupported` → 强制 inline，输出原因
+2. 若只要默认通用且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ 可跳过 probe，`subagent-dispatch`（`agent=null`）
+3. 否则 `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入 `platform`，按返回选 agent 再 dispatch
+4. probe 返回 `degradation=inline|unsupported` → 强制回退 inline，输出原因
 
 #### 5.2 Constitution 注入点 C
 

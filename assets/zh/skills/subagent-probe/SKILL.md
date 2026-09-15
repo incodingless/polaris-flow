@@ -24,10 +24,21 @@ description: Subagent 探测技能。接收 platform（与可选的 subagent_id 
 
 ## 调用方契约
 
-**任何编排型技能在需要委派 subagent 执行任务前，先调用 `use_skill("polaris{{SKN_SPR}}subagent-probe")` 并传入 `platform`，等待返回。拿到 agents 清单后，由调用方自行选 agent，再调用 `polaris{{SKN_SPR}}subagent-dispatch` 派发执行。**
+**编排型技能在委派 subagent 前须先有平台能力结论，再决定是否调用本技能：**
+
+1. **能力结论来源**（二选一即可）：
+   - SessionStart 注入的 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`（env、`.polaris/.cache/runtime-env` 或 additionalContext）
+   - 或本技能完整探测返回中的同名结论
+2. **必须调用本技能**当本步需要：agents 清单、`subagent_id` 命中检查、或 `task_type` → `matched_agents` 预筛
+3. **可跳过本技能**当同时满足：已有注入能力结论；本步无 `subagent_id`、无 `task_type` 预筛；且
+   - `PLATFORM_DEGRADATION` 为 `inline` / `unsupported` → 直接降级/阻断，不调用本技能；或
+   - `SUPPORTS_SUBAGENT=true` 且 `PLATFORM_DEGRADATION` 为空 → 直接 `subagent-dispatch`（`agent=null` + 默认通用），不调用本技能
+4. **缺注入** → 视为无能力结论，**必须**调用本技能（传入 `platform`）
+
+拿到 agents 清单后，由调用方自行选 agent，再调用 `polaris{{SKN_SPR}}subagent-dispatch` 派发执行。本技能自身**不写缓存**。
 
 调用方准备入参时应包含：
-- `platform`：宿主平台 id（从项目配置读取）
+- `platform`：宿主平台 id（从 SessionStart 注入的 `PLATFORM_ID` 或项目配置读取）
 - `subagent_id`（可选）：检查指定的专用 agent 是否存在。传入后返回中 `subagent_id_found` 标注命中结果
 - `task_type`（可选）：用于预筛 `matched_agents`。未传 → `matched_agents` 等于 `agents` 全量
 
@@ -59,7 +70,7 @@ agents:
     selected: <bool，仅当 subagent_id 命中该 agent 时为 true；其余 false>
 subagent_id_found: true|false
 matched_agents: <按 task_type 预筛的候选子集数组；task_type 未传则为 agents 全量>
-reason: <短说明>
+reason: <短说明>`
 ```
 
 | `platform_degradation` | 含义 | 调用方应执行 |
