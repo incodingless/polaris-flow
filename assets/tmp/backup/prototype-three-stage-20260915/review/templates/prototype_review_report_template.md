@@ -1,7 +1,7 @@
 # 原型交付评审报告
 
 > **使用说明**：本模板是 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review` 技能 Step 6 的标准输出格式。填充所有 `{占位符}`；**没有内容的区块保留标题并标注「无」**，不得整节删除——缺节会让结论看起来比实际更完整。
-> 判据出处一律写 `§33` / `§34` / `§36`（唯一来源：本技能 `references/01-quality-criteria.md`）与 `§27.1`（三层验证规格，见 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/07`），本报告不复制判据原文。
+> 判据出处一律写 `§33` / `§34` / `§36`（唯一来源：本技能 `references/01-quality-criteria.md`）与 `§27.1`（三层验证规格，见 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate` → `references/07`），本报告不复制判据原文。
 > 文件命名建议：`原型评审报告_<原型文件名>_<YYYYMMDD>.md`
 
 ---

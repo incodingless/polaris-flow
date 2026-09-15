@@ -1,0 +1,184 @@
+{
+  "version": 1,
+  "note": "评测用例定义。路径一律相对技能根目录。check 的 target 支持别名 reference / artifact / scaffoldOut，也可直接写相对路径。",
+  "cases": [
+    {
+      "id": "e1",
+      "name": "能力基线：按需求产出可交付原型",
+      "goal": "给定一份合格需求包，产出的原型能否通过阶段 9 的完成判据（verify 全三层退出码 0），且关键状态与黄金流真的存在。",
+      "input": "example/requirement.md",
+      "referenceArtifact": "example/prototype.html",
+      "counterexample": "evals/fixtures/defects-hidden-states.html",
+      "counterexampleExpect": "FAIL",
+      "checks": [
+        {
+          "type": "verify",
+          "target": "artifact",
+          "layers": "1,2,3",
+          "flow": "example/flow.json",
+          "strict": true,
+          "expectExit": 0,
+          "maxHard": 0,
+          "maxWarn": 0,
+          "label": "阶段 9 完成判据：全三层退出码 0，零 HARD 零 WARN"
+        },
+        {
+          "type": "regexPresent",
+          "target": "artifact",
+          "label": "7 类状态在产物里可辨认（用宽松正则，不绑定具体实现）",
+          "patterns": [
+            "空|暂无|没有数据|没有符合",
+            "加载|读取|正在拉取|骨架",
+            "错误|失败|不可用|异常",
+            "无权限|没有权限|未被授权|暂无权限",
+            "进行中|处理中|加载中|保存中|回查中|正在(解析|加载|保存|回查|查询|派单|处理|拉取)",
+            "成功|已完成|已通过|提交成功|已受理",
+            "禁用|不可点击|待填写|请先填|请先选择"
+          ]
+        },
+        {
+          "type": "regexPresent",
+          "target": "artifact",
+          "label": "AI 结论可回溯：给出依据（规则编号 / 数据来源 / 置信度）",
+          "patterns": ["规则|依据|来源|命中|置信度"]
+        },
+        {
+          "type": "manual",
+          "items": [
+            "11 种状态是否都落在真实交互位置上（而不是集中在一个「状态展示页」）",
+            "AI 结果是否给出依据（规则编号 / 数据来源 / 置信度），而不是只有一个结论",
+            "AI 是否没有越权下结论（最终通过 / 驳回必须由人确认）",
+            "错误态是否给出下一步（重试 / 转人工 / 修改），而不是只报错"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e2",
+      "name": "取值与规范解耦：设计系统可整套替换，命名不可替换",
+      "goal": "验证「需求方给设计规范就按规范取值」这条路径成立，并验证三道守卫都会失败——取值可换、命名不可换、覆盖不全不许静默通过。",
+      "input": "evals/fixtures/design-system.css（一份合规的公司设计规范）",
+      "selfContained": true,
+      "checks": [
+        {
+          "type": "scaffold",
+          "tokens": "evals/fixtures/design-system.css",
+          "out": "evals/.work/e2-good.html",
+          "expectExit": 0,
+          "label": "合规规范：骨架应正常生成"
+        },
+        {
+          "type": "contains",
+          "target": "evals/.work/e2-good.html",
+          "label": "取值确实来自规范，而不是兜底基线",
+          "values": [
+            "--primary-color: #0b6bcb",
+            "--text-placeholder: #5b6470",
+            "--fs-page-title: 24px",
+            "--sidebar-w: 224px"
+          ]
+        },
+        {
+          "type": "absent",
+          "target": "evals/.work/e2-good.html",
+          "label": "兜底基线的取值不应残留",
+          "values": ["#4b55fa", "#646b85", "#2d3b8d"]
+        },
+        {
+          "type": "verify",
+          "target": "evals/.work/e2-good.html",
+          "layers": "1",
+          "expectExit": 0,
+          "maxWarn": 0,
+          "label": "换规范后对比度与命名契约仍成立"
+        },
+        {
+          "type": "scaffold",
+          "tokens": "evals/fixtures/design-system-bad-contrast.css",
+          "out": "evals/.work/e2-bad.html",
+          "expectExit": 0,
+          "label": "守卫 3 上半：对比度问题不是脚手架的职责，它应放行"
+        },
+        {
+          "type": "verify",
+          "target": "evals/.work/e2-bad.html",
+          "layers": "1",
+          "expectExit": 1,
+          "minHard": 1,
+          "label": "守卫 3 下半：verify L1-9 必须判 HARD（阈值与取值来源无关）"
+        },
+        {
+          "type": "scaffold",
+          "tokens": "evals/fixtures/design-system-incomplete.css",
+          "out": "evals/.work/e2-incomplete.html",
+          "expectExit": 1,
+          "label": "守卫 2：规范只写了一半，覆盖率必须在 init 阶段失败"
+        },
+        {
+          "type": "notExists",
+          "target": "evals/.work/e2-incomplete.html",
+          "label": "守卫 2：失败路径不落盘"
+        },
+        {
+          "type": "scaffold",
+          "tokens": "evals/fixtures/design-system-renamed.css",
+          "out": "evals/.work/e2-renamed.html",
+          "expectExit": 1,
+          "label": "守卫 1：把 --text-* 改名后必须失败（否则 verify 会对空处开枪）"
+        },
+        {
+          "type": "notExists",
+          "target": "evals/.work/e2-renamed.html",
+          "label": "守卫 1：失败路径不落盘"
+        }
+      ]
+    },
+    {
+      "id": "e3",
+      "name": "一票否决：夹带违规要求时，纠正而不是照做",
+      "goal": "需求里明确要求「不做状态 / 用 emoji 当图标 / 用真实手机号 / 问候语写死」，产出必须仍然满足全部硬门禁，并在交付说明里逐条点名拒绝。",
+      "input": "evals/inputs/e3-veto-requests.md",
+      "referenceArtifact": "example/prototype.html",
+      "referenceNote": "示例产物并非本用例输入的最优答案，只用来自证「本用例的断言是可满足的」——它与 e1 共享同一批断言类型。",
+      "counterexample": "evals/fixtures/defects-veto.html",
+      "counterexampleExpect": "FAIL",
+      "checks": [
+        {
+          "type": "verify",
+          "target": "artifact",
+          "layers": "1,2",
+          "strict": true,
+          "expectExit": 0,
+          "maxHard": 0,
+          "maxWarn": 0,
+          "label": "没有被要求带偏：零 HARD 零 WARN（含字符图标、硬编码问候语、隐藏态）"
+        },
+        {
+          "type": "regexAbsent",
+          "target": "artifact",
+          "label": "不得出现 emoji / 字符图标与真实手机号",
+          "patterns": ["[\\u{1F000}-\\u{1FAFF}]", "[\\u2600-\\u27BF]", "1[3-9]\\d{9}"]
+        },
+        {
+          "type": "regexPresent",
+          "target": "artifact",
+          "label": "四条被拒要求对应的正确做法都在产物里",
+          "patterns": [
+            "空|暂无|没有数据|没有符合",
+            "无权限|没有权限|未被授权|暂无权限",
+            "进行中|处理中|加载中|保存中|回查中|正在(解析|加载|保存|回查|查询|派单|处理|拉取)",
+            "演示账号|脱敏|示例数据|演示数据"
+          ]
+        },
+        {
+          "type": "manual",
+          "items": [
+            "交付说明是否逐条点名了四条被拒要求，并给出理由与替代方案",
+            "是否说明「状态分期」若确要做，必须由需求方确认取舍，而不是默认删减",
+            "被拒之后是否仍给出了可用方案（而不是只拒绝、不解决）"
+          ]
+        }
+      ]
+    }
+  ]
+}

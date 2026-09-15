@@ -26,14 +26,17 @@ const INSTALL_TIMEOUT = 60_000;
 
 /**
  * 技能族解析。
- * 回归背景：2026-09-14 原型技能从 `prd/prototype*` 迁为独立族 `prototype/{generate,review}`，
+ * 回归背景：2026-09-14 原型技能从 `prd/prototype*` 迁为独立族 `prototype/{build,review}`，
  * 若 `prototype` 未登记为族，会被降级识别成「顶层叶技能 prototype」，
  * 导致两技能塌缩为同一技能根、policies 注入层级错位。
  */
 describe('parseSkillAssetPath 技能族识别', () => {
-  it('prototype 是技能族，其下 generate / review 各为独立叶技能', () => {
-    const gen = parseSkillAssetPath('prototype/generate/SKILL.md');
-    expect(gen).toEqual({ family: 'prototype', skill: 'generate', underSkill: 'SKILL.md' });
+  it('prototype 是技能族，其下 blueprint / build / review 各为独立叶技能', () => {
+    const bp = parseSkillAssetPath('prototype/blueprint/SKILL.md');
+    expect(bp).toEqual({ family: 'prototype', skill: 'blueprint', underSkill: 'SKILL.md' });
+
+    const gen = parseSkillAssetPath('prototype/build/SKILL.md');
+    expect(gen).toEqual({ family: 'prototype', skill: 'build', underSkill: 'SKILL.md' });
 
     const rev = parseSkillAssetPath('prototype/review/SKILL.md');
     expect(rev).toEqual({ family: 'prototype', skill: 'review', underSkill: 'SKILL.md' });
@@ -96,12 +99,19 @@ describe('installPolarisForPlatform layout', () => {
       expect(probe).toMatch(/^name: polaris:subagent-probe$/m);
       expect(probe).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
-      // prototype 独立族：建造 / 评审为两个独立叶技能，各自有独立名称
-      const gen = await readFile(
-        path.join(tmpDir, '.claude/skills/polaris/prototype/generate/SKILL.md'),
+      // prototype 独立族：蓝图 / 建造 / 评审为三个平级叶技能，各自有独立名称
+      const bp = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/prototype/blueprint/SKILL.md'),
         'utf-8',
       );
-      expect(gen).toMatch(/^name: polaris:prototype:generate$/m);
+      expect(bp).toMatch(/^name: polaris:prototype:blueprint$/m);
+      expect(bp).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+
+      const gen = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/prototype/build/SKILL.md'),
+        'utf-8',
+      );
+      expect(gen).toMatch(/^name: polaris:prototype:build$/m);
       expect(gen).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
       const rev = await readFile(
@@ -111,12 +121,15 @@ describe('installPolarisForPlatform layout', () => {
       expect(rev).toMatch(/^name: polaris:prototype:review$/m);
       expect(rev).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
-      // policies 注入到叶技能（prototype 两技能各自收到，而非注入到族根）
+      // policies 注入到叶技能（prototype 三技能各自收到，而非注入到族根）
       await access(
         path.join(tmpDir, '.claude/skills/polaris/coding/specify/policies/decision-point.md'),
       );
       await access(
-        path.join(tmpDir, '.claude/skills/polaris/prototype/generate/policies/decision-point.md'),
+        path.join(tmpDir, '.claude/skills/polaris/prototype/blueprint/policies/decision-point.md'),
+      );
+      await access(
+        path.join(tmpDir, '.claude/skills/polaris/prototype/build/policies/decision-point.md'),
       );
       await access(
         path.join(tmpDir, '.claude/skills/polaris/prototype/review/policies/decision-point.md'),
@@ -160,10 +173,10 @@ describe('installPolarisForPlatform layout', () => {
 
       // flat 布局下 prototype 两技能平铺为各自的 polaris-prototype-* 目录
       const gen = await readFile(
-        path.join(tmpDir, '.trae/skills/polaris-prototype-generate/SKILL.md'),
+        path.join(tmpDir, '.trae/skills/polaris-prototype-build/SKILL.md'),
         'utf-8',
       );
-      expect(gen).toMatch(/^name: polaris-prototype-generate$/m);
+      expect(gen).toMatch(/^name: polaris-prototype-build$/m);
       expect(gen).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
       const rev = await readFile(
@@ -180,7 +193,7 @@ describe('installPolarisForPlatform layout', () => {
         path.join(tmpDir, '.trae/skills/polaris-coding-specify/policies/decision-point.md'),
       );
       await access(
-        path.join(tmpDir, '.trae/skills/polaris-prototype-generate/policies/decision-point.md'),
+        path.join(tmpDir, '.trae/skills/polaris-prototype-build/policies/decision-point.md'),
       );
     },
   );

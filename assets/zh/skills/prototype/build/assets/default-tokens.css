@@ -1,0 +1,74 @@
+/* ────────────────────────────────────────────────────────────────
+ * 默认设计 Token · 技能的兜底基线（references/05 §14.2）
+ *
+ * 「具体取值」的唯一来源。规范正文只讲规则与阈值，取值一律从这里取，
+ * 避免同一套值在两处各存一份而互相漂移。
+ * 覆盖方式（需求方提供了设计规范时）：
+ *   node scripts/scaffold.mjs init --tokens=<规范.css> --out=<原型.html>
+ *   node scripts/scaffold.mjs set-tokens <原型.html> --tokens=<规范.css>
+ * 硬约束：文本类 Token（--text-* / --title-color / --heading-color）对白底
+ *         必须 >= 4.5:1，任何来源都不可放宽（verify L1-9 强制）。
+ * ──────────────────────────────────────────────────────────────── */
+
+/* 品牌主色 —— 换品牌只需改这一处 */
+--primary-color: #4b55fa;
+--primary-hover: #3b45ea;
+--primary-active: #2b35da;
+--primary-light: rgba(75, 85, 250, 0.1);
+
+/* 功能色 */
+--success-color: #37b874;
+--warning-color: #faad14;
+--error-color: #fa4c6e;
+--info-color: #1890ff;
+
+/* 文本色 —— 对白底均 >= 4.5:1（references/05 §14.3 硬指标） */
+--title-color: #2d3b8d;
+--heading-color: rgba(0, 0, 0, 0.85);
+--text-primary: #333333;
+--text-secondary: #666666;
+--text-placeholder: #646b85;
+
+/* 背景 */
+--bg-page: #f1f4fd;
+--bg-white: #ffffff;
+--bg-section: #f8f9ff;
+
+/* 边框与分隔线 */
+--border-color: #d8dce9;
+--divider-color: #e5e8f2;
+--divider-soft: #eef0f7;
+
+/* 间距 4px 刻度 —— 只从这套值里选，不写随机间距 */
+--sp-1: 4px;
+--sp-2: 8px;
+--sp-3: 12px;
+--sp-4: 16px;
+--sp-5: 20px;
+--sp-6: 24px;
+--sp-8: 32px;
+
+/* 圆角 —— 只用有限档位 */
+--radius-sm: 4px;
+--radius-md: 8px;
+--radius-lg: 12px;
+
+/* 阴影 —— 保持轻量，禁止大面积重阴影 */
+--shadow-card: 0 2px 12px rgba(0, 0, 0, 0.08);
+
+/* 字号刻度（references/05 §15.1 的层级映射） */
+--fs-caption: 12px;
+--fs-sm: 13px;
+--fs-body: 14px;
+--fs-card-title: 15px;
+--fs-section: 16px;
+--fs-page-title: 22px;
+--fs-kpi: 28px;
+--fs-display: 32px;
+
+/* 比例基线（references/05 §14.4 企业级视觉比例基线） */
+--header-h: 56px;
+--sidebar-w: 216px;
+--page-pad-x: 24px;
+--ctl-h: 36px;
+--ctl-h-compact: 32px;

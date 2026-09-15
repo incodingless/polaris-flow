@@ -1,6 +1,6 @@
 # 原型质量判据 · §33 质量审查清单 / §34 一票否决 / §36 最终判断标准
 
-> **本文件是原型质量判据的唯一来源。** 2026-09-14 从 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` 的 `references/07` 整块迁入，
+> **本文件是原型质量判据的唯一来源。** 2026-09-14 从 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate` 的 `references/07` 整块迁入，
 > **章节号沿用 33 / 34 / 36**——因此所有 `§33.x` / `§34 第 N 条` / `§36` 的编号引用仍然有效，只是文件换了地方；
 > `prototype/references/07` 保留编号壳 + 一行为指针，方便顺着旧引用找过来。
 >
@@ -8,12 +8,12 @@
 > 判据回答"这一项是不是问题"，分级回答"发现的问题多重"，两者不得互相顶替。
 >
 > **谁读**：`polaris{{SKN_SPR}}prototype{{SKN_SPR}}review`（本技能持有，评审时逐条核对）；
-> `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build`（建造侧按技能名引用：生成期自检 + 交付门禁）。
+> `polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate`（建造侧按技能名引用：生成期自检 + 交付门禁）。
 >
-> **执行体不在本文件**：`§34` 第 30 条要求运行 `scripts/verify.mjs`，脚本属 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build`
+> **执行体不在本文件**：`§34` 第 30 条要求运行 `scripts/verify.mjs`，脚本属 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate`
 > （三层验证规格见其 `references/07 §27.1`）。这是全文唯一一处回指建造侧的地方；跑不了就按「未执行」处理，**不得当作已通过**。
 >
-> **本文件内对 `27.3` 的引用**仍指 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/07 §27.3`。
+> **本文件内对 `27.3` 的引用**仍指 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate` → `references/07 §27.3`。
 
 ---
 
@@ -101,7 +101,7 @@
 
 # 34. 一票否决
 
-**本清单是唯一来源。** 建造侧（`polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` 的 `references/00-basis.md §八`）只摘最高频的 8 条作提醒，措辞与本清单不一致时**以本清单为准**；
+**本清单是唯一来源。** 建造侧（`polaris{{SKN_SPR}}prototype{{SKN_SPR}}generate` 的 `references/00-basis.md §八`）只摘最高频的 8 条作提醒，措辞与本清单不一致时**以本清单为准**；
 新增 / 修改条目只改这里一处，不必两处同改（建造侧那 8 条同步对齐即可）。
 
 出现以下任一情况，本技能 必须主动纠正：
