@@ -31,7 +31,7 @@ const INSTALL_TIMEOUT = 60_000;
  * 导致两技能塌缩为同一技能根、policies 注入层级错位。
  */
 describe('parseSkillAssetPath 技能族识别', () => {
-  it('prototype 是技能族，其下 blueprint / build / review / ship 各为独立叶技能', () => {
+  it('prototype 是技能族，其下 blueprint / build / review 各为独立叶技能', () => {
     const bp = parseSkillAssetPath('prototype/blueprint/SKILL.md');
     expect(bp).toEqual({ family: 'prototype', skill: 'blueprint', underSkill: 'SKILL.md' });
 
@@ -40,9 +40,6 @@ describe('parseSkillAssetPath 技能族识别', () => {
 
     const rev = parseSkillAssetPath('prototype/review/SKILL.md');
     expect(rev).toEqual({ family: 'prototype', skill: 'review', underSkill: 'SKILL.md' });
-
-    const ship = parseSkillAssetPath('prototype/ship/SKILL.md');
-    expect(ship).toEqual({ family: 'prototype', skill: 'ship', underSkill: 'SKILL.md' });
   });
 
   it('既有族不受影响；未登记目录降级为顶层叶技能', () => {
@@ -124,14 +121,7 @@ describe('installPolarisForPlatform layout', () => {
       expect(rev).toMatch(/^name: polaris:prototype:review$/m);
       expect(rev).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
-      const ship = await readFile(
-        path.join(tmpDir, '.claude/skills/polaris/prototype/ship/SKILL.md'),
-        'utf-8',
-      );
-      expect(ship).toMatch(/^name: polaris:prototype:ship$/m);
-      expect(ship).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
-
-      // policies 注入到叶技能（prototype 四技能各自收到，而非注入到族根）
+      // policies 注入到叶技能（prototype 三技能各自收到，而非注入到族根）
       await access(
         path.join(tmpDir, '.claude/skills/polaris/coding/specify/policies/decision-point.md'),
       );
@@ -143,9 +133,6 @@ describe('installPolarisForPlatform layout', () => {
       );
       await access(
         path.join(tmpDir, '.claude/skills/polaris/prototype/review/policies/decision-point.md'),
-      );
-      await access(
-        path.join(tmpDir, '.claude/skills/polaris/prototype/ship/policies/decision-point.md'),
       );
       await expect(
         access(path.join(tmpDir, '.claude/skills/polaris/prototype/policies/decision-point.md')),
@@ -198,13 +185,6 @@ describe('installPolarisForPlatform layout', () => {
       );
       expect(rev).toMatch(/^name: polaris-prototype-review$/m);
       expect(rev).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
-
-      const ship = await readFile(
-        path.join(tmpDir, '.trae/skills/polaris-prototype-ship/SKILL.md'),
-        'utf-8',
-      );
-      expect(ship).toMatch(/^name: polaris-prototype-ship$/m);
-      expect(ship).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
       // 族目录本身不应被当作技能安装
       await expect(access(path.join(tmpDir, '.trae/skills/polaris-prototype/SKILL.md'))).rejects.toThrow();

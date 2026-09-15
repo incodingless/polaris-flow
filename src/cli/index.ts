@@ -169,7 +169,7 @@ program
   .description('RMW .polaris/workflow.yaml under workflow.lock (H12)')
   .argument('<op>', 'append-active|update-active|rename-active|delete-active|get-active-changes')
   .requiredOption('--skill <name>', 'lock writer id')
-  .requiredOption('--kind <kind>', 'task kind: change|requirement|testcase')
+  .requiredOption('--kind <kind>', 'task kind: change|requirement|testcase|prototype')
   .option('--repo-root <path>', 'main repo root')
   .option('--task-id <id>')
   .option('--phase <phase>')
@@ -209,7 +209,7 @@ const stateProgram = program.command('state').description('Workflow phase transi
 stateProgram
   .command('next')
   .description('Resolve next skill from workflow phase + auto_transition (NEXT: auto|manual|done)')
-  .argument('<change-name>', 'change / requirement / testcase id')
+  .argument('<change-name>', 'change / requirement / testcase / prototype id')
   .option('--repo-root <path>', 'main repo root')
   .option(...PLATFORM_OPTION)
   .action(async (changeName: string, options: { repoRoot?: string }) => {
@@ -220,7 +220,7 @@ program
   .command('draft-create')
   .description('Create .polaris/<tasks|testcases>/draft-* directory by kind')
   .argument('<repo_root>', 'project root')
-  .requiredOption('--kind <kind>', 'task kind: change|requirement|testcase')
+  .requiredOption('--kind <kind>', 'task kind: change|requirement|testcase|prototype')
   .option(...PLATFORM_OPTION)
   .action(async (repoRoot: string, options: { kind: string }) => {
     await draftCreateCommand(repoRoot, options.kind);
@@ -228,9 +228,9 @@ program
 
 program
   .command('task-init')
-  .description('Init task dir + state.yaml by kind (requirement needs --task-id, no draft)')
+  .description('Init task dir + state.yaml by kind (requirement/prototype need --task-id, no draft)')
   .argument('<repo_root>', 'project root')
-  .requiredOption('--kind <kind>', 'task kind: change|requirement|testcase')
+  .requiredOption('--kind <kind>', 'task kind: change|requirement|testcase|prototype')
   .option('--task-id <id>', 'formal task id (required when kind does not use draft)')
   .option(...PLATFORM_OPTION)
   .action(async (repoRoot: string, options: { kind: string; taskId?: string }) => {

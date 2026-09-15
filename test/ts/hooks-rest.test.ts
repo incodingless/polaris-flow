@@ -112,6 +112,36 @@ describe('draft-create / task-init / task-finalize', () => {
     expect(again.exitCode).toBe(1);
   });
 
+  it('task-init prototype 须 --task-id，直建正式目录（无 draft）', async () => {
+    const root = await tmpDir('polaris-proto-');
+    await mkdir(path.join(root, '.polaris'), { recursive: true });
+    await writeFile(
+      path.join(root, '.polaris', 'config.yaml'),
+      "language: zh\nplatform: claude\n",
+      'utf-8',
+    );
+
+    const missing = await runTaskInit(root, 'prototype');
+    expect(missing.exitCode).toBe(2);
+
+    const init = await runTaskInit(root, 'prototype', { taskId: 'contract-review-proto' });
+    expect(init.exitCode).toBe(0);
+    expect(init.payload?.kind).toBe('prototype');
+    expect(init.payload?.task_id).toBe('contract-review-proto');
+    expect(init.payload?.draft_name).toBeUndefined();
+
+    const stateRaw = await readFile(
+      path.join(root, '.polaris', 'tasks', 'contract-review-proto', 'state.yaml'),
+      'utf-8',
+    );
+    expect(stateRaw).toMatch(/kind:\s*prototype/);
+    expect(stateRaw).toMatch(/phase:\s*blueprint/);
+    expect(stateRaw).toMatch(/status:\s*in_progress/);
+
+    const again = await runTaskInit(root, 'prototype', { taskId: 'contract-review-proto' });
+    expect(again.exitCode).toBe(1);
+  });
+
   it('task-init testcase 落 testcases/ 并写 testcase_plan.md', async () => {
     const root = await tmpDir('polaris-tc-');
     await mkdir(path.join(root, '.polaris'), { recursive: true });
@@ -161,11 +191,13 @@ describe('draft-create / task-init / task-finalize', () => {
     expect(changeAgain.exitCode).toBe(1);
   });
 
-  it('draft-create 拒绝 requirement（不使用 draft）', async () => {
+  it('draft-create 拒绝 requirement / prototype（不使用 draft）', async () => {
     const root = await tmpDir('polaris-nodraft-');
     await mkdir(path.join(root, '.polaris'), { recursive: true });
-    const r = await runDraftCreate(root, 'requirement');
-    expect(r.exitCode).toBe(2);
+    const req = await runDraftCreate(root, 'requirement');
+    expect(req.exitCode).toBe(2);
+    const proto = await runDraftCreate(root, 'prototype');
+    expect(proto.exitCode).toBe(2);
   });
 });
 

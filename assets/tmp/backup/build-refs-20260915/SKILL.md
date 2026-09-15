@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prototype{{SKN_SPR}}build
 description: "当《原型蓝图》已确认、要把它做成 HTML 原型时使用。通常由 blueprint 确认后推进，或由 ship 的返工回路调用；用户直接说接续语义的话时也走这里。用户要求：照蓝图做原型 / 蓝图确认了开始做 / 按页面清单出原型 / 继续做原型 / 重做某几个页面 / 修改已有原型 / 补页面与交互状态 / 原型要能点击演示 / 原型要能交研发。不触发：还没有蓝图、要先出原型制作思路或梳理页面清单（走 polaris{{SKN_SPR}}prototype{{SKN_SPR}}blueprint）、只评审已有原型能否交研发（走 polaris{{SKN_SPR}}prototype{{SKN_SPR}}review）、交付归档与任务收尾（走 polaris{{SKN_SPR}}prototype{{SKN_SPR}}ship）、只写 PRD 或需求文档、只做需求澄清与需求评审、只要低保真线稿或页面流程图（走 lofi-prototype）、只要技术方案 / 接口设计 / 数据库设计、只要视觉走查或设计规范文档、只要前端代码实现。"
-version: 3.7.0
+version: 3.6.0
 ---
 
 # 产品原型制作与研发交付
@@ -141,13 +141,13 @@ LANG_EXIT = $?
 
 #### Step 3.2 页面结构设计
 
-每个 P0 页面定义 12 项（Page ID、名称、角色、目标、进入条件、看到什么、做什么、页面区域、离开方式、业务状态、响应式行为、密度模式与容器高度策略）。每页先用"任务—信息—操作"三层法自查，不支持其一的区域审查必要性。其中**密度模式见 `references/05 §15.5`**，**容器高度策略与内容感知布局（Auto Content / Adaptive Data / Full Workspace）见 `§16.2–16.3`**——这两段在结构阶段就要定，等写完页面再补就是大面积空白类返工。**12 项定义与「任务—信息—操作」三层法的完整展开见 `references/04 §11`**——本步只列项，判据与示例在那份里。
+每个 P0 页面定义 12 项（Page ID、名称、角色、目标、进入条件、看到什么、做什么、页面区域、离开方式、业务状态、响应式行为、密度模式与容器高度策略）。每页先用"任务—信息—操作"三层法自查，不支持其一的区域审查必要性。其中**密度模式见 `references/05 §15.5`**，**容器高度策略与内容感知布局（Auto Content / Adaptive Data / Full Workspace）见 `§16.2–16.3`**——这两段在结构阶段就要定，等写完页面再补就是大面积空白类返工。
 
 - 产出：`page-structure.md`　判据：12 项无缺项；密度模式与容器高度策略已选定（不是留到写页面时再说）　门禁：无
 
 #### Step 3.3 交互与状态设计
 
-高质量原型不能只有"正常页面"。每个 P0 页面至少考虑 11 种状态：**Initial、Loading、AI Processing（显示"正在解析→检索→分析→生成"而非只转圈）、Skeleton、Empty、Success、Partial Success、Error（必须给出下一步：重试/修改/重新上传/转人工）、Human Review、No Permission、Disabled**。每种状态该长什么样、判据是什么，见 `references/04 §12`（12.1–12.11）；AI Processing 与 Human Review 的额外要求见 `§13`——本步只列状态清单。
+高质量原型不能只有"正常页面"。每个 P0 页面至少考虑 11 种状态：**Initial、Loading、AI Processing（显示"正在解析→检索→分析→生成"而非只转圈）、Skeleton、Empty、Success、Partial Success、Error（必须给出下一步：重试/修改/重新上传/转人工）、Human Review、No Permission、Disabled**。
 
 - 产出：并入 `page-structure.md`　判据：每个 P0 页面覆盖适用状态；Error 有下一步；AI 有过程、有依据、有人工确认　门禁：无
 
@@ -198,8 +198,6 @@ node scripts/verify.mjs --help                                      # 全部选�
 脚本报 WARN 的项需人工判断——**脚本全绿 ≠ 设计合格**，设计质量仍按 `§33` 审查（见评审技能的 `references/01-quality-criteria.md`）。
 
 脚本只判可判定项（语法、标签配平、跳转与图标引用完整性、Token 对比度、字号底线、接口字符图标、演示数据去个人化、页面空壳、运行时 JS 错误、三档横向溢出、黄金流是否走通）。**设计是否专业、状态取舍是否恰当，脚本不表态。**
-
-**规格与规则出处**：三层验证的完整规格见 `references/07 §27.1`（本步的脚本就是它的执行体）；三档分辨率的自适应规则与多分辨率验收矩阵见 `references/06 §25`（App Shell / 宽高自适应 / Dead Space / 表格图表 / 超宽屏），对比度与键盘基线见 `§26`——脚本报了分辨率类 WARN 时按 `§25` 判，不要凭感觉调。
 
 推荐顺序：`scaffold init` → `verify --layer=1` 取静态基线（骨架应即刻全绿）→ 填页面主体 → `verify --flow=… --strict` 全三层 → 进入 **Step 5** 的交付阻塞点（是否进 `ship` 由用户选择，flow.md **R11** 制作链的收尾段）。
 
@@ -289,11 +287,11 @@ build:
 
 | 文件 | 内容 | 何时读 |
 |---|---|---|
-| **`references/00-basis.md`** | **必读基础**：`§一` 角色定位与方法论、`§二` 能力 / 决策边界、`§三` 核心原则与冻结规则、`§五` AI 交互专项、`§六` 视觉与布局红线、`§七` 研发交付与需求追踪、`§八` 一票否决高频 8 条、`§十一` 最终判断标准 | **开工第一步读全文**（`Step 2.2`）——不是按需参考 |
-| `references/04-page-interaction-ai.md` | 页面结构方法（P0 页面 12 项 + 任务—信息—操作三层法）、11 种交互状态细则、AI 交互专项 | `Step 3.2` / `Step 3.3` |
-| `references/05-visual-system-components.md` | 视觉设计系统全量（约 1000 行，**按下方路由分段读，不要整份加载**） | `Step 3.2` / `Step 3.4` / `Step 4.1` |
-| `references/06-responsive-accessibility.md` | 三档自适应、App Shell、Dead Space 判断、多分辨率验收矩阵、对比度与键盘基线 | `Step 4.2`（报分辨率类 WARN 时） |
-| `references/07-delivery-quality-review.md` | `§27.1` 三层验证规格、`§29` 研发交接、`§30` 需求追踪、`§32` 6+1 交付物（`§31` / `§33` / `§34` / `§36` 已上移，留编号壳 + 指针） | `Step 4.2` / `Step 5` |
+| **`references/00-basis.md`** | **必读基础**：`§一` 角色定位与方法论（五种角色）、`§二` 能力 / 决策边界、`§三` 核心原则与冻结规则（第一原则）、`§五` AI 交互专项、`§六` 视觉与布局红线、`§七` 研发交付与需求追踪、`§八` 一票否决高频 8 条、`§十一` 最终判断标准 | **开工第一步读全文**（见 `Step 2.2`）——不是按需参考 |
+| `references/04-page-interaction-ai.md` | 第 11—13 章：P0 页面 12 项定义、任务—信息—操作三层法、11 种交互状态细则、键盘轻交互基线、AI 交互专项 6 节、AI 工作台视觉组织、AI 对话式交互体验专项 | 定义页面结构、设计交互状态、设计 AI/Agent 页面或对话式助手时**必读** |
+| `references/05-visual-system-components.md` | 第 14—24 章：视觉设计系统全量（**按时机分 7 段**，见下表） | **不要整份加载**——按下方「按需加载路由」选段读 |
+| `references/06-responsive-accessibility.md` | 第 25—26 章：五类自适应目标、三档桌面基线、App Shell、宽度/高度自适应、Dead Space 判断、表格/图表/Drawer/Dialog 自适应、超宽屏控制、禁止截图式布局、多分辨率验收矩阵、对比度/键盘基线、新 CSS 兼容门槛 | 实现响应式布局、做多分辨率验收时**必读** |
+| `references/07-delivery-quality-review.md` | 第 27—32、35—37 章：HTML 原型输出要求、运行时验证三层法（`§27.1`）、大文件编辑纪律、演示数据去个人化、技术栈、研发交接清单、需求追踪、6+1 交付物、标准调用方式（建造 5 种）、最终判断标准、核心公式。**`§33` 质量审查清单与 `§34` 一票否决已上移至评审技能，`§31` 决策边界已上移至 `references/00-basis.md §二`**（本文档保留编号壳 + 指针） | 交付前自检、研发交接、对外演示前**必读** |
 
 **`references/05` 按需加载路由（约 1000 行，分段读，段间无依赖）**
 
@@ -309,9 +307,15 @@ build:
 
 **样例与评测（自带，用于校准与回归）**
 
-`example/` —— 完整链路样例：输入需求包（`requirement.md`）、6+1 交付物（`deliverables.md`）、成品原型（`prototype.html`）、黄金流（`flow.json`）。设计前可先读它对齐交付物形态；它的原型本身是回归样本：`node scripts/verify.mjs example/prototype.html --flow=example/flow.json --strict` 应退出码 0。
+`example/` —— 一份走完整条链路的完整样例：输入需求包（`requirement.md`）、6+1 交付物（`deliverables.md`）、成品原型（`prototype.html`）、黄金流定义（`flow.json`）。设计前可先读它对齐交付物形态；它的原型本身就是回归样本：`node scripts/verify.mjs example/prototype.html --flow=example/flow.json --strict` 应退出码 0。
 
-`evals/` —— 三个评测用例（能力基线 / 设计系统覆盖 / 一票否决）+ 零依赖评测器：`node evals/run.mjs --selftest`（参照物应 PASS、反例应 FAIL，证明断言有牙齿）、`--case=e1 --artifact=<原型.html>`（拿自己的产出跑能力基线）、`--case=e2`（自带夹具验证设计规范与三道守卫）。
+`evals/` —— 三个评测用例（能力基线 / 设计系统覆盖 / 一票否决）+ 零依赖评测器：
+
+```bash
+node evals/run.mjs --selftest                        # 参照物应 PASS、反例应 FAIL（证明断言有牙齿）
+node evals/run.mjs --case=e1 --artifact=<原型.html>   # 拿自己的产出跑能力基线
+node evals/run.mjs --case=e2                         # 自带夹具，验证设计规范覆盖与三道守卫
+```
 
 **改动页面机制、Token 命名契约或脚本判定后，必须重跑 `--selftest`**——`example/` 与 `evals/` 是活的，改了规范不改它们，就等于把假通过留在仓库里。
 
@@ -319,7 +323,7 @@ build:
 
 ## 交付前人工复核（脚本判不了的 12 条）
 
-进入 Step 5 的交付阻塞点前逐条过一遍。**已由脚本与 Step 4 判过的不在这里重复**——三档分辨率与横向溢出、黄金流是否走通、`verify --strict` 退出码见 `Step 4.2`；骨架来源与定点插入、Token 取值来源与 `--tokens` 覆盖见 `Step 4.1`。**判据出处**：第（9）项的研发交接清单见 `references/07 §29`、需求追踪链见 `§30`，第（12）项的 6+1 交付物形态见 `references/07 §32`。
+进入 Step 5 的交付阻塞点前逐条过一遍。**已由脚本与 Step 4 判过的不在这里重复**——三档分辨率与横向溢出、黄金流是否走通、`verify --strict` 退出码见 `Step 4.2`；骨架来源与定点插入、Token 取值来源与 `--tokens` 覆盖见 `Step 4.1`。
 
 （1）是否按已确认的蓝图开工，而不是自己重新推一遍页面清单；
 （2）原型是否走通蓝图里的黄金任务流，形成完整业务闭环；

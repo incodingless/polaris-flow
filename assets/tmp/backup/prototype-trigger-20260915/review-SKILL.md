@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prototype{{SKN_SPR}}review
-description: "当用户要求评审已有原型时使用。用户要求：评审已有原型 / 审一下这个原型 / 走查原型 / 检查原型能不能交研发 / 判断是否达到研发交接标准 / 交付前把关 / 出一份原型问题清单与整改建议（**只评不改、不归档**）。不触发：要新做原型或修改原型（走 polaris{{SKN_SPR}}prototype{{SKN_SPR}}build）、只评审 PRD 或需求文档（走 polaris{{SKN_SPR}}prd{{SKN_SPR}}review）、只评审代码或做代码走查、只做纯视觉走查且不要交付判定、只画低保真线稿（走 lofi-prototype）。"
-version: 1.5.0
+description: "当用户要求评审已有原型时使用。用户要求：评审已有原型 / 审一下这个原型 / 走查原型 / 检查原型能不能交研发 / 判断是否达到研发交接标准 / 交付前把关 / 出一份原型问题清单与整改建议。不触发：要新做原型或修改原型（走 polaris{{SKN_SPR}}prototype{{SKN_SPR}}build）、只评审 PRD 或需求文档（走 polaris{{SKN_SPR}}prd{{SKN_SPR}}review）、只评审代码或做代码走查、只做纯视觉走查且不要交付判定、只画低保真线稿（走 lofi-prototype）。"
+version: 1.4.0
 ---
 
 # 原型交付评审
@@ -239,6 +239,6 @@ node scripts/verify.mjs <原型.html> --flow=<黄金流.json> --strict
 | `./references/01-quality-criteria.md` | **质量判据唯一来源**：`§33` 五维质量审查清单、`§34` 一票否决 31 条、`§36` 最终判断标准 | **每次评审必读** |
 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/07 §27.1` | 三层运行时验证规格（执行体 `scripts/verify.mjs` 也在该技能） | Step 2 执行验证前 |
 | 同上 → `scripts/verify.mjs --help` | 三层验证执行体与全部选项 | Step 2 执行前 |
-| 同上 → `SKILL.md`「交付前人工复核」 | 建造方交付前的 12 条人工复核项（脚本判不了的判断项） | 需要取证线索时（**只作线索，不作结论来源**） |
+| 同上 → `SKILL.md`「交付前自检」 | 交付前自检 16 条 | 需要取证线索时（**只作线索，不作结论来源**） |
 | `./templates/prototype_review_report_template.md` | 报告标准格式 | Step 6 输出报告时 |
 | `./policies/ask-question-react.md` | 平台询问工具注册表与发问机制 | Step 1 范围确认时 |

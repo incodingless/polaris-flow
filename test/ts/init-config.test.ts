@@ -34,5 +34,6 @@ describe('initPolarisConfig', () => {
     expect(wfRaw).toContain('change_tasks:');
     expect(wfRaw).toContain('requirement_tasks:');
     expect(wfRaw).toContain('testcase_tasks:');
+    expect(wfRaw).toContain('prototype_tasks:');
   });
 });

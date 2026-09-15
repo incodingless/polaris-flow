@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prototype{{SKN_SPR}}blueprint
-description: "当用户要从需求做出一个原型时使用——本技能是原型开发链的入口：只出《原型蓝图》并交人工确认，确认后由 build 制作、由 ship 评审并归档。用户要求：做个原型 / 制作原型 / 画原型 / 生成原型 / 从需求到原型交付 / 把需求转成原型 / 这个需求要做哪些页面 / 页面清单怎么定 / 梳理信息架构 / 出原型蓝图 / 先别做原型先说思路 / 需求转成页面结构。不触发：已有已确认蓝图、只要按蓝图继续做或重做已有原型（走 polaris{{SKN_SPR}}prototype{{SKN_SPR}}build）、只评审已有原型（走 polaris{{SKN_SPR}}prototype{{SKN_SPR}}review）、只做交付归档与任务收尾（走 polaris{{SKN_SPR}}prototype{{SKN_SPR}}ship）、只写 PRD 或需求文档、只做需求澄清与需求评审、只要低保真线稿或页面流程图（走 lofi-prototype）、只要技术方案 / 接口设计 / 数据库设计、只要视觉走查或设计规范文档。"
-version: 1.1.0
+description: "当用户要先把原型的思路定下来、再动手做原型时使用。用户要求：先梳理原型制作思路 / 先给个原型方案再动手 / 这个需求要做哪些页面 / 帮我规划页面清单 / 梳理信息架构 / 出原型蓝图 / 先别做原型，先说思路 / 需求转成页面结构。不触发：直接制作或生成 HTML 原型（走 prototype{{SKN_SPR}}build）、评审已有原型能否交研发（走 prototype{{SKN_SPR}}review）、只写 PRD 或需求文档、只做需求澄清与需求评审、只要低保真线稿或页面流程图（走 lofi-prototype）、只要技术方案 / 接口设计 / 数据库设计、只要视觉走查或设计规范文档。"
+version: 1.0.0
 ---
 
 # 原型蓝图 · 需求理解与制作思路
@@ -232,7 +232,7 @@ blueprint:
 
 - 产出：`page-list.md`　判据：每页都能回答「用户为什么进这个页面」且入口、出口齐全　门禁：**软**——定稿即下一环节 `scaffold.mjs init` 的输入，此后增删页面走 `add-page`，不再重排
 
-### Step 4: 人工确认 → 冻结（阻塞点）
+### Step 4: 人工确认 → 冻结（准出）
 
 把 Step 3.1–3.4 的四份产物汇总成一份连贯的《原型蓝图》（`blueprint.md`），主干控制在人能读完的长度，细节以指针引回分项文档。
 
@@ -284,3 +284,12 @@ blueprint:
 3. `state.yaml` 已写入 `phase: build` 与 `blueprint.status: completed`，`naming.status: confirmed`。
 
 未同时满足三条，不得宣告本环节结束，也不得让流程进入制作环节。
+
+## 参考文件与工具
+
+| 文件 | 内容 | 何时读 |
+|---|---|---|
+| `./references/00-basis.md` | **开工必读**：角色定位与方法论（§一）、能力 / 决策边界（§二）、核心原则与冻结规则（§三） | Step 2.2 读全文 |
+| `./references/02-inputs-handoff.md` | 最低输入 6 项、可选增强输入、不重复询问、承接建设方案 / Agent 设计文档的转换 | Step 2.2 输入检查时 |
+
+**按需引用（在制作环节，按技能名定位）**：命名与品牌层级规范见 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/05 §16.1`；页面模式、结构、状态、视觉系统的一律属该技能，**本技能不涉及**。

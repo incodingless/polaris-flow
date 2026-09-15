@@ -6,7 +6,11 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 
-import { emptyWorkflowState, loadWorkflowState } from '../../src/core/config/workflow-state.js';
+import {
+  emptyWorkflowState,
+  loadWorkflowState,
+  parseWorkflowTaskKind,
+} from '../../src/core/config/workflow-state.js';
 import {
   applyWorkflowOp,
   makeTaskEntry,
@@ -91,6 +95,51 @@ describe('applyWorkflowOp', () => {
     });
     expect(r.state.testcase_tasks[0].task_id).toBe('tc-1');
     expect(r.state.requirement_tasks).toHaveLength(1);
+  });
+
+  it('prototype 写入 prototype_tasks，不串 requirement/change', () => {
+    const c = emptyWorkflowState();
+    let r = applyWorkflowOp(c, {
+      op: 'append-active',
+      skill: 'blueprint',
+      kind: 'prototype',
+      taskId: 'proto-1',
+      phase: 'blueprint',
+      startedAt: '2026-09-15T00:00:00Z',
+    });
+    expect(r.state.prototype_tasks).toHaveLength(1);
+    expect(r.state.prototype_tasks[0].task_id).toBe('proto-1');
+    expect(r.state.prototype_tasks[0].phase).toBe('blueprint');
+    expect(r.state.requirement_tasks).toHaveLength(0);
+    expect(r.state.change_tasks).toHaveLength(0);
+
+    r = applyWorkflowOp(r.state, {
+      op: 'update-active',
+      skill: 'blueprint',
+      kind: 'prototype',
+      whereTaskId: 'proto-1',
+      setPhase: 'build',
+    });
+    expect(r.state.prototype_tasks[0].phase).toBe('build');
+
+    r = applyWorkflowOp(r.state, {
+      op: 'delete-active',
+      skill: 'blueprint',
+      kind: 'prototype',
+      whereTaskId: 'proto-1',
+    });
+    expect(r.state.prototype_tasks).toHaveLength(0);
+  });
+});
+
+describe('parseWorkflowTaskKind', () => {
+  it('接受 change|requirement|testcase|prototype；拒绝其它值', () => {
+    expect(parseWorkflowTaskKind('change')).toBe('change');
+    expect(parseWorkflowTaskKind('requirement')).toBe('requirement');
+    expect(parseWorkflowTaskKind('testcase')).toBe('testcase');
+    expect(parseWorkflowTaskKind('prototype')).toBe('prototype');
+    expect(parseWorkflowTaskKind('unknown')).toBeNull();
+    expect(parseWorkflowTaskKind(undefined)).toBeNull();
   });
 });
 
@@ -226,6 +275,64 @@ describe('runWorkflowEntry', () => {
       phase: 'discovery',
     });
     expect(reqs.taskIds).toEqual(['r1']);
+  });
+
+  it('get-active-changes --kind prototype 按 phase 过滤（对齐 blueprint/build/ship）', async () => {
+    const repo = await tmpRepo();
+    await runWorkflowEntry({
+      op: 'append-active',
+      skill: 'blueprint',
+      kind: 'prototype',
+      repoRoot: repo,
+      taskId: 'p-blueprint',
+      phase: 'blueprint',
+      startedAt: '2026-09-15T00:00:00Z',
+    });
+    await runWorkflowEntry({
+      op: 'append-active',
+      skill: 'build',
+      kind: 'prototype',
+      repoRoot: repo,
+      taskId: 'p-build',
+      phase: 'build',
+      startedAt: '2026-09-15T01:00:00Z',
+    });
+    await runWorkflowEntry({
+      op: 'append-active',
+      skill: 'discovery',
+      kind: 'requirement',
+      repoRoot: repo,
+      taskId: 'r-should-not-leak',
+      phase: 'discovery',
+      startedAt: '2026-09-15T02:00:00Z',
+    });
+
+    const allProto = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'blueprint',
+      kind: 'prototype',
+      repoRoot: repo,
+    });
+    expect(allProto.exitCode).toBe(0);
+    expect(allProto.taskIds).toEqual(['p-blueprint', 'p-build']);
+
+    const blueprintOnly = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'blueprint',
+      kind: 'prototype',
+      repoRoot: repo,
+      phase: 'blueprint',
+    });
+    expect(blueprintOnly.taskIds).toEqual(['p-blueprint']);
+
+    const buildOnly = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'build',
+      kind: 'prototype',
+      repoRoot: repo,
+      phase: 'build',
+    });
+    expect(buildOnly.taskIds).toEqual(['p-build']);
   });
 });
 

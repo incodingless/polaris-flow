@@ -1,5 +1,5 @@
 /**
- * `polaris status`：展示主仓与 `.polaris/workflow.yaml` 中的三类任务游标。
+ * `polaris status`：展示主仓与 `.polaris/workflow.yaml` 中的四类任务游标。
  */
 import path from 'path';
 
@@ -22,6 +22,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
       change_tasks: [],
       requirement_tasks: [],
       testcase_tasks: [],
+      prototype_tasks: [],
     };
     if (options.json) {
       console.log(JSON.stringify(payload, null, 2));
@@ -35,6 +36,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
   const changeTasks = state?.change_tasks ?? [];
   const requirementTasks = state?.requirement_tasks ?? [];
   const testcaseTasks = state?.testcase_tasks ?? [];
+  const prototypeTasks = state?.prototype_tasks ?? [];
 
   if (options.json) {
     console.log(
@@ -45,6 +47,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
           change_tasks: changeTasks,
           requirement_tasks: requirementTasks,
           testcase_tasks: testcaseTasks,
+          prototype_tasks: prototypeTasks,
         },
         null,
         2,
@@ -76,6 +79,8 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
   printSection('Requirement tasks', requirementTasks);
   console.log('');
   printSection('Testcase tasks', testcaseTasks);
+  console.log('');
+  printSection('Prototype tasks', prototypeTasks);
 }
 
 /**

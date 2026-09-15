@@ -2,7 +2,7 @@
  * workflow.yaml RMW 入口（对齐 assets/shared/scripts/workflow-entry.sh）。
  * 持锁 → 解析 → 修改 → 写回 → 写后校验；由 `polaris workflow-entry` 调用。
  * `get-active-changes` 为只读：不持锁、不写盘，stdout 输出 task_id JSON 数组。
- * 任务列表由必填 `--kind`（change|requirement|testcase）选定。
+ * 任务列表由必填 `--kind`（change|requirement|testcase|prototype）选定。
  */
 import { execFileSync } from 'child_process';
 import path from 'path';
@@ -15,6 +15,7 @@ import {
   parseWorkflowTaskKind,
   saveWorkflowState,
   setTaskList,
+  workflowTaskKindErrorMessage,
   type WorkflowState,
   type WorkflowTaskEntry,
   type WorkflowTaskKind,
@@ -88,9 +89,7 @@ export function resolveRepoRoot(explicit?: string, cwd: string = process.cwd()):
 function requireKind(raw: string | undefined): WorkflowTaskKind {
   const kind = parseWorkflowTaskKind(raw);
   if (!kind) {
-    throw new WorkflowEntryParamError(
-      '缺少或非法 --kind（须为 change|requirement|testcase）',
-    );
+    throw new WorkflowEntryParamError(workflowTaskKindErrorMessage());
   }
   return kind;
 }

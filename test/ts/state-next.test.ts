@@ -25,7 +25,7 @@ async function tmpRepo(): Promise<string> {
 }
 
 describe('findEntryByTaskId', () => {
-  it('跨三个列表命中，返回对应 kind', () => {
+  it('跨四个列表命中，返回对应 kind', () => {
     const state = emptyWorkflowState();
     state.change_tasks = [
       { task_id: 'c1', phase: 'plan', worktree_path: '', started_at: '' },
@@ -33,12 +33,16 @@ describe('findEntryByTaskId', () => {
     state.requirement_tasks = [
       { task_id: 'r1', phase: 'draft', worktree_path: '', started_at: '' },
     ];
+    state.prototype_tasks = [
+      { task_id: 'p1', phase: 'blueprint', worktree_path: '', started_at: '' },
+    ];
 
     expect(findEntryByTaskId(state, 'c1')).toEqual({
       kind: 'change',
       entry: { task_id: 'c1', phase: 'plan', worktree_path: '', started_at: '' },
     });
     expect(findEntryByTaskId(state, 'r1')?.kind).toBe('requirement');
+    expect(findEntryByTaskId(state, 'p1')?.kind).toBe('prototype');
     expect(findEntryByTaskId(state, 'missing')).toBeNull();
   });
 });
@@ -59,6 +63,13 @@ describe('resolveNextSkillName', () => {
     expect(resolveNextSkillName('change', '')).toBeNull();
     expect(resolveNextSkillName('change', 'unknown-phase')).toBeNull();
     expect(resolveNextSkillName('change', 'specify')).toBeNull();
+  });
+
+  it('prototype phase 映射 blueprint→build→ship', () => {
+    expect(resolveNextSkillName('prototype', 'blueprint')).toBe('build');
+    expect(resolveNextSkillName('prototype', 'build')).toBe('ship');
+    expect(resolveNextSkillName('prototype', 'review')).toBe('ship');
+    expect(resolveNextSkillName('prototype', 'idle')).toBeNull();
   });
 });
 

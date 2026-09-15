@@ -1,9 +1,9 @@
 /**
- * Specify / discovery / testcase 任务生命周期：init（建目录 + state）与 finalize（draft → 正式 id）。
+ * Specify / discovery / testcase / prototype 任务生命周期：init（建目录 + state）与 finalize（draft → 正式 id）。
  * 由 `polaris task-init` / `polaris task-finalize` 调用。
  *
  * - change / testcase：先建 draft-*，再由 finalize（或后续流程）落到正式 id
- * - requirement：不建 draft，须传正式 taskId，直接初始化任务目录
+ * - requirement / prototype：不建 draft，须传正式 taskId，直接初始化任务目录
  */
 import { mkdir, rename, readFile, writeFile } from 'fs/promises';
 import path from 'path';
@@ -23,6 +23,10 @@ import {
   createDefaultRequirementState,
   saveRequirementStateToFile,
 } from '../config/requirement-state.js';
+import {
+  createDefaultPrototypeState,
+  savePrototypeStateToFile,
+} from '../config/prototype-state.js';
 import {
   createDefaultTaskState,
   patchTaskStateFile,
@@ -49,7 +53,7 @@ export type FinalizeResult = {
 
 /** init 可选参数 */
 export type InitOptions = {
-  /** 正式任务 id；usesDraft=false 的 kind（如 requirement）必填 */
+  /** 正式任务 id；usesDraft=false 的 kind（如 requirement / prototype）必填 */
   taskId?: string;
 };
 
@@ -97,6 +101,17 @@ async function writeKindStateAndBootstrap(
       finished_at: '',
     };
     await saveRequirementStateToFile(statePath, state);
+  } else if (layout.stateFactory === 'prototype') {
+    const state = createDefaultPrototypeState({
+      taskId,
+      phase: layout.initialPhase,
+    });
+    state.blueprint = {
+      status: 'in_progress',
+      started_at: new Date().toISOString(),
+      finished_at: '',
+    };
+    await savePrototypeStateToFile(statePath, state);
   } else {
     const planRel = getTaskKindRelPath(kind, taskId, 'testcase_plan.md');
     const state = createDefaultTestcaseState({
@@ -121,7 +136,7 @@ async function writeKindStateAndBootstrap(
 
 /**
  * 按 kind 初始化任务目录 + state.yaml（不写 workflow append）。
- * requirement 不走 draft，须提供 options.taskId。
+ * requirement / prototype 不走 draft，须提供 options.taskId。
  */
 export async function init(
   repoRoot: string,

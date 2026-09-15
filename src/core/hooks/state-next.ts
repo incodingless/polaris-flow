@@ -25,7 +25,7 @@ import { resolveRepoRoot } from './workflow-entry.js';
 export type NextAction = 'auto' | 'manual' | 'done';
 
 export type StateNextArgs = {
-  /** 目标任务 id（change/requirement/testcase 通用） */
+  /** 目标任务 id（change/requirement/testcase/prototype 通用） */
   changeName: string;
   repoRoot?: string;
   cwd?: string;
@@ -49,6 +49,7 @@ const FAMILY_BY_KIND: Record<WorkflowTaskKind, string> = {
   change: 'coding',
   requirement: 'prd',
   testcase: 'testing',
+  prototype: 'prototype',
 };
 
 /**
@@ -73,9 +74,16 @@ const PHASE_TO_SKILL: Record<string, Record<string, string>> = {
     delivery: 'ship',
   },
   testing: {},
+  prototype: {
+    blueprint: 'build',
+    build: 'ship',
+    review: 'ship',
+    ship: 'ship',
+    delivery: 'ship',
+  },
 };
 
-/** 在三个任务列表中查找 task_id == 目标 id 的 entry */
+/** 在四个任务列表中查找 task_id == 目标 id 的 entry */
 export function findEntryByTaskId(
   state: WorkflowState,
   taskId: string,
@@ -84,6 +92,7 @@ export function findEntryByTaskId(
     ['change', state.change_tasks],
     ['requirement', state.requirement_tasks],
     ['testcase', state.testcase_tasks],
+    ['prototype', state.prototype_tasks],
   ];
   for (const [kind, entries] of lists) {
     const hit = entries.find((e) => e.task_id === taskId);
