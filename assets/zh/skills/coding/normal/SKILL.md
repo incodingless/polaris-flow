@@ -55,7 +55,7 @@ normal 是 P02（常规功能）的执行体。它把完整链路的 `specify �
 | ID | 在本 skill 的适用方式 |
 |----|---------------------|
 | H8 | 每个 Step 入口输出可见状态行 |
-| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 8.1）或合并主审派发（Step 7.2）时。须先有平台能力结论（SessionStart 注入或 `subagent-probe`）。需要 `subagent_id` / `task_type` 预筛 → 必须 probe；仅默认通用且注入 `SUPPORTS_SUBAGENT=true`（degradation 空）→ 可跳过 probe 直接 dispatch(`agent=null`)；注入/probe 为 inline/unsupported → 不派发。默认 inline 路径不派发 subagent，不触发本条 |
+| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 8.1）或合并主审派发（Step 7.2）时。优先 SessionStart 注入。固定 agent 主审且 `SUPPORTS_SUBAGENT=true` → **不调** probe。需要 `subagent_id` / `task_type` 预筛或从清单选 agent → probe（优先读 `$SUBAGENT_PROBE_CACHE`）或直接读缓存；仅默认通用 → 可 `dispatch(agent=null)`。`inline`/`unsupported` → 不派发。默认 inline 路径不触发本条 |
 | H12 | 写 `.polaris/workflow.yaml` 走 `scripts/workflow-entry.sh`（内含 workflow.lock + 写后校验），不自写文件 |
 | H13 | 不调用两个 superpowers 派发驱动器 |
 
@@ -398,8 +398,11 @@ P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**�
 
 #### 7.2 派发主审 — `plan-review-agent`
 
-1. **能力 / probe**：SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → 视同该结论（可跳过 probe）。否则 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传入 `platform`）。返回 `inline` / `unsupported` → 标注并 decision-point：**A 接受跳过主审（记录原因）** / **B 阻断**。不得 inline 假评审。
-2. **派发**：`plan-review-agent`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。派发执行按 probe 返回的平台能力选择形态：
+1. **能力**：读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；清单见 `$SUBAGENT_PROBE_CACHE`）。
+   - `PLATFORM_DEGRADATION=inline|unsupported` → 标注并 decision-point：**A 接受跳过主审（记录原因）** / **B 阻断**。不得 inline 假评审。**不调** probe。
+   - `SUPPORTS_SUBAGENT=true` → **不调** probe，直接派发固定 `plan-review-agent`。
+   - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。返回 `inline` / `unsupported` → 同上 decision-point。
+2. **派发**：`plan-review-agent`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。派发执行按平台能力选择形态：
    - **路径引用型**（agent 可自读文件）：`materials` 传路径清单
    - **内容注入型**（agent 无法读文件）：主代理 Read 全部全文拼入 `Materials:` 段
 3. **传入参数**：
@@ -444,10 +447,10 @@ runtime:
 
 仅当用户**显式**要求 subagent 时（H10）：
 
-1. 读 SessionStart 注入；若 `PLATFORM_DEGRADATION=inline|unsupported` → 强制 inline，输出原因
-2. 若只要默认通用且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ 可跳过 probe，`subagent-dispatch`（`agent=null`）
-3. 否则 `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入 `platform`，按返回选 agent 再 dispatch
-4. probe 返回 `degradation=inline|unsupported` → 强制回退 inline，输出原因
+1. 读 SessionStart 注入；若 `PLATFORM_DEGRADATION=inline|unsupported` → 强制 inline，输出原因（**不调** probe）
+2. 若只要默认通用且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ **不调** probe，`subagent-dispatch`（`agent=null`）
+3. 若要从清单选 agent：优先读 `$SUBAGENT_PROBE_CACHE` 选 id；仅当**缺缓存/缺注入**或需 `task_type`/`subagent_id` 正式过滤时，才 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（probe 优先读缓存），再 dispatch
+4. probe（若调用）返回 `degradation=inline|unsupported` → 强制回退 inline，输出原因
 
 #### 8.2 Constitution 注入点 C
 

@@ -279,7 +279,10 @@ LINT_EXIT=$?
 
 #### 6.1 主审
 
-1. **能力 / `subagent-probe`**：SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → 视同该结论（可跳过 probe）。否则加载 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → **阻断**（计划无独立主审不得进 build；与 design 可跳过主审不同）。不得 inline 假评审。
+1. **能力**：读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；全量清单在 `$SUBAGENT_PROBE_CACHE`，勿假定 additionalContext 含 agents）。
+   - `PLATFORM_DEGRADATION=inline|unsupported` → **阻断**（计划无独立主审不得进 build；与 design 可跳过主审不同）。不得 inline 假评审。**不调** probe。
+   - `SUPPORTS_SUBAGENT=true`（degradation 空）→ **不调** probe，直接 Step 6.1.2 派发固定 `tasks-review-agent`（可选用缓存核对 id 是否在清单中）。
+   - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；**优先读** `$SUBAGENT_PROBE_CACHE`，勿重复扫盘）。`inline` / `unsupported` → 同上阻断。
 2. **解析 StandardsRoot**：本 skill 安装根目录（含 `policies/`、`references/`、`prompts/`）。例：`$PLUGIN_ROOT/tasks`（nested）或项目 skills 下的 `polaris-flow-tasks`（flat）。目录缺失 → 阻断，提示 `polaris-flow init/update`。
 3. **派发**：注册名 / `subagent_type` = `tasks-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断。
 

@@ -4,7 +4,8 @@
 
 ### Added
 
-- **SessionStart subagent 能力注入**: SessionStart 按宿主 `platformId` 解析并注入 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`（与路径变量同渠道：additionalContext / Cursor env / `runtime-env` / `CLAUDE_ENV_FILE`）；core `resolveSubagentCapability` 与 `platform-probe.md` 能力列同源；编排在仅用默认通用 Agent 时可跳过空转 probe
+- **SessionStart subagent agents 缓存**: SessionStart 按宿主 `platformId` 扫描项目级 agents（算法对齐 `platform-probe.md`），写入 `.polaris/.cache/subagent-probe.json`（与 `subagent-probe` 输出同构），并注入 `SUBAGENT_PROBE_CACHE`；core `scanSubagents` / `buildSubagentProbeSnapshot`；probe 契约改为优先读该缓存再做 `task_type`/`subagent_id` 过滤
+- **SessionStart subagent 能力注入**: SessionStart 按宿主 `platformId` 解析并注入 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`（与路径变量同渠道：additionalContext / Cursor env / `runtime-env` / `CLAUDE_ENV_FILE`）；能力来自 `Platform.supportsSubagent`；编排在仅用默认通用 Agent 时可跳过空转 probe
 - **task-state-entry**: 新增 `polaris task-state-entry` / `scripts/task-state-entry.sh`，对 `.polaris/tasks/<id>/state.yaml` 做持锁 RMW；支持 `get`/`get-json`/`set`、`enter-phase`/`complete-phase`、`set-identity`/`get-identity`（身份字段均为顶层键，无 `naming` 块）；coding 走 `runtime.<phase>`，prd/prototype 走顶层阶段块
 - **workflow `--kind prototype`**: `workflow.yaml` 新增 `prototype_tasks` 列表；`workflow-entry` / `task-init` / `draft-create` / `state next` / `status` 接受 `--kind prototype`（对齐 blueprint/build/ship 脚本调用）；原型任务不建 draft，须 `--task-id` 直建 `.polaris/tasks/<id>/`，初始 phase=`blueprint`
 - **manifest ignoredFiles**: `assets/manifest.json` 的 `ignoredFiles` 在 `readAssets` 收集阶段生效；支持精确路径、`dir/name` 目录树同名、以及纯 basename（默认 `README.md` / `.DS_Store`）；skills 安装另有同名兜底跳过
@@ -25,6 +26,7 @@
 
 ### Changed
 
+- **Platform.supportsSubagent**: subagent 能力改由 `platforms.ts` 的 `Platform.supportsSubagent` + `resolveSubagentCapability` 表达，删除独立 `subagent-capability.ts`；`qoder` 重新登记且 `supportsSubagent=false`（inline）
 - **命令注册文档**: `assets/zh/adapters/command-registration.md` 由「各宿主手动注册方式」（Trae 手动声明 / CodeBuddy `plugin.json`）重写为「宿主中立 Markdown + 落盘位置表 + 已注册平台表」，与 `init` / `update` 的实际分发行为对齐，去掉已失效的 `/pofl:*` 与旧平台描述
 - **polaris-flow 维护类选项标注「暂不可用」**: M01/M02/M03 三项的入口技能均未落地（`maintance/hotfix` 与 `maintance/codereview` 无对应技能，`coding/` 族下也不存在 `refactor`），此前选中会直接撞上技能加载失败。现保留菜单，但在选项描述与路由表两处标注「⚠️ 暂不可用」，并在加载前拦截——照实告知用户缺的是哪个技能、询问是否改选其他功能；HARD-STOP 新增第 10 条，禁止对暂不可用选项直接开工或换用其他技能顶替，确保用户明确知道本次什么都没做而不是拿到一份错位产物
 - **prd/discovery Step 2 重构为「需求组」统一流程**: 将原 2.3 分叉点（非拆分路径 / 拆分路径两套不对称步骤）重构为 2.3~2.6 四步串行——2.3 判断是否拆分 → 2.4 产出「需求组」（不拆分给需求内容 + 推荐名，拆分给子需求拆分建议 + 推荐名，归一为 1 或 N 个需求）→ 2.5 对每个需求建目录（`task-init`）、写需求内容初稿、登记 workflow 游标（`append-active`），形成可独立恢复的基础任务 → 2.6 扫描任务目录列出清单、让用户明确选中一个推进；命名由「独立阻塞点」降为「推荐名默认采用、用户可改名」；「都要做」「按建议来」「只确认清单」均判为未选择；未选中任务状态维持「未启动」，后续经 Step 1 的「B. 选择一个」恢复；任务多于 4 个时按业务系统分组两级串行询问；Step 1.5 补齐按 `state.yaml` 判断基础任务（直接进 Step 3）/续写/后续阶段的恢复映射

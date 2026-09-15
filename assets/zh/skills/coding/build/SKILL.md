@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}build
-description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。优先由 implementer subagent 执行 apply；仅当 subagent-probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"
+description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。优先由 implementer subagent 执行 apply；仅当 SessionStart/probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"
 ---
 
 # Polaris 工作流 - 阶段：构建（build）
@@ -8,7 +8,7 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 <HARD-GATE>
 本 skill **仅**负责：在 **plan 已完成** 的前提下，按 `openspec/changes/<change_id>/tasks.md` 调用 `/opsx:apply` 完成实现，并做出口校验与阶段推进。
 
-- **禁止**在 Step 2（`subagent-probe`，且仅当 `build_mode=subagent_dispatch`）完成之前调用 `/opsx:apply`
+- **禁止**在 Step 2（能力结论 / 可选 `subagent-probe`，且仅当 `build_mode=subagent_dispatch`）完成之前调用 `/opsx:apply`
 - **禁止**跳过 Constitution 注入点 C（subagent 启动 prompt 必须含 C；inline 时由主代理按 task 输出 C）
 - **禁止**主代理在 `/opsx:apply` 之外直接编写业务实现代码（补丁、新模块、改 API 等）
 - **禁止**调用 `superpowers:subagent-driven-development` / `superpowers:executing-plans`（H13）
@@ -120,14 +120,14 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 若 `build_mode=subagent_dispatch`：
 
-1. 读 SessionStart 注入：`PLATFORM_DEGRADATION=inline|unsupported` → **强制**本会话 inline；输出原因；进入 Step 3.3（可跳过 probe）
-2. 若本步只要默认通用且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ 可跳过 probe，记 `dispatch=default`，进入派发
-3. 否则 **必须** `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入 `platform="$PLATFORM"`（或注入的 `PLATFORM_ID`）
-4. 按 `subagent-probe` 的返回结构消费（`platform_degradation` + `agents`）：
+1. 读 SessionStart 注入：`PLATFORM_DEGRADATION=inline|unsupported` → **强制**本会话 inline；输出原因；进入 Step 3.3（**不调** probe）
+2. 若本步只要默认通用且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ **不调** probe，记 `dispatch=default`，进入派发
+3. 若要从清单选 agent：优先读 `$SUBAGENT_PROBE_CACHE`；仅当**缺缓存/缺注入**或需 `task_type`/`subagent_id` 过滤时，才 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传入 `platform` / `PLATFORM_ID`；probe 优先读缓存）
+4. 按能力结论或 `subagent-probe` 返回结构消费（`platform_degradation` + `agents`）：
 
-| probe 返回 | 动作 |
+| 结论来源 | 动作 |
 |---------------|------|
-| `platform_degradation=null` 且 `agents` 非空 | 从 `agents` 选一项：路径型 → 记 `dispatch=path` + `subagent_path`；builtin → 记 `dispatch=builtin` + `subagent_type=id`。多项时按 decision-point 让用户选，或取第一项并告知用户 |
+| `platform_degradation=null` 且 `agents` 非空（缓存或 probe） | 从 `agents` 选一项：路径型 → 记 `dispatch=path` + `subagent_path`；builtin → 记 `dispatch=builtin` + `subagent_type=id`。多项时按 decision-point 让用户选，或取第一项并告知用户 |
 | `platform_degradation=null` 且 `agents=[]` | 记 `dispatch=default`（宿主默认 subagent，不绑 path） |
 | `platform_degradation=inline` / `unsupported` | **强制**改为本会话 inline 执行 apply；输出原因；进入 Step 3.3（不违反 HARD-GATE 例外） |
 

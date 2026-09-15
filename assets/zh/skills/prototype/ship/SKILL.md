@@ -73,16 +73,22 @@ RTID_EXIT=$?
 
 **为什么必须派发**：评审由建造者在**同一会话**内接着做时，评审者 = 建造者，独立性受限——只能靠报告如实标注来兜底。派到独立上下文执行，这个缺口从根上不成立。
 
-**编排方式**（能力结论 → 决策 → dispatch）：本技能为编排方。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose` 启动。须遵守 `subagent-probe` 跳过规则：若 SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → 可跳过 probe，直接走下方降级分支；否则本步传 `task_type: doc_review` → **必须** probe，选定后 `subagent-dispatch`。
+**编排方式**（统一用会话能力 + agents 清单）：本技能为编排方。**禁止**硬编码 `subagent_type=general-purpose`。优先 SessionStart 注入的 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION` / `$SUBAGENT_PROBE_CACHE`（勿假定 additionalContext 含全量 agents）。
 
-**general 决策**（本步骤无专用 agent 要求，按能力匹配取通用型）：
+**general 决策**（本步骤无专用 agent id；按 `doc_review` 能力匹配）：
 
-- `matched_agents` 非空 → 取 `matched_agents[0]`（预筛已按「专精在前、通用在后」排序；通常为通用型 agent）进入派发
-- `matched_agents` 与 `agents` 均为空 → 调用 dispatch 时传 `agent=null` 且 `task_spec.constraints` 加 `"dispatch_mode_hint: default_subagent"`（派宿主默认 subagent，独立上下文执行）
-- `platform_degradation=inline/unsupported`（注入或 probe）→ 跳过派发，主代理直接 inline 执行（见下方「inline 降级」）
+- `matched_agents` 非空 → 取 `matched_agents[0]`（专精在前、通用在后）进入派发
+- `matched_agents` 与 `agents` 均为空 → `subagent-dispatch` 传 `agent=null`，`constraints` 加 `"dispatch_mode_hint: default_subagent"`
+- `platform_degradation=inline/unsupported` → 跳过派发，主代理 inline（见「inline 降级」）
 
-1. **能力 / 探测**：注入已为 inline/unsupported → 跳过本步 probe；否则调用 `polaris{{SKN_SPR}}subagent-probe`，传入 `platform`（`PLATFORM_ID` 或项目配置）与 `task_type: doc_review`，取回 `matched_agents` 与 `platform_degradation`；
-2. **选定**：取 `matched_agents` 第一项；**平台不支持 subagent**（`platform_degradation` 为 `inline` / `unsupported`）或 `matched_agents` 为空 → 转降级分支；
+1. **能力**：读 SessionStart。
+   - `PLATFORM_DEGRADATION=inline|unsupported` → **不调** probe，转降级分支。
+   - `SUPPORTS_SUBAGENT=true` 且存在 `$SUBAGENT_PROBE_CACHE`（且 JSON.`platform` 与 `PLATFORM_ID` 一致）→ **不调** probe：读缓存 `agents`，按 `task_type=doc_review` 本地预筛（规则同 `subagent-probe/references/task-type-mapping.md`：`task_types` 含 `doc_review` 的专精在前，空 `task_types` 通用在后）得到 `matched_agents`。
+   - **缺注入或缺缓存** → 调用 `polaris{{SKN_SPR}}subagent-probe`（`platform` + `task_type: doc_review`；probe 仍优先读缓存）。
+2. **选定**：
+   - `matched_agents` 非空 → 取首项；
+   - 平台支持但候选为空 → `agent=null` + `default_subagent`（独立上下文，**不是** inline 降级）；
+   - 平台不支持 → 转下方「inline 降级」。
 3. **派发**：调用 `polaris{{SKN_SPR}}subagent-dispatch` 执行 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review`。
 
 **派发材料**（`materials`）：
@@ -108,15 +114,16 @@ RTID_EXIT=$?
 
 **降级分支**（平台不支持 subagent）：主代理 inline 执行 `review` 技能，判据与流程不变，但**报告「评审对象与范围」一节必须标注「本轮未独立执行：平台不支持 subagent」**——降级的是执行方式，不是评审标准。
 
-**产出**：`review_report.md`；写 `state.yaml`：
+**产出**：`review_report.md`；用脚本写 `state.yaml`（`review` 取 `done` 或降级时的 `degraded`；`review_mode` 取 `subagent` 或 `inline`）：
 
-```yaml
-ship:
-  status: in_progress
-  review: done            # done | degraded（降级执行）
-  review_mode: subagent   # subagent | inline
-  review_verdict: <可交付 | 修复后可交付 | 不得交付>
-  review_p0_count: <N>
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" \
+  --set ship.status=in_progress \
+  --set ship.review=<done|degraded> \
+  --set ship.review_mode=<subagent|inline> \
+  --set "ship.review_verdict=<可交付|修复后可交付|不得交付>" \
+  --set ship.review_p0_count=<N>
 ```
 
 ### Step 2：人工确认评审结论
@@ -146,7 +153,13 @@ ship:
 > A. 回 `build` 修复后重新执行交付（**推荐**）
 > B. 仍要归档（须填写风险接受理由，仅用于已决策的例外场景）
 
-选 B 时记录 `ship.risk_acceptance: <理由>`，并在交付信息中标注「未通过评审，风险已接受」。
+选 B 时用脚本记录风险接受理由，并在交付信息中标注「未通过评审，风险已接受」：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" \
+  --set "ship.risk_acceptance=<理由>"
+```
 
 仅 A 进入 Step 3；选 B（回 build）时输出回退指引并结束本轮。
 

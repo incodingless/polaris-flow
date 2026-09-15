@@ -179,7 +179,10 @@ canonical_spec: openspec
 
 #### 4.1 主审 — `design-review-agent`
 
-1. **能力 / `subagent-probe`**：SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → 视同该结论（可跳过 probe）。否则加载 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`）。`inline` / `unsupported` → 标注跳过并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。
+1. **能力**：读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；清单见 `$SUBAGENT_PROBE_CACHE`）。
+   - `PLATFORM_DEGRADATION=inline|unsupported` → 标注跳过并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。**不调** probe。
+   - `SUPPORTS_SUBAGENT=true` → **不调** probe，直接派发固定 `design-review-agent`。
+   - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。`inline` / `unsupported` → 同上 decision-point。
 2. **派发**：注册名 / `subagent_type` = `design-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断，提示先 `polaris-flow init/update`。
 
    **按 `subagent-delegate-policy.md` 执行派发**（D-0 工具可用性判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：

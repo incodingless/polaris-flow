@@ -1,5 +1,5 @@
 /**
- * 支持的 AI 编码平台定义（skillsDir、rules、hooks、skillsLayout）与平台/插件路径助手。
+ * 支持的 AI 编码平台定义（skillsDir、rules、hooks、skillsLayout、supportsSubagent）与平台/插件路径助手。
  * 对齐 OpenSpec AI_TOOLS 配置思路；不写盘，仅提供元数据与路径辅助函数。
  */
 import path from 'path';
@@ -55,6 +55,11 @@ export interface Platform {
   commandLayout?: CommandLayout;
   /** 是否支持 PreToolUse hooks */
   supportsHooks?: boolean;
+  /**
+   * 是否支持派发独立 subagent（与 platform-probe.md 能力列同源）。
+   * false → SessionStart / probe 记 platform_degradation=inline。
+   */
+  supportsSubagent: boolean;
   hooksConfigFile: string;
   /** Hook 配置写入格式 */
   hookFormat?: 'claude-code' | 'trae' | 'trae-cn';
@@ -280,6 +285,7 @@ export const PLATFORMS: Platform[] = [
     rulesFormat: 'md',
     skillsLayout: 'nested',
     supportsHooks: true,
+    supportsSubagent: true,
     /** project/global 实际文件由 hooks.ts 按 scope 选择 settings.local.json / settings.json */
     hooksConfigFile: 'settings.local.json',
     hookFormat: 'claude-code',
@@ -302,6 +308,7 @@ export const PLATFORMS: Platform[] = [
     /** Cursor CLI 只读 `.cursor/commands/` 顶层 `.md`、跳过全部子目录 → 命令必须扁平落盘 */
     commandLayout: 'flat',
     supportsHooks: true,
+    supportsSubagent: true,
     /** project/global 实际文件由 hooks.ts 按 scope 选择 settings.local.json / settings.json */
     hooksConfigFile: 'settings.local.json',
     hookFormat: 'claude-code',
@@ -321,6 +328,7 @@ export const PLATFORMS: Platform[] = [
     rulesFormat: 'md',
     skillsLayout: 'flat',
     supportsHooks: true,
+    supportsSubagent: true,
     hooksConfigFile: 'hooks.json',
     hookFormat: 'claude-code',
     detectionPaths: ['.trae'],
@@ -339,10 +347,59 @@ export const PLATFORMS: Platform[] = [
     rulesFormat: 'md',
     skillsLayout: 'flat',
     supportsHooks: true,
+    supportsSubagent: true,
     hooksConfigFile: 'hooks.json',
     hookFormat: 'trae',
     detectionPaths: ['.trae-cn'],
     openspecToolId: 'trae',
     agentToolMap: TRAE_AGENT_TOOL_MAP,
   },
+  {
+    id: 'qoder',
+    name: 'Qoder',
+    contextDir: '.qoder',
+    globalContextDir: '.qoder',
+    skillsDir: 'skills',
+    commandsDir: 'commands',
+    agentsDir: 'agents',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    skillsLayout: 'nested',
+    supportsHooks: false,
+    /** 宿主强制无独立 subagent，probe / SessionStart 记 inline */
+    supportsSubagent: false,
+    hooksConfigFile: 'settings.json',
+    hookFormat: 'claude-code',
+    detectionPaths: ['.qoder'],
+    openspecToolId: 'qoder',
+    agentToolMap: {},
+  },
 ];
+
+/** SessionStart / probe 用的平台级退化结论 */
+export type PlatformDegradation = null | 'inline' | 'unsupported';
+
+/** 平台 subagent 能力解析结果 */
+export type SubagentCapability = {
+  supportsSubagent: boolean;
+  platformDegradation: PlatformDegradation;
+};
+
+/**
+ * 按 platformId 从 PLATFORMS 解析是否支持 subagent 及退化结论。
+ * 未登记 → unsupported；已登记且 supportsSubagent=false → inline；支持 → degradation=null。
+ */
+export function resolveSubagentCapability(platformId: string): SubagentCapability {
+  const id = platformId.trim();
+  if (!id) {
+    return { supportsSubagent: false, platformDegradation: 'unsupported' };
+  }
+  const platform = PLATFORMS.find((p) => p.id === id);
+  if (!platform) {
+    return { supportsSubagent: false, platformDegradation: 'unsupported' };
+  }
+  if (!platform.supportsSubagent) {
+    return { supportsSubagent: false, platformDegradation: 'inline' };
+  }
+  return { supportsSubagent: true, platformDegradation: null };
+}

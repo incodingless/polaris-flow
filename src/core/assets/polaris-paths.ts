@@ -62,6 +62,19 @@ export function getWorkflowConfigPath(projectPath: string): string {
   return path.join(getPolarisDir(projectPath), 'workflow.yaml');
 }
 
+/** 返回 `.polaris/.cache` 目录 */
+export function getPolarisCacheDir(projectPath: string): string {
+  return path.join(getPolarisDir(projectPath), '.cache');
+}
+
+/**
+ * 返回 SessionStart 写入的 subagent-probe 快照路径。
+ * `.polaris/.cache/subagent-probe.json`
+ */
+export function getSubagentProbeCachePath(projectPath: string): string {
+  return path.join(getPolarisCacheDir(projectPath), 'subagent-probe.json');
+}
+
 /** 返回 `.polaris/.locks` 目录 */
 export function getLocksDir(projectPath: string): string {
   return path.join(getPolarisDir(projectPath), '.locks');

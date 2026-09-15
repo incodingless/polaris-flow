@@ -1,13 +1,13 @@
 ---
 name: polaris{{SKN_SPR}}subagent-dispatch
-description: Subagent 派发执行技能。接收 platform、已选定的 agent（由 subagent-probe 探测后由调用方选定）、task_spec，构造 prompt 并派发 subagent 执行，等待回报。纯执行，不做探测、不做选 agent 决策、不做降级判断——这些由调用方（编排型技能）完成。支持代码编写、文档编写、文档评审、数据分析、研究等通用任务类型。
+description: Subagent 派发执行技能。接收 platform、已选定的 agent（来自 subagent-probe、SessionStart 缓存或调用方固定 id；亦可 agent=null）、task_spec，构造 prompt 并派发执行，等待回报。纯执行，不做探测、不做选 agent 决策、不做降级判断。
 ---
 
 # subagent-dispatch
 
 ## 定位
 
-**派发执行技能**：由编排型技能（orchestrator skill）在调用 `subagent-probe` 探测可用 agent 并自行选定后调用，负责"D-0 工具判定 → D-1/D-2 prompt 构造 → 派发执行 → 等待回报"，**不做探测、不做选 agent 决策、不做降级判断**。
+**派发执行技能**：由编排型技能在已选定 agent（或 `agent=null`）后调用，负责"D-0 工具判定 → D-1/D-2 prompt 构造 → 派发执行 → 等待回报"，**不做探测、不做选 agent 决策、不做降级判断**。
 
 ## 适用场景
 

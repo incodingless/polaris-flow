@@ -273,7 +273,7 @@ LANG_EXIT=$?
 
 ### 3.0 探测可用 subagent（Step 3 入口，一次探测全程复用）
 
-**能力结论优先**：若 SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → **可跳过 probe**，3.1 与 3.2 直接按下方表降级 inline。若注入为支持（`SUPPORTS_SUBAGENT=true` 且 degradation 空）或**缺注入**，因本入口需要 `task_type: doc_review` 预筛 → **必须**调用 probe（不可因「只要通用 Agent」而跳过）。
+**能力结论优先**：若 SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → **可跳过 probe**，3.1 与 3.2 直接按下方表降级 inline。若注入为支持（`SUPPORTS_SUBAGENT=true` 且 degradation 空）或**缺注入**，因本入口需要 `task_type: doc_review` 预筛 → **必须**调用 probe（不可因「只要通用 Agent」而跳过）。probe 应优先读 `$SUBAGENT_PROBE_CACHE`（勿假定 additionalContext 含全量 agents）。
 
 **探测方式**：调用 `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入：
 

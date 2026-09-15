@@ -25,7 +25,7 @@ blueprint（出蓝图·人工确认）→ build（按蓝图做原型）→ ship�
 
 | 情况 | 处理 |
 |---|---|
-| 平台支持 subagent | `subagent-probe` → 选 agent → `subagent-dispatch`，`task_type: doc_review` |
+| 平台支持 subagent | SessionStart 能力 + `$SUBAGENT_PROBE_CACHE`：有缓存则本地按 `doc_review` 预筛选 agent → `subagent-dispatch`；缺缓存/缺注入才 `subagent-probe` |
 | 平台不支持 / 无可用 agent | 主代理 inline 执行 `review`，**报告必须标注「本轮未独立执行」** |
 | 两种情况下的判据 | 完全一致——**降级的是执行方式，不是评审标准** |
 

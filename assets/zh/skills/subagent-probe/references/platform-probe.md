@@ -3,7 +3,9 @@
 本文件是 `subagent-probe` 的平台能力表。执行扫描前**必须**先读本文件，再按当前 `platform` 行执行；**禁止**跨平台混扫。
 本文档定义「某个 platform 去哪里找 subagent」；扫描由 `subagent-probe` skill 执行，选 agent / 派发 / 降级决策由调用方（编排型技能）完成。
 
-> **能力列同源**：下表 `supports_subagent` / 对应的 `platform_degradation` 语义与 `src/core/domain/subagent-capability.ts`（SessionStart 注入 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`）必须保持一致；改一处必须改另一处。
+> **能力列同源**：`supports_subagent` / 退化语义以 `src/core/domain/platforms.ts` 的 `Platform.supportsSubagent` + `resolveSubagentCapability` 为准（SessionStart 注入 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`）。未在 `PLATFORMS` 登记 → `unsupported`；已登记且 `supportsSubagent=false` → `inline`。本文档扫描目录表须与上述能力一致；改一处必须改另一处。
+>
+> **扫描实现真相源**：目录扫描与 builtin 回退由 core `src/core/subagent/scan-agents.ts`（`scanSubagents` / `buildSubagentProbeSnapshot`）实现，SessionStart 写入 `.polaris/.cache/subagent-probe.json`。本文档为规范；改算法须 **md + core 双改**。
 
 > **禁止**对所有平台做全目录混扫。必须先有 `platform`，再只扫该平台策略允许的目录。
 
@@ -45,9 +47,10 @@ main_repo_root="$(git rev-parse --show-toplevel)"
 | 文档 / skill | 职责 |
 |---|---|
 | 本文档 | 平台 → 扫描目录与算法说明 |
-| `subagent-probe` | 查能力表，执行扫描，返回 agents 清单与命中信息（不做决策） |
-| `subagent-dispatch` | 接收调用方选定的 agent 与 task_spec，执行派发（不做探测、不做选 agent 决策） |
-| 调用方技能（编排型） | 消费 probe 结果，选 agent、做降级决策，调用 dispatch 派发 |
+| SessionStart + `scanSubagents` | 会话开始写入 `$SUBAGENT_PROBE_CACHE`（能力 + agents） |
+| `subagent-probe` | **优先读缓存**；未命中才扫盘；返回 agents / matched_agents / 命中信息（不做决策） |
+| `subagent-dispatch` | 接收调用方选定的 agent 与 task_spec，执行派发 |
+| 调用方技能（编排型） | 消费注入/缓存/probe 结果，选 agent、做降级决策，调用 dispatch |
 
 ## 按平台扫描
 
@@ -63,12 +66,13 @@ main_repo_root="$(git rev-parse --show-toplevel)"
 | platform | supports_subagent | scan | 扫描目录 / 说明 | 空结果时 |
 |---|---|---|---|---|
 | `claude` | true | directory | `<main_repo_root>/.agents/` / 全局级 `$HOME/.claude/agents/` 不扫 | agents=[]，决策由调用方 |
-| `codebuddy` | true | directory | `<main_repo_root>/.agents/` / 全局级 `$HOME/.codebuddy/agents/` 不扫 | agents=[]，决策由调用方 |
 | `cursor` | true | directory+builtin | 先 `<main_repo_root>/.agents/` + `<main_repo_root>/.cursor/agents/`；皆空则为 `builtin` | builtin 已填 → agents=builtin 清单；builtin 表也空 → agents=[] |
 | `trae` | true | directory | `<main_repo_root>/.agents/` / 全局 `$HOME/.trae/agents/` 不扫 | agents=[]，决策由调用方 |
 | `trae-cn` | true | directory | `<main_repo_root>/.agents/` / 全局 `$HOME/.trae/agents/` 不扫 | agents=[]，决策由调用方 |
 | `qoder` | false | none | 不扫 | platform_degradation=inline，reason=host_forced_inline |
-| （未登记） | false | none | 不扫 | platform_degradation=unsupported，reason=unknown_platform |
+| （未在 `PLATFORMS` 登记） | false | none | 不扫 | platform_degradation=unsupported，reason=unknown_platform |
+
+> 上表 `supports_subagent` 列必须与 `PLATFORMS[].supportsSubagent` 一致。
 
 ### Cursor 内置 Task 回退表（`source=builtin`）
 

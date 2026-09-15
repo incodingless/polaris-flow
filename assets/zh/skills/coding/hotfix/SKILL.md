@@ -58,7 +58,7 @@ hotfix 是 P01（紧急 bug 修复）的执行体。它把完整链路的 `speci
 | ID | 在本 skill 的适用方式 |
 |----|---------------------|
 | H8 | 每个 Step 入口输出可见状态行 |
-| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 3.1）时。须先有平台能力结论（SessionStart 注入或 `subagent-probe`）；仅默认通用且注入支持时可跳过 probe 直接 dispatch(`agent=null`)，否则必须 probe。默认 inline 路径不派发 subagent，不触发本条 |
+| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 3.1）时。优先 SessionStart 注入；仅默认通用且支持 → 不调 probe 直接 dispatch(`agent=null`)；选清单时优先 `$SUBAGENT_PROBE_CACHE`，缺缓存/需过滤才 probe。默认 inline 路径不触发本条 |
 | H12 | 写 `.polaris/workflow.yaml` 走 `scripts/workflow-entry.sh`（内含 workflow.lock + 写后校验），不自写文件 |
 | H13 | 不调用两个 superpowers 派发驱动器 |
 
@@ -173,7 +173,7 @@ hotfix 是 P01（紧急 bug 修复）的执行体。它把完整链路的 `speci
 **Step 3.1：实施**
 
 - 顺序：先写回归测试（红）→ 写 fix（绿）→ 重构
-- 复杂 bug 可派发 subagent（用户显式要求时）—— 派发前 `use_skill("polaris{{SKN_SPR}}subagent-probe")` 注入 `platform`
+- 复杂 bug 可派发 subagent（用户显式要求时）—— 先读 SessionStart 注入；`SUPPORTS_SUBAGENT=true` 且只要默认通用 → 不调 probe，直接 dispatch(`agent=null`)；需选清单或缺注入 → `use_skill("polaris{{SKN_SPR}}subagent-probe")`（优先读 `$SUBAGENT_PROBE_CACHE`）
 - 默认 inline：主代理按 `tasks.md` 逐项 `apply` 即可
 
 **Step 3.2：metrics 写盘**

@@ -1,12 +1,12 @@
 /**
- * resolveSubagentCapability 与 platform-probe.md 能力列对齐单测。
+ * resolveSubagentCapability 与 Platform.supportsSubagent 对齐单测。
  */
 import { describe, expect, it } from 'vitest';
 
-import { resolveSubagentCapability } from '../../src/core/domain/subagent-capability.js';
+import { resolveSubagentCapability } from '../../src/core/domain/platforms.js';
 
 describe('resolveSubagentCapability', () => {
-  it.each(['claude', 'codebuddy', 'cursor', 'trae', 'trae-cn'] as const)(
+  it.each(['claude', 'cursor', 'trae', 'trae-cn'] as const)(
     '%s 支持 subagent，degradation=null',
     (id) => {
       expect(resolveSubagentCapability(id)).toEqual({

@@ -106,14 +106,15 @@ openspec/changes/<change_id>/
 
 **禁止**无基线（intention 与 explore 背景皆无）仍声称「对照完整」；此时须在派发说明中标注基线缺失，并让审查者按 agent 规则降级处理。
 
-### 4.1 探针
+### 4.1 能力 / 探针
 
-加载 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`）。
+读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；清单见 `$SUBAGENT_PROBE_CACHE`）。
 
 | 结果 | 动作 |
 |------|------|
-| 可用 | 继续 4.2 |
-| `inline` / `unsupported` | 标注原因；decision-point：A 接受跳过本批反思循环（记入摘要，**不计**为审查轮次）/ B 阻断。**禁止**主代理 inline 假评审 |
+| `PLATFORM_DEGRADATION=inline\|unsupported` | 标注原因；decision-point：A 接受跳过本批反思循环（记入摘要，**不计**为审查轮次）/ B 阻断。**禁止**主代理 inline 假评审。**不调** probe |
+| `SUPPORTS_SUBAGENT=true` | **不调** probe，继续 4.2 派发固定 `plan-review-agent` |
+| 缺注入 | 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。`inline` / `unsupported` → 同上 decision-point；可用 → 继续 4.2 |
 
 ### 4.2 派发批内审查者（计一轮）
 
