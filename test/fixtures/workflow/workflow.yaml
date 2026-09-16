@@ -1,4 +1,4 @@
-change_tasks:
+coding_tasks:
   - task_id: add-feature-x
     phase: plan
     worktree_path: ""

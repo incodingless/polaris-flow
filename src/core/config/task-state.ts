@@ -1,10 +1,10 @@
 /**
- * 单 change 任务运行态（`.polaris/tasks/<id>/state.yaml`）读写。
+ * 单 coding 任务运行态（`.polaris/tasks/<id>/state.yaml`）读写。
  * 对齐 assets/shared/templates/state.example.yaml。
  *
  * 顶层：
  *   language / install-time / main-repo-root / worktree-dir
- *   change_id / phase / current_tier
+ *   kind / change_id / phase / current_tier
  *   workflow: { mode, tweak, normal }（字典；tweak / normal 段仅 mode 对应时填充）
  *   artifact_review_mode / artifact_max_round
  *   verify_mode / auto_transition / isolation / context_compression
@@ -206,6 +206,8 @@ export interface TaskState {
   main_repo_root?: string;
   worktree_dir?: string;
 
+  /** 任务类型：coding（开发变更） */
+  kind?: string;
   change_id?: string;
   /** 旧字段兼容 */
   task_id?: string;
@@ -423,6 +425,7 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
     install_time: '',
     main_repo_root: '',
     worktree_dir: '',
+    kind: options.kind ?? 'coding',
     change_id: changeId,
     phase: options.phase ?? 'idle',
     current_tier: '',

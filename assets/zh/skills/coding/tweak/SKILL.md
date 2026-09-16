@@ -85,7 +85,7 @@ if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/task-init.sh" ]; then
   exit 2
 fi
 
-INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind change)
+INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind coding)
 INIT_EXIT=$?
 echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```
@@ -280,7 +280,7 @@ phase: plan
 同步主仓 workflow.yaml（脚本内含锁 + 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill tweak --where-task-id "$change_id" --set phase=plan --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$change_id" --set phase=plan --set worktree-path="$target_path"
 ```
 
 输出：`[polaris-flow 开发]快速通道 - worktree：created at <target_path> on branch <target_branch>`。
@@ -432,7 +432,7 @@ phase: idle
 ```
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill tweak --where-task-id "$change_id" --set phase=ship
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$change_id" --set phase=ship
 ```
 
 输出：

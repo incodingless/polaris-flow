@@ -19,7 +19,7 @@ ship 是 easy-flow 中唯一会**写主仓共享资源**的阶段（`workflow.ya
 
 ### 0.1 解析 main_repo_root 与 change_id
 
-通过 `scripts/change-locate.sh`(无 phase 限定)定位本会话 change_tasks entry,取 `change_id`(及 `worktree_path` 用于解析 main_repo_root)。零/多匹配按脚本退出码阻断,**不获取锁**——脚本 stderr 已含统一阻断话术。
+通过 `scripts/change-locate.sh`(无 phase 限定)定位本会话 coding_tasks entry,取 `change_id`(及 `worktree_path` 用于解析 main_repo_root)。零/多匹配按脚本退出码阻断,**不获取锁**——脚本 stderr 已含统一阻断话术。
 
 ### 0.2 检测既有锁
 

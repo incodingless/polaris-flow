@@ -78,7 +78,7 @@ TODO 待补充内部流程过程
 用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill tasks --repo-root "$REPO_ROOT" --phase tasks)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill tasks --repo-root "$REPO_ROOT" --phase tasks)
 RTID_EXIT=$?
 ```
 
@@ -106,7 +106,7 @@ RTID_EXIT=$?
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change --phase tasks
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding --phase tasks
 ```
 输出：`[polaris-flow 开发]任务规划: change_id=<change_id> ; phase=tasks`
 
@@ -361,9 +361,9 @@ LINT_EXIT=$?
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change --phase tasks
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding --phase tasks
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change \
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding \
   --set runtime.plan.status=completed \
   --set runtime.plan.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \
   --set runtime.plan.tasks_path=openspec/changes/<change_id>/tasks.md \
@@ -375,7 +375,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 workflow阶段推进至详细构建阶段：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill tasks --where-task-id "$task_id" --set phase=build
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tasks --where-task-id "$task_id" --set phase=build
 ```
 
 输出：

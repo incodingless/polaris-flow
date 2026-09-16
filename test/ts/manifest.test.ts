@@ -73,9 +73,9 @@ describe('workflow fixture', () => {
       'utf-8',
     );
     const parsed = parseYaml(raw) as {
-      change_tasks: Array<{ task_id: string; phase: string }>;
+      coding_tasks: Array<{ task_id: string; phase: string }>;
     };
-    expect(parsed.change_tasks[0]?.task_id).toBe('add-feature-x');
-    expect(parsed.change_tasks[0]?.phase).toBe('plan');
+    expect(parsed.coding_tasks[0]?.task_id).toBe('add-feature-x');
+    expect(parsed.coding_tasks[0]?.phase).toBe('plan');
   });
 });

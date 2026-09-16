@@ -172,7 +172,7 @@ describe('runSessionStart', () => {
     await mkdir(path.join(pluginRoot, 'templates'), { recursive: true });
     await writeFile(
       path.join(pluginRoot, 'templates', 'workflow-template.yaml'),
-      'change_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\nprototype_tasks: []\n',
+      'coding_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\nprototype_tasks: []\n',
       'utf-8',
     );
     // 装上 superpowers + 假 openspec skill，减少 WARN
@@ -199,7 +199,7 @@ describe('runSessionStart', () => {
     expect(gitignore).toContain('workflow.yaml');
 
     const workflow = await readFile(path.join(tmp, '.polaris', 'workflow.yaml'), 'utf-8');
-    expect(workflow).toContain('change_tasks');
+    expect(workflow).toContain('coding_tasks');
     expect(workflow).toContain('requirement_tasks');
     expect(workflow).toContain('testcase_tasks');
     expect(workflow).toContain('prototype_tasks');

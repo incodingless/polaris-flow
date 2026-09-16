@@ -15,7 +15,7 @@ your-project/
 │
 ├── .polaris/                       # polaris-flow 运行时状态
 │   ├── config.yaml                 # 项目配置，记录项目共用配置
-│   ├── workflow.yaml               # 工作流游标（change_tasks / requirement_tasks / testcase_tasks）
+│   ├── workflow.yaml               # 工作流游标（coding_tasks / requirement_tasks / testcase_tasks / prototype_tasks）
 │   ├── .gitignore                  # 文件忽略清单
 │   ├── tasks/                      # 开发任务（change）与需求任务（requirement）共用
 │   │   └── <task_id>/              # 靠 state.yaml 的 kind 字段区分

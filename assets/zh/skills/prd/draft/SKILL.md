@@ -21,7 +21,7 @@ version: 0.3
 
 > **上下文整理通用规则**：每个 Step 收尾时，统一释放该步的中间推导草稿、重复条目、冗余对话与已闭环问题的原始草稿；仅保留已确认结论、剩余待生成章节、交叉校验结果、隐含假设与风险池（下文各「上下文整理」子步骤只列本步需保留的关键产出）。
 
-### Step 0：定位 change_id + 入口校验
+### Step 0：定位任务标识 + 入口校验
 
 ```bash
 TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind requirement --skill draft --repo-root "$REPO_ROOT" --phase draft)

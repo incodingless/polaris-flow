@@ -20,25 +20,25 @@ export type WorkflowTaskEntry = {
 };
 
 /** 任务类型 → YAML 列表键 */
-export type WorkflowTaskKind = 'change' | 'requirement' | 'testcase' | 'prototype';
+export type WorkflowTaskKind = 'coding' | 'requirement' | 'testcase' | 'prototype';
 
 /** kind 对应的 YAML 顶层键名 */
 export type WorkflowTaskListKey =
-  | 'change_tasks'
+  | 'coding_tasks'
   | 'requirement_tasks'
   | 'testcase_tasks'
   | 'prototype_tasks';
 
 /** `.polaris/workflow.yaml` 根结构 */
 export type WorkflowState = {
-  change_tasks: WorkflowTaskEntry[];
+  coding_tasks: WorkflowTaskEntry[];
   requirement_tasks: WorkflowTaskEntry[];
   testcase_tasks: WorkflowTaskEntry[];
   prototype_tasks: WorkflowTaskEntry[];
 };
 
 export const WORKFLOW_TASK_KINDS: readonly WorkflowTaskKind[] = [
-  'change',
+  'coding',
   'requirement',
   'testcase',
   'prototype',
@@ -55,8 +55,8 @@ export function workflowTaskKindErrorMessage(): string {
 /** 将 kind 映射为 YAML 列表键；非法 kind 返回 null */
 export function listKeyForKind(kind: string | undefined): WorkflowTaskListKey | null {
   switch (kind) {
-    case 'change':
-      return 'change_tasks';
+    case 'coding':
+      return 'coding_tasks';
     case 'requirement':
       return 'requirement_tasks';
     case 'testcase':
@@ -71,7 +71,7 @@ export function listKeyForKind(kind: string | undefined): WorkflowTaskListKey | 
 /** 解析并校验 kind；非法则返回 null */
 export function parseWorkflowTaskKind(raw: string | undefined): WorkflowTaskKind | null {
   if (
-    raw === 'change' ||
+    raw === 'coding' ||
     raw === 'requirement' ||
     raw === 'testcase' ||
     raw === 'prototype'
@@ -110,7 +110,7 @@ export function getWorkflowCursorPath(repoRoot: string): string {
 /** 空骨架（四列表） */
 export function emptyWorkflowState(): WorkflowState {
   return {
-    change_tasks: [],
+    coding_tasks: [],
     requirement_tasks: [],
     testcase_tasks: [],
     prototype_tasks: [],
@@ -149,7 +149,7 @@ function normalizeWorkflowState(raw: unknown): WorkflowState {
   }
   const obj = raw as Record<string, unknown>;
   return {
-    change_tasks: normalizeTaskList(obj.change_tasks),
+    coding_tasks: normalizeTaskList(obj.coding_tasks),
     requirement_tasks: normalizeTaskList(obj.requirement_tasks),
     testcase_tasks: normalizeTaskList(obj.testcase_tasks),
     prototype_tasks: normalizeTaskList(obj.prototype_tasks),
@@ -192,7 +192,7 @@ export async function ensureWorkflowStateFile(repoRoot: string): Promise<string>
     return filePath;
   }
   const skeleton =
-    'change_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\nprototype_tasks: []\n';
+    'coding_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\nprototype_tasks: []\n';
   await writeFile(filePath, skeleton, 'utf-8');
   return filePath;
 }
@@ -203,14 +203,14 @@ export async function ensureWorkflowCursorFile(repoRoot: string): Promise<string
 }
 
 /**
- * 写回 workflow.yaml（稳定字段顺序：change → requirement → testcase → prototype）。
+ * 写回 workflow.yaml（稳定字段顺序：coding → requirement → testcase → prototype）。
  */
 export async function saveWorkflowState(repoRoot: string, state: WorkflowState): Promise<void> {
   const filePath = getWorkflowStatePath(repoRoot);
   await mkdir(path.dirname(filePath), { recursive: true });
 
   const ordered: Record<string, unknown> = {
-    change_tasks: state.change_tasks.length === 0 ? [] : state.change_tasks,
+    coding_tasks: state.coding_tasks.length === 0 ? [] : state.coding_tasks,
     requirement_tasks: state.requirement_tasks.length === 0 ? [] : state.requirement_tasks,
     testcase_tasks: state.testcase_tasks.length === 0 ? [] : state.testcase_tasks,
     prototype_tasks: state.prototype_tasks.length === 0 ? [] : state.prototype_tasks,

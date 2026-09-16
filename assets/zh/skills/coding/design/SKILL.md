@@ -46,7 +46,7 @@ description: "把 plan 的高层 design.md 深化为可实施的详细技术设�
 用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill design --repo-root "$REPO_ROOT" --phase design)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill design --repo-root "$REPO_ROOT" --phase design)
 RTID_EXIT=$?
 ```
 
@@ -72,14 +72,14 @@ RTID_EXIT=$?
 通过后：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill design --where-task-id "$change_id" --set phase=design
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill design --where-task-id "$change_id" --set phase=design
 ```
 
 更新 `state.yaml`：`phase: design`，`runtime.design.status: in_progress`。
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change --phase design
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding --phase design
 ```
 输出：`[polaris-flow 开发]设计: change_id=<change_id> ; phase=design`
 
@@ -239,9 +239,9 @@ canonical_spec: openspec
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change --phase design
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding --phase design
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change \
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding \
   --set runtime.design.path=openspec/changes/<change_id>/detailed-design.md \
   --set runtime.design.review_report=openspec/changes/<change_id>/reviews/design-review-report.md \
   --set "runtime.design.outside_voice=<ran|skipped:<reason>|not_run:<reason>>" \
@@ -251,7 +251,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 workflow阶段推进至规划阶段：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill design --where-task-id "$task_id" --set phase=tasks
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill design --where-task-id "$task_id" --set phase=tasks
 ```
 
 输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks。`

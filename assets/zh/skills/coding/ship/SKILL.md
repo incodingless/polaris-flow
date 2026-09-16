@@ -49,7 +49,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 用 bash 读取工作流配置中有效变更的`change_id`：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill ship --repo-root "$REPO_ROOT" --phase ship)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill ship --repo-root "$REPO_ROOT" --phase ship)
 RTID_EXIT=$?
 ```
 
@@ -275,7 +275,7 @@ openspec-cn archive "$change_id" --yes
 
 **必做**（含 `runtime.ship.archive=failed`：OpenSpec 目录仍在原位，仅清 polaris 游标与 tasks 档案）。
 
-调用 `ship-cleanup.sh`（删 `change_tasks` 对应 entry + `rm -rf .polaris/tasks/<change_id>{,.snapshot}`）：
+调用 `ship-cleanup.sh`（删 `coding_tasks` 对应 entry + `rm -rf .polaris/tasks/<change_id>{,.snapshot}`）：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$change_id" "$ORIGIN_REPO" || exit 1

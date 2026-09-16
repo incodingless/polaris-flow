@@ -103,7 +103,7 @@ B. 继续 normal — 记录风险接受后按常规通道执行
 2. 推进 workflow：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill normal --where-task-id "$change_id" --set phase=design
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill normal --where-task-id "$change_id" --set phase=design
 ```
 
 3. 写状态：

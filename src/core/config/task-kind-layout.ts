@@ -1,5 +1,5 @@
 /**
- * 任务类型布局表：集中声明 change / requirement / testcase / prototype 的存储根、初始 phase 与 bootstrap 文件。
+ * 任务类型布局表：集中声明 coding / requirement / testcase / prototype 的存储根、初始 phase 与 bootstrap 文件。
  * 供 task-init / draft-create 按 `--kind` 分支初始化。
  */
 import { parseWorkflowTaskKind, type WorkflowTaskKind } from './workflow-state.js';
@@ -18,7 +18,7 @@ export type TaskKindLayout = {
   storageSegment: TaskStorageSegment;
   initialPhase: string;
   /** 选用哪套 state 工厂 */
-  stateFactory: 'change' | 'requirement' | 'testcase' | 'prototype';
+  stateFactory: 'coding' | 'requirement' | 'testcase' | 'prototype';
   /**
    * 是否走 draft-* 临时目录。
    * false 时须传正式 task_id，直接初始化 `.polaris/<segment>/<task_id>/`。
@@ -30,11 +30,11 @@ export type TaskKindLayout = {
 
 /** 四种任务类型的布局表 */
 export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
-  change: {
-    kind: 'change',
+  coding: {
+    kind: 'coding',
     storageSegment: 'tasks',
     initialPhase: 'specify',
-    stateFactory: 'change',
+    stateFactory: 'coding',
     usesDraft: true,
     bootstrapFiles: [],
   },

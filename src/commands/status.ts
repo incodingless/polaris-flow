@@ -19,7 +19,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
   if (!mainRepo) {
     const payload = {
       error: 'not a git repository',
-      change_tasks: [],
+      coding_tasks: [],
       requirement_tasks: [],
       testcase_tasks: [],
       prototype_tasks: [],
@@ -33,7 +33,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
     return;
   }
 
-  const changeTasks = state?.change_tasks ?? [];
+  const codingTasks = state?.coding_tasks ?? [];
   const requirementTasks = state?.requirement_tasks ?? [];
   const testcaseTasks = state?.testcase_tasks ?? [];
   const prototypeTasks = state?.prototype_tasks ?? [];
@@ -44,7 +44,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
         {
           mainRepo,
           workflowPath: getWorkflowStatePath(mainRepo),
-          change_tasks: changeTasks,
+          coding_tasks: codingTasks,
           requirement_tasks: requirementTasks,
           testcase_tasks: testcaseTasks,
           prototype_tasks: prototypeTasks,
@@ -74,7 +74,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
     }
   };
 
-  printSection('Change tasks', changeTasks);
+  printSection('Coding tasks', codingTasks);
   console.log('');
   printSection('Requirement tasks', requirementTasks);
   console.log('');

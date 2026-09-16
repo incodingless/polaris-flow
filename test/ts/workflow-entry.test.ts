@@ -27,47 +27,47 @@ async function tmpRepo(): Promise<string> {
 }
 
 describe('applyWorkflowOp', () => {
-  it('append / update / rename / delete change_tasks', () => {
+  it('append / update / rename / delete coding_tasks', () => {
     let c = emptyWorkflowState();
     let r = applyWorkflowOp(c, {
       op: 'append-active',
       skill: 't',
-      kind: 'change',
+      kind: 'coding',
       taskId: 'draft-1',
       phase: 'specify',
       worktreePath: '',
       startedAt: '2026-01-01T00:00:00Z',
     });
-    expect(r.state.change_tasks).toHaveLength(1);
+    expect(r.state.coding_tasks).toHaveLength(1);
     expect(r.state.requirement_tasks).toHaveLength(0);
     expect(r.verify.kind).toBe('has_tid');
 
     r = applyWorkflowOp(r.state, {
       op: 'update-active',
       skill: 't',
-      kind: 'change',
+      kind: 'coding',
       whereTaskId: 'draft-1',
       setPhase: 'plan',
     });
-    expect(r.state.change_tasks[0].phase).toBe('plan');
+    expect(r.state.coding_tasks[0].phase).toBe('plan');
 
     r = applyWorkflowOp(r.state, {
       op: 'rename-active',
       skill: 't',
-      kind: 'change',
+      kind: 'coding',
       from: 'draft-1',
       to: 'feat-abc123',
     });
-    expect(r.state.change_tasks[0].task_id).toBe('feat-abc123');
+    expect(r.state.coding_tasks[0].task_id).toBe('feat-abc123');
     expect(r.verifyNeg?.val).toBe('draft-1');
 
     r = applyWorkflowOp(r.state, {
       op: 'delete-active',
       skill: 't',
-      kind: 'change',
+      kind: 'coding',
       whereTaskId: 'feat-abc123',
     });
-    expect(r.state.change_tasks).toHaveLength(0);
+    expect(r.state.coding_tasks).toHaveLength(0);
   });
 
   it('缺 kind 抛错；异种列表互不干扰', () => {
@@ -84,7 +84,7 @@ describe('applyWorkflowOp', () => {
       phase: 'discovery',
     });
     expect(r.state.requirement_tasks).toHaveLength(1);
-    expect(r.state.change_tasks).toHaveLength(0);
+    expect(r.state.coding_tasks).toHaveLength(0);
 
     r = applyWorkflowOp(r.state, {
       op: 'append-active',
@@ -111,7 +111,7 @@ describe('applyWorkflowOp', () => {
     expect(r.state.prototype_tasks[0].task_id).toBe('proto-1');
     expect(r.state.prototype_tasks[0].phase).toBe('blueprint');
     expect(r.state.requirement_tasks).toHaveLength(0);
-    expect(r.state.change_tasks).toHaveLength(0);
+    expect(r.state.coding_tasks).toHaveLength(0);
 
     r = applyWorkflowOp(r.state, {
       op: 'update-active',
@@ -133,8 +133,8 @@ describe('applyWorkflowOp', () => {
 });
 
 describe('parseWorkflowTaskKind', () => {
-  it('接受 change|requirement|testcase|prototype；拒绝其它值', () => {
-    expect(parseWorkflowTaskKind('change')).toBe('change');
+  it('接受 coding|requirement|testcase|prototype；拒绝其它值', () => {
+    expect(parseWorkflowTaskKind('coding')).toBe('coding');
     expect(parseWorkflowTaskKind('requirement')).toBe('requirement');
     expect(parseWorkflowTaskKind('testcase')).toBe('testcase');
     expect(parseWorkflowTaskKind('prototype')).toBe('prototype');
@@ -149,7 +149,7 @@ describe('runWorkflowEntry', () => {
     const result = await runWorkflowEntry({
       op: 'append-active',
       skill: 'test',
-      kind: 'change',
+      kind: 'coding',
       repoRoot: repo,
       taskId: 'draft-xyz',
       phase: 'specify',
@@ -158,7 +158,7 @@ describe('runWorkflowEntry', () => {
     });
     expect(result.exitCode).toBe(0);
     const state = await loadWorkflowState(repo);
-    expect(state.change_tasks).toEqual([
+    expect(state.coding_tasks).toEqual([
       makeTaskEntry({
         task_id: 'draft-xyz',
         phase: 'specify',
@@ -173,7 +173,7 @@ describe('runWorkflowEntry', () => {
     const noSkill = await runWorkflowEntry({
       op: 'append-active',
       skill: '',
-      kind: 'change',
+      kind: 'coding',
       repoRoot: repo,
       taskId: 'x',
     });
@@ -199,7 +199,7 @@ describe('runWorkflowEntry', () => {
       const result = await runWorkflowEntry({
         op: 'append-active',
         skill: 'waiter',
-        kind: 'change',
+        kind: 'coding',
         repoRoot: repo,
         taskId: 'a',
         lockOptions: { staleMs: 60_000, spinMs: 250, pollMs: 40 },
@@ -215,7 +215,7 @@ describe('runWorkflowEntry', () => {
     await runWorkflowEntry({
       op: 'append-active',
       skill: 'test',
-      kind: 'change',
+      kind: 'coding',
       repoRoot: repo,
       taskId: 'c1',
       phase: 'specify',
@@ -224,7 +224,7 @@ describe('runWorkflowEntry', () => {
     await runWorkflowEntry({
       op: 'append-active',
       skill: 'test',
-      kind: 'change',
+      kind: 'coding',
       repoRoot: repo,
       taskId: 'p1',
       phase: 'plan',
@@ -243,7 +243,7 @@ describe('runWorkflowEntry', () => {
     const allChange = await runWorkflowEntry({
       op: 'get-active-changes',
       skill: 'test',
-      kind: 'change',
+      kind: 'coding',
       repoRoot: repo,
     });
     expect(allChange.exitCode).toBe(0);
@@ -252,7 +252,7 @@ describe('runWorkflowEntry', () => {
     const specifyOnly = await runWorkflowEntry({
       op: 'get-active-changes',
       skill: 'test',
-      kind: 'change',
+      kind: 'coding',
       repoRoot: repo,
       phase: 'specify',
     });

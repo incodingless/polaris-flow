@@ -102,7 +102,7 @@ bash "$PLUGIN_ROOT/scripts/<script>.sh" [args…]
 ### 3.1 specify
 
 ```text
-Step 1     task-init.sh --kind change → polaris task-init
+Step 1     task-init.sh --kind coding → polaris task-init
               └─ draft-create（core）          # 新建 .polaris/tasks/draft-*/ 或报 existing（同 kind）
 Step 1(B)  workflow-entry delete-active   # 用户选丢弃 draft 时，逐个删游标
 …澄清 / Reframe / Premise…
@@ -112,16 +112,16 @@ Step 4.4   task-finalize.sh → polaris task-finalize
 
 | 脚本 | 典型参数 | 退出码要点 |
 |------|----------|------------|
-| `task-init.sh` | `<repo_root> --kind change\|requirement\|testcase\|prototype` | 0=新建 ok；1=已有同 kind draft（JSON `existing`）；2=环境错误 |
+| `task-init.sh` | `<repo_root> --kind coding\|requirement\|testcase\|prototype` | 0=新建 ok；1=已有同 kind draft（JSON `existing`）；2=环境错误 |
 | `draft-create.sh` | `<repo_root> --kind …` | 由 init 封装；0=新建；1=已有同 kind draft |
-| `task-finalize.sh` | `<repo_root> <draft_name> <change_id>` | 目录 mv、回填 intention 标题、rename 游标（本期仅 change） |
+| `task-finalize.sh` | `<repo_root> <draft_name> <change_id>` | 目录 mv、回填 intention 标题、rename 游标（本期仅 coding） |
 | `workflow-entry.sh` | `delete-active` /（finalize 内）`rename-active` | 持 `workflow.lock` 改对应 kind 列表 |
 
 `task-init --kind` 目录约定：
 
 | kind | 存储根 | draft | 初始 phase | 初始 state |
 |------|--------|-------|------------|------------|
-| `change` | `.polaris/tasks/` | `draft-*` → finalize | `specify` | change 型（intention / specify 块） |
+| `coding` | `.polaris/tasks/` | `draft-*` → finalize | `specify` | coding 型（intention / specify 块） |
 | `requirement` | `.polaris/tasks/` | **无**；须 `--task-id` 直建正式目录 | `discovery` | PRD 型 |
 | `testcase` | `.polaris/testcases/` | `draft-*` | `discovery` | testcase 型 + `testcase_plan.md` |
 | `prototype` | `.polaris/tasks/` | **无**；须 `--task-id` 直建正式目录 | `blueprint` | prototype 型（blueprint/build/review/ship） |
@@ -220,7 +220,7 @@ Step 6.1  ship-cleanup.sh
 | `worktree-merge-status.sh` | worktree 是否脏；分支是否已合入主干 |
 | `worktree-rebase-ff.sh` | worktree rebase 到默认分支 + 主仓 `--ff-only` merge |
 | sync（见下节命名债） | 确定性拷贝 harness/polaris 运行态产物到主仓；不碰业务源码 |
-| `ship-cleanup.sh` | 删 `change_tasks` 中本 change；清理 `.polaris/tasks/<id>` 等残留 |
+| `ship-cleanup.sh` | 删 `coding_tasks` 中本 change；清理 `.polaris/tasks/<id>` 等残留 |
 
 **Ship lock**：delivery 入口按 `delivery/policies/ship-lock.md` 在主仓获取 `.polaris/.locks/ship.lock`（当前为 skill/policy 约定；`change-locate.sh` 在 policy 旧稿中出现，**仓内无此脚本**，定位由 Step 0 内联完成）。
 
@@ -228,7 +228,7 @@ Step 6.1  ship-cleanup.sh
 
 ## 4. 横切：`workflow-entry.sh` 操作一览
 
-所有对主仓 `.polaris/workflow.yaml` 的读写应经本脚本。YAML 含四列表：`change_tasks` / `requirement_tasks` / `testcase_tasks` / `prototype_tasks`；条目字段为 `task_id` / `phase` / `worktree_path` / `started_at`。
+所有对主仓 `.polaris/workflow.yaml` 的读写应经本脚本。YAML 含四列表：`coding_tasks` / `requirement_tasks` / `testcase_tasks` / `prototype_tasks`；条目字段为 `task_id` / `phase` / `worktree_path` / `started_at`。
 
 | op | 典型调用阶段 | 语义 |
 |----|--------------|------|
@@ -238,7 +238,7 @@ Step 6.1  ship-cleanup.sh
 | `rename-active` | task-finalize | `draft-*` → 正式 `task_id` |
 | `delete-active` | 丢弃 draft；ship-cleanup | 移除 entry |
 
-通用参数：`--skill <name>`、`--kind change|requirement|testcase|prototype`（**必填**）、`--repo-root <path>`。  
+通用参数：`--skill <name>`、`--kind coding|requirement|testcase|prototype`（**必填**）、`--repo-root <path>`。  
 身份参数：`--task-id` / `--where-task-id`（已取代 `--change-id` / `--where-change-id`）。
 
 ---

@@ -24,7 +24,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 |----|-----------|
 | Metrics（全局唯一） | `.polaris/metrics/*-metrics.json` |
 | Overrides | `.polaris/overrides.log` |
-| workflow 游标（只读） | `.polaris/workflow.yaml`（`change_tasks`） |
+| workflow 游标（只读） | `.polaris/workflow.yaml`（`coding_tasks`） |
 | 进行中档案（可选追溯） | `.polaris/tasks/<change_id>/state.yaml` |
 | 已交付快照（可选追溯） | `.polaris/archive/<change_id>/`（state 等；叙事文档在 openspec archive；**不含** metrics 副本） |
 | OpenSpec 变更（可选叙事） | `openspec/changes/<change_id>/` 或 `openspec/changes/archive/*-<change_id>/` |

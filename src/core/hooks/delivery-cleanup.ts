@@ -24,7 +24,7 @@ export async function runDeliveryCleanup(
   const wf = await runWorkflowEntry({
     op: 'delete-active',
     skill: 'ship',
-    kind: 'change',
+    kind: 'coding',
     repoRoot: root,
     whereTaskId: changeId,
   });

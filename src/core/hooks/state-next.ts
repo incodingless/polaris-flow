@@ -25,7 +25,7 @@ import { resolveRepoRoot } from './workflow-entry.js';
 export type NextAction = 'auto' | 'manual' | 'done';
 
 export type StateNextArgs = {
-  /** 目标任务 id（change/requirement/testcase/prototype 通用） */
+  /** 目标任务 id（coding/requirement/testcase/prototype 通用） */
   changeName: string;
   repoRoot?: string;
   cwd?: string;
@@ -46,7 +46,7 @@ export type StateNextResult = {
 
 /** kind → skill 族名 */
 const FAMILY_BY_KIND: Record<WorkflowTaskKind, string> = {
-  change: 'coding',
+  coding: 'coding',
   requirement: 'prd',
   testcase: 'testing',
   prototype: 'prototype',
@@ -89,7 +89,7 @@ export function findEntryByTaskId(
   taskId: string,
 ): { kind: WorkflowTaskKind; entry: WorkflowTaskEntry } | null {
   const lists: Array<[WorkflowTaskKind, WorkflowTaskEntry[]]> = [
-    ['change', state.change_tasks],
+    ['coding', state.coding_tasks],
     ['requirement', state.requirement_tasks],
     ['testcase', state.testcase_tasks],
     ['prototype', state.prototype_tasks],

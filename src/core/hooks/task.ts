@@ -2,7 +2,7 @@
  * Specify / discovery / testcase / prototype 任务生命周期：init（建目录 + state）与 finalize（draft → 正式 id）。
  * 由 `polaris task-init` / `polaris task-finalize` 调用。
  *
- * - change / testcase：先建 draft-*，再由 finalize（或后续流程）落到正式 id
+ * - coding / testcase：先建 draft-*，再由 finalize（或后续流程）落到正式 id
  * - requirement / prototype：不建 draft，须传正式 taskId，直接初始化任务目录
  */
 import { mkdir, rename, readFile, writeFile } from 'fs/promises';
@@ -74,11 +74,11 @@ async function writeKindStateAndBootstrap(
   const layout = getTaskKindLayout(kind);
   const statePath = getTaskKindStatePath(root, kind, taskId);
 
-  if (layout.stateFactory === 'change') {
+  if (layout.stateFactory === 'coding') {
     const state = createDefaultTaskState({
       changeId: taskId,
       phase: layout.initialPhase,
-      kind: 'change',
+      kind: 'coding',
     });
     state.runtime = {
       ...state.runtime,
@@ -218,7 +218,7 @@ export async function init(
 }
 
 /**
- * draft → 正式 change_id，并 rename-active（仅 change 路径；本期未泛化 kind）。
+ * draft → 正式 change_id，并 rename-active（仅 coding 路径；本期未泛化 kind）。
  */
 export async function finalize(
   repoRoot: string,
@@ -273,7 +273,7 @@ export async function finalize(
   const wf = await runWorkflowEntry({
     op: 'rename-active',
     skill: 'specify',
-    kind: 'change',
+    kind: 'coding',
     repoRoot: root,
     from: draftName,
     to: changeId,

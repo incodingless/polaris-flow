@@ -1,6 +1,6 @@
 /**
  * draft-create：按任务 kind 创建 `.polaris/<segment>/draft-*` 目录。
- * change / requirement / prototype → tasks；testcase → testcases。
+ * coding / requirement / prototype → tasks；testcase → testcases。
  * 同根多 kind 时仅将「同 kind 的 draft」计为 existing。
  */
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
@@ -19,25 +19,30 @@ export type DraftCreateResult =
   | { exitCode: 2; error: string };
 
 /**
- * 从 draft 目录的 state.yaml 读取 kind；缺省或无法解析视为 change。
+ * 从 draft 目录的 state.yaml 读取 kind；缺省或无法解析视为 coding。
  */
 async function readDraftKind(draftDir: string): Promise<WorkflowTaskKind> {
   const statePath = path.join(draftDir, 'state.yaml');
   if (!(await fileExists(statePath))) {
-    return 'change';
+    return 'coding';
   }
   try {
     const raw = parseYaml(await readFile(statePath, 'utf-8'));
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
       const kind = (raw as Record<string, unknown>).kind;
-      if (kind === 'requirement' || kind === 'testcase' || kind === 'change' || kind === 'prototype') {
+      if (
+        kind === 'requirement' ||
+        kind === 'testcase' ||
+        kind === 'coding' ||
+        kind === 'prototype'
+      ) {
         return kind;
       }
     }
   } catch {
-    // 解析失败按 change 处理
+    // 解析失败按 coding 处理
   }
-  return 'change';
+  return 'coding';
 }
 
 /**

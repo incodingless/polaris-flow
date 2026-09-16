@@ -34,7 +34,7 @@ version: 1.1.0
 
 读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）；未配置时回退到当前用户请求语言。本技能所有提问与产出物均采用该语言。
 
-### Step 1: 状态检查及中断恢复
+### Step 1: 初始化目录及任务
 
 使用 SessionStart 注入的路径（本 skill 内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
 
@@ -56,8 +56,8 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 
 | `ACTIVE_EXIT` | 含义 | 后续动作 |
 | ------------- | ---- | -------- |
-| 0 且数组非空 | 存在未完结需求任务 | 按决策点协议询问 A/B/C/D（见下） |
-| 0 且数组为空 | 无活跃需求任务 | 进入 Step 2 开启新任务 |
+| 0 且数组非空 | 存在未完结原型任务 | 按决策点协议询问 A/B/C/D（见下） |
+| 0 且数组为空 | 无活跃原型任务 | 进入 Step 2 开启新任务 |
 | 非 0 | 参数/环境错误 | 按 H12 阻断 |
 
 存在活跃任务时，**必须**按 `./policies/decision-point.md` 暂停询问：
@@ -106,19 +106,43 @@ done
 
 | `name` 状态 | 后续动作 |
 |---|---|
-| 缺失 | 补走 **Step 2.1** 确认原型名与 Page ID 前缀后，再进入对应步骤继续 |
+| 缺失 | 补走 **Step 2.1** 确认 `task_id`、原型名与 Page ID 前缀后，再进入对应步骤继续 |
 | 存在 | 直接沿用，后续文档名与 Page ID 一律以该前缀为准 |
 
 ### Step 2: 初始化
 
-#### Step 2.1: 命名
+#### Step 2.1: 命名与建目录
 
-确定**原型名**与 **Page ID 前缀**（Page ID 形如 `<前缀>-P01`）。按 `./policies/ask-question-react.md` 询问一次：
+按 `./policies/ask-question-react.md` **一次询问**确认下列三项（可分两轮若平台选项上限不够）：
 
-- 原型名由 AI 建议 3 个候选，用户选定或自行输入；
-- Page ID 前缀由用户输入（无输入时取原型名拼音首字母大写）。
+1. **kebab-case 任务名 `task_id`**（目录名 / 游标身份）：AI 给 2–3 个候选，首个为默认；与已有 `$REPO_ROOT/.polaris/tasks/` 冲突时加数字后缀消歧并回显；用户指定须合规（小写字母、数字、连字符），非合规输入转换后**回显并再次确认**
+2. **原型名**：AI 建议 3 个候选，用户选定或自行输入
+3. **Page ID 前缀**（Page ID 形如 `<前缀>-P01`）：由用户输入；无输入时取原型名拼音首字母大写
 
-确认后写入 `state.yaml`：
+**1. 建目录**：
+
+```bash
+INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind prototype --task-id "$task_id")
+INIT_EXIT=$?
+echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
+```
+
+| `INIT_EXIT` | `status` | 后续动作 |
+|---|---|---|
+| 0 | `ok` | 目录与 `state.yaml` 已建，继续 ② |
+| 1 | `existing` | **立即中断**：报告冲突目录，请用户改名或删除后重试；**禁止**向既有任务目录写入内容 |
+| 2 | — | 参数/环境错误，按 H12 阻断 |
+
+**2. 登记 workflow 游标**：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
+  --kind prototype --skill blueprint --repo-root "$REPO_ROOT" \
+  --task-id "$task_id" --phase blueprint --worktree-path "" \
+  --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+**3. 写入身份**到 `state.yaml`：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \

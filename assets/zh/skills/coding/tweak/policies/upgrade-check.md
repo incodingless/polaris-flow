@@ -64,7 +64,7 @@ BRIEF="$REPO_ROOT/openspec/changes/$change_id/change-brief.md"
 ### 3.2 推进 workflow
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill tweak --where-task-id "$change_id" --set phase=plan
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$change_id" --set phase=plan
 ```
 
 ### 3.3 写状态并交接

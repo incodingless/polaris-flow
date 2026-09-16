@@ -144,7 +144,7 @@ export function getTaskIntentionRelPath(taskId: string): string {
 
 /**
  * 返回 kind 对应的 `.polaris` 一级目录名。
- * change / requirement / prototype → tasks；testcase → testcases。
+ * coding / requirement / prototype → tasks；testcase → testcases。
  */
 export function getTaskStorageSegment(kind: WorkflowTaskKind): TaskStorageSegment {
   return kind === 'testcase' ? 'testcases' : 'tasks';

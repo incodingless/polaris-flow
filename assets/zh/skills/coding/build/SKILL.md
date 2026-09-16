@@ -48,7 +48,7 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 
 ### Step 0：定位 change_id + 入口校验
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill build --repo-root "$REPO_ROOT" --phase build)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill build --repo-root "$REPO_ROOT" --phase build)
 RTID_EXIT=$?
 ```
 
@@ -76,7 +76,7 @@ RTID_EXIT=$?
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind change --phase build
+  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding --phase build
 ```
 输出：`[polaris-flow 开发]构建: change_id=<change_id> ; worktree=<path|main>`
 
@@ -226,7 +226,7 @@ phase: idle
 workflow阶段推进至验收阶段：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill build --where-task-id "$task_id" --set phase=verify
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill build --where-task-id "$task_id" --set phase=verify
 ```
 
 输出：

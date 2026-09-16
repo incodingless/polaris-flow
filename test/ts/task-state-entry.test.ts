@@ -42,11 +42,11 @@ describe('path helpers', () => {
   });
 
   it('resolveBlockStyle：kind 与 runtime 启发式', () => {
-    expect(resolveBlockStyle({}, 'change', 'auto')).toBe('runtime');
+    expect(resolveBlockStyle({}, 'coding', 'auto')).toBe('runtime');
     expect(resolveBlockStyle({}, 'requirement', 'auto')).toBe('top-level');
     expect(resolveBlockStyle({ runtime: {} }, null, 'auto')).toBe('runtime');
     expect(resolveBlockStyle({}, null, 'auto')).toBe('top-level');
-    expect(resolveBlockStyle({}, 'change', 'top-level')).toBe('top-level');
+    expect(resolveBlockStyle({}, 'coding', 'top-level')).toBe('top-level');
   });
 });
 
@@ -143,13 +143,13 @@ describe('runTaskStateEntry', () => {
   it('change enter-phase 写入 runtime.<phase>', async () => {
     const repo = await tmpRepo();
     const statePath = path.join(repo, '.polaris', 'tasks', 't1', 'state.yaml');
-    await writeFile(statePath, 'kind: change\nphase: tasks\nruntime: {}\n', 'utf-8');
+    await writeFile(statePath, 'kind: coding\nphase: tasks\nruntime: {}\n', 'utf-8');
 
     const r = await runTaskStateEntry({
       op: 'enter-phase',
       repoRoot: repo,
       taskId: 't1',
-      kind: 'change',
+      kind: 'coding',
       phase: 'build',
     });
     expect(r.exitCode).toBe(0);
@@ -204,16 +204,16 @@ describe('runTaskStateEntry', () => {
     const wtState = path.join(wt, '.polaris', 'tasks', 't1', 'state.yaml');
     await writeFile(
       mainState,
-      `kind: change\nphase: plan\nworktree:\n  path: ${JSON.stringify(wt)}\n`,
+      `kind: coding\nphase: plan\nworktree:\n  path: ${JSON.stringify(wt)}\n`,
       'utf-8',
     );
-    await writeFile(wtState, 'kind: change\nphase: plan\nruntime: {}\n', 'utf-8');
+    await writeFile(wtState, 'kind: coding\nphase: plan\nruntime: {}\n', 'utf-8');
 
     const r = await runTaskStateEntry({
       op: 'enter-phase',
       repoRoot: repo,
       taskId: 't1',
-      kind: 'change',
+      kind: 'coding',
       phase: 'design',
     });
     expect(r.exitCode).toBe(0);

@@ -152,7 +152,7 @@ export function resolveBlockStyle(
   forced?: BlockStyle,
 ): 'runtime' | 'top-level' {
   if (forced === 'runtime' || forced === 'top-level') return forced;
-  if (kind === 'change') return 'runtime';
+  if (kind === 'coding') return 'runtime';
   if (kind === 'requirement' || kind === 'prototype' || kind === 'testcase') {
     return 'top-level';
   }
@@ -183,7 +183,7 @@ export async function resolveStateFilePath(
 
   const kind = options?.kind ?? null;
   const primary =
-    kind && kind !== 'change'
+    kind && kind !== 'coding'
       ? getTaskKindStatePath(repoRoot, kind, taskId)
       : getTaskStatePath(repoRoot, taskId);
 

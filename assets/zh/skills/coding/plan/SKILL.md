@@ -27,7 +27,7 @@ version: 0.1
 - 批内审查日志（Mode A）：`openspec/changes/<change_id>/review-log.md`
 - 提案主审报告：`openspec/changes/<change_id>/reviews/plan-review-report.md`（Step 4.2）
 - Outside Voice 报告（若运行）：`openspec/changes/<change_id>/reviews/openspec-review-report.md`
-- workflow 游标：`.polaris/workflow.yaml` → `change_tasks[].task_id`（写入一律走 `scripts/workflow-entry.sh`）
+- workflow 游标：`.polaris/workflow.yaml` → `coding_tasks[].task_id`（写入一律走 `scripts/workflow-entry.sh`）
 
 > **续跑**：若 `openspec/changes/<change_id>/intention.md` 已存在且 `.polaris/tasks/<task_id>/intention.md` 已不存在，视为 Step 3.5 已完成，不得再从 `.polaris` 读 intention。
 
@@ -38,7 +38,7 @@ version: 0.1
 读取task标识列表：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill plan --repo-root "$REPO_ROOT" --phase specify)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill plan --repo-root "$REPO_ROOT" --phase specify)
 RTID_EXIT=$?
 ```
 
@@ -94,7 +94,7 @@ WT_EXIT=$?
 同步主仓 workflow.yaml（脚本内含锁 / 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill plan --where-task-id "$task_id" --set phase=plan --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set phase=plan --set worktree-path="$target_path"
 ```
 
 在 `.polaris/tasks/<task_id>/state.yaml`（worktree 内路径优先）写入：
@@ -114,7 +114,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skil
 同步 workflow.yaml（phase 切到 plan，worktree_path 仍为空）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill plan --where-task-id "$task_id" --set phase=plan
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set phase=plan
 ```
 
 输出 `[polaris-flow 开发]提案 - worktree：用户选择留在主仓库，工作区未创建。工作路径为: $REPO_ROOT`。
@@ -391,7 +391,7 @@ B. 否 — 跳过深化，直接进入 plan（四件套已足够指导细计划�
 **A（深化）** → 推进 design 阶段：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill plan --where-task-id "$task_id" --set phase=design
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set phase=design
 ```
 
 输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 覆写）。下一步 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design。`
@@ -406,7 +406,7 @@ runtime:
 ```
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill plan --where-task-id "$task_id" --set phase=tasks
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set phase=tasks
 ```
 
 输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入；已跳过深度设计（runtime.design.status=skipped，tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 覆写）。下一步 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks。`

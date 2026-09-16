@@ -56,7 +56,7 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 用 bash 读取工作流配置中有效变更的`task_id`：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind change --skill verify --repo-root "$REPO_ROOT" --phase verify)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill verify --repo-root "$REPO_ROOT" --phase verify)
 RTID_EXIT=$?
 ```
 
@@ -85,9 +85,9 @@ RTID_EXIT=$?
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind change --phase verify
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase verify
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind change \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.verify.blocked=false
 ```
 输出：`[polaris-flow 开发]验证: 任务ID=<task_id> ; worktree=<path|main>`
@@ -279,9 +279,9 @@ git diff --stat <base-ref>...HEAD
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind change --phase verify
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase verify
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind change \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.verify.constitution_valid=<true|false> \
   --set runtime.verify.overall_score=<N> \
   --set runtime.verify.score_level=<high|low> \
@@ -294,7 +294,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 4. 推进：
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind change --skill verify --where-task-id "$task_id" --set phase=ship
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill verify --where-task-id "$task_id" --set phase=ship
 ```
 
 3. 输出：
