@@ -56,11 +56,10 @@ tweak 是 P01（简单功能）的执行体。它把完整链路的 `specify →
 
 | 项 | 路径 / 值 |
 |----|-----------|
-| `change_id` | 与 specify / ship 同值，kebab-case |
-| 变更简报（唯一真相） | `openspec/changes/<change_id>/change-brief.md`（Step 4.3 迁入前在 `.polaris/tasks/<change_id>/`） |
-| 实施计划 | `openspec/changes/<change_id>/tasks.md` |
-| 运行态 | `.polaris/tasks/<change_id>/state.yaml` |
-| 验证报告 | `openspec/changes/<change_id>/reviews/verify-report.md` |
+| 变更简报（唯一真相） | `openspec/changes/<task_id>/change-brief.md`（Step 4.3 迁入前在 `.polaris/tasks/<task_id>/`） |
+| 实施计划 | `openspec/changes/<task_id>/tasks.md` |
+| 运行态 | `.polaris/tasks/<task_id>/state.yaml` |
+| 验证报告 | `openspec/changes/<task_id>/reviews/verify-report.md` |
 | Metrics | `.polaris/metrics/<timestamp>-metrics.json` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 
@@ -165,7 +164,7 @@ C. 超出简单需求 — 升到常规通道（P02 normal）
 
 #### 2.1 任务名确认（阻塞点）→ 得到 `task_id`
 
-按 `./policies/decision-point.md` 暂停，让用户决定任务名（即后续目录名 / `change_id`）。**禁止**静默推断或自动落盘。
+按 `./policies/decision-point.md` 暂停，让用户决定任务名（即后续目录名 / `task_id`）。**禁止**静默推断或自动落盘。
 
 约束：`task_id` 必须是 **kebab-case 英文**（小写字母、数字、连字符），如 `fix-login-typo`。
 
@@ -196,7 +195,7 @@ C. 超出简单需求 — 升到常规通道（P02 normal）
 | 待决问题 | 未关闭项；无则写「无」 |
 | 影响面 | Step 1.2 勘察结果（模块清单 / 文件清单 / 是否触碰数据实体 / 是否触碰核心链路） |
 
-首行任务标识暂用占位 `# 变更简报: <TBD>`，Step 2.4 回填为真实 `change_id`。
+首行任务标识暂用占位 `# 变更简报: <TBD>`，Step 2.4 回填为真实 `task_id`。
 
 > 「影响面」节不是装饰——它是 Step 3 升档判定的唯一输入。
 
@@ -232,7 +231,7 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 | 2 | 参数/环境错误 | 按 H12 阻断 |
 | 3 | workflow rename 失败 | 按 H12 阻断 |
 
-回填 `change-brief.md` 首行为真实 `change_id`。
+回填 `change-brief.md` 首行为真实 `task_id`。
 
 ### Step 3：升档检查（阻塞点）
 
@@ -247,7 +246,7 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 
 #### 4.1 worktree（默认不创建）
 
-tweak 默认留在主仓库，不询问。写入 `.polaris/tasks/<change_id>/state.yaml`：
+tweak 默认留在主仓库，不询问。写入 `.polaris/tasks/<task_id>/state.yaml`：
 
 ```yaml
 worktree:
@@ -258,14 +257,14 @@ phase: plan
 用户**显式**要求 worktree 时，按以下步骤创建并同步元信息（等价 plan 的 worktree 创建流程；此时 ship 的 Step 3 合回逻辑照常生效）：
 
 ```bash
-WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-create.sh" "$change_id" "$REPO_ROOT")
+WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-create.sh" "$task_id" "$REPO_ROOT")
 WT_EXIT=$?
 ```
 
 - `WT_EXIT=0` → `$WT_RESULT` 含 JSON（`target_path` / `target_branch` / `snapshot_path`），继续同步
 - `WT_EXIT=1` → **阻断**，按 stderr 处理
 
-创建成功后，写入 `.polaris/tasks/<change_id>/state.yaml`（worktree 内路径优先）：
+创建成功后，写入 `.polaris/tasks/<task_id>/state.yaml`（worktree 内路径优先）：
 
 ```yaml
 worktree:
@@ -280,7 +279,7 @@ phase: plan
 同步主仓 workflow.yaml（脚本内含锁 + 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$change_id" --set phase=plan --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$task_id" --set phase=plan --set worktree-path="$target_path"
 ```
 
 输出：`[polaris-flow 开发]快速通道 - worktree：created at <target_path> on branch <target_branch>`。
@@ -289,18 +288,18 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 **立即执行：** 使用 Skill 工具加载 `opsx:new` / `openspec-new-change`。禁止跳过此步骤。
 
-> 必须创建骨架——否则 `openspec/changes/<change_id>/` 目录不合法，ship 的 `openspec-cn archive` 会失败。
+> 必须创建骨架——否则 `openspec/changes/<task_id>/` 目录不合法，ship 的 `openspec-cn archive` 会失败。
 
 #### 4.3 迁入 `change-brief.md`（唯一真相）
 
 ```bash
-mv "$REPO_ROOT/.polaris/tasks/$change_id/change-brief.md" \
-   "$REPO_ROOT/openspec/changes/$change_id/change-brief.md"
+mv "$REPO_ROOT/.polaris/tasks/$task_id/change-brief.md" \
+   "$REPO_ROOT/openspec/changes/$task_id/change-brief.md"
 ```
 
 确认 `.polaris` 侧已不存在、目标路径存在且非空。**禁止**在 `.polaris` 保留简报副本。
 
-输出：`[polaris-flow 开发]快速通道 - 简报：moved to openspec/changes/<change_id>/change-brief.md（.polaris 无备份）`
+输出：`[polaris-flow 开发]快速通道 - 简报：moved to openspec/changes/<task_id>/change-brief.md（.polaris 无备份）`
 
 #### 4.4 生成 `tasks.md`
 
@@ -313,7 +312,7 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/change-brief.md" \
 #### 4.5 tasks lint
 
 ```bash
-LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$change_id/tasks.md")
+LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
 LINT_EXIT=$?
 ```
 
@@ -336,7 +335,7 @@ runtime:
 phase: build
 ```
 
-输出：`[polaris-flow 开发]快速通道: change_id=<change_id> ; worktree=main ; tasks=<N> 顶层任务`
+输出：`[polaris-flow 开发]快速通道: task_id=<task_id> ; worktree=main ; tasks=<N> 顶层任务`
 
 ### Step 5：实施
 
@@ -363,7 +362,7 @@ inline 与 subagent 分支同样适用（subagent 分支须写入启动 prompt�
 
 #### 5.3 执行 apply
 
-调用 `/opsx:apply <change_id>`。
+调用 `/opsx:apply <task_id>`。
 
 - **禁止**在 `/opsx:apply` 之外手写业务实现代码（补丁、新模块、改 API）
 - **禁止**用全局开关覆盖 `tasks.md` 内的 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->` 标注
@@ -425,24 +424,24 @@ runtime:
     score_level: <high|low>
     verify_mode: light
     blocked: false
-    verification_report: "openspec/changes/<change_id>/reviews/verify-report.md"
+    verification_report: "openspec/changes/<task_id>/reviews/verify-report.md"
     scorer_results: { ... }
     finished_at: "<ISO>"
 phase: idle
 ```
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$change_id" --set phase=ship
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$task_id" --set phase=ship
 ```
 
 输出：
 
 ```text
 快速通道完成：
-  change_id : <change_id>
-  tasks.md  : openspec/changes/<change_id>/tasks.md（全部 [x]）
+  task_id : <task_id>
+  tasks.md  : openspec/changes/<task_id>/tasks.md（全部 [x]）
   score     : <overall_score> (<score_level>)
-  report    : openspec/changes/<change_id>/reviews/verify-report.md
+  report    : openspec/changes/<task_id>/reviews/verify-report.md
 下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}ship（归档前会按 artifact-backfill 补齐 OpenSpec 四件套）。
 ```
 
@@ -460,7 +459,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 上下文压缩恢复
 
-重载：`change_id`、draft 是否已 finalize、`change-brief.md` 当前所在路径、顶层任务数与勾选进度、`tweak.*` / `build.*` / `verify.*`、本 skill 停在哪一步。
+重载：`task_id`、draft 是否已 finalize、`change-brief.md` 当前所在路径、顶层任务数与勾选进度、`tweak.*` / `build.*` / `verify.*`、本 skill 停在哪一步。
 
 | 中断位置 | 恢复动作 |
 |----------|----------|
@@ -473,9 +472,9 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 退出条件
 
-- `change-brief.md` 已迁入 `openspec/changes/<change_id>/`，`.polaris` 无副本
+- `change-brief.md` 已迁入 `openspec/changes/<task_id>/`，`.polaris` 无副本
 - `tasks.md` 全部 checkbox 为 `- [x]`，且 `tasks-lint.sh` 通过
-- 5 个 scorer 已跑完，`.polaris/metrics/<timestamp>-metrics.json` 已写入且含 `change_id`
+- 5 个 scorer 已跑完，`.polaris/metrics/<timestamp>-metrics.json` 已写入且含 `task_id`
 - `reviews/verify-report.md` 存在且 `runtime.verify.verification_report` 指向它
 - 无未解决的 CRITICAL；IMPORTANT 已逐条决策
 - `runtime.build.status` / `runtime.verify.status=completed`，且 `phase=ship`

@@ -6,13 +6,13 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 # Polaris 工作流 - 阶段：任务规划（tasks）
 
 <HARD-GATE>
-本 skill **仅**负责：以 **OpenSpec 四件套（+ `detailed-design.md` 若已深化）** 为唯一规划依据，覆写可执行的 `openspec/changes/<change_id>/tasks.md`，并经 `tasks-review-agent` 独立主审通过后才放行 build。
+本 skill **仅**负责：以 **OpenSpec 四件套（+ `detailed-design.md` 若已深化）** 为唯一规划依据，覆写可执行的 `openspec/changes/<task_id>/tasks.md`，并经 `tasks-review-agent` 独立主审通过后才放行 build。
 
 - **禁止**未完整阅读规划依据就开始写计划（见下方「规划依据」；禁止凭对话记忆 / 口头一句话 / 只看粗骨架 tasks 拆任务）
 - **禁止**未确认 design 状态就开始写计划——须满足其一：`runtime.design.status=completed` 且 `detailed-design.md` 存在（已深化），或 `runtime.design.status=skipped`（plan 已确认跳过深化，`detailed-design.md` 缺失合法）
 - **禁止**跳过 Superpowers `writing-plans`（不可用则阻断；加载后必须按下方「骨架模式」落地，禁止原样照抄每步贴完整实现代码 / 每任务 commit）
 - **禁止**主代理在覆写 `tasks.md` 前未 `read_file templates/tasks-template.md`
-- **禁止**另写 `docs/superpowers/plans/*.md` 或 `.polaris/tasks/*/implementation-plan.md` 作为主产物——**唯一**实施计划是 `openspec/changes/<change_id>/tasks.md`（覆写，不是并列第二份）
+- **禁止**另写 `docs/superpowers/plans/*.md` 或 `.polaris/tasks/*/implementation-plan.md` 作为主产物——**唯一**实施计划是 `openspec/changes/<task_id>/tasks.md`（覆写，不是并列第二份）
 - **禁止**跳过 `tasks-lint.sh` 或脑补核对
 - **禁止**跳过 Step 6 主审：必须派发 `tasks-review-agent`，并注入本 skill 的 `StandardsRoot`（agent 须读完 `policies/` + `references/` 标准文档；禁止主代理自审冒充；**主审不可跳过**）
 - **禁止**跳过 Step 6 Outside Voice **询问**（按 `./reference/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
@@ -30,23 +30,22 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 
 | 来源 | 路径 | 提供什么 |
 |------|------|----------|
-| OpenSpec 四件套 | `openspec/changes/<change_id>/proposal.md` | Why / Scope / 非目标 |
-| | `openspec/changes/<change_id>/design.md` | 高层架构与选型 |
-| | `openspec/changes/<change_id>/specs/**/*.md` | 需求与验收场景（任务覆盖的主清单） |
-| | `openspec/changes/<change_id>/tasks.md` | plan **粗骨架**（结构参考；**不是**范围真理，将被覆写） |
-| 深度设计 | `openspec/changes/<change_id>/detailed-design.md` | 实现方案、风险、测试策略、边界、模块/接口细节（**仅 `runtime.design.status=completed` 时存在**；`skipped` 时无此依据，细计划仅由四件套推导） |
+| OpenSpec 四件套 | `openspec/changes/<task_id>/proposal.md` | Why / Scope / 非目标 |
+| | `openspec/changes/<task_id>/design.md` | 高层架构与选型 |
+| | `openspec/changes/<task_id>/specs/**/*.md` | 需求与验收场景（任务覆盖的主清单） |
+| | `openspec/changes/<task_id>/tasks.md` | plan **粗骨架**（结构参考；**不是**范围真理，将被覆写） |
+| 深度设计 | `openspec/changes/<task_id>/detailed-design.md` | 实现方案、风险、测试策略、边界、模块/接口细节（**仅 `runtime.design.status=completed` 时存在**；`skipped` 时无此依据，细计划仅由四件套推导） |
 
 冲突裁决：**specs 定「做什么」；detailed-design 定「怎么拆怎么测」（`runtime.design.status=skipped` 时由四件套 `design.md` 推导）；高层 design.md / proposal 定边界。** 粗骨架 tasks 与三者冲突时，以三者为准并覆写 tasks。
 
 ### 其它
 
-- **`change_id`**：与 specify / plan / design 同值
-- 设计评审（只读，若有）：`openspec/changes/<change_id>/reviews/design-review-report.md`
-- **主产物（覆写）**：`openspec/changes/<change_id>/tasks.md`
-- 计划主审报告：`openspec/changes/<change_id>/reviews/tasks-review-report.md`（由 Step 6 落盘）
-- Outside Voice 报告（若运行）：`openspec/changes/<change_id>/reviews/openspec-review-report.md`
+- 设计评审（只读，若有）：`openspec/changes/<task_id>/reviews/design-review-report.md`
+- **主产物（覆写）**：`openspec/changes/<task_id>/tasks.md`
+- 计划主审报告：`openspec/changes/<task_id>/reviews/tasks-review-report.md`（由 Step 6 落盘）
+- Outside Voice 报告（若运行）：`openspec/changes/<task_id>/reviews/openspec-review-report.md`
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`）
-- 运行态：`.polaris/tasks/<change_id>/state.yaml`
+- 运行态：`.polaris/tasks/<task_id>/state.yaml`
 
 > **链路**：`specify → plan → (design 可选) → **tasks** → build → verify → ship → retro(可选)`。  
 > 细计划 = f(四件套, detailed-design 若有)；plan 的 tasks 只是输入粗骨架。主审走 `tasks-review-agent`；可选 Outside Voice 走 `openspec-review-agent`。
@@ -73,9 +72,9 @@ TODO 待补充内部流程过程
 
 每个阶段的"做什么"在对应 policy 文件，本 SKILL.md 仅承载入口、HARD-GATE 锚点与跨阶段衔接。
 
-### Step 0：定位 change_id + 入口校验
+### Step 0：定位 任务标识 + 入口校验
 
-用 bash 读取工作流配置中有效变更的`change_id`：
+用 bash 读取工作流配置中有效变更的`task_id`：
 
 ```bash
 TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill tasks --repo-root "$REPO_ROOT" --phase tasks)
@@ -87,7 +86,7 @@ RTID_EXIT=$?
 
 按 `$TASK_IDS` 数组长度解读：
 
-- **唯一匹配**：直接读取 `change_id`
+- **唯一匹配**：直接读取 `task_id`
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 design 阶段的 active change，请先执行 /polaris-flow-design」
 
@@ -98,7 +97,7 @@ RTID_EXIT=$?
 | 检查 | 条件 |
 |------|------|
 | 深度设计状态 | 二选一：`runtime.design.status=completed` 且 `detailed-design.md` 非空（frontmatter 含 `role: technical-design`）；或 `runtime.design.status=skipped`（plan 已确认跳过深化） |
-| 四件套存在 | `openspec/changes/<change_id>/` 下 `proposal.md`、`design.md`、`tasks.md` 非空，`specs/` 至少一非空文件 |
+| 四件套存在 | `openspec/changes/<task_id>/` 下 `proposal.md`、`design.md`、`tasks.md` 非空，`specs/` 至少一非空文件 |
 | 设计评审 | 若存在 `reviews/design-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 design |
 | 已有细计划 | 若 `runtime.tasks.status=completed` 且 `tasks.md` 已细计划 → 询问 A 修订覆写 / B 退出（禁止静默覆盖） |
 
@@ -106,19 +105,19 @@ RTID_EXIT=$?
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding --phase tasks
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase tasks
 ```
-输出：`[polaris-flow 开发]任务规划: change_id=<change_id> ; phase=tasks`
+输出：`[polaris-flow 开发]任务规划: task_id=<task_id> ; phase=tasks`
 
 ### Step 1：读取规划依据（OpenSpec 四件套 + detailed-design 若有）
 
 **必读全文**（勿用摘要替代；读完再进入 Step 2）：
 
-1. `openspec/changes/<change_id>/proposal.md`
-2. `openspec/changes/<change_id>/design.md`
-3. `openspec/changes/<change_id>/specs/**/*.md`（目录下每个非空 spec）
-4. `openspec/changes/<change_id>/tasks.md`（粗骨架，仅作结构参考）
-5. `openspec/changes/<change_id>/detailed-design.md`（**仅 `runtime.design.status=completed` 时必读**；`skipped` 时此文件不存在，跳过）
+1. `openspec/changes/<task_id>/proposal.md`
+2. `openspec/changes/<task_id>/design.md`
+3. `openspec/changes/<task_id>/specs/**/*.md`（目录下每个非空 spec）
+4. `openspec/changes/<task_id>/tasks.md`（粗骨架，仅作结构参考）
+5. `openspec/changes/<task_id>/detailed-design.md`（**仅 `runtime.design.status=completed` 时必读**；`skipped` 时此文件不存在，跳过）
 
 **禁止**凭对话记忆或只读粗骨架 `tasks.md` 开写。读完输出：
 
@@ -126,9 +125,9 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 若存在则一并只读：
 
-- `openspec/changes/<change_id>/reviews/design-review-report.md`
-- `openspec/changes/<change_id>/*-design.md`（专项设计，如有；排除四件套 `design.md`）
-- `openspec/changes/<change_id>/intention.md`（冲突以四件套 + detailed-design 若有为准）
+- `openspec/changes/<task_id>/reviews/design-review-report.md`
+- `openspec/changes/<task_id>/*-design.md`（专项设计，如有；排除四件套 `design.md`）
+- `openspec/changes/<task_id>/intention.md`（冲突以四件套 + detailed-design 若有为准）
 
 ### Step 2：TDD 策略（用户决策点）
 
@@ -143,7 +142,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 | **B** | `require_tdd` | **从紧**：凡含行为或接口变更的任务一律 TDD；仅纯文档 / 纯文案可标非 TDD | 高风险、核心业务、安全相关 |
 | **C** | `prefer_direct` | **从宽**：默认非 TDD（三步）；仅当 `detailed-design` 测试策略点名（若已深化）、或用户在本决策中另行指定的任务标 TDD | hotfix、探索性小改、明确不要求测试覆盖时 |
 
-写入 `$REPO_ROOT/.polaris/tasks/<change_id>/state.yaml`：
+写入 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml`：
 
 ```yaml
 runtime:
@@ -250,9 +249,9 @@ read_file ./templates/tasks-template.md
 
 #### 4.5 覆写落盘
 
-将完整计划写入（**覆写**）`openspec/changes/<change_id>/tasks.md`。  
+将完整计划写入（**覆写**）`openspec/changes/<task_id>/tasks.md`。  
 最后一组必须是 Documentation Sync（见模板）。  
-输出：`[polaris-flow 开发]任务规划: 已写 openspec/changes/<change_id>/tasks.md`
+输出：`[polaris-flow 开发]任务规划: 已写 openspec/changes/<task_id>/tasks.md`
 
 ### Step 5：自审 + tasks-lint
 
@@ -266,7 +265,7 @@ read_file ./templates/tasks-template.md
 #### 5.2 脚本校验（禁止脑补）
 
 ```bash
-LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$change_id/tasks.md")
+LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
 LINT_EXIT=$?
 ```
 
@@ -299,18 +298,18 @@ LINT_EXIT=$?
      3. `./references/engineering-mindset.md`
      4. `./references/test-review-methodology.md`
      5. `./templates/review-report-template.md`
-     5. `openspec/changes/<change_id>/tasks.md`
-     6. `openspec/changes/<change_id>/proposal.md`
-     7. `openspec/changes/<change_id>/design.md`
-     8. `openspec/changes/<change_id>/specs/**/*.md`（每个非空文件）
-     9. 若有（`runtime.design.status=completed`）：`openspec/changes/<change_id>/detailed-design.md`
-     10. 若有：`openspec/changes/<change_id>/reviews/design-review-report.md`
-     11. 若有：`openspec/changes/<change_id>/*-design.md`（专项设计；排除四件套 `design.md`）
-     12. 若有：`openspec/changes/<change_id>/intention.md`
+     5. `openspec/changes/<task_id>/tasks.md`
+     6. `openspec/changes/<task_id>/proposal.md`
+     7. `openspec/changes/<task_id>/design.md`
+     8. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
+     9. 若有（`runtime.design.status=completed`）：`openspec/changes/<task_id>/detailed-design.md`
+     10. 若有：`openspec/changes/<task_id>/reviews/design-review-report.md`
+     11. 若有：`openspec/changes/<task_id>/*-design.md`（专项设计；排除四件套 `design.md`）
+     12. 若有：`openspec/changes/<task_id>/intention.md`
 
    D-1 下 agent 自读上述路径；D-2 下主代理 Read 全部全文（含四份标准文档）拼入 `Materials:` 段；`StandardsRoot` 在 D-2 下仅作溯源标注用。
 
-4. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；将完整 **Plan Review Report** 写入 `openspec/changes/<change_id>/reviews/tasks-review-report.md`。
+4. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；将完整 **Plan Review Report** 写入 `openspec/changes/<task_id>/reviews/tasks-review-report.md`。
 
 输出：`[polaris-flow 开发]任务规划: tasks-review-agent 已完成，报告已落盘`
 
@@ -327,16 +326,16 @@ LINT_EXIT=$?
      Stage: plan
      ```
    - `materials`:
-     1. `openspec/changes/<change_id>/reviews/tasks-review-report.md`（即 PrimaryReport，D-2 下全文拼入）
-     2. `openspec/changes/<change_id>/proposal.md`
-     3. `openspec/changes/<change_id>/design.md`
-     4. `openspec/changes/<change_id>/specs/**/*.md`（每个非空文件）
-     5. `openspec/changes/<change_id>/tasks.md`
-     6. 若有（`runtime.design.status=completed`）：`openspec/changes/<change_id>/detailed-design.md`
+     1. `openspec/changes/<task_id>/reviews/tasks-review-report.md`（即 PrimaryReport，D-2 下全文拼入）
+     2. `openspec/changes/<task_id>/proposal.md`
+     3. `openspec/changes/<task_id>/design.md`
+     4. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
+     5. `openspec/changes/<task_id>/tasks.md`
+     6. 若有（`runtime.design.status=completed`）：`openspec/changes/<task_id>/detailed-design.md`
 
    （模板内 findings 摘录从刚落盘的 `tasks-review-report.md` 填充；**不要**附带用户对 findings 的采纳决策。）
 
-4. 通过可信度门禁后写入 `openspec/changes/<change_id>/reviews/openspec-review-report.md`。
+4. 通过可信度门禁后写入 `openspec/changes/<task_id>/reviews/openspec-review-report.md`。
 5. 宿主无 subagent 时主审已在 6.1 阻断，不会到达本步的「无 subagent 自动跳过 OV」。
 
 ### Step 7：消化评审结论
@@ -361,13 +360,13 @@ LINT_EXIT=$?
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding --phase tasks
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase tasks
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.plan.status=completed \
   --set runtime.plan.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \
-  --set runtime.plan.tasks_path=openspec/changes/<change_id>/tasks.md \
-  --set runtime.plan.review_report=openspec/changes/<change_id>/reviews/tasks-review-report.md \
+  --set runtime.plan.tasks_path=openspec/changes/<task_id>/tasks.md \
+  --set runtime.plan.review_report=openspec/changes/<task_id>/reviews/tasks-review-report.md \
   --set "runtime.plan.outside_voice=<ran|skipped:<reason>>" \
   --set phase=idle
 ```
@@ -382,10 +381,10 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ```
 任务规划阶段完成：
-  change_id     : <change_id>
+  task_id     : <task_id>
   tdd_policy    : <prefer_tdd|require_tdd|prefer_direct>
-  tasks.md      : openspec/changes/<change_id>/tasks.md（已覆写）
-  review-report : openspec/changes/<change_id>/reviews/tasks-review-report.md
+  tasks.md      : openspec/changes/<task_id>/tasks.md（已覆写）
+  review-report : openspec/changes/<task_id>/reviews/tasks-review-report.md
   outside-voice : <ran | skipped:...>
   STATUS        : <DONE | DONE_WITH_CONCERNS>
 
@@ -403,6 +402,6 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 上下文压缩恢复
 
-重载：`change_id`、`runtime.tasks.tdd_policy`、`detailed-design.md`（若有）、当前 `tasks.md`、`reviews/tasks-review-report.md`、`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
+重载：`task_id`、`runtime.tasks.tdd_policy`、`detailed-design.md`（若有）、当前 `tasks.md`、`reviews/tasks-review-report.md`、`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
 若停在 Step 2 未选定 → 先完成 TDD 策略再写 tasks。  
 若停在 `runtime.tasks.status=in_progress` 且 tasks 已写未评审 → 从 Step 5.2 / Step 6 续，勿无故重写全部任务（除非用户要求改 `tdd_policy`，则须重跑 Step 2→4）。

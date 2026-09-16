@@ -25,9 +25,9 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 | Metrics（全局唯一） | `.polaris/metrics/*-metrics.json` |
 | Overrides | `.polaris/overrides.log` |
 | workflow 游标（只读） | `.polaris/workflow.yaml`（`coding_tasks`） |
-| 进行中档案（可选追溯） | `.polaris/tasks/<change_id>/state.yaml` |
-| 已交付快照（可选追溯） | `.polaris/archive/<change_id>/`（state 等；叙事文档在 openspec archive；**不含** metrics 副本） |
-| OpenSpec 变更（可选叙事） | `openspec/changes/<change_id>/` 或 `openspec/changes/archive/*-<change_id>/` |
+| 进行中档案（可选追溯） | `.polaris/tasks/<task_id>/state.yaml` |
+| 已交付快照（可选追溯） | `.polaris/archive/<task_id>/`（state 等；叙事文档在 openspec archive；**不含** metrics 副本） |
+| OpenSpec 变更（可选叙事） | `openspec/changes/<task_id>/` 或 `openspec/changes/archive/*-<task_id>/` |
 | 配置 | `.polaris/config.yaml`（`mode` 等） |
 
 > **链路位置**：`specify → … → verify → ship` 之后的**旁路复盘**，不占用 phase 游标、不推进阶段。  
@@ -39,7 +39,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 |------|------|
 | `/polaris{{SKN_SPR}}coding{{SKN_SPR}}retro` 或「看度量 / 复盘」 | **overview**：全部历史 metrics（默认最近 20 次；可按用户要求改 N） |
 | `/polaris{{SKN_SPR}}coding{{SKN_SPR}}retro monthly` 或「月度回顾」 | **monthly**：`timestamp`（或文件名时间戳）落在**当前 UTC 自然月**内的记录 |
-| 用户指定 `change_id` / 「回顾某次变更」 | **by-change**：顶层 metrics 中 `change_id` 等于该值的记录；可辅读 `tasks/` 或 `archive/` 的 state |
+| 用户指定 `task_id` / 「回顾某次变更」 | **by-change**：顶层 metrics 中 `task_id` 等于该值的记录；可辅读 `tasks/` 或 `archive/` 的 state |
 
 用户未说明时默认 overview。多种意图并存时按 decision-point 确认范围，再进入 Step 1。
 
@@ -49,19 +49,19 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 
 每次 verify 一个文件：`.polaris/metrics/<UTC-YYYYMMDD-HHMMSS>-metrics.json`，顶层至少含：
 
-- `timestamp`、`change_id`（缺失或 `""` → 桶名「未归因」）
+- `timestamp`、`task_id`（缺失或 `""` → 桶名「未归因」）
 - `overall_score`、`scorers[]`（`scorer` / `score` / `reason`）
 - `audit.violations` / `audit.total_checks`（Constitution 计数；**字段名历史兼容，不是阶段名**）
 - `mode`（若有）
 
 ### Overrides（尽力解析）
 
-`.polaris/overrides.log`：一行一条。若行内可解析出时间 / `change_id` / 理由则纳入分布统计；无法解析的行计入「未结构化」条数，**不得丢弃不报**。
+`.polaris/overrides.log`：一行一条。若行内可解析出时间 / `task_id` / 理由则纳入分布统计；无法解析的行计入「未结构化」条数，**不得丢弃不报**。
 
 ### Archive / tasks
 
 - 跨 change 趋势：**只**用顶层 metrics  
-- 单 change 叙事：用顶层 metrics 按 `change_id` 过滤；需要业务上下文时读 `.polaris/tasks/<id>/state.yaml` 或 `.polaris/archive/<id>/`；需要设计/规格上下文时读 `openspec/changes/<id>/`（或 archive 下对应目录）
+- 单 change 叙事：用顶层 metrics 按 `task_id` 过滤；需要业务上下文时读 `.polaris/tasks/<id>/state.yaml` 或 `.polaris/archive/<id>/`；需要设计/规格上下文时读 `openspec/changes/<id>/`（或 archive 下对应目录）
 - **禁止**假设 archive 内仍有 `metrics/*` 或独立 `overrides.log` 切片（ship 目标态不存副本）
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
@@ -91,9 +91,9 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 | 零个 `*-metrics.json` | **停止**。告知：「尚无 verify 度量（`.polaris/metrics/*-metrics.json` 为空）。请先对至少一个 change 跑完 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（若在 worktree 内验证，还需 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 合回主仓）。」**禁止**编造报告正文 |
 | 有 metrics，无 overrides | 继续；Override 节写「无记录」 |
 | monthly 筛选后为零 | **停止**。告知本月无度量文件，可建议改跑 overview |
-| by-change 筛选后为零 | **停止**。列出顶层 metrics 中出现过的 `change_id`（及「未归因」），请用户重选 |
+| by-change 筛选后为零 | **停止**。列出顶层 metrics 中出现过的 `task_id`（及「未归因」），请用户重选 |
 
-盘点输出须含：`[MACHINE_VERIFIED]` 文件数、时间跨度（最早/最晚 timestamp）、范围内 change_id 桶列表。
+盘点输出须含：`[MACHINE_VERIFIED]` 文件数、时间跨度（最早/最晚 timestamp）、范围内 task_id 桶列表。
 
 ### Step 2：聚合 Scorer 与 Constitution
 
@@ -103,7 +103,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 1. **Overall**：按时间序列列出 `overall_score`（overview 默认最近 N 次）  
 2. **分 scorer 趋势**：对 5 个标准名分别取最近 N 次 `score`（`audit-violation-rate` / `constitution-violation-count` / `test-coverage` / `complexity` / `doc-sync`；JSON 里名称以实际 `scorer` 字段为准）  
-3. **Constitution**：汇总 `audit.violations` 与 `audit.total_checks`；按 change_id 分桶  
+3. **Constitution**：汇总 `audit.violations` 与 `audit.total_checks`；按 task_id 分桶  
 4. **低分项**：`overall_score` 或任一 scorer 持续偏低（相对同范围均值或显式阈值）的条目，供 Step 4 使用  
 
 全部表格与数字标记 `[MACHINE_VERIFIED]`。缺字段写「字段缺失」，不得默认 0 除非 JSON 里真是 0。
@@ -116,7 +116,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 - 总行数、可解析行数、未结构化行数  
 - 按理由关键词 / 原文聚类的频率（能分则分）  
-- 同一 `change_id` 或同一理由反复出现 → 标「反复违规候选」  
+- 同一 `task_id` 或同一理由反复出现 → 标「反复违规候选」  
 
 无可靠「响应时间」「阻塞时长」字段时：**不要**输出假的团队响应 SLA。team 模式下可额外统计 override 条数与低分 blocking 相关叙述（仅基于已读到的行 + metrics 的 `mode`/`score`），仍标 `[MACHINE_VERIFIED]` 或标明样本不足。
 

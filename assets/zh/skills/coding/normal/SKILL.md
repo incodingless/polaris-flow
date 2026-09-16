@@ -63,12 +63,12 @@ normal 是 P02（常规功能）的执行体。它把完整链路的 `specify �
 
 | 项 | 路径 / 值 |
 |----|-----------|
-| `change_id` | 与 tweak / ship 同值，kebab-case |
-| 意图文档（唯一真相） | `openspec/changes/<change_id>/intention.md`（Step 4.2 迁入前在 `.polaris/tasks/<change_id>/`） |
-| OpenSpec 四件套 | `openspec/changes/<change_id>/{proposal.md, design.md, specs/, tasks.md}` |
-| 合并主审报告 | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
-| 运行态 | `.polaris/tasks/<change_id>/state.yaml` |
-| 验证报告 | `openspec/changes/<change_id>/reviews/verify-report.md` |
+| `task_id` | 与 tweak / ship 同值，kebab-case |
+| 意图文档（唯一真相） | `openspec/changes/<task_id>/intention.md`（Step 4.2 迁入前在 `.polaris/tasks/<task_id>/`） |
+| OpenSpec 四件套 | `openspec/changes/<task_id>/{proposal.md, design.md, specs/, tasks.md}` |
+| 合并主审报告 | `openspec/changes/<task_id>/reviews/plan-review-report.md` |
+| 运行态 | `.polaris/tasks/<task_id>/state.yaml` |
+| 验证报告 | `openspec/changes/<task_id>/reviews/verify-report.md` |
 | Metrics | `.polaris/metrics/<timestamp>-metrics.json` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 
@@ -105,7 +105,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 | 2 | —（stderr） | 参数/环境错误 | 按 H12 阻断 |
 | 3 | —（stderr） | workflow 写入失败 | 按 H12 阻断 |
 
-`status="existing"` 时按 `./policies/decision-point.md` 暂停：**A 续写最新** / **B 选择指定** / **C 丢弃后重建** / **D 取消退出**。续写场景沿用现有 `change_id`，不算目录冲突。
+`status="existing"` 时按 `./policies/decision-point.md` 暂停：**A 续写最新** / **B 选择指定** / **C 丢弃后重建** / **D 取消退出**。续写场景沿用现有 `task_id`，不算目录冲突。
 
 **状态行（H8）**：`[polaris-flow 开发]常规通道 - 开始轻量澄清：.polaris/tasks/<draft_name>/; workflow: appended entry phase=specify`
 
@@ -180,7 +180,7 @@ C. 超出常规需求 — 升到复杂链路（P03）
 | 待决问题 | 未关闭项；无则写「无」 |
 | 下游约束 | Step 1.2 勘察结果（模块清单 / 接口边界 / 数据实体 / 核心链路） |
 
-首行任务标识暂用占位 `# 意图调研结果: <TBD>`，Step 2.2 回填为真实 `change_id`。
+首行任务标识暂用占位 `# 意图调研结果: <TBD>`，Step 2.2 回填为真实 `task_id`。
 
 > 「下游约束」节不是装饰——它是 Step 5 双向守门与四件套 design 的唯一判定输入。
 
@@ -188,7 +188,7 @@ C. 超出常规需求 — 升到复杂链路（P03）
 
 #### 2.1 任务名确认（阻塞点）→ 得到 `task_id`
 
-按 `./policies/decision-point.md` 暂停，让用户决定任务名（即后续目录名 / `change_id`）。**禁止**静默推断或自动落盘。
+按 `./policies/decision-point.md` 暂停，让用户决定任务名（即后续目录名 / `task_id`）。**禁止**静默推断或自动落盘。
 
 约束：`task_id` 必须是 **kebab-case 英文**（小写字母、数字、连字符），如 `add-order-export`。
 
@@ -210,14 +210,14 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 
 | `FINAL_EXIT` | 含义 | 后续动作 |
 | ------------ | ---- | -------- |
-| 0 | 成功 | 回填 `intention.md` 首行为真实 `change_id`，进入 Step 3 |
+| 0 | 成功 | 回填 `intention.md` 首行为真实 `task_id`，进入 Step 3 |
 | 1 | 目标目录已存在 | 按 H12 阻断 |
 | 2 | 参数/环境错误 | 按 H12 阻断 |
 | 3 | workflow rename 失败 | 按 H12 阻断 |
 
 ### Step 3：worktree（默认不创建）
 
-normal 默认留在主仓库，不询问。写入 `.polaris/tasks/<change_id>/state.yaml`：
+normal 默认留在主仓库，不询问。写入 `.polaris/tasks/<task_id>/state.yaml`：
 
 ```yaml
 worktree:
@@ -230,14 +230,14 @@ phase: plan
 用户**显式**要求 worktree 时，创建并同步元信息（ship 的合回逻辑照常生效）：
 
 ```bash
-WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-create.sh" "$change_id" "$REPO_ROOT")
+WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-create.sh" "$task_id" "$REPO_ROOT")
 WT_EXIT=$?
 ```
 
 - `WT_EXIT=0` → `$WT_RESULT` 含 JSON（`target_path` / `target_branch` / `snapshot_path`），继续同步
 - `WT_EXIT=1` → **阻断**，按 stderr 处理
 
-创建成功后，写入 `.polaris/tasks/<change_id>/state.yaml`（worktree 内路径优先）：
+创建成功后，写入 `.polaris/tasks/<task_id>/state.yaml`（worktree 内路径优先）：
 
 ```yaml
 worktree:
@@ -252,7 +252,7 @@ phase: plan
 同步主仓 workflow.yaml（脚本内含锁 + 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill normal --where-task-id "$change_id" --set phase=plan --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill normal --where-task-id "$task_id" --set phase=plan --set worktree-path="$target_path"
 ```
 
 输出：`[polaris-flow 开发]常规通道 - worktree：created at <target_path> on branch <target_branch>`
@@ -261,18 +261,18 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 #### 4.1 创建 change 骨架
 
-**立即执行：** 使用 Skill 工具加载 `opsx:new` / `openspec-new-change`。禁止跳过此步骤（否则 `openspec/changes/<change_id>/` 目录不合法，ship 的 `openspec-cn archive` 会失败）。
+**立即执行：** 使用 Skill 工具加载 `opsx:new` / `openspec-new-change`。禁止跳过此步骤（否则 `openspec/changes/<task_id>/` 目录不合法，ship 的 `openspec-cn archive` 会失败）。
 
 #### 4.2 迁入 `intention.md`（唯一真相）
 
 ```bash
-mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" \
-   "$REPO_ROOT/openspec/changes/$change_id/intention.md"
+mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" \
+   "$REPO_ROOT/openspec/changes/$task_id/intention.md"
 ```
 
 确认 `.polaris` 侧已不存在、目标路径存在且非空。**禁止**在 `.polaris` 保留 intention 副本。
 
-输出：`[polaris-flow 开发]常规通道 - 意图：moved to openspec/changes/<change_id>/intention.md（.polaris 无备份）`
+输出：`[polaris-flow 开发]常规通道 - 意图：moved to openspec/changes/<task_id>/intention.md（.polaris 无备份）`
 
 #### 4.3 生成 `proposal.md` / `specs/` / `design.md`
 
@@ -356,7 +356,7 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" \
 #### 6.3 tasks lint
 
 ```bash
-LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$change_id/tasks.md")
+LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
 LINT_EXIT=$?
 ```
 
@@ -379,7 +379,7 @@ runtime:
 phase: build
 ```
 
-输出：`[polaris-flow 开发]常规通道: change_id=<change_id> ; worktree=main ; tasks=<N> 顶层任务`
+输出：`[polaris-flow 开发]常规通道: task_id=<task_id> ; worktree=main ; tasks=<N> 顶层任务`
 
 ### Step 7：合并主审（阻塞点）
 
@@ -409,19 +409,19 @@ P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**�
 
    - `stage_fields`:
      ```text
-     Change: <change_id>
+     Change: <task_id>
      Batch: all
      ReviewMode: after_all
      Frozen: none
      ```
    - `materials`（按序）：
-     1. `openspec/changes/<change_id>/proposal.md`
-     2. `openspec/changes/<change_id>/design.md`
-     3. `openspec/changes/<change_id>/specs/**/*.md`（每个非空文件）
-     4. `openspec/changes/<change_id>/tasks.md`（**终版细计划**，非粗骨架——须在派发 prompt 中注明）
-     5. `openspec/changes/<change_id>/intention.md`
+     1. `openspec/changes/<task_id>/proposal.md`
+     2. `openspec/changes/<task_id>/design.md`
+     3. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
+     4. `openspec/changes/<task_id>/tasks.md`（**终版细计划**，非粗骨架——须在派发 prompt 中注明）
+     5. `openspec/changes/<task_id>/intention.md`
 
-4. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；写入 `openspec/changes/<change_id>/reviews/plan-review-report.md`
+4. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；写入 `openspec/changes/<task_id>/reviews/plan-review-report.md`
 
 #### 7.3 消化
 
@@ -433,7 +433,7 @@ P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**�
 runtime:
   plan:
     status: completed
-    review_report: openspec/changes/<change_id>/reviews/plan-review-report.md  # 或 skipped:<reason>
+    review_report: openspec/changes/<task_id>/reviews/plan-review-report.md  # 或 skipped:<reason>
     review_mode: merged
     outside_voice: not_run:p02-compressed
     finished_at: "<ISO>"
@@ -464,7 +464,7 @@ inline 与 subagent 分支同样适用（subagent 分支须写入启动 prompt�
 
 #### 8.3 执行 apply
 
-调用 `/opsx:apply <change_id>`。
+调用 `/opsx:apply <task_id>`。
 
 - **禁止**在 `/opsx:apply` 之外手写业务实现代码（补丁、新模块、改 API）
 - **禁止**用全局开关覆盖 `tasks.md` 内的 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->` 标注
@@ -513,7 +513,7 @@ runtime:
     finished_at: "<ISO>"
   plan:
     status: completed
-    review_report: openspec/changes/<change_id>/reviews/plan-review-report.md
+    review_report: openspec/changes/<task_id>/reviews/plan-review-report.md
     review_mode: merged
     outside_voice: not_run:p02-compressed
     finished_at: "<ISO>"
@@ -532,25 +532,25 @@ runtime:
     score_level: <high|low>
     verify_mode: light
     blocked: false
-    verification_report: "openspec/changes/<change_id>/reviews/verify-report.md"
+    verification_report: "openspec/changes/<task_id>/reviews/verify-report.md"
     scorer_results: { ... }
     finished_at: "<ISO>"
 phase: idle
 ```
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill normal --where-task-id "$change_id" --set phase=ship
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill normal --where-task-id "$task_id" --set phase=ship
 ```
 
 输出：
 
 ```text
 常规通道完成：
-  change_id : <change_id>
-  specs     : openspec/changes/<change_id>/{proposal.md, design.md, specs/, tasks.md}（四件套已齐）
-  review    : openspec/changes/<change_id>/reviews/plan-review-report.md（合并主审）
+  task_id : <task_id>
+  specs     : openspec/changes/<task_id>/{proposal.md, design.md, specs/, tasks.md}（四件套已齐）
+  review    : openspec/changes/<task_id>/reviews/plan-review-report.md（合并主审）
   score     : <overall_score> (<score_level>)
-  report    : openspec/changes/<change_id>/reviews/verify-report.md
+  report    : openspec/changes/<task_id>/reviews/verify-report.md
 下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}ship（四件套已齐，无需补齐，直接归档）。
 ```
 
@@ -568,7 +568,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 上下文压缩恢复
 
-重载：`change_id`、draft 是否已 finalize、`intention.md` 当前所在路径、四件套是否已落盘并定稿、顶层任务数与勾选进度、`normal.*` / `plan.*` / `build.*` / `verify.*`、本 skill 停在哪一步。
+重载：`task_id`、draft 是否已 finalize、`intention.md` 当前所在路径、四件套是否已落盘并定稿、顶层任务数与勾选进度、`normal.*` / `plan.*` / `build.*` / `verify.*`、本 skill 停在哪一步。
 
 | 中断位置 | 恢复动作 |
 |----------|----------|
@@ -582,11 +582,11 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 退出条件
 
-- `intention.md` 已迁入 `openspec/changes/<change_id>/`，`.polaris` 无副本
+- `intention.md` 已迁入 `openspec/changes/<task_id>/`，`.polaris` 无副本
 - 四件套存在且 Step 7.1 机械终检通过（含 `tasks-lint`）
 - Step 7.2 合并主审已派发（或用户接受 SKIPPED 并记录原因）且无未消化 Critical
 - `tasks.md` 全部 checkbox 为 `- [x]`
-- 5 个 scorer 已跑完，`.polaris/metrics/<timestamp>-metrics.json` 已写入且含 `change_id`
+- 5 个 scorer 已跑完，`.polaris/metrics/<timestamp>-metrics.json` 已写入且含 `task_id`
 - `reviews/verify-report.md` 存在且 `runtime.verify.verification_report` 指向它
 - 无未解决的 CRITICAL；IMPORTANT 已逐条决策
 - `runtime.build.status` / `runtime.verify.status=completed`，且 `phase=ship`

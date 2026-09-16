@@ -6,7 +6,7 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 # Polaris 工作流 - 阶段：构建（build）
 
 <HARD-GATE>
-本 skill **仅**负责：在 **plan 已完成** 的前提下，按 `openspec/changes/<change_id>/tasks.md` 调用 `/opsx:apply` 完成实现，并做出口校验与阶段推进。
+本 skill **仅**负责：在 **plan 已完成** 的前提下，按 `openspec/changes/<task_id>/tasks.md` 调用 `/opsx:apply` 完成实现，并做出口校验与阶段推进。
 
 - **禁止**在 Step 2（能力结论 / 可选 `subagent-probe`，且仅当 `build_mode=subagent_dispatch`）完成之前调用 `/opsx:apply`
 - **禁止**跳过 Constitution 注入点 C（subagent 启动 prompt 必须含 C；inline 时由主代理按 task 输出 C）
@@ -26,17 +26,17 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 
 | 项 | 路径 / 值 |
 |----|-----------|
-| `change_id` | 与 specify / plan / design / tasks 同值 |
-| 实施计划（唯一） | `openspec/changes/<change_id>/tasks.md` |
-| 评审报告（`tasks-review-agent` 写入） | `openspec/changes/<change_id>/reviews/tasks-review-report.md` |
-| 深度设计（只读，`runtime.design.status=skipped` 时不存在） | `openspec/changes/<change_id>/detailed-design.md` |
-| 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
+| `task_id` | 与 specify / plan / design / tasks 同值 |
+| 实施计划（唯一） | `openspec/changes/<task_id>/tasks.md` |
+| 评审报告（`tasks-review-agent` 写入） | `openspec/changes/<task_id>/reviews/tasks-review-report.md` |
+| 深度设计（只读，`runtime.design.status=skipped` 时不存在） | `openspec/changes/<task_id>/detailed-design.md` |
+| 业务档案 | `.polaris/tasks/<task_id>/state.yaml` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 | implementer prompt 模板 | `./assets/implementer-prompt.md` |
 
 > **链路**：`specify → plan → (design 可选) → tasks → **build** → verify → ship`。  
 > 本阶段不写计划、不审设计；只执行已评审的 `tasks.md`。  
-> 若本阶段落盘代码评审报告，写入 `openspec/changes/<change_id>/reviews/code-review-report.md`（无流程则不强造）。
+> 若本阶段落盘代码评审报告，写入 `openspec/changes/<task_id>/reviews/code-review-report.md`（无流程则不强造）。
 
 ## 前置条件
 
@@ -46,7 +46,7 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：定位 change_id + 入口校验
+### Step 0：定位 任务标识 + 入口校验
 ```bash
 TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill build --repo-root "$REPO_ROOT" --phase build)
 RTID_EXIT=$?
@@ -57,7 +57,7 @@ RTID_EXIT=$?
 
 按 `$TASK_IDS` 数组长度解读：
 
-- **唯一匹配**：直接读取 `change_id`
+- **唯一匹配**：直接读取 `task_id`
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 tasks 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks」
 
@@ -69,16 +69,16 @@ RTID_EXIT=$?
 | 检查 | 条件 |
 |------|------|
 | plan 已完成 | `state.yaml` 中 `runtime.tasks.status=completed`（或用户明示接受续跑且 `tasks.md` 已是可执行细计划） |
-| tasks 可执行 | `openspec/changes/<change_id>/tasks.md` 非空，且含至少一个 `- [ ]` 或（续跑时）未完成项可定位 |
+| tasks 可执行 | `openspec/changes/<task_id>/tasks.md` 非空，且含至少一个 `- [ ]` 或（续跑时）未完成项可定位 |
 | 工作目录 | 若 `worktree_path` 非空 → 后续 apply / 读 tasks **以该 worktree 为仓库根**；否则用主仓 |
 
 通过后更新 `state.yaml`：`phase: build`，`runtime.build.status: in_progress`。
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding --phase build
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase build
 ```
-输出：`[polaris-flow 开发]构建: change_id=<change_id> ; worktree=<path|main>`
+输出：`[polaris-flow 开发]构建: task_id=<task_id> ; worktree=<path|main>`
 
 ### Step 1：选择执行方式与审查模式（用户决策点）
 
@@ -138,13 +138,13 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 **组装启动 prompt**（subagent 分支必做；inline 可把同一约束当作自检清单）：
 
 1. `read_file "./assets/implementer-prompt.md"`
-2. 将 `<change_id 或省略>` 替换为 Step 0 的 `change_id`（方括号命令写成 `/opsx:apply <change_id>`）
+2. 将 `<task_id 或省略>` 替换为 Step 0 的 `task_id`（方括号命令写成 `/opsx:apply <task_id>`）
 3. 运行时自填占位符（如 `<N.M>`）**保持原样**
 4. 在 prompt 末尾追加（若模板未含）：
 
 ```text
-Change: <change_id>
-Tasks: openspec/changes/<change_id>/tasks.md
+Change: <task_id>
+Tasks: openspec/changes/<task_id>/tasks.md
 TDD: 严格遵守 tasks.md 内每个 task 的 <!-- TDD 任务 --> / <!-- 非 TDD 任务 -->；禁止全局跳过 RED。
 Review mode (final, by parent): <off|standard|thorough> — 你不必在 apply 循环内派发 reviewer。
 Working directory: <worktree_path 或 main repo root>
@@ -167,7 +167,7 @@ Working directory: <worktree_path 或 main repo root>
 主代理在本会话：
 
 1. 执行 apply **前**输出本次 build 适用的 Constitution 原则清单（一行摘要即可）
-2. 调用 `/opsx:apply <change_id>`
+2. 调用 `/opsx:apply <task_id>`
 3. 每开始一个 task 前输出：`[Constitution C] Task <N.M>: 适用原则 = ...`
 4. **禁止**在 apply 流程外另写业务实现
 
@@ -233,8 +233,8 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ```
 构建阶段完成：
-  change_id : <change_id>
-  tasks.md  : openspec/changes/<change_id>/tasks.md（全部 [x]）
+  task_id : <task_id>
+  tasks.md  : openspec/changes/<task_id>/tasks.md（全部 [x]）
   review    : <final_review 值>
 下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}verify。
 ```
@@ -255,7 +255,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 上下文压缩恢复
 
-重载：`change_id`、`worktree_path`、`runtime.build.build_mode` / `runtime.build.review_mode`、当前 `tasks.md` 勾选进度、apply 上次 pause 原因（若有）、本 skill 停在哪一步。  
+重载：`task_id`、`worktree_path`、`runtime.build.build_mode` / `runtime.build.review_mode`、当前 `tasks.md` 勾选进度、apply 上次 pause 原因（若有）、本 skill 停在哪一步。  
 - 停在 apply pause → 从 Step 3 续，勿重选模式（除非用户要求）  
 - 停在 Step 4 审查未完成 → 从 Step 4 续  
 - 勿重新跑 plan / 勿调用 `writing-plans`

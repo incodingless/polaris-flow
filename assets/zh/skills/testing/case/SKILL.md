@@ -138,7 +138,7 @@ Step1 输入加载与测试基线建立 > Step2 三类场景用例设计 > Step3
 
 ## Step 4 — 输出测试用例文档
 
-输出到 `openspec/changes/<change_id>/test/test-cases.md`，内容按以下结构组织：
+输出到 `openspec/changes/<task_id>/test/test-cases.md`，内容按以下结构组织：
 
 ```
 # 测试用例集 — {需求/变更名称}

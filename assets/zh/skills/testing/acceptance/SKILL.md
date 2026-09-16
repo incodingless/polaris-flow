@@ -128,7 +128,7 @@ And   {附加验证点：数据变化、状态变更、记录生成}
 
 ## Step 4 — 输出验收标准清单
 
-输出到 `openspec/changes/<change_id>/test/acceptance-criteria.md`，结构如下：
+输出到 `openspec/changes/<task_id>/test/acceptance-criteria.md`，结构如下：
 
 ```
 # 验收标准清单 — {需求/变更名称}

@@ -28,9 +28,16 @@ worktree-dir: "<project_root>/.worktrees"
 ####################
 # 运行配置 
 ####################
+# 任务类型
+# 可选值: coding
+kind: coding
+
 # 变更ID
 # 与父目录名一致；draft-* 阶段为占位，specify finalize 回填
 change_id: ""
+
+# 任务ID（与 change_id 对齐；draft 阶段为 draft 目录名）
+task_id: ""
 
 # 阶段
 # 可选值: idle-空闲 | specify-澄清 | plan-提案 | design-设计 | tasks-任务 | build-构建 | verify-验证 | ship-交付

@@ -19,17 +19,16 @@ version: 0.1
 
 ## 标识约定
 
-- **`change_id`**：本 skill 唯一主键。与 specify finalize 后的目录名 / `task_id` **同值**。
 - 任务目录（运行态）：`.polaris/tasks/<task_id>/`（本阶段结束后通常仅留 `state.yaml`）
 - 意图文档（入口暂存）：`.polaris/tasks/<task_id>/intention.md`
-- 意图文档（迁入后唯一真相）：`openspec/changes/<change_id>/intention.md`
-- OpenSpec 四件套：`openspec/changes/<change_id>/`
-- 批内审查日志（Mode A）：`openspec/changes/<change_id>/review-log.md`
-- 提案主审报告：`openspec/changes/<change_id>/reviews/plan-review-report.md`（Step 4.2）
-- Outside Voice 报告（若运行）：`openspec/changes/<change_id>/reviews/openspec-review-report.md`
+- 意图文档（迁入后唯一真相）：`openspec/changes/<task_id>/intention.md`
+- OpenSpec 四件套：`openspec/changes/<task_id>/`
+- 批内审查日志（Mode A）：`openspec/changes/<task_id>/review-log.md`
+- 提案主审报告：`openspec/changes/<task_id>/reviews/plan-review-report.md`（Step 4.2）
+- Outside Voice 报告（若运行）：`openspec/changes/<task_id>/reviews/openspec-review-report.md`
 - workflow 游标：`.polaris/workflow.yaml` → `coding_tasks[].task_id`（写入一律走 `scripts/workflow-entry.sh`）
 
-> **续跑**：若 `openspec/changes/<change_id>/intention.md` 已存在且 `.polaris/tasks/<task_id>/intention.md` 已不存在，视为 Step 3.5 已完成，不得再从 `.polaris` 读 intention。
+> **续跑**：若 `openspec/changes/<task_id>/intention.md` 已存在且 `.polaris/tasks/<task_id>/intention.md` 已不存在，视为 Step 3.5 已完成，不得再从 `.polaris` 读 intention。
 
 ## 流程（按顺序执行，每一步未完成不得进入下一步）
 
@@ -149,7 +148,7 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 
 #### 3.2 组装输入
 
-`read_file` `.polaris/tasks/<change_id>/intention.md`
+`read_file` `.polaris/tasks/<task_id>/intention.md`
 
 **`intention.md` 节 → OpenSpec 四件套映射**（仅完整路径适用）：
 
@@ -165,7 +164,7 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 | `## 结论（架构 + 技术选型）` | `design.md` 的 Architecture / 选型相关节 | 必须包含架构决策与方案选型（深度技术设计留给后续 design 文档细化） |
 | `## 备选方案` | `design.md` 的 `## Alternatives` | 必须包含未选方案及拒绝理由 |
 
-`tasks.md` 严格按 `./templates/tasks-template.md` 规则生成；`change_id`值与 Step 0 中获取的`task_id`一致。
+`tasks.md` 严格按 `./templates/tasks-template.md` 规则生成;
 
 #### 3.3 审查模式选择（阻塞）
 
@@ -221,20 +220,20 @@ B. 否 — 四件套全部生成完毕后，再在 Step 4.2 统一整体主审�
 | A | `artifact_review_mode: per_batch` | Step 3.4 走 policy Mode A（§3+§4）→ 3.5 → 4.1 机械终检 → **仍进** Step 4.2 齐套主审 |
 | B | `artifact_review_mode: after_all` | Step 3.4 走 policy Mode B（仅 §3，**跳过 §4**）→ 3.5 → 4.1 机械终检 → Step 4.2 为**唯一**制品主审 |
 
-写入 `.polaris/tasks/<change_id>/state.yaml` 顶层 `artifact_review_mode`。
+写入 `.polaris/tasks/<task_id>/state.yaml` 顶层 `artifact_review_mode`。
 
 同步在 `state.yaml` 写入：
 
 - `runtime.plan.review_round: 0`  （plan 主审轮次，从 0 起；每次 4.2 落盘后 +1）
 - `runtime.plan.review_log_file`：
-  - 选 A → `openspec/changes/<change_id>/review-log.md`（Mode A 批内日志路径）
+  - 选 A → `openspec/changes/<task_id>/review-log.md`（Mode A 批内日志路径）
   - 选 B → `skipped:after_all`（无批内日志）
 
 #### 3.4 按模式执行分批生成
 
 `read_file ./policies/artifact-batch-generation.md`，按 3.3 已选模式执行（勿在本 skill 内另写一套循环)
 
-执行后（无论 ok / failed）在 `.polaris/tasks/<change_id>/state.yaml` 写入：
+执行后（无论 ok / failed）在 `.polaris/tasks/<task_id>/state.yaml` 写入：
 
 - `runtime.propose.opsx_propose_status`: `<ok|failed>`（四件套全部生成并通过本步校验为 `ok`，任一失败为 `failed`；如本步未执行写 `n/a`）
 
@@ -242,20 +241,20 @@ B. 否 — 四件套全部生成完毕后，再在 Step 4.2 统一整体主审�
 
 Step 3.4 生成完成（Mode A 含批内审查）后执行。**禁止**在 `.polaris` 保留 intention 副本。
 
-1. 确认 `openspec/changes/<change_id>/` 目录存在。
-2. 若 `.polaris/tasks/<change_id>/intention.md` 存在：
+1. 确认 `openspec/changes/<task_id>/` 目录存在。
+2. 若 `.polaris/tasks/<task_id>/intention.md` 存在：
 
 ```bash
 # 工作树根：worktree 模式用 target_path，否则 main_repo_root
-mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/changes/$change_id/intention.md"
+mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/changes/$task_id/intention.md"
 ```
-确认 `.polaris/tasks/<change_id>/intention.md` 已不存在；目标路径存在且非空。
+确认 `.polaris/tasks/<task_id>/intention.md` 已不存在；目标路径存在且非空。
 
-3. 更新 `.polaris/tasks/<change_id>/state.yaml`：将 intention 路径字段改为 `openspec/changes/<change_id>/intention.md`（若模板有 `intention.path` / 等价字段则写入；无则至少在摘要中记录）。
+3. 更新 `.polaris/tasks/<task_id>/state.yaml`：将 intention 路径字段改为 `openspec/changes/<task_id>/intention.md`（若模板有 `intention.path` / 等价字段则写入；无则至少在摘要中记录）。
 4. 若本轮为 fallback（从未有过 intention 文件）→ **跳过**本步，不造空 `intention.md`。
 5. 若 openspec 侧已有 `intention.md` 且 `.polaris` 侧已无 → 视为已迁入，输出 `[polaris-flow 开发]提案 - 意图：已在 openspec，跳过迁入。`
 
-输出：`[polaris-flow 开发]提案 - 意图：moved to openspec/changes/<change_id>/intention.md（.polaris 无备份）`
+输出：`[polaris-flow 开发]提案 - 意图：moved to openspec/changes/<task_id>/intention.md（.polaris 无备份）`
 
 ### Step 4：机械终检 + 提案整体评审（阻塞点）
 
@@ -269,7 +268,7 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
    `## Constitution Alignment`、`## Alternatives`、`## Premises`
 4. **`tasks.md`**：任务有明确描述；必须跑：
    ```bash
-   LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$change_id/tasks.md")
+   LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
    LINT_EXIT=$?
    ```
    - exit 0 → 通过  
@@ -295,26 +294,26 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
 
    - `stage_fields`:
      ```text
-     Change: <change_id>
+     Change: <task_id>
      Batch: all
      ReviewMode: <per_batch|after_all>
      Frozen: <Mode A 下已冻结批次列表；Mode B 为 none 或 all-unfrozen>
      ```
    - `materials`（按以下顺序构造）：
-     1. `openspec/changes/<change_id>/proposal.md`
-     2. `openspec/changes/<change_id>/design.md`
-     3. `openspec/changes/<change_id>/specs/**/*.md`（每个非空文件）
-     4. `openspec/changes/<change_id>/tasks.md`（粗骨架）
-     5. 若有：`openspec/changes/<change_id>/intention.md`
-     6. 若有（Mode A 常见）：`openspec/changes/<change_id>/review-log.md`
+     1. `openspec/changes/<task_id>/proposal.md`
+     2. `openspec/changes/<task_id>/design.md`
+     3. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
+     4. `openspec/changes/<task_id>/tasks.md`（粗骨架）
+     5. 若有：`openspec/changes/<task_id>/intention.md`
+     6. 若有（Mode A 常见）：`openspec/changes/<task_id>/review-log.md`
 
    D-1 下 agent 按 `plan-review-agent.md` 自读上述路径；D-2 下主代理 Read 全部全文拼入 `Materials:` 段。
 
-3. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；写入 `openspec/changes/<change_id>/reviews/plan-review-report.md`。
+3. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；写入 `openspec/changes/<task_id>/reviews/plan-review-report.md`。
 
 > 整体主审消化上限为 **最多 3 轮**（见 4.4）；与 Mode A 批内 `artifact_max_round` 无关。
 
-主审报告落盘后，在 `.polaris/tasks/<change_id>/state.yaml` 写入：
+主审报告落盘后，在 `.polaris/tasks/<task_id>/state.yaml` 写入：
 
 - `runtime.plan.review_round`：`runtime.plan.review_round + 1`（本次主审轮次；4.4 中重跑 4.2 时继续 +1）
 
@@ -330,18 +329,18 @@ mv "$REPO_ROOT/.polaris/tasks/$change_id/intention.md" "$REPO_ROOT/openspec/chan
 
    - `stage_fields`:
      ```text
-     Change: <change_id>
+     Change: <task_id>
      Stage: plan
      ```
    - `materials`:
-     1. `openspec/changes/<change_id>/reviews/plan-review-report.md`（即 PrimaryReport，D-2 下全文拼入）
-     2. `openspec/changes/<change_id>/proposal.md`
-     3. `openspec/changes/<change_id>/design.md`
-     4. `openspec/changes/<change_id>/specs/**/*.md`（每个非空文件）
-     5. `openspec/changes/<change_id>/tasks.md`
-     6. 若有：`openspec/changes/<change_id>/intention.md`
+     1. `openspec/changes/<task_id>/reviews/plan-review-report.md`（即 PrimaryReport，D-2 下全文拼入）
+     2. `openspec/changes/<task_id>/proposal.md`
+     3. `openspec/changes/<task_id>/design.md`
+     4. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
+     5. `openspec/changes/<task_id>/tasks.md`
+     6. 若有：`openspec/changes/<task_id>/intention.md`
 
-4. 通过可信度门禁后写入 `openspec/changes/<change_id>/reviews/openspec-review-report.md`。
+4. 通过可信度门禁后写入 `openspec/changes/<task_id>/reviews/openspec-review-report.md`。
 5. 宿主无 subagent → 按协议跳过 OV 并标注。
 
 #### 4.4 消化
@@ -363,9 +362,9 @@ runtime:
     opsx_propose_status: "<ok|failed>"                      # Step 3.4 末写入
     review_round: <N>                                       # Step 3.3.2 初始化为 0，Step 4.2 每轮 +1
     review_log_file: "<path>|skipped:after_all"             # Step 3.3.2 按模式写入
-    review_report: openspec/changes/<change_id>/reviews/plan-review-report.md  # 或 skipped:<reason>
+    review_report: openspec/changes/<task_id>/reviews/plan-review-report.md  # 或 skipped:<reason>
     outside_voice: ran | skipped:<reason> | not_run:<reason>
-    outside_voice_report: openspec/changes/<change_id>/reviews/openspec-review-report.md  # 若 ran
+    outside_voice_report: openspec/changes/<task_id>/reviews/openspec-review-report.md  # 若 ran
     finished_at: "<ISO>"
 ```
 
@@ -422,7 +421,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 上下文压缩恢复
 
-重载：`change_id`、`artifact_review_mode`、四件套路径、`review-log.md`（若有）、`reviews/plan-review-report.md`、`reviews/openspec-review-report.md`（若有）、停在哪一步。
+重载：`task_id`、`artifact_review_mode`、四件套路径、`review-log.md`（若有）、`reviews/plan-review-report.md`、`reviews/openspec-review-report.md`（若有）、停在哪一步。
 若停在 4.2/4.4 未消化 → 先完成评审消化，勿无故重跑 `/opsx:propose` 或整段 3.4。
 若停在 4.1 未通过 → 先补齐四件套 / 修 lint，再进 4.2。
 若停在 5.1 决策点 → 完成深化设计决策（A 深化 / B 跳过）后再按 5.2 推进 phase。

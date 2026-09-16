@@ -242,7 +242,7 @@ export interface TaskState {
 
 /** createDefaultTaskState 可选覆盖 */
 export type CreateDefaultTaskStateOptions = {
-  changeId?: string;
+  task_id?: string;
   language?: string;
   phase?: TaskPhase;
   kind?: string;
@@ -418,15 +418,15 @@ function migrateLegacyShape(parsed: Record<string, unknown>): Record<string, unk
 
 /** 生成对齐 state.example 的默认任务状态 */
 export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = {}): TaskState {
-  const changeId = options.changeId ?? '';
   const workflowMode = (options.workflow as WorkflowMode | undefined) ?? 'sdd';
+  const task_id = options.task_id ?? '';
   return {
     language: options.language ?? 'zh-CN',
     install_time: '',
     main_repo_root: '',
     worktree_dir: '',
     kind: options.kind ?? 'coding',
-    change_id: changeId,
+    task_id: task_id,
     phase: options.phase ?? 'idle',
     current_tier: '',
     // 顶层 workflow 字段保持字符串兼容写法（落盘双形式）
@@ -613,7 +613,7 @@ export async function patchTaskState(
   defaults?: CreateDefaultTaskStateOptions,
 ): Promise<TaskState> {
   return patchTaskStateFile(getTaskStatePath(projectPath, taskId), partial, {
-    changeId: taskId,
+    task_id: taskId,
     ...defaults,
   });
 }

@@ -44,6 +44,11 @@ export function getWorkflowTemplateYamlSrc(): string {
   return path.join(getSharedTemplatesDir(), 'workflow-template.yaml');
 }
 
+/** 返回任务 state 模板源：`assets/shared/templates/<filename>` */
+export function getTaskStateTemplateSrc(filename: string): string {
+  return path.join(getSharedTemplatesDir(), filename);
+}
+
 /** 返回 shared .gitignore 源：`assets/shared/.gitignore` */
 export function getSharedGitignoreSrc(): string {
   return path.join(getSharedDir(), '.gitignore');

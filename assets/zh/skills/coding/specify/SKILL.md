@@ -180,7 +180,7 @@ done
 #### 5.2 意图Lint评审
 
 ```bash
-LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/intention-validate.sh" "$REPO_ROOT/.polaris/tasks/$change_id/intention.md")
+LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/intention-validate.sh" "$REPO_ROOT/.polaris/tasks/$task_id/intention.md")
 LINT_EXIT=$?
 ```
 - exit 0 → 通过  

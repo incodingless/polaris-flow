@@ -1,6 +1,6 @@
 /**
- * 任务类型布局表：集中声明 coding / requirement / testcase / prototype 的存储根、初始 phase 与 bootstrap 文件。
- * 供 task-init / draft-create 按 `--kind` 分支初始化。
+ * 任务类型布局表：集中声明 coding / requirement / testcase / prototype 的存储根、
+ * state 模板、初始化补丁与 bootstrap 文件。供 task-init / draft-create 使用。
  */
 import { parseWorkflowTaskKind, type WorkflowTaskKind } from './workflow-state.js';
 import type { TaskStorageSegment } from '../assets/polaris-paths.js';
@@ -11,14 +11,22 @@ export type TaskBootstrapFile = {
   content: string;
 };
 
+/**
+ * 初始化补丁：点路径 → 字面量或占位符。
+ * 占位符：`$taskId` | `$now` | `$intentionRel` | `$planRel`
+ */
+export type TaskInitPatches = Record<string, string>;
+
 /** 单种任务类型的目录与初始化约定 */
 export type TaskKindLayout = {
   kind: WorkflowTaskKind;
   /** `.polaris` 下的一级目录名 */
   storageSegment: TaskStorageSegment;
   initialPhase: string;
-  /** 选用哪套 state 工厂 */
-  stateFactory: 'coding' | 'requirement' | 'testcase' | 'prototype';
+  /** `assets/shared/templates/` 下的 state 模板文件名 */
+  stateTemplate: string;
+  /** 复制模板后写入的初始化覆盖 */
+  initPatches: TaskInitPatches;
   /**
    * 是否走 draft-* 临时目录。
    * false 时须传正式 task_id，直接初始化 `.polaris/<segment>/<task_id>/`。
@@ -34,7 +42,16 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     kind: 'coding',
     storageSegment: 'tasks',
     initialPhase: 'specify',
-    stateFactory: 'coding',
+    stateTemplate: 'state.example.yaml',
+    initPatches: {
+      kind: 'coding',
+      change_id: '$taskId',
+      task_id: '$taskId',
+      phase: 'specify',
+      'runtime.specify.intention_path': '$intentionRel',
+      'runtime.specify.status': 'in_progress',
+      'runtime.specify.start_time': '$now',
+    },
     usesDraft: true,
     bootstrapFiles: [],
   },
@@ -42,7 +59,13 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     kind: 'requirement',
     storageSegment: 'tasks',
     initialPhase: 'discovery',
-    stateFactory: 'requirement',
+    stateTemplate: 'prd-state.example.yaml',
+    initPatches: {
+      task_id: '$taskId',
+      phase: 'discovery',
+      'discovery.status': 'in_progress',
+      'discovery.started_at': '$now',
+    },
     usesDraft: false,
     bootstrapFiles: [],
   },
@@ -50,7 +73,14 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     kind: 'testcase',
     storageSegment: 'testcases',
     initialPhase: 'discovery',
-    stateFactory: 'testcase',
+    stateTemplate: 'testcase-state.example.yaml',
+    initPatches: {
+      task_id: '$taskId',
+      phase: 'discovery',
+      plan_path: '$planRel',
+      'discovery.status': 'in_progress',
+      'discovery.started_at': '$now',
+    },
     usesDraft: true,
     bootstrapFiles: [
       {
@@ -63,7 +93,13 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     kind: 'prototype',
     storageSegment: 'tasks',
     initialPhase: 'blueprint',
-    stateFactory: 'prototype',
+    stateTemplate: 'prototype-state.example.yaml',
+    initPatches: {
+      task_id: '$taskId',
+      phase: 'blueprint',
+      'blueprint.status': 'in_progress',
+      'blueprint.started_at': '$now',
+    },
     usesDraft: false,
     bootstrapFiles: [],
   },

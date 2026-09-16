@@ -142,15 +142,12 @@ export function getTaskIntentionRelPath(taskId: string): string {
 //        按 kind 的任务路径
 //---------------------------------
 
-/**
- * 返回 kind 对应的 `.polaris` 一级目录名。
- * coding / requirement / prototype → tasks；testcase → testcases。
- */
+/** kind → `.polaris` 下一级目录：testcase → testcases，其余 → tasks */
 export function getTaskStorageSegment(kind: WorkflowTaskKind): TaskStorageSegment {
   return kind === 'testcase' ? 'testcases' : 'tasks';
 }
 
-/** 返回 `.polaris/tasks` 或 `.polaris/testcases` */
+/** 返回 `.polaris/<segment>/`（tasks 或 testcases） */
 export function getTaskKindRootDir(projectPath: string, kind: WorkflowTaskKind): string {
   return path.join(getPolarisDir(projectPath), getTaskStorageSegment(kind));
 }
@@ -184,11 +181,6 @@ export function getTaskKindRelPath(
   return path.posix.join('.polaris', getTaskStorageSegment(kind), taskId, file);
 }
 
-/** 返回 `.polaris/testcases` 目录 */
-export function getTestcasesDir(projectPath: string): string {
-  return path.join(getPolarisDir(projectPath), 'testcases');
-}
-
 //---------------------------------
 //            archive 相关
 //---------------------------------
@@ -198,9 +190,14 @@ export function getArchiveDir(projectPath: string): string {
   return path.join(getPolarisDir(projectPath), 'archive');
 }
 
-/** 返回 `.polaris/archive/<changeId>` 目录 */
+/** 返回 `.polaris/archive/<taskId>` 目录 */
+export function getTaskArchiveDir(projectPath: string, taskId: string): string {
+  return path.join(getArchiveDir(projectPath), taskId);
+}
+
+/** @deprecated 使用 getTaskArchiveDir */
 export function getChangeArchiveDir(projectPath: string, changeId: string): string {
-  return path.join(getArchiveDir(projectPath), changeId);
+  return getTaskArchiveDir(projectPath, changeId);
 }
 
 /** 返回 `.polaris/metrics` 目录 */

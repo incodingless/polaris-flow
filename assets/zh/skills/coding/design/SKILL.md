@@ -6,13 +6,13 @@ description: "把 plan 的高层 design.md 深化为可实施的详细技术设�
 # Polaris 工作流 - 阶段：深度设计（design）
 
 <HARD-GATE>
-本 skill **仅**负责把 plan 阶段的高层 `design.md` **深化**为 `openspec/changes/<change_id>/detailed-design.md`。
+本 skill **仅**负责把 plan 阶段的高层 `design.md` **深化**为 `openspec/changes/<task_id>/detailed-design.md`。
 
 - **禁止**跳过 Superpowers `brainstorming`（不可用则阻断，禁止用普通对话替代）
 - **禁止**跳过专项设计补充预检（`./policies/detailed-design-precheck.md`）：`detailed-design.md` 落盘后必须基于 proposal / design / detailed-design 给出专项建议，并经 decision-point 确认
 - **禁止**未按 `./policies/decision-point.md` 获得用户对设计方案的明确确认，就落盘 `detailed-design.md`
 - **禁止**重写 OpenSpec `proposal.md` / 高层 `design.md` / `tasks.md` 的结构或范围（深化 ≠ 替代）
-- **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<change_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
+- **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<task_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
 - **禁止**跳过 Step 4 主审：必须派发 `design-review-agent`（评审逻辑在 agent 内，禁止在本 skill 内联重写或主代理自审冒充）
 - **禁止**跳过 Step 4 Outside Voice **询问**（按 `.polaris/policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
 - **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks`；写代码是 build）
@@ -25,15 +25,15 @@ description: "把 plan 的高层 design.md 深化为可实施的详细技术设�
 
 ## 标识约定
 
-- **`change_id`**：与 specify finalize / plan 同值
-- 任务目录（运行态）：`.polaris/tasks/<change_id>/state.yaml`
-- 意图（只读）：`openspec/changes/<change_id>/intention.md`（plan 已迁入）
-- 深度设计产物：`openspec/changes/<change_id>/detailed-design.md`
-- 专项设计（可选，扁平）：`openspec/changes/<change_id>/<slug>-design.md`
-- 设计主审报告：`openspec/changes/<change_id>/reviews/design-review-report.md`（由 Step 4 落盘）
-- Outside Voice 报告（若运行）：`openspec/changes/<change_id>/reviews/openspec-review-report.md`
-- 澄清检查点：`openspec/changes/<change_id>/brainstorm-summary.md`
-- OpenSpec 四件套：`openspec/changes/<change_id>/`
+- **`task_id`**：与 specify finalize / plan 同值
+- 任务目录（运行态）：`.polaris/tasks/<task_id>/state.yaml`
+- 意图（只读）：`openspec/changes/<task_id>/intention.md`（plan 已迁入）
+- 深度设计产物：`openspec/changes/<task_id>/detailed-design.md`
+- 专项设计（可选，扁平）：`openspec/changes/<task_id>/<slug>-design.md`
+- 设计主审报告：`openspec/changes/<task_id>/reviews/design-review-report.md`（由 Step 4 落盘）
+- Outside Voice 报告（若运行）：`openspec/changes/<task_id>/reviews/openspec-review-report.md`
+- 澄清检查点：`openspec/changes/<task_id>/brainstorm-summary.md`
+- OpenSpec 四件套：`openspec/changes/<task_id>/`
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`）
 
 > **职责边界**：plan 的 `design.md` = 高层方案框架；本阶段 `detailed-design.md` = 深度技术细化。深化，不替代。  
@@ -41,9 +41,9 @@ description: "把 plan 的高层 design.md 深化为可实施的详细技术设�
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：定位 change_id + 入口校验
+### Step 0：定位 任务标识 + 入口校验
 
-用 bash 读取工作流配置中有效变更的`change_id`：
+用 bash 读取工作流配置中有效变更的`task_id`：
 
 ```bash
 TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill design --repo-root "$REPO_ROOT" --phase design)
@@ -65,31 +65,31 @@ RTID_EXIT=$?
 
 | 检查 | 条件 |
 | ---- | ---- |
-| 四件套存在 | `openspec/changes/<change_id>/` 下 `proposal.md`、`design.md`、`tasks.md` 非空，且 `specs/` 含至少一个非空文件 |
+| 四件套存在 | `openspec/changes/<task_id>/` 下 `proposal.md`、`design.md`、`tasks.md` 非空，且 `specs/` 含至少一个非空文件 |
 | 提案评审 | 若存在 `reviews/plan-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 plan |
 | 尚未锁定 | 若 `runtime.design.status=completed` 且 `detailed-design.md` 已存在 → 询问 A 续写修订 / B 退出（禁止静默覆盖） |
 
 通过后：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill design --where-task-id "$change_id" --set phase=design
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill design --where-task-id "$task_id" --set phase=design
 ```
 
 更新 `state.yaml`：`phase: design`，`runtime.design.status: in_progress`。
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding --phase design
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase design
 ```
-输出：`[polaris-flow 开发]设计: change_id=<change_id> ; phase=design`
+输出：`[polaris-flow 开发]设计: task_id=<task_id> ; phase=design`
 
 ### Step 1：读取上游事实源
 
-- `openspec/changes/<change_id>/proposal.md`
-- `openspec/changes/<change_id>/design.md`
-- `openspec/changes/<change_id>/tasks.md`
-- `openspec/changes/<change_id>/specs/*/spec.md`
-- 若存在：`openspec/changes/<change_id>/intention.md`（只读）
+- `openspec/changes/<task_id>/proposal.md`
+- `openspec/changes/<task_id>/design.md`
+- `openspec/changes/<task_id>/tasks.md`
+- `openspec/changes/<task_id>/specs/*/spec.md`
+- 若存在：`openspec/changes/<task_id>/intention.md`（只读）
 
 ### Step 2：Brainstorming（带上下文）
 
@@ -106,8 +106,8 @@ ARGUMENTS 必须含 `Language: $LANGUAGE`。
 加载后上下文：
 
 ```text
-Change: <change_id>
-OpenSpec Context: openspec/changes/<change_id>/*.md
+Change: <task_id>
+OpenSpec Context: openspec/changes/<task_id>/*.md
 
 基于 OpenSpec 做深度技术设计（实现方案、技术风险、测试策略、边界条件）。
 不清楚则继续提问，不得一轮问答就落盘。
@@ -118,7 +118,7 @@ OpenSpec Context: openspec/changes/<change_id>/*.md
 
 #### 2.2 增量更新 `brainstorm-summary.md`
 
-路径：`openspec/changes/<change_id>/brainstorm-summary.md`  
+路径：`openspec/changes/<task_id>/brainstorm-summary.md`  
 未确认内容标「待确认」/「候选」。非 Design Doc，不替代 2.3。
 
 #### 2.3 用户确认设计方案（阻塞点）
@@ -129,11 +129,11 @@ OpenSpec Context: openspec/changes/<change_id>/*.md
 
 #### 3.1 写入 `detailed-design.md`
 
-路径：`openspec/changes/<change_id>/detailed-design.md`
+路径：`openspec/changes/<task_id>/detailed-design.md`
 
 ```yaml
 ---
-change: <change_id>
+change: <task_id>
 role: technical-design
 canonical_spec: openspec
 ---
@@ -141,7 +141,7 @@ canonical_spec: openspec
 
 正文至少含：实现方案、技术风险、测试策略、边界条件、Spec Patch 清单（无则写「无」）。  
 有 Spec Patch 则同时改 `specs/*/spec.md`。  
-输出：`[polaris-flow 开发]深度设计: wrote openspec/changes/<change_id>/detailed-design.md`
+输出：`[polaris-flow 开发]深度设计: wrote openspec/changes/<task_id>/detailed-design.md`
 
 #### 3.2 专项设计补充预检 + 落盘（阻塞点）
 
@@ -169,7 +169,7 @@ canonical_spec: openspec
 #### 3.3 主动式上下文压缩
 若配置 `context-compression: on`，且在 **`detailed-design.md`、专项设计（若有）、状态证据均已成功持久化落盘后** 考虑主动式压缩。这样压缩后可从文件恢复，不会丢失尚未写入的设计判断。
 
-- 上下文窗口确有压力且存在可调用的原生压缩机制时触发一次，并在恢复提示含 `change_id`、Step 3 完成、以及 `detailed-design.md` / `*-design.md`（若有）/ `brainstorm-summary.md` / OpenSpec 四件套。然后进入 Step 4。
+- 上下文窗口确有压力且存在可调用的原生压缩机制时触发一次，并在恢复提示含 `task_id`、Step 3 完成、以及 `detailed-design.md` / `*-design.md`（若有）/ `brainstorm-summary.md` / OpenSpec 四件套。然后进入 Step 4。
 - 压缩只能由用户手动触发时，给出一次非阻塞建议并继续；**不得阻塞**、不得额外制造确认点
 - 不得用 shell 命令或摘要伪造上下文压缩
 
@@ -189,17 +189,17 @@ canonical_spec: openspec
 
    - `stage_fields`:（无）
    - `materials`（按以下顺序构造）：
-     1. `openspec/changes/<change_id>/detailed-design.md`（必审）
-     2. `openspec/changes/<change_id>/*-design.md`（有则必审的专项；排除四件套 `design.md`）
-     3. `openspec/changes/<change_id>/design.md`（对照只读）
-     4. `openspec/changes/<change_id>/proposal.md`（对照只读）
-     5. `openspec/changes/<change_id>/specs/**/*.md`（对照只读，每个非空文件）
-     6. `openspec/changes/<change_id>/tasks.md`（对照只读）
-     7. 若有：`openspec/changes/<change_id>/intention.md`
+     1. `openspec/changes/<task_id>/detailed-design.md`（必审）
+     2. `openspec/changes/<task_id>/*-design.md`（有则必审的专项；排除四件套 `design.md`）
+     3. `openspec/changes/<task_id>/design.md`（对照只读）
+     4. `openspec/changes/<task_id>/proposal.md`（对照只读）
+     5. `openspec/changes/<task_id>/specs/**/*.md`（对照只读，每个非空文件）
+     6. `openspec/changes/<task_id>/tasks.md`（对照只读）
+     7. 若有：`openspec/changes/<task_id>/intention.md`
 
    D-1 下 agent 按 `design-review-agent.md`「输入」节自读上述路径；D-2 下主代理 Read 全部全文拼入 `Materials:` 段。评审标准在 agent 内（frontmatter 已载入）。
 
-3. **落盘**：确保 `openspec/changes/<change_id>/reviews/` 存在；将完整 **Design Review Report** 写入 `openspec/changes/<change_id>/reviews/design-review-report.md`。
+3. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；将完整 **Design Review Report** 写入 `openspec/changes/<task_id>/reviews/design-review-report.md`。
 
 #### 4.2 Outside Voice（询问后可选）
 
@@ -216,15 +216,15 @@ canonical_spec: openspec
      Stage: design
      ```
    - `materials`:
-     1. `openspec/changes/<change_id>/reviews/design-review-report.md`（即 PrimaryReport，D-2 下全文拼入）
-     2. `openspec/changes/<change_id>/detailed-design.md`
-     3. `openspec/changes/<change_id>/*-design.md`（有则列，排除四件套 `design.md`）
-     4. `openspec/changes/<change_id>/proposal.md`
-     5. `openspec/changes/<change_id>/design.md`
-     6. `openspec/changes/<change_id>/specs/**/*.md`（每个非空文件）
-     7. `openspec/changes/<change_id>/tasks.md`
+     1. `openspec/changes/<task_id>/reviews/design-review-report.md`（即 PrimaryReport，D-2 下全文拼入）
+     2. `openspec/changes/<task_id>/detailed-design.md`
+     3. `openspec/changes/<task_id>/*-design.md`（有则列，排除四件套 `design.md`）
+     4. `openspec/changes/<task_id>/proposal.md`
+     5. `openspec/changes/<task_id>/design.md`
+     6. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
+     7. `openspec/changes/<task_id>/tasks.md`
 
-4. 通过可信度门禁后写入 `openspec/changes/<change_id>/reviews/openspec-review-report.md`；失败则标注 OV 作废并告知用户。
+4. 通过可信度门禁后写入 `openspec/changes/<task_id>/reviews/openspec-review-report.md`；失败则标注 OV 作废并告知用户。
 5. 宿主无 subagent → 按协议自动跳过 OV 并标注（主审已在 4.1 处理）。
 
 #### 4.3 消化
@@ -239,13 +239,13 @@ canonical_spec: openspec
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding --phase design
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase design
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
-  --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding \
-  --set runtime.design.path=openspec/changes/<change_id>/detailed-design.md \
-  --set runtime.design.review_report=openspec/changes/<change_id>/reviews/design-review-report.md \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.design.path=openspec/changes/<task_id>/detailed-design.md \
+  --set runtime.design.review_report=openspec/changes/<task_id>/reviews/design-review-report.md \
   --set "runtime.design.outside_voice=<ran|skipped:<reason>|not_run:<reason>>" \
-  --set runtime.design.outside_voice_report=openspec/changes/<change_id>/reviews/openspec-review-report.md
+  --set runtime.design.outside_voice_report=openspec/changes/<task_id>/reviews/openspec-review-report.md
 ```
 
 workflow阶段推进至规划阶段：
@@ -254,7 +254,7 @@ workflow阶段推进至规划阶段：
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill design --where-task-id "$task_id" --set phase=tasks
 ```
 
-输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<change_id>/detailed-design.md 已锁定。下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks。`
+输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<task_id>/detailed-design.md 已锁定。下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks。`
 
 ## 退出条件
 

@@ -27,10 +27,9 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 
 | 项 | 路径 / 值 |
 |----|-----------|
-| `change_id` | 与 specify → verify 同值 |
-| 业务档案 | `.polaris/tasks/<change_id>/state.yaml` |
-| OpenSpec 变更目录 | `openspec/changes/<change_id>/`（四件套 + intention / detailed-design / `*-design.md` / `reviews/`；归档后进 `openspec/changes/archive/`） |
-| 产物快照 | `.polaris/archive/<change_id>/`（合回的 **state** 等运行态；叙事文档随 openspec archive） |
+| 业务档案 | `.polaris/tasks/<task_id>/state.yaml` |
+| OpenSpec 变更目录 | `openspec/changes/<task_id>/`（四件套 + intention / detailed-design / `*-design.md` / `reviews/`；归档后进 `openspec/changes/archive/`） |
+| 产物快照 | `.polaris/archive/<task_id>/`（合回的 **state** 等运行态；叙事文档随 openspec archive） |
 | Metrics（顶层） | `.polaris/metrics/*-metrics.json`（worktree 合回追加到主仓顶层） |
 | ship lock | 主仓 `.polaris/.locks/ship.lock` |
 | sync 脚本 | `$PLUGIN_ROOT/scripts/harness-sync.sh` |
@@ -46,7 +45,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 
 ## 输入与入口校验
 
-用 bash 读取工作流配置中有效变更的`change_id`：
+用 bash 读取工作流配置中有效变更的`task_id`：
 
 ```bash
 TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill ship --repo-root "$REPO_ROOT" --phase ship)
@@ -58,15 +57,15 @@ RTID_EXIT=$?
 
 按 `$TASK_IDS` 数组长度解读：
 
-- **唯一匹配**：直接读取 `change_id`
+- **唯一匹配**：直接读取 `task_id`
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 ship 阶段的 active change，请先执行 /polaris-flow-design」
 
-- **唯一匹配**：取其 `change_id`（及 `worktree_path`，若非空）
+- **唯一匹配**：取其 `task_id`（及 `worktree_path`，若非空）
 - **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 phase=ship 的 active change，请先执行 /polaris-flow-verify」
 
-读 `.polaris/tasks/<change_id>/state.yaml`（若 `worktree_path` 非空 → 从 **worktree 内**同路径读）：
+读 `.polaris/tasks/<task_id>/state.yaml`（若 `worktree_path` 非空 → 从 **worktree 内**同路径读）：
 
 | 检查 | 条件 | 失败动作 |
 |------|------|----------|
@@ -82,9 +81,9 @@ RTID_EXIT=$?
 
 `read_file "./policies/ship-lock.md"`，按其规定在主仓 `.polaris/.locks/ship.lock` 上获取互斥锁；失败即阻断。
 
-锁内容含 `change_id`、PID、启动时间；`trap EXIT INT TERM HUP` 自动释放；≥ 30min 视为 stale，须用户显式确认清理（H11）。
+锁内容含 `task_id`、PID、启动时间；`trap EXIT INT TERM HUP` 自动释放；≥ 30min 视为 stale，须用户显式确认清理（H11）。
 
-输出：`[polaris-flow 开发]交付 - ship lock 已获取：change_id=<change_id> pid=<PID>`
+输出：`[polaris-flow 开发]交付 - ship lock 已获取：task_id=<task_id> pid=<PID>`
 
 ### Step 1：终验
 
@@ -140,7 +139,7 @@ bash "$PLUGIN_ROOT/scripts/worktree-rebase-ff.sh" "$WORKTREE_PATH" "$ORIGIN_REPO
 
 ```bash
 # ━━━ 第一步：polaris-sync（合回产物到主仓 .polaris/）━━━
-SYNC_RESULT=$(bash "$PLUGIN_ROOT/scripts/harness-sync.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$change_id")
+SYNC_RESULT=$(bash "$PLUGIN_ROOT/scripts/harness-sync.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$task_id")
 SYNC_EXIT=$?
 # 0=synced / 1=partial_failure / 2=archive 目录冲突（弹三选项后带 flag 重调）/ 3=skipped_no_source
 
@@ -161,8 +160,8 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 
 - metrics → 主仓 `.polaris/metrics/`
 - overrides 追加 → 主仓 `.polaris/overrides.log`
-- `state.yaml` → `.polaris/archive/<change_id>/`（运行态快照）
-- 叙事文档（intention / detailed-design / `*-design.md` / `reviews/*`）已在 `openspec/changes/<change_id>/`，随后续 `/opsx:archive` 一并归档；**本步不要求**再把 detailed-design 拷进 `.polaris/archive/`
+- `state.yaml` → `.polaris/archive/<task_id>/`（运行态快照）
+- 叙事文档（intention / detailed-design / `*-design.md` / `reviews/*`）已在 `openspec/changes/<task_id>/`，随后续 `/opsx:archive` 一并归档；**本步不要求**再把 detailed-design 拷进 `.polaris/archive/`
 
 #### 3.6 选项 C：保留 worktree
 
@@ -175,7 +174,7 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 
 ### Step 4：状态写入
 
-更新 `.polaris/tasks/<change_id>/state.yaml`（worktree 仍在则写 worktree 内；已 remove 则写主仓；**本步不删目录**——Step 5/6 仍需 `change_id`）：
+更新 `.polaris/tasks/<task_id>/state.yaml`（worktree 仍在则写 worktree 内；已 remove 则写主仓；**本步不删目录**——Step 5/6 仍需 `task_id`）：
 
 ```yaml
 runtime:
@@ -184,7 +183,7 @@ runtime:
     finished_at: "<ISO>"
     merge_strategy: "<rebase-ff|pr-only|abandoned|n/a>"
     harness_sync: "<synced|partial_failure|skipped_no_source|skipped_worktree_retained|deferred_archive_conflict|n/a>"
-    archive_dir: ".polaris/archive/<change_id>"   # 仅 harness_sync ∈ {synced, partial_failure} 时有值
+    archive_dir: ".polaris/archive/<task_id>"   # 仅 harness_sync ∈ {synced, partial_failure} 时有值
     archive: ""            # Step 5 回填
     archive_path: ""
     archive_error: ""
@@ -202,7 +201,7 @@ phase: idle
 **触发条件**（满足任一即执行，否则整步跳过）：
 
 - `state.yaml` 中 `workflow.tweak.mode == "tweak"`
-- `openspec/changes/<change_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
+- `openspec/changes/<task_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
 
 **执行**：`read_file ./policies/artifact-backfill.md`，按 **§3 归档路径**把 `change-brief.md` 转换为四件套（`proposal.md` / `design.md` / `specs/<capability>/spec.md`）。
 
@@ -222,34 +221,34 @@ runtime:
 
 输出：`[polaris-flow 开发]交付 - 产物补齐：<done | 无需补齐 | 失败：<reason>>（源：change-brief.md）`
 
-**失败处理**：不阻断交付收尾。记录 `backfill=failed:<reason>`，照常进入 Step 5——用户可在归档询问时选择「暂不归档（B）」，事后手动补齐再跑 `openspec-cn archive <change_id>`。
+**失败处理**：不阻断交付收尾。记录 `backfill=failed:<reason>`，照常进入 Step 5——用户可在归档询问时选择「暂不归档（B）」，事后手动补齐再跑 `openspec-cn archive <task_id>`。
 
 ### Step 5：OpenSpec 归档（强制询问，主代理执行）
 
 #### 5.1 询问是否归档
 
-按 decision-point 呈现 `change_id` 与 `runtime.ship.status=delivered`，三选项：
+按 decision-point 呈现 `task_id` 与 `runtime.ship.status=delivered`，三选项：
 
-- **A**：立即归档（推荐）——将 `openspec/changes/<change_id>/` 移到 `openspec/changes/archive/YYYY-MM-DD-<change_id>/`
+- **A**：立即归档（推荐）——将 `openspec/changes/<task_id>/` 移到 `openspec/changes/archive/YYYY-MM-DD-<task_id>/`
 - **B**：暂不归档（PR 仍在 review / 稍后手动）
 - **C**：跳过归档（实验性变更）
 
 #### 5.2 用户选 A
 
 ```bash
-openspec-cn archive "$change_id" --yes
+openspec-cn archive "$task_id" --yes
 ```
 
 | 结果 | 处理 |
 |------|------|
 | 成功（含 warnings） | `runtime.ship.archive=archived`，写入 `archive_path`；warnings 追加到 Step 6 摘要 |
-| exit ≠ 0 | **不做归档**：保持 `openspec/changes/<change_id>/` 原位；`runtime.ship.archive=failed`，写入 `archive_error`；摘要注明失败原因。不阻断交付收尾 |
+| exit ≠ 0 | **不做归档**：保持 `openspec/changes/<task_id>/` 原位；`runtime.ship.archive=failed`，写入 `archive_error`；摘要注明失败原因。不阻断交付收尾 |
 
-无论成功或失败，进入 Step 6（含 6.1）。用户若要事后补归档，可手动 `openspec-cn archive <change_id>`。
+无论成功或失败，进入 Step 6（含 6.1）。用户若要事后补归档，可手动 `openspec-cn archive <task_id>`。
 
 #### 5.3 用户选 B / C
 
-- **B** → `runtime.ship.archive=deferred`；提示稍后手动 `openspec-cn archive <change_id>` 或 `/opsx:archive`
+- **B** → `runtime.ship.archive=deferred`；提示稍后手动 `openspec-cn archive <task_id>` 或 `/opsx:archive`
 - **C** → `runtime.ship.archive=skipped`
 
 然后进入 Step 6（含 6.1）。
@@ -259,11 +258,11 @@ openspec-cn archive "$change_id" --yes
 ```
 交付完成：
 
-  change_id     : <change_id>
+  task_id     : <task_id>
   tier          : <tier>
   分支          : <feature/...>
   worktree      : <已合回并清理 / 已保留 / 未创建>
-  产物合回      : <已合回主仓 .polaris/archive/<change_id>/ | 未合回（worktree 保留）| 部分失败：<失败项> | n/a>
+  产物合回      : <已合回主仓 .polaris/archive/<task_id>/ | 未合回（worktree 保留）| 部分失败：<失败项> | n/a>
   verify 总分   : <X>（来自 state.yaml 的 `runtime.verify.overall_score`）
   产物补齐      : <已补齐四件套（源：change-brief.md）| 无需补齐 | 补齐失败：<reason>>   # 仅 P01 显示
   archive       : <已归档于 <archive_path> | 已延迟（B）| 已跳过（C）| 未归档（失败：<archive_error>）>
@@ -275,10 +274,10 @@ openspec-cn archive "$change_id" --yes
 
 **必做**（含 `runtime.ship.archive=failed`：OpenSpec 目录仍在原位，仅清 polaris 游标与 tasks 档案）。
 
-调用 `ship-cleanup.sh`（删 `coding_tasks` 对应 entry + `rm -rf .polaris/tasks/<change_id>{,.snapshot}`）：
+调用 `ship-cleanup.sh`（删 `coding_tasks` 对应 entry + `rm -rf .polaris/tasks/<task_id>{,.snapshot}`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$change_id" "$ORIGIN_REPO" || exit 1
+bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$task_id" "$ORIGIN_REPO" || exit 1
 ```
 
 输出：`[polaris-flow 开发]交付 - workflow: entry removed, active changes: <N>`
@@ -294,7 +293,7 @@ bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$change_id" "$ORIGIN_REPO" || exit 
 
 ## 上下文压缩恢复
 
-重载：`change_id`、`worktree_path`、`verify.*`（status / blocked / overall_score）、`ship.*`、`worktree.*`、本 skill 停在哪一步。
+重载：`task_id`、`worktree_path`、`verify.*`（status / blocked / overall_score）、`ship.*`、`worktree.*`、本 skill 停在哪一步。
 
 - 停在 Step 0 → 重新获取 lock（注意 stale）
 - 停在 Step 3.5 中途（sync 完、remove 未完）→ **禁止**直接 remove；先确认 sync 状态再续

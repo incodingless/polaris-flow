@@ -66,14 +66,14 @@ hotfix 是 P01（紧急 bug 修复）的执行体。它把完整链路的 `speci
 
 | 项 | 路径 / 值 |
 |----|-----------|
-| `change_id` | 与 specify / ship 同值，kebab-case，**强烈建议带日期前缀**（如 `2026-09-08-fix-npe`）便于事故回溯 |
-| bug 简报（唯一真相） | `openspec/changes/<change_id>/change-brief.md`（Step 1.3 落盘） |
-| 实施计划 | `openspec/changes/<change_id>/tasks.md` |
-| 运行态 | `.polaris/tasks/<change_id>/state.yaml` |
-| 验证报告 | `openspec/changes/<change_id>/reviews/verify-report.md` |
+| `task_id` | 与 specify / ship 同值，kebab-case，**强烈建议带日期前缀**（如 `2026-09-08-fix-npe`）便于事故回溯 |
+| bug 简报（唯一真相） | `openspec/changes/<task_id>/change-brief.md`（Step 1.3 落盘） |
+| 实施计划 | `openspec/changes/<task_id>/tasks.md` |
+| 运行态 | `.polaris/tasks/<task_id>/state.yaml` |
+| 验证报告 | `openspec/changes/<task_id>/reviews/verify-report.md` |
 | Metrics | `.polaris/metrics/<timestamp>-metrics.json` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
-| incident 复盘（可选） | `docs/incidents/<change_id>.md`（由 tasks 中的「incident 复盘」任务产出） |
+| incident 复盘（可选） | `docs/incidents/<task_id>.md`（由 tasks 中的「incident 复盘」任务产出） |
 
 > **链路**：`**hotfix**（bug 简报 → tasks → 写 fix → 推进 ship）→ ship`。
 > 本技能不归档、不合分支；规格只有简报 + tasks 两份，四件套由 ship 在归档前按 `./policies/artifact-backfill.md` 补齐。
@@ -99,19 +99,19 @@ hotfix 是 P01（紧急 bug 修复）的执行体。它把完整链路的 `speci
   4. **修复方向**（改哪 / 加哪 / 删哪）
 - 任一项缺失 → **不走 hotfix**，回 `/polaris:normal` 走 clarify 阶段做诊断
 
-**Step 1.2：change_id 命名**
+**Step 1.2：task_id 命名**
 
 - kebab-case，**必须带日期前缀**（如 `2026-09-08-fix-npe-in-checkout`），便于事故回溯
 - 询问用户是否同意命名（一次性确认）
 
 **Step 1.3：change-brief.md 落盘**
 
-- 路径：`openspec/changes/<change_id>/change-brief.md`
+- 路径：`openspec/changes/<task_id>/change-brief.md`
 - **不**读 `./templates/tweak-change-brief-template.md`（那是 tweak 的需求简报模板）
 - 直接按以下骨架写：
 
 ```markdown
-# <change_id> - 紧急 bug 修复简报
+# <task_id> - 紧急 bug 修复简报
 
 ## 影响面
 - 影响范围：<用户群 / 数据 / 业务 / 安全>
@@ -201,9 +201,9 @@ hotfix 是 P01（紧急 bug 修复）的执行体。它把完整链路的 `speci
 ship 接手时需要看到（hotfix 在 state.yaml 里留下的）：
 
 - `runtime.hotfix.status = completed`
-- `runtime.hotfix.change_id = <change_id>`
-- `openspec/changes/<change_id>/change-brief.md`（含影响面 / 复现 / 根因 / 修复方向）
-- `openspec/changes/<change_id>/tasks.md`（≤3 task，至少 1 个 TDD）
+- `runtime.hotfix.task_id = <task_id>`
+- `openspec/changes/<task_id>/change-brief.md`（含影响面 / 复现 / 根因 / 修复方向）
+- `openspec/changes/<task_id>/tasks.md`（≤3 task，至少 1 个 TDD）
 - `.polaris/metrics/<timestamp>-metrics.json`（即便 5 维跑空也要写骨架）
 
 ship 仍会做：
