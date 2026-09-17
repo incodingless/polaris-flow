@@ -45,17 +45,17 @@ describe('parseSkillAssetPath 技能族识别', () => {
     expect(ship).toEqual({ family: 'prototype', skill: 'ship', underSkill: 'SKILL.md' });
   });
 
-  it('debug 是技能族，其下 bugfix 为独立叶技能', () => {
-    expect(parseSkillAssetPath('debug/bugfix/SKILL.md')).toEqual({
+  it('debug 是技能族，其下 diagnose 为独立叶技能', () => {
+    expect(parseSkillAssetPath('debug/diagnose/SKILL.md')).toEqual({
       family: 'debug',
-      skill: 'bugfix',
+      skill: 'diagnose',
       underSkill: 'SKILL.md',
     });
 
-    expect(parseSkillAssetPath('debug/bugfix/templates/bugfix-tasks-template.md')).toEqual({
+    expect(parseSkillAssetPath('debug/diagnose/templates/rca-report-template.md')).toEqual({
       family: 'debug',
-      skill: 'bugfix',
-      underSkill: 'templates/bugfix-tasks-template.md',
+      skill: 'diagnose',
+      underSkill: 'templates/rca-report-template.md',
     });
   });
 

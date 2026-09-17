@@ -260,10 +260,10 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "header": "维护功能",
     "multiSelect": false,
     "options": [
-      { "label": "M01 · 修复Bug（生产）", "description": "线上 / 生产故障修复，六段通道（定性·含现场保全 → 定位 → 方案 → 实现与自验 → 独立验证 → 关闭Bug），止血 / 发布·灰度·回滚由人在环执行" },
+      { "label": "M01 · 修复Bug（生产）", "description": "线上 / 生产故障修复，三段通道（诊断与方案·含现场保全与止血确认 → 实现与自验·含独立验证 → 关闭Bug），发布 / 灰度 / 回滚由人在环执行" },
       { "label": "M02 · 评审代码", "description": "评审既有改动，识别代码缺陷（⚠️ 暂不可用）" },
       { "label": "M03 · 重构代码", "description": "改善代码结构而不改变外部行为（⚠️ 暂不可用）" },
-      { "label": "M04 · 修复Bug（测试）", "description": "测试环境异常 / 提测后回归失败，五段标准修复（定性 → 定位 → 方案 → 实现与自验 → 关闭Bug）" }
+      { "label": "M04 · 修复Bug（测试）", "description": "测试环境异常 / 提测后回归失败，三段标准修复（诊断与方案 → 实现与自验 → 关闭Bug）" }
     ]
   }]
 }
@@ -358,8 +358,8 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 | **P01** 实现简单功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` | 见文末《功能类选项的复杂度判定》 |
 | **P02** 实现常规功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` | 见文末《功能类选项的复杂度判定》 |
 | **P03** 实现复杂功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` | 见文末《功能类选项的复杂度判定》 |
-| **M01** 修复Bug（生产） | `polaris{{SKN_SPR}}debug{{SKN_SPR}}hotfix` | hotfix 通道（六段：triage 定性·含现场保全 → diagnose 定位 → prescribe 方案 → patch 实现与自验 → prove 独立验证 → closeout 关闭Bug）+ 止血 / 发布·灰度·回滚由人在环执行 |
-| **M04** 修复Bug（测试） | `polaris{{SKN_SPR}}debug{{SKN_SPR}}bugfix` | bugfix 通道（五段：triage 定性 → diagnose 定位 → prescribe 方案 → patch 实现与自验 → closeout 关闭Bug）+ **自有收尾**归档到 `docs/troubleshooting/<issue_id>/`（不使用 openspec，不交 ship） |
+| **M01** 修复生产Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `hotfix`；diagnose（诊断与方案·含现场保全与止血确认）→ patch（实现与自验·含五维独立验证）→ closeout（关闭Bug + 自有收尾归档）。**通道由 diagnose 的场景分流步判定**，预声明只是用户的第一意图 |
+| **M04** 修复测试Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `bugfix`；diagnose → patch → closeout（同上）。**自有收尾**归档到 `docs/troubleshooting/<issue_id>/`（不使用 openspec，不交 ship） |
 | **M02** 代码评审 | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` | ⚠️ 暂不可用 · 该技能尚未提供 |
 | **M03** 重构 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}refactor` | ⚠️ 暂不可用 · 该技能尚未提供 |
 | **R01** 编写用户需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery` | discovery（产出需求基线，含功能架构草案） |
@@ -386,12 +386,11 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 
 加载技能时**必须同时交接** `已选功能` / `附加上下文` / `需求内容` 三个字段，并显式告知技能遵守 3.3 的交接口径（先读取全部材料、异常先回报、上下文优先）。
 `需求内容` 为空时（仅对非开发类）技能直接按其自身流程执行。
-`需求内容` 字段名沿用至 tweak / normal / specify / hotfix / bugfix / prototype（蓝图 / 建造），被加载技能按以下约定读取：
+`需求内容` 字段名沿用至 tweak / normal / specify / debug（M01 / M04） / prototype（蓝图 / 建造），被加载技能按以下约定读取：
 
 - tweak / normal：作为「轻量澄清 / intention」输入
 - specify：作为 Phase 0 discovery 的 seed
-- hotfix：作为生产故障的初始输入（zero-step 收集的描述需含故障现象；时间线 / 影响面 / 变更清单三对齐由 hotfix 通道的 `triage` 段校验并一次性补全，现场保全清单在 `triage` 段内产出）
-- bugfix：作为缺陷简报的初始输入（zero-step 收集的描述需含 bug 现象；复现步骤 / 实际结果 / 预期结果 / 环境版本四项由 bugfix 通道的 `triage` 段校验并一次性补全）
+- debug（M01 生产 / M04 测试）：作为故障现象 / 缺陷描述的初始输入（zero-step 收集的描述需含现象）。生产的时间线·影响面·变更清单**三对齐**、测试的复现步骤 / 实际结果 / 预期结果 / 环境版本**四要素**统一由 `diagnose` 校验并一次性补全；生产通道的现场保全清单也在 `diagnose` 内产出
 - prototype（**R11 制作**：蓝图 / 建造 / 交付）：作为「最低输入 6 项 + 可选增强输入」的来源——需求文档已能判断的用户 / 场景 / 一期范围 / 页面功能 / 核心流程不重复询问（`blueprint` 技能的 `references/02 §4.3`）
 - prototype-review（**R12 评审**）：不消费 `需求内容` 作为评审判据，只消费 `附加上下文` 里的原型文件（与可选的需求文档、已确认蓝图）；缺需求文档时按该技能 §三 的「无需求文档取证法」判，不得凭空补需求
 

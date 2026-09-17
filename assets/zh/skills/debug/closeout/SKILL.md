@@ -1,18 +1,18 @@
 ---
 name: polaris{{SKN_SPR}}debug{{SKN_SPR}}closeout
-description: "缺陷修复通道的「关闭Bug」阶段：交付打包 + 收尾归档。生成交付报告（bugfix-report.md，根因节引用 rca-report 不重述）、标准化提交信息与评审要点，出口门禁自检，归档到 docs/troubleshooting/<issue_id>/ 并追加 INDEX.md 一行，回读校验后 git 收尾（bugfix 提交 worktree 并清理 / hotfix 回合主干）。用户要求：收尾这个缺陷修复、生成修复报告、归档修复记录、准备提交，或承接 debug:patch / debug:prove 时使用。不触发：改代码（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}patch）、定位根因（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose）。"
+description: "缺陷修复通道的「关闭Bug」阶段：交付打包 + 收尾归档。生成交付报告（bugfix-report.md，根因节引用 rca-report 不重述）、标准化提交信息与评审要点，出口门禁自检，归档到 docs/troubleshooting/<issue_id>/ 并追加 INDEX.md 一行，回读校验后 git 收尾（bugfix 提交 worktree 并清理 / hotfix 回合主干）。用户要求：收尾这个缺陷修复、生成修复报告、归档修复记录、准备提交，或承接 debug:patch 时使用。不触发：改代码（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}patch）、定位根因（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose）。"
 ---
 
 # 关闭Bug · 缺陷修复通道 · closeout
 
 <HARD-GATE>
-- **禁止**在上游门禁未过时进入（`patch` / `prove` 未过）
+- **禁止**在上游门禁未过时进入（`patch` 未过）
 - **禁止**未 `read_file ./templates/bugfix-report-template.md` 就生成交付报告
 - **禁止**自行执行 `git push` / 远端 PR；本地 `commit`（worktree 收尾）与 `merge`（hotfix 回合主干）按本技能 Step 4「git 收尾」执行，`push` 仍交用户
 - **禁止**归档回读校验未通过时宣告完成
 - **禁止**交付物缺项时输出「修复完成」
 - **生产通道（channel=hotfix）专属**：产出发布/灰度/回滚指引（`./templates/release-runbook.md`）并交人做**发布确认**（「发布与回滚方案就绪」）后方可收尾；技能不执行发布、不参与观测
-- 产物契约与归档规则见 `./policies/artifacts.md`
+- 产物契约与归档规则见 `./references/artifacts.md`；**停顿（暂停等用户选 / 信息索要 / 阻塞报告）见 `./policies/decision-point.md`**
 - **H8**：进入与每个 Step 入口输出 `[polaris-flow 调试]缺陷修复 - closeout <动作>`
 </HARD-GATE>
 
@@ -21,7 +21,7 @@ description: "缺陷修复通道的「关闭Bug」阶段：交付打包 + 收尾
 ## 进入协议
 
 1. 复用 `$REPO_ROOT` / `$PLUGIN_ROOT`（缺失按 H12 阻断）。
-2. 找任务：`get-active-changes --kind debug`；多条则按 `./policies/decision-point.md` 选。
+2. 找任务：`get-active-changes --kind debug`；多条则**暂停等用户选**。
 3. 读上游：`reviews/rca-report.md` + `tasks.md` + `verification.md` + `diagnose-brief.md`。
 4. `task-state-entry enter-phase --kind debug --task-id <id> --phase closeout`。
 
@@ -40,7 +40,7 @@ RTID_EXIT=$?
 按 `$TASK_IDS` 数组长度解读：
 
 - **唯一匹配**：直接读取 `task_id`
-- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
+- **多个匹配**：**暂停等用户选**——列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 检测 阶段的 active change，请先执行 /polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose」
 
 > 若选择的任务已是 `phase=patch`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
@@ -117,7 +117,7 @@ WT_EXIT=$?
 
   - `WT_EXIT != 0` → **阻断**，stderr 有原因；不得宣告收尾完成
   - `WT_EXIT == 0` → `$WT_RESULT` 含 JSON（`worktree_path` / `branch` / `committed` / `removed`）；`committed=false` 表示提交前已干净（仅做了 remove）
-- 未建 worktree 时：按 `./policies/decision-point.md` 询问提交方式（**A 我自己提交** / **B 代 `git add`+`commit`（不 push）** / **C 先放着**）
+- 未建 worktree 时：**暂停等用户选**提交方式（**A 我自己提交** / **B 代 `git add`+`commit`（不 push）** / **C 先放着**）
 
 **生产通道（hotfix）· 回合主干**
 
@@ -133,7 +133,7 @@ MERGE_EXIT=$?
 
 ### Step 5：生产通道专属：发布确认（仅 channel=hotfix）
 
-必读 `./templates/release-runbook.md`，产出发布/灰度/回滚指引交人执行；按 `./policies/decision-point.md` 交人做**发布确认**（「发布与回滚方案就绪」→ 才允许上线）。技能不执行发布、不参与观测窗口；不得把「建议回滚」写成「已回滚」。
+必读 `./templates/release-runbook.md`，产出发布/灰度/回滚指引交人执行；**发布确认暂停等用户选**（「发布与回滚方案就绪」→ 才允许上线）。技能不执行发布、不参与观测窗口；不得把「建议回滚」写成「已回滚」。
 
 ## 出口门禁
 

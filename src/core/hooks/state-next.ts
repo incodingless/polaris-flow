@@ -85,25 +85,14 @@ const PHASE_TO_SKILL: Record<string, Record<string, string>> = {
 };
 
 /**
- * debug 族：channel → (phase → 下一 skill)。
- * bugfix（测试缺陷）：不装配 `prove`，`patch` 之后直接 `closeout`。
- * hotfix（生产故障）：全六段装配，`patch` 之后进入 `prove`。
- * `prescribe` 折叠是通道技能的运行时决策（跳过 prescribe phase 直接进 patch），不在此静态表表达。
+ * debug 族：phase → 下一 skill。
+ * 两条通道装配相同（`diagnose → patch → closeout`）：`channel` 只决定各阶段技能内部的加严分支
+ * （现场保全 / 止血 / 回退路径 / 数据脚本·埋点·开关 / 独立验证 / 发布确认），**不改变阶段序列**，
+ * 因此这里不按 channel 分表。`channel` 仍写入 entry，由各阶段技能读取。
  */
-const DEBUG_PHASE_TO_SKILL: Record<string, Record<string, string>> = {
-  bugfix: {
-    triage: 'diagnose',
-    diagnose: 'prescribe',
-    prescribe: 'patch',
-    patch: 'closeout',
-  },
-  hotfix: {
-    triage: 'diagnose',
-    diagnose: 'prescribe',
-    prescribe: 'patch',
-    patch: 'prove',
-    prove: 'closeout',
-  },
+const DEBUG_PHASE_TO_SKILL: Record<string, string> = {
+  diagnose: 'patch',
+  patch: 'closeout',
 };
 
 /** 在五个任务列表中查找 task_id == 目标 id 的 entry */
@@ -131,15 +120,14 @@ export function findEntryByTaskId(
 export function resolveNextSkillName(
   kind: WorkflowTaskKind,
   phase: string,
-  channel?: string,
+  _channel?: string,
 ): string | null {
   const normalized = (phase ?? '').trim();
   if (!normalized) {
     return null;
   }
   if (kind === 'debug') {
-    const table = DEBUG_PHASE_TO_SKILL[channel ?? ''] ?? {};
-    return table[normalized] ?? null;
+    return DEBUG_PHASE_TO_SKILL[normalized] ?? null;
   }
   const family = FAMILY_BY_KIND[kind];
   const table = PHASE_TO_SKILL[family] ?? {};

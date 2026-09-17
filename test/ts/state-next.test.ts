@@ -49,13 +49,13 @@ describe('findEntryByTaskId', () => {
   it('命中 debug_tasks 列表，返回 kind=debug', () => {
     const state = emptyWorkflowState();
     state.debug_tasks = [
-      { task_id: 'd1', phase: 'triage', worktree_path: '', started_at: '', channel: 'bugfix' },
+      { task_id: 'd1', phase: 'diagnose', worktree_path: '', started_at: '', channel: 'bugfix' },
     ];
     expect(findEntryByTaskId(state, 'd1')).toEqual({
       kind: 'debug',
       entry: {
         task_id: 'd1',
-        phase: 'triage',
+        phase: 'diagnose',
         worktree_path: '',
         started_at: '',
         channel: 'bugfix',
@@ -89,23 +89,25 @@ describe('resolveNextSkillName', () => {
     expect(resolveNextSkillName('prototype', 'idle')).toBeNull();
   });
 
-  it('debug bugfix 通道：patch→closeout（不装 prove）', () => {
-    expect(resolveNextSkillName('debug', 'triage', 'bugfix')).toBe('diagnose');
-    expect(resolveNextSkillName('debug', 'diagnose', 'bugfix')).toBe('prescribe');
-    expect(resolveNextSkillName('debug', 'prescribe', 'bugfix')).toBe('patch');
-    expect(resolveNextSkillName('debug', 'patch', 'bugfix')).toBe('closeout');
-    expect(resolveNextSkillName('debug', 'closeout', 'bugfix')).toBeNull();
+  it('debug：三段序列 diagnose→patch→closeout', () => {
+    expect(resolveNextSkillName('debug', 'diagnose')).toBe('patch');
+    expect(resolveNextSkillName('debug', 'patch')).toBe('closeout');
+    expect(resolveNextSkillName('debug', 'closeout')).toBeNull();
   });
 
-  it('debug hotfix 通道：patch→prove→closeout（全六段）', () => {
-    expect(resolveNextSkillName('debug', 'patch', 'hotfix')).toBe('prove');
-    expect(resolveNextSkillName('debug', 'prove', 'hotfix')).toBe('closeout');
-    expect(resolveNextSkillName('debug', 'closeout', 'hotfix')).toBeNull();
+  it('debug：channel 不影响选段（两通道装配相同，channel 只决定阶段内的加严分支）', () => {
+    for (const channel of ['bugfix', 'hotfix', 'unknown', undefined]) {
+      expect(resolveNextSkillName('debug', 'diagnose', channel)).toBe('patch');
+      expect(resolveNextSkillName('debug', 'patch', channel)).toBe('closeout');
+    }
   });
 
-  it('debug 未知通道或缺失 channel → null', () => {
-    expect(resolveNextSkillName('debug', 'patch')).toBeNull();
-    expect(resolveNextSkillName('debug', 'patch', 'unknown')).toBeNull();
+  it('debug：已合并掉的 phase（triage / prescribe / prove）返回 null', () => {
+    for (const gone of ['triage', 'prescribe', 'prove']) {
+      expect(resolveNextSkillName('debug', gone, 'hotfix')).toBeNull();
+      expect(resolveNextSkillName('debug', gone, 'bugfix')).toBeNull();
+    }
+    expect(resolveNextSkillName('debug', '')).toBeNull();
   });
 });
 
@@ -205,7 +207,7 @@ describe('runStateNext', () => {
     expect(result.next).toBe('done');
   });
 
-  it('debug hotfix 通道 phase=patch → NEXT auto + polaris:debug:prove', async () => {
+  it('debug phase=patch → NEXT auto + polaris:debug:closeout（两通道相同）', async () => {
     const repo = await tmpRepo();
     const state = emptyWorkflowState();
     state.debug_tasks = [
@@ -216,18 +218,18 @@ describe('runStateNext', () => {
     const result = await runStateNext({ changeName: '2026-09-16-fix-1', repoRoot: repo });
     expect(result.exitCode).toBe(0);
     expect(result.next).toBe('auto');
-    expect(result.skill).toBe('polaris:debug:prove');
+    expect(result.skill).toBe('polaris:debug:closeout');
   });
 
-  it('debug bugfix 通道 phase=patch → NEXT auto + polaris:debug:closeout', async () => {
+  it('debug phase=diagnose → NEXT auto + polaris:debug:patch（channel 不影响）', async () => {
     const repo = await tmpRepo();
     const state = emptyWorkflowState();
     state.debug_tasks = [
-      { task_id: '2026-09-16-fix-2', phase: 'patch', worktree_path: '', started_at: '', channel: 'bugfix' },
+      { task_id: '2026-09-16-fix-2', phase: 'diagnose', worktree_path: '', started_at: '', channel: 'bugfix' },
     ];
     await saveWorkflowState(repo, state);
 
     const result = await runStateNext({ changeName: '2026-09-16-fix-2', repoRoot: repo });
-    expect(result.skill).toBe('polaris:debug:closeout');
+    expect(result.skill).toBe('polaris:debug:patch');
   });
 });

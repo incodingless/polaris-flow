@@ -82,8 +82,8 @@ frontmatter   triggers: ["/polaris{{CMD_SPR}}coding{{CMD_SPR}}normal"]
 | `/polaris:coding:tweak` | 小改动（跳过 brainstorming 与完整 plan） |
 | `/polaris:coding:normal` | 常规需求（P02 单入口：四件套 + 双向守门 + 合并主审） |
 | `/polaris:coding:sdd` | SDD 驱动开发（P03 完整链路的别名，等价 `/polaris:flow` 路由 `complex`） |
-| `/polaris:maintance:hotfix` | 快速修复 bug（生产场景，根因已定位：跳过 brainstorming、constitution 审计、出口检查） |
-| `/polaris:maintance:bugfix` | 测试缺陷标准化修复（五段：triage 定性 → diagnose 定位 → prescribe 方案 → patch 实现与自验 → closeout 关闭Bug + 自有收尾归档到 `docs/troubleshooting/`；**不使用 openspec**，不交 `coding/ship`；含两处人确认） |
+| `/polaris:maintance:hotfix` | 生产故障修复入口（预声明通道 `hotfix`，交出到 `debug:diagnose`；三段通道 diagnose → patch → closeout，发布 / 灰度 / 回滚由人在环执行） |
+| `/polaris:maintance:bugfix` | 测试缺陷修复入口（预声明通道 `bugfix`，交出到 `debug:diagnose`；三段通道 diagnose → patch → closeout + **自有收尾**归档到 `docs/troubleshooting/`；**不使用 openspec**，不交 `coding/ship`） |
 | `/polaris:prd:readiness` | 需求就绪度评估（研发准出判定：五维度加权评分 + PASS/CONDITIONAL/FAIL；`ship` Step 1 的独立入口） |
 
 ## 退化路径

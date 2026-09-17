@@ -21,6 +21,14 @@
 - **评测器纪律**：每个用例必须同时有参照物（应 PASS）与反例（应 FAIL），`--selftest` 两边都跑；
   **参照物过不去先修断言，不要改参照物迁就断言**。夹具写了 sha256 时，动夹具必须同步哈希。
 - **单源判据**：*改一处是否需要记得改另一处*——需要就是双源，必须指定唯一来源。
+  ⚠️ 反例（2026-09-17 用户否决）：曾给停顿点发 **短 ID + 「决策点清单」索引表**，被判定为
+  **过度设计——"后面再做技能优化难度太高、阅读技能也不方便"**。原因：ID 是编码不是语义（`【决策点 D6】`
+  必须跳表才知道是什么），且 **表 ↔ 正文构成新的双源**（改 Step 要同步重编号与表）。
+  **结论**：指代停顿只在站点写自解释的中文（如「暂停等用户选」），**不引入编号、不建表、不新增章节**；
+  协议指针只补进 SKILL.md 里**已有的 policies 索引行**。
+- **停顿点分三类，标注方式不同**（对齐 `decision-point.md` §先判断）：真决策点要「暂停等用户选」；
+  信息索要写白话「请用户提供…一次问全、不逐条追问」；停止条件写「报告阻塞原因与恢复条件，不得伪造选项」。
+  **把后两类挂成决策点会逼出假装的选择**——`diagnose` Step 3.1.B 原 A/B 两项都导向同一动作即是实例。
 
 ## 二、prototype 族：blueprint → build → review（+ ship）
 
@@ -111,10 +119,14 @@ S1（review 侧死副本 verify.mjs 已删）。对照目标「①独立评审 �
 | G7 | 评审侧无 `example/`（对等物只有评测夹具 report-good.md） | 低 |
 | G8 | 评审 evals 只有 r1/r2，缺「引用 §33/§34 条款号」「命中一票否决必判 P0」「证据不足未混入问题清单」三条断言 | 低 |
 | G9 | 评审同会话自评独立性——已要求如实标注，是否强制换会话待产品定 | 待产品 |
-| D1 | **debug 族「按 `./policies/decision-point.md` 暂停/询问」引用过密（diagnose 15 处、全仓 ~60 处），
-  写法有 5 种（全路径 / 裸名 / 「决策点协议」/ 半截 `decision-point：`）；且约半数场景（索要 Jira 单号、
-  信息补齐、止血状态申报）不是决策点，属误用。** 2026-09-17 提出，方案：给决策点发短 ID（对齐 H 系列范式）+
-  区分「决策点（DP）」与「信息索要（ASK）」两类标记 + 必须跨会话恢复的决策点落 state 字段。待用户拍板 | 中 |
+**已闭合（2026-09-17）**：D1（「短 ID + 清单表」方案被否决，已按「站点写自解释中文 + 协议指针补进既有 policies 索引行」重做）、
+D2（`prove` 并入 `patch` 的 1.5 步；debug 族入口下沉到 command）。详见 §六。
+
+**仍开放**：D3 —— 其余族（coding / prd / prototype）未迁移；
+全仓 2 处拼错的 `./policy/decision-point.md`（`coding/build/SKILL.md:61,85`，少 `ies`，路径不存在）；
+`docs/specs/2026-09-16-debug-workflow-design.md` 是六段时代的成文设计记录，未回改（README 已就地标注）。
+
+其他非阻塞：无 CI 兜底；`verify` 自身缺 `--selftest`；ref05 体积；一票否决 31 条三分未做；早期四类缺陷夹具未入库；
 
 其他非阻塞：无 CI 兜底；`verify` 自身缺 `--selftest`；ref05 体积；一票否决 31 条三分未做；早期四类缺陷夹具未入库；
 `references/02` 是否把「设计系统」列为需求包输入项待产品定；evals 反例块建议加「（反例·此失败是预期）」标注；
@@ -150,3 +162,27 @@ ref07 §27.1 只写了 Windows 的 msedge 无 Playwright 路径，macOS/Linux �
   Edit 报"字符串不存在"就是信号，先看 mtime 与当前内容。
 - **多行 old_string 替换要数清行数**：**new 的行集合必须逐一对应 old 的每一行**，否则整行被吞。
 - **冷启动试用不能省**：断言太松会被反例戳穿，太紧不会——只有换一个真实产物跑才会暴露。
+
+## 六、debug 族最终形态（2026-09-17 定型）
+
+- **三个阶段原子**：`diagnose`（原 `triage`+`diagnose`+`prescribe` 合并；含场景分流、问题单接入、
+  四要素/三对齐、复现/现场保全、worktree/hotfix 分支准备、RCA、方案 `tasks.md`）→
+  `patch`（原 `prove` 并入 **1.5 步**，仅生产通道）→ `closeout`。**`prove` 不再独立存在。**
+- **入口不在技能层**：原 `bugfix` / `hotfix` 两个入口技能**已删除**，入口改为
+  `assets/zh/commands/maintance/{bugfix,hotfix}.md`，各只写「预期通道 + 交出到 `debug:diagnose` + 分流唯一判定处」。
+- **`channel` 只影响加严，不影响阶段序列** ⇒ `src/core/hooks/state-next.ts` 的
+  `DEBUG_PHASE_TO_SKILL` **收成单表**（`{diagnose→patch, patch→closeout}`），`resolveNextSkillName`
+  的 `channel` 参数改名 `_channel`（保留位置、不再参与选段）。`channel` 仍写 `state.yaml`。
+  写错 channel **不会走错阶段，但会静默丢掉全部加严项**（保全/止血/回退硬门禁/数据脚本·埋点·开关/独立验证/发布确认）。
+- **可复用判据 —— 入口技能什么时候是多余的**：*若入口只做「预先声明一个下游反正会重判的东西」，
+  它就是多余的*。本例：`diagnose` 自己在 Step 2.2 分流、Step 2.5 写 `channel`，入口技能的预声明必然被覆盖；
+  两个入口的装配表又完全相同 ⇒ 「两个技能没有差别」是结构性的，不是文案问题。
+  推论：入口层的存在理由只剩**触发词与菜单路由**，那就该放在命令/菜单层，不该占一个技能。
+- **同一结论的守卫**：`test/ts/commands-install.test.ts` 的 debug 族用例断言
+  `bugfix`/`hotfix`/`prove` 目录**不得再随安装落盘**，并断言两个命令都含 `polaris:debug:diagnose`
+  与 `预期通道 = \`<name>\``，以及命令不内联阶段执行细节（`not.toContain('git diff')`）。
+- **改动牵连面（下次照此清单查）**：阶段技能 description 的不触发项 / 内部 `prescribe`·`prove` 引用 /
+  `_shared/{artifacts,scene-routing,capability-tiers}` / `README` / 模板文件里把通道当技能名写的用法 /
+  `flow.md`（菜单描述 · 入口表 · 信号表 · 需求内容消费表）/ `adapters/command-registration.md` /
+  `hard-stops.md`（H12 适用 skill、H14 的 `triage` 段）/ `src/{state-next,assets/layout}` / 3 个测试文件。
+

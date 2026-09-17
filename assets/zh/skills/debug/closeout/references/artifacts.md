@@ -6,10 +6,10 @@
 
 | 文件 | 归属段 | 说明 |
 |------|--------|------|
-| `diagnose-brief.md` | `triage` 建、`diagnose`/`prescribe` 回填 | **过程档案**：原始证据原样、调研路径、中间结论与**被推翻的假设**；只追加、不美化 |
-| `reviews/rca-report.md` | `diagnose` 建 | **根因分析报告（成品）**：人确认根因的对象、`prescribe` 的输入；九节见下 |
-| `tasks.md` | `prescribe` 建（折叠时 `patch` 建） | 必须过 `tasks-lint` |
-| `verification.md` | `patch` 建「自验」节；`prove` 回填「独立验证」节 | 命令 + 原始输出 + 结论，三件套 |
+| `diagnose-brief.md` | `diagnose` 建并分步回填 | **过程档案**：原始证据原样、调研路径、中间结论与**被推翻的假设**；只追加、不美化 |
+| `reviews/rca-report.md` | `diagnose` 建 | **根因分析报告（成品）**：人确认根因的对象、修复方案的输入；九节见下 |
+| `tasks.md` | `diagnose` 建 | 必须过 `tasks-lint` |
+| `verification.md` | `patch` 建并分写「自验」「独立验证」两节 | 命令 + 原始输出 + 结论，三件套 |
 | `reviews/bugfix-report.md` | `closeout` 建 | 交付结论报告（根因与证据链**引用** `rca-report.md`，不重述）；`reviews/` 需 `mkdir -p` |
 | `state.yaml` | 初始化建 | 运行态 + `regressions[]` 回退留痕 |
 
@@ -19,12 +19,12 @@
 
 | 文件 | 节 | 写入段 |
 |------|----|--------|
-| `diagnose-brief.md` | 缺陷信息（含 `历史同类`） | `triage` |
-| `diagnose-brief.md` | 输入四要素 / 证据提取 / 复现 | `triage` |
+| `diagnose-brief.md` | 缺陷信息（含 `历史同类`） | `diagnose` |
+| `diagnose-brief.md` | 输入四要素 / 证据提取 / 复现 | `diagnose` |
 | `diagnose-brief.md` | 根因 / 排除记录 / 解释范围 | `diagnose` |
-| `diagnose-brief.md` | 修复方向（改/加/删、影响面、回归范围） | `diagnose` 起草，`prescribe` 定稿 |
+| `diagnose-brief.md` | 修复方向（改/加/删、影响面、回归范围） | `diagnose` |
 | `verification.md` | 自验（命令 + 原始输出 + 结论） | `patch` |
-| `verification.md` | 独立验证（五维 + 人回填结果） | `prove` |
+| `verification.md` | 独立验证（五维 + 人回填结果，仅生产通道） | `patch`（1.5 步） |
 
 `reviews/rca-report.md` 由 `diagnose` **独写**；下游只读取引用，不得改写。
 

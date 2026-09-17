@@ -1,13 +1,13 @@
 ---
 name: polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose
-description: "缺陷修复通道的「诊断与方案」阶段（合并了原定性 + 定位 + 方案三步）：把用户口述的缺陷/故障变成可核对的证据并分流场景，确认根因、产出 RCA 报告，再确定修复方案与 tasks.md。支持 Jira 问题单接入（优先 Jira MCP 读取，失败则手动补充；issue_id 直接用 Jira 单号）。测试通道完成四要素校验、稳定复现、根因分析、修复方案；生产通道完成现场保全、时间线/影响面/变更清单三对齐（复现可选）、止血确认、根因分析、含回退路径的修复方案。产物：diagnose-brief.md（过程档案）+ rca-report.md（九节 RCA）+ tasks.md。用户要求：复现某个缺陷、确认某个报错、帮我复现测试环境的异常、定位 bug 根因、分析报错调用链、设计修复方案、评估影响面、线上故障先保全现场、按 Jira 单号处理缺陷，或承接 debug:bugfix / debug:hotfix 通道入口时使用。不触发：改代码（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}patch）、独立验证（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}prove）、收尾归档（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}closeout）。"
+description: "缺陷修复通道的「诊断与方案」阶段（合并了原定性 + 定位 + 方案三步）：把用户口述的缺陷/故障变成可核对的证据并分流场景，确认根因、产出 RCA 报告，再确定修复方案与 tasks.md。支持 Jira 问题单接入（优先 Jira MCP 读取，失败则手动补充；issue_id 直接用 Jira 单号）。测试通道完成四要素校验、稳定复现、根因分析、修复方案；生产通道完成现场保全、时间线/影响面/变更清单三对齐（复现可选）、止血确认、根因分析、含回退路径的修复方案。产物：diagnose-brief.md（过程档案）+ rca-report.md（九节 RCA）+ tasks.md。用户要求：复现某个缺陷、确认某个报错、帮我复现测试环境的异常、定位 bug 根因、分析报错调用链、设计修复方案、评估影响面、线上故障先保全现场、按 Jira 单号处理缺陷，或从 `/polaris…maintance…bugfix` / `…hotfix` 入口进入时使用——本技能是缺陷修复的**唯一入口与起点**，两条通道由本技能的场景分流步判定。不触发：改代码与独立验证（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}patch）、收尾归档（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}closeout）。"
 ---
 
 # 诊断与方案 · 缺陷修复通道 · diagnose
 
 <HARD-GATE>
 - **禁止**在未做场景分流前就动手；场景分流结果决定通道（测试→`bugfix`，生产→`hotfix`），**不得**默认某一通道
-- **禁止**信息缺项时靠推测补齐——缺项走 `./policies/decision-point.md` 一次性问齐，仍缺则打回
+- **禁止**信息缺项时靠推测补齐——缺项一次问齐（不逐条追问），仍缺则打回
 - **禁止**改写、美化或转述用户给的证据；原始输出必须原样留存
 - **禁止**测试通道复现失败仍继续——先补齐信息或补观测
 - **禁止**「改代码试试」——那是赌博不是修复
@@ -15,7 +15,7 @@ description: "缺陷修复通道的「诊断与方案」阶段（合并了原定
 - **issue_id 优先用 Jira 单号**：用户提供 Jira 单号时**直接用单号**（不做 LLM 推荐命名、不追加日期前缀）；无单号才走 kebab-case 命名
 - **Jira 读取兜底**：存在 Jira MCP 但读取失败、或未接入 Jira MCP → 明确告知用户并要求**手动补充问题单内容**，**禁止**凭空编造问题单字段
 - **生产通道（channel=hotfix）专属**：进入即产出现场保全清单（`./templates/preservation-checklist.md`），**抢在止血/重启之前**；复现降为可选（成功加分、失败不阻塞）；出口以「时间线·影响面·变更清单三对齐」为准
-- 场景分流与边界见 `./policies/scene-routing.md`；产物契约见 `./policies/artifacts.md`；能力分档见 `./policies/capability-tiers.md`
+- 场景分流与边界见 `./policies/scene-routing.md`；产物契约见 `./references/artifacts.md`；能力分档见 `./policies/capability-tiers.md`；**停顿（暂停等用户选 / 信息索要 / 阻塞报告）见 `./policies/decision-point.md`**
 - **H8**：进入与每个 Step 入口输出 `[polaris-flow 调试]缺陷修复 - diagnose <动作>`
 </HARD-GATE>
 
@@ -48,11 +48,11 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 
 | `ACTIVE_EXIT` | 含义 | 后续动作 |
 | ------------- | ---- | -------- |
-| 0 且数组非空 | 存在未完结缺陷任务 | 按决策点协议询问 A/B/C/D（见下） |
+| 0 且数组非空 | 存在未完结缺陷任务 | 暂停等用户选 A/B/C/D（见下） |
 | 0 且数组为空 | 无活跃缺陷任务 | 进入 Step 2 开启新任务 |
 | 非 0 | 参数/环境错误 | 按 H12 阻断 |
 
-存在活跃任务时，**必须**按 `./policies/decision-point.md` 暂停询问：
+存在活跃任务时，**必须暂停等用户选**（不得默认续写）：
 
 - **A. 续写最新一个**：`task_id` = 列表最后一项 → 进入 Step 1.5
 - **B. 选择一个**：列出所有 `task_id` 候选让用户选择之后，再发出以下询问：
@@ -81,7 +81,7 @@ done
 
 #### Step 2.1 问题单接入（Jira 优先，手动兜底）
 
-按 `./policies/decision-point.md` 要求用户输入 **Jira issue 单号**（如 `PROJ-123`）：
+请用户提供 **Jira issue 单号**（如 `PROJ-123`）：
 
 - **有单号**：
   1. **`issue_id` = Jira 单号**（直接用，不做 LLM 推荐命名、不追加日期前缀；仅对目录不安全字符做最小清洗，如空格→`-`，保留原单号可读性）
@@ -89,7 +89,7 @@ done
      - **读取成功** → 把问题单内容结构化填入 Step 3 的四要素 / 三对齐**初始值**（原始内容原样保留，不转述、不摘要）
      - **未接入 Jira MCP 或读取失败** → 明确告知用户，要求**手动补充问题单内容**（标题 / 描述 / 复现 / 环境等），进入 Step 3 逐项补全
 - **无单号**：
-  - 要求用户手动补充问题单内容；`issue_id` 走 kebab-case + 日期前缀命名（`./policies/decision-point.md` 确认命名）
+  - 要求用户手动补充问题单内容；`issue_id` 走 kebab-case + 日期前缀命名，**命名结果暂停等用户确认**（不得静默推断或自动落盘）
 
 > 无论哪种路径，`issue_id` 在本步**定死**，后续 Step 5 初始化与下游各段直接复用，不再重新命名。
 
@@ -100,11 +100,11 @@ done
 - **判定为测试** → `channel=bugfix`，走测试版（四要素 + 稳定复现）
 - **判定为生产** → `channel=hotfix`，走生产版（现场保全 + 三对齐，复现可选）
 
-信号不足**必须询问**（`./policies/decision-point.md`），不得默认某一通道。
+信号不足**必须暂停等用户选**，不得默认某一通道。
 
 #### Step 2.3 信息校验（分通道）
 
-**优先用 Step 2 已拉取 / 已补充的内容**，缺项再按 `./policies/decision-point.md` 一次问全、不逐条追问。
+**优先用 Step 2 已拉取 / 已补充的内容**，缺项再一次问全、不逐条追问。
 
 **测试通道（bugfix）· 四要素校验**——四项**全部就绪**才继续：
 1. **复现步骤**（命令 / 输入 / 操作路径）
@@ -140,12 +140,12 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --k
 
 #### 3.1.A 测试通道（bugfix）· worktree（可选）
 
-- 按 `./policies/decision-point.md` 询问：是否创建 worktree 隔离本次修复（避免污染当前开发工作区）？
+- **暂停等用户选**：是否创建 worktree 隔离本次修复（避免污染当前开发工作区）？
   - **是**：走下方 3.1.A.A（`worktree-create.sh` + `task-state-entry` 写入 worktree 字段）
   - **否**：走下方 3.1.A.B
 - 建 worktree 后，**后续代码改动**在 worktree 里执行；产物仍写主仓库
 
-按 `./policies/decision-point.md` 询问：
+**暂停等用户选**：
 
 > 是否为本次修复建立独立的隔离工作区（避免污染当前开发分支）？
 >
@@ -217,14 +217,7 @@ HF_RESULT=$(bash "$PLUGIN_ROOT/scripts/hotfix-branch-create.sh" "$issue_id" "$RE
 HF_EXIT=$?
 ```
 
-- `HF_EXIT != 0` → **阻断**，stderr 含失败原因（常见：当前分支有未提交变动）。按 `./policies/decision-point.md` 询问：
-  > 当前工作区存在未提交的变动，请提交/放弃变动。
-  >
-  > 你是否已经完成变动操作了？
-  > A. 是，可以继续创建修复分支
-  > B. 否，我还没有操作
-
-  - 用户选择 “A”或 “B”，再次尝试创建修复分支
+- `HF_EXIT != 0` → **阻断**，stderr 含失败原因（常见：当前分支有未提交变动）。**报告阻塞原因与恢复条件**：请用户提交或放弃变动后告知，收到回复再重新执行本段。此处**不得伪造选项**——这不是决策点（原先那组 A/B 都导向同一动作）。
 
 - `HF_EXIT == 0` → `$HF_RESULT` 含 JSON（`main_branch` / `hotfix_branch`）；输出 `[polaris-flow 调试]缺陷修复 - 已基于主干（<main_branch>）创建修复分支，分支名：<hotfix_branch>`
 
@@ -257,7 +250,7 @@ HF_EXIT=$?
 
 #### 5.0 止血确认（仅生产通道 channel=hotfix，定位前）
 
-定位根因前，先按 `./policies/decision-point.md` 询问止血状态：
+定位根因前，先问清止血状态（由用户申报，技能不替用户判定「业务已恢复」）：
 
 - **A 已完成止血**（已回滚变更 / 关闭开关 / 限流降级，业务已恢复或止损）→ 继续 Step 5.1
 - **B 未完成止血** → 暂停定位，用户先执行止血（技能不代执行、不指导），完成后回来继续
@@ -291,7 +284,7 @@ HF_EXIT=$?
 
 #### 5.6 出口门禁
 
-**技能自证 + 人确认**：报错点 ≠ 根因 + 解释全部现象 + ≥1 排除记录 + 报告中每项结论可在档案中找到对应证据；然后**人确认「根因正确」**（`./policies/decision-point.md`，选项：A 正确进入方案 / B 存疑回 Step 5 补证据 / C 场景有误改走其他通道）。
+**技能自证 + 人确认**：报错点 ≠ 根因 + 解释全部现象 + ≥1 排除记录 + 报告中每项结论可在档案中找到对应证据；然后**暂停等用户确认「根因正确」**（选项：A 正确进入方案 / B 存疑回 Step 5 补证据 / C 场景有误改走其他通道）。**此点无条件必停。**
 
 
 ### Step 6：设计修复方案
@@ -325,7 +318,7 @@ bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" ".polaris/tasks/<issue_id>/tasks.md"
 
 #### 6.5 用户确认修复方案（阻塞点）
 
-**技能自证 + 人确认（仅分叉时）**：方案符合最小变更 + 影响面与回归范围已列 + tasks-lint 通过。存在分叉时**人确认「方案可接受」**（`./policies/decision-point.md`，A 开始修复 / B 换方案 / C 范围过大转 normal）。
+**技能自证 + 人确认（仅分叉时）**：方案符合最小变更 + 影响面与回归范围已列 + tasks-lint 通过。存在分叉时**暂停等用户确认「方案可接受」**（A 开始修复 / B 换方案 / C 范围过大转 normal）；唯一路径时跳过。
 
 ## 推进与回流
 
