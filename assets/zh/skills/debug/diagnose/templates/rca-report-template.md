@@ -1,7 +1,7 @@
 # rca-report 模板（根因分析报告 · 成品）
 
 > 落盘：`.polaris/tasks/<issue_id>/reviews/rca-report.md`（需先 `mkdir -p ".polaris/tasks/<issue_id>/reviews"`）。
-> **成品报告**：给人确认根因、给 `prescribe` 当输入、随交付归档。一句话一个结论，无证据不写；**每项结论都必须能在 `diagnose-brief.md` 里找到对应证据（引用节名）**。九节固定结构：
+> **成品报告**：给人确认根因、给方案步骤当输入、随交付归档。一句话一个结论，无证据不写；**每项结论都必须能在 `diagnose-brief.md` 里找到对应证据（引用节名）**。九节固定结构：
 
 ```markdown
 # <issue_id> — 根因分析报告（RCA）

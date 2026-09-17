@@ -28,29 +28,109 @@ description: "缺陷修复通道的「实现与自验」阶段：按 tasks.md �
 
 ## 流程
 
-### Step 1：先写复现用例（红）→ 修复（绿）
+### Step 0：定位任务标识 + 入口校验
+
+```bash
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind debug --skill patch --repo-root "$REPO_ROOT" --phase patch)
+RTID_EXIT=$?
+```
+
+- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
+- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+
+按 `$TASK_IDS` 数组长度解读：
+
+- **唯一匹配**：直接读取 `task_id`
+- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
+- **零匹配**：阻断，提示「未找到 检测 阶段的 active change，请先执行 /polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose」
+
+> 若选择的任务已是 `phase=patch`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+> 若上次中断在 “修复” 中（`patch.status=in_progress`），从中断点续跑；不得因「已是 patch」而报零匹配。
+
+**入口校验**（已完成 → 阻断重跑）：
+
+| 检查 | 条件 |
+|------|------|
+| 检测与定位 已完成 | `state.yaml` 中 `diagnose.status=completed` |
+
+输出：`[polaris-flow 调试]缺陷修复 - 进入实现与自验：问题单号=<task_id>`
+
+执行：
+1. 更新 `state.yaml`：`phase: build`，`build.status: in_progress`。
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind debug --phase patch
+```
+
+2. 设置语言
+
+执行脚本：
+```bash
+LANG = $(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
+LANG_EXIT = $?
+```
+
+- `LANG_EXIT != 0` → 使用当前用户请求语言
+- `LANG_EXIT == 0` → 本阶段所有提问与澄清摘要均采用 $LANG。
+
+### Step 1：修复问题
+
+#### 1.1 先写复现用例（红）→ 修复（绿）
 
 - 顺序固定：写复现用例（**红**）→ 写修复（**绿**）→ 补边界用例
 - **生产通道（channel=hotfix）**：修复内容额外含三件——数据脚本（幂等自审 + 可回滚 + 前置校验）、埋点（异常路径全链路 + TraceId + 关键上下文）、特性开关（默认关闭 + 可灰度）；三者与 `prescribe` 改动点清单一致，超范围即夹带
 - 复杂缺陷可派发 subagent（**仅用户显式要求时**）：先读 SessionStart 注入；`SUPPORTS_SUBAGENT=true` 且只要默认通用 → 不调 probe 直接 dispatch；需选清单或缺注入 → `use_skill("polaris{{SKN_SPR}}subagent-probe")`。默认 inline 按 `tasks.md` 逐项执行
 
-### Step 2：补边界用例
+#### 1.2 补边界用例
 
 - **≥2 条**核心边界用例；空值 / 极值 / 边界 / 异常时序 / 并发 / 超时 / 重复提交取适用项，不适用写明理由
 
-### Step 3：跑回归 + diff 校验 + 静态检查
+#### 1.3 跑回归 + diff 校验 + 静态检查
 
 - 跑 `tasks.md` 的回归范围 + 原复现用例
 - `git diff` 逐文件核对：每处改动落在 `prescribe` 的改动点清单内；夹带即回退
 - 执行仓库既有 lint / 类型检查；与本次无关的既有告警在报告标注为既有问题
 
-### Step 4：写自验节
+#### 1.4 写自验节
 
-`mkdir -p ".polaris/tasks/<issue_id>/reviews"` 后，在 `.polaris/tasks/<issue_id>/verification.md` 写「自验」节（命令 + 原始输出 + 结论，三件套）。
+1. 建立自栓文档目录
 
-## 出口门禁
+```bash
+mkdir -p "$REPO_ROOT/.polaris/tasks/<task_id>/reviews"
+```
+
+在 `$REPO_ROOT/.polaris/tasks/<task_id>/reviews/verification.md`中 写「自验」节（命令 + 原始输出 + 结论，三件套）。
 
 **技能自证**：原复现用例转绿 + 核心边界 ≥2 条全部通过 + 回归范围全通过 + `git diff` 无夹带 + 静态检查通过。
+
+#### 1.5 独立验证（仅通道为“生产修复”）
+
+> 当前步骤仅生产问题才执行
+
+1. 输出验证清单
+
+按缺陷性质列出五维验证项与各自执行人 / 环境，逐项标注能力档位（A 自跑 / B 环境依赖 / C 人执行）。环境与权限依赖的项，产出可执行的验证步骤 + 判定口径，交人执行。
+
+2. 执行结果回复(阻塞点)
+按 `./policies/decision-point.md`询问，
+> 在预生产环境完成问题验证，确认问题已修复。
+> 你是否已经完成问题修复验证，回填 `verification.md`「独立验证」节（结果 + 证据）？
+> 
+> A. 是，我验证后确认问题已经修复
+> B. 否，问题未完全修复
+
+- 用户选 A，检查回填内容：**五维通过（功能回归 / 数据兼容含脚本重复执行 / 性能无退化 / 边界异常 / **回滚演练有效**）。无法执行的项已在「未覆盖项」标注原因。
+
+#### 1.6 修复收尾 + 清理上下文
+
+1. 输出 `[polaris-flow 调试]缺陷修复 - 问题完成修复及验证：问题单号=<task_id>`
+
+2. 更新任务状态
+
+3. 清理上下文
+
+4. 引导进入下一阶段
+
 
 ## 推进与回流
 

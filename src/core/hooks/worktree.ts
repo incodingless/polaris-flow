@@ -1,6 +1,6 @@
 /**
- * Worktree 相关 hook 核心：创建隔离 worktree、合入状态检查、rebase + ff merge。
- * 由 `polaris worktree-create` / `worktree-merge-status` / `worktree-rebase-ff` 调用。
+ * Worktree 相关 hook 核心：创建隔离 worktree、合入状态检查、rebase + ff merge、提交并移除。
+ * 由 `polaris worktree-create` / `worktree-merge-status` / `worktree-rebase-ff` / `worktree-commit-remove` 调用。
  */
 import { execFileSync, type StdioOptions } from 'child_process';
 import { appendFile, mkdir, rename } from 'fs/promises';
@@ -28,6 +28,17 @@ export type MergeResult = { exitCode: number; message?: string };
 export type RebaseResult = {
   exitCode: number;
   defaultBranch?: string;
+  message?: string;
+};
+
+export type CommitRemoveResult = {
+  exitCode: number;
+  payload?: {
+    worktree_path: string;
+    branch: string;
+    committed: boolean;
+    removed: boolean;
+  };
   message?: string;
 };
 
@@ -247,4 +258,88 @@ export async function rebase(
 
   process.stdout.write(defaultBranch);
   return { exitCode: 0, defaultBranch };
+}
+
+/**
+ * 在 worktree 内 `git add -A` + `commit`（已干净则跳过提交），再从主仓 `worktree remove`。
+ * 不 push、不删分支。
+ */
+export async function commitAndRemove(
+  worktreePath: string,
+  commitMessage: string,
+): Promise<CommitRemoveResult> {
+  if (!worktreePath || !commitMessage?.trim()) {
+    return {
+      exitCode: 1,
+      message: '用法: worktree-commit-remove <worktree_path> --message <msg>',
+    };
+  }
+
+  const wt = path.resolve(worktreePath);
+  if (!(await fileExists(wt))) {
+    return { exitCode: 1, message: `worktree 路径不存在: ${wt}` };
+  }
+
+  let mainRepo: string;
+  let branch = '';
+  try {
+    const commonDirRaw = git(wt, ['rev-parse', '--git-common-dir']).trim();
+    const commonDir = path.isAbsolute(commonDirRaw)
+      ? commonDirRaw
+      : path.resolve(wt, commonDirRaw);
+    mainRepo = path.dirname(commonDir);
+    branch = git(wt, ['branch', '--show-current']).trim();
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return { exitCode: 1, message: `无法解析主仓或当前分支: ${detail}` };
+  }
+
+  let committed = false;
+  let dirty = '';
+  try {
+    dirty = git(wt, ['status', '--porcelain']).trim();
+  } catch {
+    return { exitCode: 1, message: 'git status 异常' };
+  }
+
+  if (dirty) {
+    try {
+      git(wt, ['add', '-A'], { stdio: 'pipe' });
+      git(wt, ['commit', '-m', commitMessage.trim()], { stdio: 'pipe' });
+      committed = true;
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      return { exitCode: 1, message: `worktree 内提交失败: ${detail}` };
+    }
+  }
+
+  try {
+    git(mainRepo, ['worktree', 'remove', wt], { stdio: 'pipe' });
+  } catch {
+    try {
+      git(mainRepo, ['worktree', 'remove', '--force', wt], { stdio: 'pipe' });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      return {
+        exitCode: 1,
+        message: `git worktree remove 失败（已提交=${committed}）: ${detail}`,
+        payload: {
+          worktree_path: wt,
+          branch,
+          committed,
+          removed: false,
+        },
+      };
+    }
+  }
+
+  return {
+    exitCode: 0,
+    payload: {
+      worktree_path: wt,
+      branch,
+      committed,
+      removed: true,
+    },
+  };
 }

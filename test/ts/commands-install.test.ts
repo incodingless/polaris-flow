@@ -173,7 +173,7 @@ describe('testing 族技能安装', () => {
 
 describe('debug 族技能安装', () => {
   it(
-    'claude nested：bugfix 通道 + 六阶段技能 + policies/_shared 随技能落盘',
+    'claude nested：bugfix 通道 + 四阶段技能 + policies/_shared 随技能落盘',
     { timeout: INSTALL_TIMEOUT },
     async () => {
       const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-debugfam-'));
@@ -186,8 +186,8 @@ describe('debug 族技能安装', () => {
       expect(bugfix).toMatch(/^name: polaris:debug:bugfix$/m);
       expect(bugfix).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
-      // 通道技能只做装配：引用五个阶段技能 + 共享策略，不装 prove、不内联阶段执行细节
-      for (const phase of ['triage', 'diagnose', 'prescribe', 'patch', 'closeout']) {
+      // 通道技能只做装配：引用三个阶段技能 + 共享策略，不装 prove、不内联阶段执行细节
+      for (const phase of ['diagnose', 'patch', 'closeout']) {
         expect(bugfix).toContain(`polaris:debug:${phase}`);
       }
       expect(bugfix).not.toContain('polaris:debug:prove');
@@ -202,8 +202,8 @@ describe('debug 族技能安装', () => {
       expect(hotfix).toMatch(/^name: polaris:debug:hotfix$/m);
       expect(hotfix).toContain('prove');
 
-      // 六个阶段技能均独立安装
-      for (const phase of ['triage', 'diagnose', 'prescribe', 'patch', 'prove', 'closeout']) {
+      // 四个阶段技能均独立安装
+      for (const phase of ['diagnose', 'patch', 'prove', 'closeout']) {
         const stage = await readFile(
           path.join(tmpDir, '.claude/skills/polaris/debug', phase, 'SKILL.md'),
           'utf-8',
@@ -223,36 +223,32 @@ describe('debug 族技能安装', () => {
 
       // 语言包顶层 policies 注入到叶技能
       await expect(
-        access(path.join(tmpDir, '.claude/skills/polaris/debug/triage/policies/decision-point.md')),
+        access(path.join(tmpDir, '.claude/skills/polaris/debug/diagnose/policies/decision-point.md')),
       ).resolves.toBeUndefined();
 
       // 族级 _shared/ 样板注入 debug 族每个叶技能，但不注入其他族
       for (const name of ['capability-tiers.md', 'artifacts.md', 'scene-routing.md']) {
         await expect(
-          access(path.join(tmpDir, '.claude/skills/polaris/debug/triage/policies', name)),
+          access(path.join(tmpDir, '.claude/skills/polaris/debug/diagnose/policies', name)),
         ).resolves.toBeUndefined();
       }
       await expect(
         access(path.join(tmpDir, '.claude/skills/polaris/coding/tweak/policies/capability-tiers.md')),
       ).rejects.toThrow();
 
-      // 产物改名：explore-brief → diagnose-brief；新增 rca-report
-      const triage = await readFile(
-        path.join(tmpDir, '.claude/skills/polaris/debug/triage/SKILL.md'),
-        'utf-8',
-      );
-      expect(triage).toContain('diagnose-brief.md');
-      expect(triage).not.toContain('explore-brief.md');
+      // 产物改名：explore-brief → diagnose-brief；新增 rca-report（均归 diagnose 技能）
       const diagnose = await readFile(
         path.join(tmpDir, '.claude/skills/polaris/debug/diagnose/SKILL.md'),
         'utf-8',
       );
+      expect(diagnose).toContain('diagnose-brief.md');
       expect(diagnose).toContain('rca-report.md');
+      expect(diagnose).not.toContain('explore-brief.md');
 
-      // 模板迁移：tasks 归 prescribe、report 归 closeout
+      // 模板迁移：tasks 归 diagnose、report 归 closeout
       await expect(
         access(
-          path.join(tmpDir, '.claude/skills/polaris/debug/prescribe/templates/tasks-template.md'),
+          path.join(tmpDir, '.claude/skills/polaris/debug/diagnose/templates/tasks-template.md'),
         ),
       ).resolves.toBeUndefined();
       await expect(
@@ -264,9 +260,9 @@ describe('debug 族技能安装', () => {
         ),
       ).resolves.toBeUndefined();
 
-      // 脚本调用带 $PLUGIN_ROOT 与文件参数（在 prescribe 模板内）
+      // 脚本调用带 $PLUGIN_ROOT 与文件参数（在 diagnose 模板内）
       const tasksTpl = await readFile(
-        path.join(tmpDir, '.claude/skills/polaris/debug/prescribe/templates/tasks-template.md'),
+        path.join(tmpDir, '.claude/skills/polaris/debug/diagnose/templates/tasks-template.md'),
         'utf-8',
       );
       expect(tasksTpl).toContain('bash "$PLUGIN_ROOT/scripts/tasks-lint.sh"');

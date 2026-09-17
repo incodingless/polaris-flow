@@ -1,6 +1,6 @@
-# tasks 模板（prescribe 段）
+# tasks 模板（diagnose 段）
 
-> **使用范围**：仅 `polaris{{SKN_SPR}}debug{{SKN_SPR}}prescribe` 技能。tweak / normal / hotfix / design 的 tasks 模板**不适用**。
+> **使用范围**：仅 `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` 技能。tweak / normal / hotfix / design 的 tasks 模板**不适用**。
 > **落盘路径**：`.polaris/tasks/<issue_id>/tasks.md`。本通道**不使用 openspec**。
 
 ## 模板骨架
@@ -109,4 +109,4 @@ bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" ".polaris/tasks/<issue_id>/tasks.md"
 - 不得出现 `superpowers:executing-plans` / `superpowers:subagent-driven-development` 等执行入口 header
 - 代码块占比不得超过全文 40%
 
-不通过 → 在 `prescribe` 阶段修 `tasks.md`，仍不通过则阻塞，不得进入 `patch`。
+不通过 → 在 `diagnose` 阶段修 `tasks.md`，仍不通过则阻塞，不得进入 `patch`。

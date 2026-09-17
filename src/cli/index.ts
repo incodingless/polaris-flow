@@ -15,12 +15,15 @@ import {
   constitutionValidityCommand,
   draftCreateCommand,
   harnessSyncCommand,
+  hotfixBranchCreateCommand,
+  gitBranchMergeCommand,
   shipCleanupCommand,
   taskFinalizeCommand,
   taskInitCommand,
   tasksLintCommand,
   intentionValidateCommand,
   worktreeCreateCommand,
+  worktreeCommitRemoveCommand,
   worktreeMergeStatusCommand,
   worktreeRebaseFfCommand,
 } from '../commands/hooks/hooks-rest.js';
@@ -342,6 +345,36 @@ program
   .option(...PLATFORM_OPTION)
   .action(async (changeId: string, mainRepoRoot: string) => {
     await worktreeCreateCommand(changeId, mainRepoRoot);
+  });
+
+program
+  .command('worktree-commit-remove')
+  .description('Commit all changes in a worktree then git worktree remove')
+  .argument('<worktree_path>', 'worktree absolute or relative path')
+  .requiredOption('-m, --message <msg>', 'commit message')
+  .option(...PLATFORM_OPTION)
+  .action(async (worktreePath: string, options: { message: string }) => {
+    await worktreeCommitRemoveCommand(worktreePath, options.message);
+  });
+
+program
+  .command('hotfix-branch-create')
+  .description('Create hotfix/<issue_id> from main/master and check it out')
+  .argument('<issue_id>', 'issue id (e.g. PROJ-123)')
+  .argument('<repo_root>', 'repository root')
+  .option(...PLATFORM_OPTION)
+  .action(async (issueId: string, repoRoot: string) => {
+    await hotfixBranchCreateCommand(issueId, repoRoot);
+  });
+
+program
+  .command('git-branch-merge')
+  .description('Merge a local branch into main/master with --no-ff')
+  .argument('<source_branch>', 'branch to merge into main')
+  .argument('<repo_root>', 'repository root')
+  .option(...PLATFORM_OPTION)
+  .action(async (sourceBranch: string, repoRoot: string) => {
+    await gitBranchMergeCommand(sourceBranch, repoRoot);
   });
 
 program

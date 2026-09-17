@@ -26,6 +26,7 @@ export const PROJECT_DOCS_SUBDIRS = [
   'architecture',
   'design',
   'testcases',
+  'troubleshooting',
 ] as const;
 
 export type ProjectLayoutOption = {

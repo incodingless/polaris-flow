@@ -1,9 +1,9 @@
 ---
 name: polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose
-description: "缺陷修复通道的「定性」阶段：把用户口述的缺陷/故障变成可核对的证据，并做场景分流。支持 Jira 问题单接入——用户提供 Jira 单号时优先用 Jira MCP 读取问题单内容，未接 MCP 或读取失败则要求手动补充；issue_id 直接用 Jira 单号（不做 LLM 推荐命名）。测试通道完成四要素校验、证据结构化提取、历史同类检索、诊断档案（diagnose-brief.md）落盘、运行态初始化、git 工作区准备（worktree / hotfix 分支）与最小稳定复现；生产通道完成现场保全、时间线/影响面/变更清单三对齐（复现降为可选）。用户要求：复现某个缺陷、确认某个报错、帮我复现测试环境的异常、这个 bug 的触发条件是什么、先别改代码先搞清楚现象、线上故障先保全现场、按 Jira 单号处理这个缺陷，或承接 debug:bugfix / debug:hotfix 通道的入口时使用。不触发：根因定位（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose）、设计修复方案（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}prescribe）、改代码（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}patch）、独立验证（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}prove）、收尾归档（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}closeout）。"
+description: "缺陷修复通道的「诊断与方案」阶段（合并了原定性 + 定位 + 方案三步）：把用户口述的缺陷/故障变成可核对的证据并分流场景，确认根因、产出 RCA 报告，再确定修复方案与 tasks.md。支持 Jira 问题单接入（优先 Jira MCP 读取，失败则手动补充；issue_id 直接用 Jira 单号）。测试通道完成四要素校验、稳定复现、根因分析、修复方案；生产通道完成现场保全、时间线/影响面/变更清单三对齐（复现可选）、止血确认、根因分析、含回退路径的修复方案。产物：diagnose-brief.md（过程档案）+ rca-report.md（九节 RCA）+ tasks.md。用户要求：复现某个缺陷、确认某个报错、帮我复现测试环境的异常、定位 bug 根因、分析报错调用链、设计修复方案、评估影响面、线上故障先保全现场、按 Jira 单号处理缺陷，或承接 debug:bugfix / debug:hotfix 通道入口时使用。不触发：改代码（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}patch）、独立验证（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}prove）、收尾归档（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}closeout）。"
 ---
 
-# 定性 · 缺陷修复通道 · diagnose
+# 诊断与方案 · 缺陷修复通道 · diagnose
 
 <HARD-GATE>
 - **禁止**在未做场景分流前就动手；场景分流结果决定通道（测试→`bugfix`，生产→`hotfix`），**不得**默认某一通道
@@ -19,7 +19,7 @@ description: "缺陷修复通道的「定性」阶段：把用户口述的缺陷
 - **H8**：进入与每个 Step 入口输出 `[polaris-flow 调试]缺陷修复 - diagnose <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 调试]缺陷修复 - 进入定性：使用 polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose 技能。`
+**启动时必须先输出**：`[polaris-flow 调试]缺陷修复 - 进入诊断与方案：使用 polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose 技能。`
 
 ## 进入协议
 
@@ -48,8 +48,8 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 
 | `ACTIVE_EXIT` | 含义 | 后续动作 |
 | ------------- | ---- | -------- |
-| 0 且数组非空 | 存在未完结原型任务 | 按决策点协议询问 A/B/C/D（见下） |
-| 0 且数组为空 | 无活跃原型任务 | 进入 Step 2 开启新任务 |
+| 0 且数组非空 | 存在未完结缺陷任务 | 按决策点协议询问 A/B/C/D（见下） |
+| 0 且数组为空 | 无活跃缺陷任务 | 进入 Step 2 开启新任务 |
 | 非 0 | 参数/环境错误 | 按 H12 阻断 |
 
 存在活跃任务时，**必须**按 `./policies/decision-point.md` 暂停询问：
@@ -64,14 +64,14 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 
   ```bash
   rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind debug --skill triage --repo-root "$REPO_ROOT" --where-task-id "$task_id"
+  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind debug --skill diagnose --repo-root "$REPO_ROOT" --where-task-id "$task_id"
   ```
 - **C. 丢弃所有**：对每个 id 执行下列命令后，进入 Step 2
 
 ```bash
 for d in <ACTIVE_RESULT 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind prototype --skill blueprint --repo-root "$REPO_ROOT" --where-task-id "$d"
+  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind debug --skill diagnose --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
 
@@ -97,8 +97,8 @@ done
 
 按 `./policies/scene-routing.md` 判定，结果决定后续全流程走向：
 
-- **判定为测试** → `channel=bugfix`，走测试版 triage（四要素 + 稳定复现）
-- **判定为生产** → `channel=hotfix`，走生产版 triage（现场保全 + 三对齐，复现可选）
+- **判定为测试** → `channel=bugfix`，走测试版（四要素 + 稳定复现）
+- **判定为生产** → `channel=hotfix`，走生产版（现场保全 + 三对齐，复现可选）
 
 信号不足**必须询问**（`./policies/decision-point.md`），不得默认某一通道。
 
@@ -122,7 +122,7 @@ done
 #### Step 2.4  证据结构化 + 历史同类
 
 - 从文本 / 日志 / 截图提取异常类型、报错文件、代码行、模块、触发请求；取不到的字段标 `未提供`，原始证据**原样保留**
-- 历史同类：读 `$REPO_ROOT/docs/troubleshooting/INDEX.md`（不存在则跳过），按模块 / 异常类型 / 关键符号匹配；命中项作为后续 `diagnose` 的假设之一，**禁止**套用结论跳过根因定位
+- 历史同类：读 `$REPO_ROOT/docs/troubleshooting/INDEX.md`（不存在则跳过），按模块 / 异常类型 / 关键符号匹配；命中项作为后续根因分析的假设之一，**禁止**套用结论跳过根因定位
 
 #### Step 2.5 运行态初始化
 
@@ -130,7 +130,7 @@ done
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind debug --task-id "$issue_id"
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active --kind debug --skill <channel> --channel <channel> --task-id "$issue_id" --phase triage --repo-root "$REPO_ROOT"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active --kind debug --skill <channel> --channel <channel> --task-id "$issue_id" --phase diagnose --repo-root "$REPO_ROOT"
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" --set channel=<channel>
 ```
 
@@ -141,8 +141,8 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --k
 #### 3.1.A 测试通道（bugfix）· worktree（可选）
 
 - 按 `./policies/decision-point.md` 询问：是否创建 worktree 隔离本次修复（避免污染当前开发工作区）？
-  - **是**：`git worktree add "<path>" -b "fix/<issue_id>" HEAD`（基于当前开发分支；`<path>` 建议仓库同级目录，按 `./policies/decision-point.md` 确认），记录 `worktree_path` 到 `state.yaml`
-  - **否**：跳过，直接在当前工作区修复
+  - **是**：走下方 3.1.A.A（`worktree-create.sh` + `task-state-entry` 写入 worktree 字段）
+  - **否**：走下方 3.1.A.B
 - 建 worktree 后，**后续代码改动**在 worktree 里执行；产物仍写主仓库
 
 按 `./policies/decision-point.md` 询问：
@@ -155,57 +155,70 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --k
 ##### 3.1.A.A 用户选 A — 创建 worktree
 
 ```bash
-WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-create.sh" "$task_id" "$REPO_ROOT")
+WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-create.sh" "$issue_id" "$REPO_ROOT")
 WT_EXIT=$?
 ```
 
 - exit 0 → `$WT_RESULT` 含 JSON（`target_path` / `target_branch` / `snapshot_path`）；继续下方同步
 - exit 1 → **阻断**，stderr 有错误信息
 
-创建成功后，确保 `.polaris/tasks/<task_id>/state.yaml`（worktree 内路径优先）写入：
+创建成功后，用 `task-state-entry` 写 state（从 `WT_RESULT` 解析 `target_path` / `target_branch`）：
 
-- `worktree.created_by_polaris_flow: true`
-- `worktree.path` / `branch` / `origin_repo` / `status: active`
-- `phase: triage`
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" \
+  --set worktree.created_by_polaris_flow=true \
+  --set worktree.path="$target_path" \
+  --set worktree.branch="$target_branch" \
+  --set worktree.origin_repo="$REPO_ROOT" \
+  --set worktree.status=active \
+  --set runtime.plan.worktree_decision=created
+
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --task-id "$issue_id" --kind debug --phase diagnose
+```
 
 同步主仓 workflow.yaml（脚本内含锁 / 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind debug --skill triage --where-task-id "$task_id" --set phase=triage --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind debug --skill diagnose --where-task-id "$issue_id" --set phase=diagnose --set worktree-path="$target_path"
 ```
-
-在 `.polaris/tasks/<task_id>/state.yaml`（worktree 内路径优先）写入：
-
-- `runtime.plan.worktree_decision: created`
 
 输出 `[polaris-flow 调试]缺陷修复 - 隔离工作区已创建，基础分支：<target_branch>，工作区路径：<target_path>`。
 
 ##### 3.1.A.B 用户选 B — 留在主仓库
 
-不动 git。更新主仓 `.polaris/tasks/<task_id>/state.yaml`：
+不动 git。用 `task-state-entry` 写 state：
 
-- `worktree.created_by_polaris_flow: false`
-- `runtime.plan.worktree_decision: declined`
-- `phase: plan`
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" \
+  --set worktree.created_by_polaris_flow=false \
+  --set runtime.plan.worktree_decision=declined
+
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --task-id "$issue_id" --kind debug --phase diagnose
+```
 
 同步 workflow.yaml：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind debug --skill triage --where-task-id "$task_id" --set phase=triage
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind debug --skill diagnose --where-task-id "$issue_id" --set phase=diagnose
 ```
 
 输出 `[polaris-flow 调试]缺陷修复 - 未创建隔离工作区，用户选择留在主仓库。工作路径为: $REPO_ROOT`。
 
 #### 3.1.B 生产通道（hotfix）· hotfix 分支（必建）
 
-1. 尝试创建修复分支
+1. 尝试创建修复分支（探测主干 → 脏检查 → 基于主干建 `hotfix/<issue_id>` 并切换）：
+
 ```bash
-GIT_CHECK = xxxx
-GCD_EXIT = $?
+HF_RESULT=$(bash "$PLUGIN_ROOT/scripts/hotfix-branch-create.sh" "$issue_id" "$REPO_ROOT")
+HF_EXIT=$?
 ```
 
-- `GCD_EXIT != 0` → **阻断**，按 `./policies/decision-point.md` 询问：
-  > 当前分支（$currentBranch.name）中存在未提交的变动，请提交/放弃变动。
+- `HF_EXIT != 0` → **阻断**，stderr 含失败原因（常见：当前分支有未提交变动）。按 `./policies/decision-point.md` 询问：
+  > 当前工作区存在未提交的变动，请提交/放弃变动。
   >
   > 你是否已经完成变动操作了？
   > A. 是，可以继续创建修复分支
@@ -213,7 +226,7 @@ GCD_EXIT = $?
 
   - 用户选择 “A”或 “B”，再次尝试创建修复分支
 
-- `GCD_EXIT == 0` → 输出`[polaris-flow 调试]缺陷修复 - 已基于主干创建修复分支，分支名：$branch`
+- `HF_EXIT == 0` → `$HF_RESULT` 含 JSON（`main_branch` / `hotfix_branch`）；输出 `[polaris-flow 调试]缺陷修复 - 已基于主干（<main_branch>）创建修复分支，分支名：<hotfix_branch>`
 
 ### Step 4：诊断档案落盘
 
@@ -227,12 +240,12 @@ GCD_EXIT = $?
 - 优先落成**可执行**形态：单测 > 独立脚本 > 接口请求；最小化到单点，逐步剥掉无关输入与依赖
 - 执行并把**原始输出**（含栈、错误码、时间戳）原样粘入 `diagnose-brief.md`「复现」段
 - 连续 **≥3 次**同结果 → 稳定复现；不一致 → 偶发，**不得**继续
-- 复现失败 → 输出**信息缺口清单**（数据状态 / 并发时序 / 配置 / 特定输入）回 Step 3；偶发且无证据 → 停止修复，建议补观测后重新提单
+- 复现失败 → 输出**信息缺口清单**（数据状态 / 并发时序 / 配置 / 特定输入）回 Step 2.3；偶发且无证据 → 停止修复，建议补观测后重新提单
 
 **生产通道（hotfix）· 现场保全 + 三对齐（复现可选）**
 - 必读 `./templates/preservation-checklist.md`，产出保全清单交人执行；人回填「现场保全」段
 - 核对**时间线 / 影响面 / 变更清单三对齐**（三者能互相印证）
-- 复现**可选**：类生产 / 预发布能稳定复现 → 加分项写入「复现」段；无法复现 → 标注「未复现 + 原因」，**不阻塞**（靠证据充分性兜底，见 `diagnose` 段）
+- 复现**可选**：类生产 / 预发布能稳定复现 → 加分项写入「复现」段；无法复现 → 标注「未复现 + 原因」，**不阻塞**（靠证据充分性兜底，见 Step 5 根因分析）
 
 #### 4.3 出口门禁
 
@@ -246,11 +259,11 @@ GCD_EXIT = $?
 
 定位根因前，先按 `./policies/decision-point.md` 询问止血状态：
 
-- **A 已完成止血**（已回滚变更 / 关闭开关 / 限流降级，业务已恢复或止损）→ 继续 Step 1
+- **A 已完成止血**（已回滚变更 / 关闭开关 / 限流降级，业务已恢复或止损）→ 继续 Step 5.1
 - **B 未完成止血** → 暂停定位，用户先执行止血（技能不代执行、不指导），完成后回来继续
-- **C 无需止血**（影响面已停止扩散、无持续损害）→ 继续 Step 1
+- **C 无需止血**（影响面已停止扩散、无持续损害）→ 继续 Step 5.1
 
-止血结果回填 `diagnose-brief.md`「止血确认」段。止血**不替代**根因定位——确认后照常走 Step 1–5。
+止血结果回填 `diagnose-brief.md`「止血确认」段。止血**不替代**根因定位——确认后照常走 Step 5.1–5.6。
 
 #### 5.1 栈溯源
 
@@ -265,11 +278,11 @@ GCD_EXIT = $?
 
 - 至少提出 **1 个替代假设**并给出排除依据
 - 无法排除的如实写「未能排除」并说明影响
-- 若在 `triage` 检索到历史同类，把其根因作为假设之一，**独立取证**，不得套用结论
+- 若在 Step 2.4 检索到历史同类，把其根因作为假设之一，**独立取证**，不得套用结论
 
 #### 5.4 全现象解释校验
 
-根因必须能解释 `triage` 记录的**全部**现象；解释不了的残留现象显式列出、标注归因未知。
+根因必须能解释 Step 2 / 4 记录的**全部**现象；解释不了的残留现象显式列出、标注归因未知。
 
 #### 5.5 产出
 
@@ -278,7 +291,7 @@ GCD_EXIT = $?
 
 #### 5.6 出口门禁
 
-**技能自证 + 人确认**：报错点 ≠ 根因 + 解释全部现象 + ≥1 排除记录 + 报告中每项结论可在档案中找到对应证据；然后**人确认「根因正确」**（`./policies/decision-point.md`，选项：A 正确进入方案 / B 存疑回 triage 补证据 / C 场景有误改走其他通道）。
+**技能自证 + 人确认**：报错点 ≠ 根因 + 解释全部现象 + ≥1 排除记录 + 报告中每项结论可在档案中找到对应证据；然后**人确认「根因正确」**（`./policies/decision-point.md`，选项：A 正确进入方案 / B 存疑回 Step 5 补证据 / C 场景有误改走其他通道）。
 
 
 ### Step 6：设计修复方案
@@ -316,5 +329,19 @@ bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" ".polaris/tasks/<issue_id>/tasks.md"
 
 ## 推进与回流
 
-- 过门禁 → `complete-phase --phase triage --next-phase diagnose`，然后 `update-active --set phase=diagnose`，提示走 `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose`
+过门禁后推进到 patch：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" \
+  --phase diagnose --next-phase patch
+
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active \
+  --kind debug --skill diagnose --repo-root "$REPO_ROOT" \
+  --where-task-id "$issue_id" --set phase=patch
+```
+
+提示走 `polaris{{SKN_SPR}}debug{{SKN_SPR}}patch`。
+
 - 复现不稳 / 三对齐缺项 → 原地补信息，**不**推进；无证据偶发 → 停止，不推进
+- 范围超界（跨 3+ 模块 / schema 变更 / 数据迁移 / 对外 API breaking）→ 停止，转 `coding/normal`（保留 rca-report 与 tasks.md 作输入）

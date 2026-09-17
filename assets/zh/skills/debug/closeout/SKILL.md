@@ -27,9 +27,59 @@ description: "缺陷修复通道的「关闭Bug」阶段：交付打包 + 收尾
 
 ## 流程
 
+### Step 0：定位任务标识 + 入口校验
+
+```bash
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind debug --skill patch --repo-root "$REPO_ROOT" --phase patch)
+RTID_EXIT=$?
+```
+
+- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
+- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+
+按 `$TASK_IDS` 数组长度解读：
+
+- **唯一匹配**：直接读取 `task_id`
+- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
+- **零匹配**：阻断，提示「未找到 检测 阶段的 active change，请先执行 /polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose」
+
+> 若选择的任务已是 `phase=patch`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+> 若上次中断在 “修复” 中（`patch.status=in_progress`），从中断点续跑；不得因「已是 patch」而报零匹配。
+
+**入口校验**（已完成 → 阻断重跑）：
+
+| 检查 | 条件 |
+|------|------|
+| 检测与定位 已完成 | `state.yaml` 中 `diagnose.status=completed` |
+
+输出：`[polaris-flow 调试]缺陷修复 - 进入实现与自验：问题单号=<task_id>`
+
+执行：
+1. 更新 `state.yaml`：`phase: build`，`build.status: in_progress`。
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind debug --phase patch
+```
+
+2. 设置语言
+
+执行脚本：
+```bash
+LANG = $(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
+LANG_EXIT = $?
+```
+
+- `LANG_EXIT != 0` → 使用当前用户请求语言
+- `LANG_EXIT == 0` → 本阶段所有提问与澄清摘要均采用 $LANG。
+
 ### Step 1：生成交付报告 + 提交信息 + 评审要点
 
-- `mkdir -p ".polaris/tasks/<issue_id>/reviews"`，必读 `./templates/bugfix-report-template.md`，生成 `.polaris/tasks/<issue_id>/reviews/bugfix-report.md`（根因与证据链**引用** `rca-report.md`，不重述）
+- 建立审查文档目录
+```bash
+mkdir -p "$REPO_ROOT/.polaris/tasks/<issue_id>/reviews"
+```
+
+必读 `read_file` `./templates/bugfix-report-template.md`，生成 `.polaris/tasks/<issue_id>/reviews/bugfix-report.md`（根因与证据链**引用** `rca-report.md`，不重述）
 - 提交信息：`fix(<模块>): <一句话现象> (<issue_id>)` + 正文含根因与改动点；**只产出文本**，不代提交。团队强制 `#ID` 语法时按用户指定格式，两种格式不得混用
 - 评审要点：按「根因 / 改动范围 / 风险点 / 测试覆盖 / 未覆盖项」五段输出
 
@@ -39,19 +89,45 @@ description: "缺陷修复通道的「关闭Bug」阶段：交付打包 + 收尾
 
 ### Step 3：归档 + 索引 + 回读校验
 
-- `mkdir -p "$REPO_ROOT/docs/troubleshooting/<issue_id>"`，**复制不移动**四份：`diagnose-brief.md` / `rca-report.md`（从 reviews 提升）/ `tasks.md` / `bugfix-report.md`
-- 在 `docs/troubleshooting/INDEX.md` **追加一行**（`issue_id | 日期 | 模块 | 异常类型 | 根因一句话 | 修复一句话`），只追加不改写历史行
+- 归档文档
+
+```bash
+ARCHIVE="$REPO_ROOT/docs/troubleshooting/$issue_id"
+TASK="$REPO_ROOT/.polaris/tasks/$issue_id"
+mkdir -p "$ARCHIVE"
+cp "$TASK/diagnose-brief.md" "$ARCHIVE/"
+cp "$TASK/reviews/rca-report.md" "$ARCHIVE/"
+cp "$TASK/tasks.md" "$ARCHIVE/"
+cp "$TASK/reviews/bugfix-report.md" "$ARCHIVE/"
+```
+
+- 在 `$REPO_ROOT/docs/troubleshooting/INDEX.md` **追加一行**（`issue_id | 日期 | 模块 | 异常类型 | 根因一句话 | 修复一句话`），只追加不改写历史行
+
 - **回读校验 5 项**（4 文件 + INDEX.md 均存在且非空）——任一失败不得宣告完成
 
 ### Step 4：git 收尾（分通道）
 
 **测试通道（bugfix）**
-- 建了 worktree 时：在 worktree 里 `git add -A && git commit -m "<标准提交信息>"`，然后 `git worktree remove <worktree_path>` 清理
+- 建了 worktree 时（读 `state.yaml` 的 `worktree.path`）：
+
+```bash
+WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-commit-remove.sh" "$worktree_path" --message "$COMMIT_MSG")
+WT_EXIT=$?
+```
+
+  - `WT_EXIT != 0` → **阻断**，stderr 有原因；不得宣告收尾完成
+  - `WT_EXIT == 0` → `$WT_RESULT` 含 JSON（`worktree_path` / `branch` / `committed` / `removed`）；`committed=false` 表示提交前已干净（仅做了 remove）
 - 未建 worktree 时：按 `./policies/decision-point.md` 询问提交方式（**A 我自己提交** / **B 代 `git add`+`commit`（不 push）** / **C 先放着**）
 
 **生产通道（hotfix）· 回合主干**
-- `git checkout <主干> && git merge --no-ff "hotfix/<issue_id>"` 回合 hotfix 分支至主干
-- 回合后 hotfix 分支保留（历史可追溯）；如用户要求可删除
+
+```bash
+MERGE_RESULT=$(bash "$PLUGIN_ROOT/scripts/git-branch-merge.sh" "hotfix/$issue_id" "$REPO_ROOT")
+MERGE_EXIT=$?
+```
+
+- `MERGE_EXIT != 0` → **阻断**，stderr 有原因（脏工作区 / 冲突已 abort / 分支不存在等），不得宣告收尾完成
+- `MERGE_EXIT == 0` → `$MERGE_RESULT` 含 JSON（`main_branch` / `source_branch`）；hotfix 分支保留（历史可追溯）；如用户要求可再删除
 
 > 仅本地 git 操作（`commit` / `merge` / worktree 清理）；`push` / 远端 PR 一律不代执行，交用户。
 

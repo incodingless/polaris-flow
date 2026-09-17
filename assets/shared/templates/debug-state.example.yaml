@@ -1,7 +1,7 @@
 # 缺陷修复通道任务档案模板（仅运行态）
 # 路径：.polaris/tasks/<issue_id>/state.yaml
 
-####################
+###################
 # 基础配置
 ####################
 # 语言
@@ -12,6 +12,9 @@ create_time: ""
 
 # 仓库根目录
 main-repo-root: "<project_root>"
+
+# 工作树目录
+worktree-dir: "<project_root>/.worktrees"
 
 ####################
 # 运行配置
@@ -25,8 +28,8 @@ kind: debug
 # 通道：bugfix-测试缺陷修复 | hotfix-生产故障修复
 channel: ""
 
-# 当前阶段：triage | diagnose | prescribe | patch | prove | closeout
-phase: triage
+# 当前阶段：idle-空闲 | diagnose-诊断 | patch-修复 | closeout-关单
+phase: idle
 
 # 跨技能回退留痕（from / to / reason / at）
 regressions: []
@@ -34,32 +37,31 @@ regressions: []
 # 过程档案相对路径（diagnose-brief.md）
 brief_path: ""
 
+# 工作树信息
+worktree:
+  # 是否由 polaris-flow 创建
+  created_by_polaris_flow: false
+  # 工作树路径
+  path: ""
+  # 工作树分支
+  branch: ""
+  # 工作树源仓库
+  origin_repo: ""
+  # 工作树状态
+  status: ""     
+  # 工作树创建时间
+  created_at: ""
+
 ####################
 # 阶段运行态（runtime.<phase>）
 ####################
-
 runtime:
-  triage:
-    status: ""
-    started_at: ""
-    finished_at: ""
-
   diagnose:
     status: ""
     started_at: ""
     finished_at: ""
 
-  prescribe:
-    status: ""
-    started_at: ""
-    finished_at: ""
-
   patch:
-    status: ""
-    started_at: ""
-    finished_at: ""
-
-  prove:
     status: ""
     started_at: ""
     finished_at: ""

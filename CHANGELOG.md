@@ -4,6 +4,8 @@
 
 ### Added
 
+- **hotfix-branch-create / git-branch-merge**: 核心模块 `git-branch.ts`（原 hotfix-branch）；`polaris hotfix-branch-create` 基于主干建 `hotfix/<issue_id>`；新增 `polaris git-branch-merge` / `scripts/git-branch-merge.sh` 将指定分支以 `merge --no-ff` 合入主干（脏检查、冲突 abort、源分支保留）；`diagnose` Step 3.1.B / `closeout` 生产收尾分别调用创建与合并脚本
+- **worktree-commit-remove**: 新增 `polaris worktree-commit-remove` / `scripts/worktree-commit-remove.sh`：在 worktree 内 `add -A`+`commit`（已干净则跳过），再 `git worktree remove`；`closeout` 测试通道 worktree 收尾改调该脚本
 - **init Superpowers 网络逃逸**: 支持 `POLARIS_GITHUB_MIRROR` 改写 clone URL、`POLARIS_SUPERPOWERS_PATH` 本地目录安装；git 默认 `HTTP/1.1` 以规避 HTTP/2 framing 失败
 - **init 物化 docs/tasks 目录**: `initializePolarisCommonLayout` 按 `config.example.yaml` 的 layout 创建 `.polaris/tasks`、`openspec`、`docs/{prd,prototype,architecture,design,testcases}`；`generatePolarisConfig` 继续将 `layout.tasks.root` / `layout.docs.root` 写成项目绝对路径，docs 子键保持相对名
 - **SessionStart subagent agents 缓存**: SessionStart 按宿主 `platformId` 扫描项目级 agents（算法对齐 `platform-probe.md`），写入 `.polaris/.cache/subagent-probe.json`（与 `subagent-probe` 输出同构），并注入 `SUBAGENT_PROBE_CACHE`；core `scanSubagents` / `buildSubagentProbeSnapshot`；probe 契约改为优先读该缓存再做 `task_type`/`subagent_id` 过滤
@@ -28,6 +30,8 @@
 
 ### Tests
 
+- **git-branch**: 覆盖 hotfix 创建（干净/脏/已存在/缺参）与合并进主干（成功保留源分支、脏阻断、分支不存在、源=主干）
+- **worktree-commit-remove**: 覆盖有改动提交并 remove、已干净跳过提交仍 remove、缺 message
 - **Superpowers 安装**: 覆盖 `trae-cn` agent id、GitHub 镜像 URL 改写、git HTTP/1.1 默认、init 摘要「Polaris 成功 + Superpowers 失败」
 
 ### Changed
