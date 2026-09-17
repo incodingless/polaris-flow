@@ -13,7 +13,7 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 - **禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 且未完成出口校验就把 `phase` 推到 ship
 - **禁止**本阶段做分支合并 / PR / worktree 合回 / `/opsx:archive`（那是 ship）
 - **禁止**本阶段编写业务实现代码；用户确认修复后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`，不得在 verify 内静默改实现
-- **禁止**未按 `./reference/decision-point.md` 获得用户对「验证失败 / override / 规格漂移」的明确选择就继续或接受偏差
+- **禁止**未按 `./policies/decision-point.md` 获得用户对「验证失败 / override / 规格漂移」的明确选择就继续或接受偏差
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]验证 - 进入 verify Step <N>: <动作>`
 </HARD-GATE>
 
@@ -66,7 +66,7 @@ RTID_EXIT=$?
 按 `$TASK_IDS` 数组长度解读：
 
 - **唯一匹配**：直接读取 `task_id`
-- **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
+- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到构建(build)阶段的活动任务，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}build」
 
 > 若 entry 已是 `phase=build`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
@@ -319,7 +319,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 验证失败决策（阻塞点）
 
-验证不通过时**必须**按 `./reference/decision-point.md` 暂停。不得自动调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`，不得自动把失败标成通过。
+验证不通过时**必须**按 `./policies/decision-point.md` 暂停。不得自动调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`，不得自动把失败标成通过。
 
 暂停时必须列出：
 

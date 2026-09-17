@@ -135,7 +135,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 输出：`[polaris-flow 复盘] 5.输出复盘报告`
 
 先读取模板`read_file ./templates/retro-template.md`，生成复盘报告（直接输出，**默认不落盘**）；
-按 `./reference/decision-point.md` 列出候选让用户选择(单选)。
+按 `./policies/decision-point.md` 列出候选让用户选择(单选)。
 > 复盘报告已经输出，是否需要保存到`.polaris/retro/<UTC>-report.md`中：
 > - 需要
 > - 不需要

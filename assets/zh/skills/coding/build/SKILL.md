@@ -58,7 +58,7 @@ RTID_EXIT=$?
 按 `$TASK_IDS` 数组长度解读：
 
 - **唯一匹配**：直接读取 `task_id`
-- **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
+- **多个匹配**：按 `./policy/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 tasks 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks」
 
 > 若 选择的任务已是 `phase=tasks`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
@@ -82,7 +82,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 ### Step 1：选择执行方式与审查模式（用户决策点）
 
-**一次性**按 `./reference/decision-point.md` 询问两项（可同一轮多问）。推荐规则**只能说明，不能代选**。
+**一次性**按 `./policy/decision-point.md` 询问两项（可同一轮多问）。推荐规则**只能说明，不能代选**。
 
 #### 1.1 执行方式 `build_mode`
 

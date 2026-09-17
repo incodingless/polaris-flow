@@ -19,7 +19,7 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 - **禁止**在本阶段编写业务实现代码 / 调用 `/opsx:apply`（那是 build）
 - **禁止**借机重写 `proposal.md` / 高层 `design.md` 的范围与架构结论；缺口只进 review 消化或回 design，不在 plan 静默改 Scope
 - **禁止**写出规划依据中不存在的需求 / 模块 / 验收场景（YAGNI；多出来的任务 = 失败）
-- **禁止**未按 `./reference/decision-point.md` 获得用户对 **TDD 策略**（Step 2）的明确选择，就进入 Step 4 覆写 `tasks.md`
+- **禁止**未按 `./policies/decision-point.md` 获得用户对 **TDD 策略**（Step 2）的明确选择，就进入 Step 4 覆写 `tasks.md`
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow 开发]任务规划- 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 技能。`
@@ -87,7 +87,7 @@ RTID_EXIT=$?
 按 `$TASK_IDS` 数组长度解读：
 
 - **唯一匹配**：直接读取 `task_id`
-- **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
+- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 design 阶段的 active change，请先执行 /polaris-flow-design」
 
 > 若 entry 已是 `phase=tasks`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
@@ -131,7 +131,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 ### Step 2：TDD 策略（用户决策点）
 
-在加载 `writing-plans`、拆任务、覆写 `tasks.md` **之前**，必须按 `./reference/decision-point.md` 暂停，询问本次 change 的 TDD 策略。  
+在加载 `writing-plans`、拆任务、覆写 `tasks.md` **之前**，必须按 `./policies/decision-point.md` 暂停，询问本次 change 的 TDD 策略。  
 **推荐只能说明，不能代选。** 选定前禁止进入 Step 3。
 
 向用户说明：TDD 决定的是 **tasks.md 里每条顶层任务的子步骤形态**（TDD=5 步 / 非 TDD=3 步），不是 build 阶段再选的全局开关；build 将严格按标注执行。

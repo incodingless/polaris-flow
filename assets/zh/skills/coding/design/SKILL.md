@@ -123,7 +123,7 @@ OpenSpec Context: openspec/changes/<task_id>/*.md
 
 #### 2.3 用户确认设计方案（阻塞点）
 
-按 `./reference/decision-point.md` 暂停，展示技术方案 / 取舍风险 / 测试策略 / Spec Patch（如有）。确认前禁止落盘 `detailed-design.md`。确认 → Step 3；调整 → 回 2.1。
+按 `./policies/decision-point.md` 暂停，展示技术方案 / 取舍风险 / 测试策略 / Spec Patch（如有）。确认前禁止落盘 `detailed-design.md`。确认 → Step 3；调整 → 回 2.1。
 
 ### Step 3：落盘深度设计
 

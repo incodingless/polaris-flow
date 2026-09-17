@@ -10,7 +10,7 @@ description: "verify 通过后做终验、分支收尾、worktree 产物合回�
 
 - **禁止**跳过 Step 0（ship lock）进入后续步骤（H11）
 - **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 3.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
-- **禁止**未按 `./reference/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
+- **禁止**未按 `./policies/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
 - **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 6.1
 - **P01 快速通道**：`workflow.tweak.mode=tweak` 时**必须**执行 Step 4.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
 - **禁止**本阶段编写业务实现代码；终验失败 → 回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（必要时再回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`）
@@ -58,11 +58,11 @@ RTID_EXIT=$?
 按 `$TASK_IDS` 数组长度解读：
 
 - **唯一匹配**：直接读取 `task_id`
-- **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
+- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 ship 阶段的 active change，请先执行 /polaris-flow-design」
 
 - **唯一匹配**：取其 `task_id`（及 `worktree_path`，若非空）
-- **多个匹配**：按 `./reference/decision-point.md` 列出候选让用户选择
+- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 phase=ship 的 active change，请先执行 /polaris-flow-verify」
 
 读 `.polaris/tasks/<task_id>/state.yaml`（若 `worktree_path` 非空 → 从 **worktree 内**同路径读）：
@@ -119,7 +119,7 @@ esac
 
 #### 3.3 若未合并：询问用户
 
-**必须**按 `./reference/decision-point.md` 询问：worktree 路径/分支，三选项：
+**必须**按 `./policies/decision-point.md` 询问：worktree 路径/分支，三选项：
 
 - **A**：已通过 PR 合并 / 不需本地合并 → 仅合回产物并清理
 - **B**：本地 rebase 到主干后 fast-forward 合入
