@@ -103,6 +103,20 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     usesDraft: false,
     bootstrapFiles: [],
   },
+  debug: {
+    kind: 'debug',
+    storageSegment: 'tasks',
+    initialPhase: 'triage',
+    stateTemplate: 'debug-state.example.yaml',
+    initPatches: {
+      task_id: '$taskId',
+      phase: 'triage',
+      'runtime.triage.status': 'in_progress',
+      'runtime.triage.started_at': '$now',
+    },
+    usesDraft: false,
+    bootstrapFiles: [],
+  },
 };
 
 /** 取 kind 对应布局；非法 kind 由调用方先 parse */

@@ -444,14 +444,19 @@ export function getInstallHints(platformId: string, pluginName: PluginName): str
         hints.push('  - 或：npx skills add obra/superpowers -a codebuddy');
         break;
       case 'trae':
-        hints.push('  - Trae：npx skills add obra/superpowers -a trae');
+        hints.push('  - Trae：npx skills add obra/superpowers -y --agent trae');
         hints.push('  - 全局：写入 ~/.trae/skills/；项目级：在项目根执行');
+        break;
+      case 'trae-cn':
+        hints.push('  - Trae-CN：npx skills add obra/superpowers -y --agent trae-cn');
+        hints.push('  - 全局：写入 ~/.trae-cn/skills/；项目级：在项目根执行');
         break;
       case 'qoder':
         hints.push('  - Qoder：npx skills add obra/superpowers -a qoder');
         hints.push('  - 全局：写入 ~/.qoder/skills/；项目级：在项目根执行');
         break;
       default:
+        hints.push('  - Trae-CN：npx skills add obra/superpowers -y --agent trae-cn');
         hints.push('  - Trae：执行 polaris install 选择 superpowers 插件');
         hints.push('  - CodeBuddy：打开 Plugin Marketplace → 搜索 superpowers → Install');
         hints.push('  - Claude Code：打开 plugin 设置 → Add plugin → superpowers');

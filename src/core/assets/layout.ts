@@ -17,10 +17,11 @@ const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/
  * 注意：族名必须与 `assets/<lang>/skills/` 下的实际目录名一致，否则族目录会被误判为独立技能。
  * 测试族固定为 `testing`——**不可用 `test`**，与仓库根 `test/`（单元测试）及保留目录冲突。
  * `prototype` 自 2026-09-14 从 `prd` 族独立成族：其下为 `blueprint`（蓝图）/ `build`（建造）/ `review`（交付评审）。
+ * `debug` 为缺陷修复族：其下为 `bugfix`（测试场景缺陷修复）。
  * 新增族时须同步 `assets/<lang>/skills/` 下目录，否则该目录会被降级识别为「顶层叶技能」，
  * 导致其下所有技能塌缩为同一个技能根、policies 注入层级错位。
  */
-export const SKILL_FAMILIES = new Set(['coding', 'prd', 'prototype', 'testing']);
+export const SKILL_FAMILIES = new Set(['coding', 'debug', 'prd', 'prototype', 'testing']);
 
 /** 应忽略的空壳 / 备份路径前缀 */
 const SKIP_PREFIXES = [

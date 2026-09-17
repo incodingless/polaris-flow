@@ -170,10 +170,11 @@ program
   .description('RMW .polaris/workflow.yaml under workflow.lock (H12)')
   .argument('<op>', 'append-active|update-active|rename-active|delete-active|get-active-changes')
   .requiredOption('--skill <name>', 'lock writer id')
-  .requiredOption('--kind <kind>', 'task kind: coding|requirement|testcase|prototype')
+  .requiredOption('--kind <kind>', 'task kind: coding|requirement|testcase|prototype|debug')
   .option('--repo-root <path>', 'main repo root')
   .option('--task-id <id>')
   .option('--phase <phase>')
+  .option('--channel <name>', 'debug 族通道：bugfix|hotfix')
   .option('--worktree-path <path>')
   .option('--started-at <iso>')
   .option('--where-task-id <id>')
@@ -202,6 +203,7 @@ program
       from: options.from,
       to: options.to,
       set: options.set,
+      channel: options.channel,
     });
   });
 
@@ -215,7 +217,7 @@ program
   .option('--repo-root <path>', 'main repo root')
   .option('--task-id <id>', 'task id under .polaris/tasks (or testcases)')
   .option('--state-path <path>', 'override absolute state.yaml path')
-  .option('--kind <kind>', 'coding|requirement|testcase|prototype (block-style hint)')
+  .option('--kind <kind>', 'coding|requirement|testcase|prototype|debug (block-style hint)')
   .option(
     '--path <dotted>',
     'get: dotted path (repeatable)',
@@ -294,9 +296,9 @@ program
 
 program
   .command('task-init')
-  .description('Init task dir + state.yaml by kind (requirement/prototype need --task-id, no draft)')
+  .description('Init task dir + state.yaml by kind (requirement/prototype/debug need --task-id, no draft)')
   .argument('<repo_root>', 'project root')
-  .requiredOption('--kind <kind>', 'task kind: coding|requirement|testcase|prototype')
+  .requiredOption('--kind <kind>', 'task kind: coding|requirement|testcase|prototype|debug')
   .option('--task-id <id>', 'formal task id (required when kind does not use draft)')
   .option(...PLATFORM_OPTION)
   .action(async (repoRoot: string, options: { kind: string; taskId?: string }) => {

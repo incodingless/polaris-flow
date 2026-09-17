@@ -1,0 +1,72 @@
+# 缺陷修复通道任务档案模板（仅运行态）
+# 路径：.polaris/tasks/<issue_id>/state.yaml
+
+####################
+# 基础配置
+####################
+# 语言
+language: "zh"
+
+# 初始化时间
+create_time: ""
+
+# 仓库根目录
+main-repo-root: "<project_root>"
+
+####################
+# 运行配置
+####################
+# 任务 ID（issue_id，kebab-case，带日期前缀）
+task_id: ""
+
+# 任务类型
+kind: debug
+
+# 通道：bugfix-测试缺陷修复 | hotfix-生产故障修复
+channel: ""
+
+# 当前阶段：triage | diagnose | prescribe | patch | prove | closeout
+phase: triage
+
+# 跨技能回退留痕（from / to / reason / at）
+regressions: []
+
+# 过程档案相对路径（diagnose-brief.md）
+brief_path: ""
+
+####################
+# 阶段运行态（runtime.<phase>）
+####################
+
+runtime:
+  triage:
+    status: ""
+    started_at: ""
+    finished_at: ""
+
+  diagnose:
+    status: ""
+    started_at: ""
+    finished_at: ""
+
+  prescribe:
+    status: ""
+    started_at: ""
+    finished_at: ""
+
+  patch:
+    status: ""
+    started_at: ""
+    finished_at: ""
+
+  prove:
+    status: ""
+    started_at: ""
+    finished_at: ""
+
+  closeout:
+    status: ""
+    started_at: ""
+    finished_at: ""
+    archive_dir: ""
+    archive_verified: ""

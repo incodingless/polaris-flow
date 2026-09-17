@@ -34,7 +34,8 @@ async function readDraftKind(draftDir: string): Promise<WorkflowTaskKind> {
         kind === 'requirement' ||
         kind === 'testcase' ||
         kind === 'coding' ||
-        kind === 'prototype'
+        kind === 'prototype' ||
+        kind === 'debug'
       ) {
         return kind;
       }

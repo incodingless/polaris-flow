@@ -15,18 +15,20 @@ import { PLATFORMS } from '../domain/platforms.js';
 import { printCommandErrorDetails } from '../command-error.js';
 import type { InstallScope } from '../config/polaris-project-config.js';
 import { execFileSync } from 'child_process';
+import { fileExists } from '../../utils/file-system.js';
 
 /** Superpowers 安装结果 */
 export type SuperpowersInstallResult = {
   status: 'installed' | 'failed' | 'skipped';
   version: string;
   /** 实际使用的安装通道 */
-  method?: 'github' | 'npx';
+  method?: 'github' | 'npx' | 'local';
 };
 
+/** skills CLI 的 --agent 必须用平台 id（trae-cn），不能用展示名（Trae-CN） */
 const SKILLS_AGENT_MAP: Record<string, string> = PLATFORMS.reduce(
   (acc, platform) => {
-    acc[platform.id] = platform.name;
+    acc[platform.id] = platform.id;
     return acc;
   },
   {} as Record<string, string>,
@@ -56,6 +58,29 @@ function buildSuperpowersInstallCommand(
     args.push('--agent', name);
   }
   return { command: getNodeToolExecutable('npx'), args };
+}
+
+/** 离线通道：POLARIS_SUPERPOWERS_PATH 指向已 clone 的本地仓库 */
+async function installSuperpowersFromLocalPath(
+  baseDir: string,
+  platforms: (typeof PLATFORMS)[number][],
+  scope: InstallScope,
+): Promise<SuperpowersInstallResult | null> {
+  const localPath = process.env.POLARIS_SUPERPOWERS_PATH?.trim();
+  if (!localPath) {
+    return null;
+  }
+  if (!(await fileExists(localPath))) {
+    console.warn(`    ↳ POLARIS_SUPERPOWERS_PATH 不存在: ${localPath}`);
+    return null;
+  }
+
+  console.warn(`    ↳ 使用本地目录 ${localPath} ...`);
+  const source = getSuperpowersSource();
+  for (const platform of platforms) {
+    await installSource(source, localPath, baseDir, platform, scope);
+  }
+  return { status: 'installed', version: 'local', method: 'local' };
 }
 
 /** 优先通道：GitHub shallow clone */
@@ -103,7 +128,7 @@ async function installSuperpowersViaGitHub(
   }
 }
 
-/** 回退通道：npx skills add（国内网络或 git HTTP/2 问题时更稳定） */
+/** 回退通道：npx skills add（同样会 clone GitHub，不是国内网络逃逸舱） */
 async function installSuperpowersViaNpx(
   projectPath: string,
   scope: InstallScope,
@@ -128,6 +153,9 @@ async function installSuperpowersViaNpx(
   } catch (error) {
     console.error(`    Superpowers (npx) install failed: ${(error as Error).message}`);
     printCommandErrorDetails(error);
+    console.error(
+      '    GitHub clone 与 npx skills add 都依赖 github.com，npx 在国内并不更稳。可设置 POLARIS_GITHUB_MIRROR、POLARIS_SUPERPOWERS_PATH，或手动执行：npx skills add obra/superpowers -y --agent <platform-id>',
+    );
     return { status: 'failed', version: 'failed', method: 'npx' };
   }
 }
@@ -152,6 +180,11 @@ export async function installSuperpowersForPlatforms(
 
   const baseDir = getBaseDir(scope, projectPath);
   const platforms = PLATFORMS.filter((p) => platformIds.includes(p.id));
+
+  const localResult = await installSuperpowersFromLocalPath(baseDir, platforms, scope);
+  if (localResult?.status === 'installed') {
+    return localResult;
+  }
 
   const githubResult = await installSuperpowersViaGitHub(baseDir, platforms, scope);
   if (githubResult?.status === 'installed') {

@@ -45,6 +45,23 @@ describe('findEntryByTaskId', () => {
     expect(findEntryByTaskId(state, 'p1')?.kind).toBe('prototype');
     expect(findEntryByTaskId(state, 'missing')).toBeNull();
   });
+
+  it('命中 debug_tasks 列表，返回 kind=debug', () => {
+    const state = emptyWorkflowState();
+    state.debug_tasks = [
+      { task_id: 'd1', phase: 'triage', worktree_path: '', started_at: '', channel: 'bugfix' },
+    ];
+    expect(findEntryByTaskId(state, 'd1')).toEqual({
+      kind: 'debug',
+      entry: {
+        task_id: 'd1',
+        phase: 'triage',
+        worktree_path: '',
+        started_at: '',
+        channel: 'bugfix',
+      },
+    });
+  });
 });
 
 describe('resolveNextSkillName', () => {
@@ -70,6 +87,25 @@ describe('resolveNextSkillName', () => {
     expect(resolveNextSkillName('prototype', 'build')).toBe('ship');
     expect(resolveNextSkillName('prototype', 'review')).toBe('ship');
     expect(resolveNextSkillName('prototype', 'idle')).toBeNull();
+  });
+
+  it('debug bugfix 通道：patch→closeout（不装 prove）', () => {
+    expect(resolveNextSkillName('debug', 'triage', 'bugfix')).toBe('diagnose');
+    expect(resolveNextSkillName('debug', 'diagnose', 'bugfix')).toBe('prescribe');
+    expect(resolveNextSkillName('debug', 'prescribe', 'bugfix')).toBe('patch');
+    expect(resolveNextSkillName('debug', 'patch', 'bugfix')).toBe('closeout');
+    expect(resolveNextSkillName('debug', 'closeout', 'bugfix')).toBeNull();
+  });
+
+  it('debug hotfix 通道：patch→prove→closeout（全六段）', () => {
+    expect(resolveNextSkillName('debug', 'patch', 'hotfix')).toBe('prove');
+    expect(resolveNextSkillName('debug', 'prove', 'hotfix')).toBe('closeout');
+    expect(resolveNextSkillName('debug', 'closeout', 'hotfix')).toBeNull();
+  });
+
+  it('debug 未知通道或缺失 channel → null', () => {
+    expect(resolveNextSkillName('debug', 'patch')).toBeNull();
+    expect(resolveNextSkillName('debug', 'patch', 'unknown')).toBeNull();
   });
 });
 
@@ -167,5 +203,31 @@ describe('runStateNext', () => {
 
     const result = await runStateNext({ changeName: 'feat-1', repoRoot: repo });
     expect(result.next).toBe('done');
+  });
+
+  it('debug hotfix 通道 phase=patch → NEXT auto + polaris:debug:prove', async () => {
+    const repo = await tmpRepo();
+    const state = emptyWorkflowState();
+    state.debug_tasks = [
+      { task_id: '2026-09-16-fix-1', phase: 'patch', worktree_path: '', started_at: '', channel: 'hotfix' },
+    ];
+    await saveWorkflowState(repo, state);
+
+    const result = await runStateNext({ changeName: '2026-09-16-fix-1', repoRoot: repo });
+    expect(result.exitCode).toBe(0);
+    expect(result.next).toBe('auto');
+    expect(result.skill).toBe('polaris:debug:prove');
+  });
+
+  it('debug bugfix 通道 phase=patch → NEXT auto + polaris:debug:closeout', async () => {
+    const repo = await tmpRepo();
+    const state = emptyWorkflowState();
+    state.debug_tasks = [
+      { task_id: '2026-09-16-fix-2', phase: 'patch', worktree_path: '', started_at: '', channel: 'bugfix' },
+    ];
+    await saveWorkflowState(repo, state);
+
+    const result = await runStateNext({ changeName: '2026-09-16-fix-2', repoRoot: repo });
+    expect(result.skill).toBe('polaris:debug:closeout');
   });
 });

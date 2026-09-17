@@ -45,6 +45,20 @@ describe('parseSkillAssetPath 技能族识别', () => {
     expect(ship).toEqual({ family: 'prototype', skill: 'ship', underSkill: 'SKILL.md' });
   });
 
+  it('debug 是技能族，其下 bugfix 为独立叶技能', () => {
+    expect(parseSkillAssetPath('debug/bugfix/SKILL.md')).toEqual({
+      family: 'debug',
+      skill: 'bugfix',
+      underSkill: 'SKILL.md',
+    });
+
+    expect(parseSkillAssetPath('debug/bugfix/templates/bugfix-tasks-template.md')).toEqual({
+      family: 'debug',
+      skill: 'bugfix',
+      underSkill: 'templates/bugfix-tasks-template.md',
+    });
+  });
+
   it('既有族不受影响；未登记目录降级为顶层叶技能', () => {
     expect(parseSkillAssetPath('coding/specify/SKILL.md')?.family).toBe('coding');
     expect(parseSkillAssetPath('prd/discovery/SKILL.md')?.family).toBe('prd');

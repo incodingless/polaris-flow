@@ -37,6 +37,16 @@ node bin/polaris.js --version
 - `polaris update` — 更新 schema、skills 与依赖
 - `polaris uninstall` — 卸载已安装组件
 
+## Superpowers 安装与网络
+
+`polaris init` 安装 Superpowers 时会访问 GitHub（clone 与 `npx skills add` 都依赖 github.com）。国内或企业网络不通时：
+
+- `GIT_HTTP_VERSION`：Polaris 默认对 git 使用 `HTTP/1.1`，可自行覆盖
+- `POLARIS_GITHUB_MIRROR`：GitHub 镜像基址。含 `github.com` 时替换主机前缀，否则把原 URL 接到镜像后面
+- `POLARIS_SUPERPOWERS_PATH`：已 clone 的本地 `obra/superpowers` 目录，跳过网络
+
+手动安装示例：`npx skills add obra/superpowers -y --agent trae-cn`（agent 必须用平台 id，不要用 `Trae-CN`）
+
 ## 阶段工作流
 
 Polaris Flow 把「开发类需求」按复杂度拆成三档；三档之外另有紧急 Bug 修复变体。每个阶段名是中英双轨：英文 token 用于 `phase` / `runtime.<x>` / `use_skill`，中文保留原有的语义称谓。

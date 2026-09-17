@@ -4,6 +4,8 @@
 
 ### Added
 
+- **init Superpowers 网络逃逸**: 支持 `POLARIS_GITHUB_MIRROR` 改写 clone URL、`POLARIS_SUPERPOWERS_PATH` 本地目录安装；git 默认 `HTTP/1.1` 以规避 HTTP/2 framing 失败
+- **init 物化 docs/tasks 目录**: `initializePolarisCommonLayout` 按 `config.example.yaml` 的 layout 创建 `.polaris/tasks`、`openspec`、`docs/{prd,prototype,architecture,design,testcases}`；`generatePolarisConfig` 继续将 `layout.tasks.root` / `layout.docs.root` 写成项目绝对路径，docs 子键保持相对名
 - **SessionStart subagent agents 缓存**: SessionStart 按宿主 `platformId` 扫描项目级 agents（算法对齐 `platform-probe.md`），写入 `.polaris/.cache/subagent-probe.json`（与 `subagent-probe` 输出同构），并注入 `SUBAGENT_PROBE_CACHE`；core `scanSubagents` / `buildSubagentProbeSnapshot`；probe 契约改为优先读该缓存再做 `task_type`/`subagent_id` 过滤
 - **SessionStart subagent 能力注入**: SessionStart 按宿主 `platformId` 解析并注入 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`（与路径变量同渠道：additionalContext / Cursor env / `runtime-env` / `CLAUDE_ENV_FILE`）；能力来自 `Platform.supportsSubagent`；编排在仅用默认通用 Agent 时可跳过空转 probe
 - **task-state-entry**: 新增 `polaris task-state-entry` / `scripts/task-state-entry.sh`，对 `.polaris/tasks/<id>/state.yaml` 做持锁 RMW；支持 `get`/`get-json`/`set`、`enter-phase`/`complete-phase`、`set-identity`/`get-identity`（身份字段均为顶层键，无 `naming` 块）；coding 走 `runtime.<phase>`，prd/prototype 走顶层阶段块
@@ -24,8 +26,15 @@
 - **outside-voice 协议与模板**: `policies/outside-voice.md`、`templates/outside-voice-prompt.tmpl.md`
 - **propose 主审**: 新增 `propose-review-agent`；`polaris-flow-propose` Step 4.6 派发主审 + 询问 Outside Voice
 
+### Tests
+
+- **Superpowers 安装**: 覆盖 `trae-cn` agent id、GitHub 镜像 URL 改写、git HTTP/1.1 默认、init 摘要「Polaris 成功 + Superpowers 失败」
+
 ### Changed
 
+- **Superpowers agent 映射**: `npx skills add` 使用平台 id（`trae-cn`）而非展示名（`Trae-CN`），与 skills CLI 注册键对齐
+- **init 摘要**: Superpowers 失败单独标为组件失败，不再把已成功安装 Polaris 的平台只写成「失败：Trae-CN」
+- **Superpowers 失败提示**: 明确 clone 与 npx 都依赖 GitHub，不再声称 npx 在国内更稳
 - **Platform.supportsSubagent**: subagent 能力改由 `platforms.ts` 的 `Platform.supportsSubagent` + `resolveSubagentCapability` 表达，删除独立 `subagent-capability.ts`；`qoder` 重新登记且 `supportsSubagent=false`（inline）
 - **命令注册文档**: `assets/zh/adapters/command-registration.md` 由「各宿主手动注册方式」（Trae 手动声明 / CodeBuddy `plugin.json`）重写为「宿主中立 Markdown + 落盘位置表 + 已注册平台表」，与 `init` / `update` 的实际分发行为对齐，去掉已失效的 `/pofl:*` 与旧平台描述
 - **polaris-flow 维护类选项标注「暂不可用」**: M01/M02/M03 三项的入口技能均未落地（`maintance/hotfix` 与 `maintance/codereview` 无对应技能，`coding/` 族下也不存在 `refactor`），此前选中会直接撞上技能加载失败。现保留菜单，但在选项描述与路由表两处标注「⚠️ 暂不可用」，并在加载前拦截——照实告知用户缺的是哪个技能、询问是否改选其他功能；HARD-STOP 新增第 10 条，禁止对暂不可用选项直接开工或换用其他技能顶替，确保用户明确知道本次什么都没做而不是拿到一份错位产物

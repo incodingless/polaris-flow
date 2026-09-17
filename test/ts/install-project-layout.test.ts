@@ -10,6 +10,7 @@ import {
   getInstallSkillBase,
   initializePolarisCommonLayout,
   initializeProjectLayout,
+  PROJECT_DOCS_SUBDIRS,
   resolveWorktreeRoot,
 } from '../../src/core/install/layout.js';
 import { PLATFORMS } from '../../src/core/domain/platforms.js';
@@ -31,11 +32,17 @@ describe('install/layout', () => {
     expect(getInstallSkillBase('global', '/tmp/proj')).toBe(os.homedir());
   });
 
-  it('initializePolarisCommonLayout：创建 .polaris 与 worktree', async () => {
+  it('initializePolarisCommonLayout：创建 .polaris/tasks、openspec、docs 子目录与 worktree', async () => {
     const projectPath = await mkdtemp(path.join(os.tmpdir(), 'polaris-layout-common-'));
     const polarisDir = await initializePolarisCommonLayout(projectPath, 'project');
     expect(polarisDir).toBe(getPolarisDir(projectPath));
     await access(getPolarisDir(projectPath));
+    await access(path.join(projectPath, '.polaris', 'tasks'));
+    await access(path.join(projectPath, 'openspec'));
+    await access(path.join(projectPath, 'docs'));
+    for (const name of PROJECT_DOCS_SUBDIRS) {
+      await access(path.join(projectPath, 'docs', name));
+    }
     await access(path.join(projectPath, '.worktrees'));
   });
 

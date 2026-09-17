@@ -16,6 +16,18 @@ import { getCommandLayout, getPlatformContextDir, type Platform } from '../domai
 
 import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 
+/**
+ * 与 `config.example.yaml` 的 `layout.docs` 子键一致（相对 docs.root 的目录名）。
+ * 避免 init 再解析 YAML；改模板时须同步此常量。
+ */
+export const PROJECT_DOCS_SUBDIRS = [
+  'prd',
+  'prototype',
+  'architecture',
+  'design',
+  'testcases',
+] as const;
+
 export type ProjectLayoutOption = {
   /** 技能语言，写入 config.yaml */
   language: Languages;
@@ -62,7 +74,8 @@ export function resolveWorktreeRoot(projectPath: string, scope: InstallScope): s
 }
 
 /**
- * 创建Polaris公共工作目录结构与配置
+ * 创建 Polaris 公共工作目录结构（与平台无关）。
+ * 对齐 config.example.yaml 的 layout：`.polaris/tasks`、`openspec`、`docs` 及文档子目录、worktree。
  * @param projectPath 项目路径
  * @param scope 安装作用域
  */
@@ -70,14 +83,25 @@ export async function initializePolarisCommonLayout(
   projectPath: string,
   scope: InstallScope,
 ): Promise<string> {
-  // 1. 全局 ~/.polaris/polaris.yaml
+  // 1. 全局 ~/.polaris
   await createGlobalPolarisDir();
 
-  // 2. 项目 .polaris + 配置文件
+  // 2. 项目 .polaris + tasks 根（layout.tasks.root）
   const polarisDir = getPolarisDir(projectPath);
   await ensureDirSafe(polarisDir);
+  await ensureDirSafe(path.join(polarisDir, 'tasks'));
 
-  // 3. worktree
+  // 3. openspec（layout.openspec）
+  await ensureDirSafe(path.join(projectPath, 'openspec'));
+
+  // 4. docs 根及子目录（layout.docs）
+  const docsRoot = path.join(projectPath, 'docs');
+  await ensureDirSafe(docsRoot);
+  for (const name of PROJECT_DOCS_SUBDIRS) {
+    await ensureDirSafe(path.join(docsRoot, name));
+  }
+
+  // 5. worktree
   const worktreeRoot = resolveWorktreeRoot(projectPath, scope);
   await ensureDirSafe(worktreeRoot);
 

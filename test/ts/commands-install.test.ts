@@ -18,7 +18,7 @@ const claude = PLATFORMS.find((p) => p.id === 'claude')!;
 const cursor = PLATFORMS.find((p) => p.id === 'cursor')!;
 const trae = PLATFORMS.find((p) => p.id === 'trae')!;
 
-/** 菜单命令中引用的六个技能，按布局展开后的期望形态 */
+/** 菜单命令中引用的七个技能，按布局展开后的期望形态 */
 const referencedSkills = {
   nested: [
     'polaris:coding:specify',
@@ -27,6 +27,7 @@ const referencedSkills = {
     'polaris:prd:readiness',
     'polaris:testing:case',
     'polaris:testing:acceptance',
+    'polaris:debug:bugfix',
   ],
   flat: [
     'polaris-coding-specify',
@@ -35,6 +36,7 @@ const referencedSkills = {
     'polaris-prd-readiness',
     'polaris-testing-case',
     'polaris-testing-acceptance',
+    'polaris-debug-bugfix',
   ],
 } as const;
 
@@ -58,8 +60,8 @@ describe('installPolarisForPlatform commands', () => {
       for (const skill of referencedSkills.nested) {
         expect(command).toContain(skill);
       }
-      // 路由表编号齐全（P / R / T 三组；M 组标「暂不可用」不作断言）
-      for (const code of ['P01', 'P02', 'P03', 'R01', 'R02', 'R03', 'T01', 'T02']) {
+      // 路由表编号齐全（P / R / T 三组 + 已可用的 M01 / M04；M02 / M03 标「暂不可用」不作断言）
+      for (const code of ['P01', 'P02', 'P03', 'M01', 'M04', 'R01', 'R02', 'R03', 'T01', 'T02']) {
         expect(command).toContain(`**${code}**`);
       }
 
@@ -73,6 +75,10 @@ describe('installPolarisForPlatform commands', () => {
       expect(
         await readFile(path.join(tmpDir, '.claude/commands/polaris/maintance/hotfix.md'), 'utf-8'),
       ).toContain('polaris:maintance:hotfix');
+      // M04 指向 debug 族技能：{{SKN_SPR}} 按 skillsLayout 展开为冒号
+      expect(
+        await readFile(path.join(tmpDir, '.claude/commands/polaris/maintance/bugfix.md'), 'utf-8'),
+      ).toContain('polaris:debug:bugfix');
     },
   );
 
@@ -122,6 +128,9 @@ describe('installPolarisForPlatform commands', () => {
       expect(
         await readFile(path.join(tmpDir, '.cursor/commands/polaris-maintance-hotfix.md'), 'utf-8'),
       ).toContain('/polaris-maintance-hotfix');
+      expect(
+        await readFile(path.join(tmpDir, '.cursor/commands/polaris-maintance-bugfix.md'), 'utf-8'),
+      ).toContain('/polaris-maintance-bugfix');
     },
   );
 });
@@ -133,6 +142,7 @@ describe('resolveCommandDest', () => {
     expect(resolveCommandDest('flow.md', 'flat')).toBe('polaris-flow.md');
     expect(resolveCommandDest('coding/normal.md', 'flat')).toBe('polaris-coding-normal.md');
     expect(resolveCommandDest('maintance/hotfix.md', 'flat')).toBe('polaris-maintance-hotfix.md');
+    expect(resolveCommandDest('maintance/bugfix.md', 'flat')).toBe('polaris-maintance-bugfix.md');
     expect(resolveCommandDest('prd/readiness.md', 'flat')).toBe('polaris-prd-readiness.md');
   });
 });
@@ -157,6 +167,121 @@ describe('testing 族技能安装', () => {
         'utf-8',
       );
       expect(acceptanceSkill).toMatch(/^name: polaris:testing:acceptance$/m);
+    },
+  );
+});
+
+describe('debug 族技能安装', () => {
+  it(
+    'claude nested：bugfix 通道 + 六阶段技能 + policies/_shared 随技能落盘',
+    { timeout: INSTALL_TIMEOUT },
+    async () => {
+      const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-debugfam-'));
+      await installPolarisForPlatform(tmpDir, claude, true, 'zh', 'project');
+
+      const bugfix = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/debug/bugfix/SKILL.md'),
+        'utf-8',
+      );
+      expect(bugfix).toMatch(/^name: polaris:debug:bugfix$/m);
+      expect(bugfix).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+
+      // 通道技能只做装配：引用五个阶段技能 + 共享策略，不装 prove、不内联阶段执行细节
+      for (const phase of ['triage', 'diagnose', 'prescribe', 'patch', 'closeout']) {
+        expect(bugfix).toContain(`polaris:debug:${phase}`);
+      }
+      expect(bugfix).not.toContain('polaris:debug:prove');
+      expect(bugfix).toContain('./policies/scene-routing.md');
+      expect(bugfix).not.toContain('git diff');
+
+      // 生产通道技能：装配 prove
+      const hotfix = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/debug/hotfix/SKILL.md'),
+        'utf-8',
+      );
+      expect(hotfix).toMatch(/^name: polaris:debug:hotfix$/m);
+      expect(hotfix).toContain('prove');
+
+      // 六个阶段技能均独立安装
+      for (const phase of ['triage', 'diagnose', 'prescribe', 'patch', 'prove', 'closeout']) {
+        const stage = await readFile(
+          path.join(tmpDir, '.claude/skills/polaris/debug', phase, 'SKILL.md'),
+          'utf-8',
+        );
+        expect(stage).toMatch(new RegExp(`^name: polaris:debug:${phase}$`, 'm'));
+      }
+
+      // 族未登记为 SKILL_FAMILIES 时，debug/bugfix 会塌缩成顶层叶技能 polaris/debug
+      await expect(
+        access(path.join(tmpDir, '.claude/skills/polaris/debug/SKILL.md')),
+      ).rejects.toThrow();
+
+      // 族级 _shared/ 不是叶技能：不应存在 debug/_shared/SKILL.md
+      await expect(
+        access(path.join(tmpDir, '.claude/skills/polaris/debug/_shared/SKILL.md')),
+      ).rejects.toThrow();
+
+      // 语言包顶层 policies 注入到叶技能
+      await expect(
+        access(path.join(tmpDir, '.claude/skills/polaris/debug/triage/policies/decision-point.md')),
+      ).resolves.toBeUndefined();
+
+      // 族级 _shared/ 样板注入 debug 族每个叶技能，但不注入其他族
+      for (const name of ['capability-tiers.md', 'artifacts.md', 'scene-routing.md']) {
+        await expect(
+          access(path.join(tmpDir, '.claude/skills/polaris/debug/triage/policies', name)),
+        ).resolves.toBeUndefined();
+      }
+      await expect(
+        access(path.join(tmpDir, '.claude/skills/polaris/coding/tweak/policies/capability-tiers.md')),
+      ).rejects.toThrow();
+
+      // 产物改名：explore-brief → diagnose-brief；新增 rca-report
+      const triage = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/debug/triage/SKILL.md'),
+        'utf-8',
+      );
+      expect(triage).toContain('diagnose-brief.md');
+      expect(triage).not.toContain('explore-brief.md');
+      const diagnose = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/debug/diagnose/SKILL.md'),
+        'utf-8',
+      );
+      expect(diagnose).toContain('rca-report.md');
+
+      // 模板迁移：tasks 归 prescribe、report 归 closeout
+      await expect(
+        access(
+          path.join(tmpDir, '.claude/skills/polaris/debug/prescribe/templates/tasks-template.md'),
+        ),
+      ).resolves.toBeUndefined();
+      await expect(
+        access(
+          path.join(
+            tmpDir,
+            '.claude/skills/polaris/debug/closeout/templates/bugfix-report-template.md',
+          ),
+        ),
+      ).resolves.toBeUndefined();
+
+      // 脚本调用带 $PLUGIN_ROOT 与文件参数（在 prescribe 模板内）
+      const tasksTpl = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/debug/prescribe/templates/tasks-template.md'),
+        'utf-8',
+      );
+      expect(tasksTpl).toContain('bash "$PLUGIN_ROOT/scripts/tasks-lint.sh"');
+
+      // H14 与 flow.md 的「开发类」清单必须同时含 M04，否则 M04 入口不受零步阻断保护
+      const hardStops = await readFile(
+        path.join(tmpDir, '.claude/skills/polaris/debug/bugfix/policies/hard-stops.md'),
+        'utf-8',
+      );
+      expect(hardStops).toContain('M01 / M04 / P01–P03 / M03');
+      const flowCmd = await readFile(
+        path.join(tmpDir, '.claude/commands/polaris/flow.md'),
+        'utf-8',
+      );
+      expect(flowCmd).toContain('（M01 / M04 / P01–P03 / M03）');
     },
   );
 });

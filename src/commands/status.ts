@@ -23,6 +23,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
       requirement_tasks: [],
       testcase_tasks: [],
       prototype_tasks: [],
+      debug_tasks: [],
     };
     if (options.json) {
       console.log(JSON.stringify(payload, null, 2));
@@ -37,6 +38,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
   const requirementTasks = state?.requirement_tasks ?? [];
   const testcaseTasks = state?.testcase_tasks ?? [];
   const prototypeTasks = state?.prototype_tasks ?? [];
+  const debugTasks = state?.debug_tasks ?? [];
 
   if (options.json) {
     console.log(
@@ -48,6 +50,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
           requirement_tasks: requirementTasks,
           testcase_tasks: testcaseTasks,
           prototype_tasks: prototypeTasks,
+          debug_tasks: debugTasks,
         },
         null,
         2,
@@ -81,6 +84,8 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
   printSection('Testcase tasks', testcaseTasks);
   console.log('');
   printSection('Prototype tasks', prototypeTasks);
+  console.log('');
+  printSection('Debug tasks', debugTasks);
 }
 
 /**

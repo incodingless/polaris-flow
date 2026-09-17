@@ -54,3 +54,19 @@ prototype_tasks: []
 #     phase: blueprint                  # blueprint | build | review | ship
 #     worktree_path: ""                  # 空表示该原型任务仍在主仓
 #     started_at: 2026-05-25T14:30:00Z   # task 创建时间（blueprint Step 2）
+
+# 职责：
+#   - 列出所有未完结的「缺陷修复」任务（debug_tasks）
+#   - 仅承载「游标」语义（哪个缺陷任务在哪个阶段），不承载单任务业务档案
+#   - 单缺陷任务业务档案（triage/diagnose/prescribe/patch/prove/closeout）写入
+#     .polaris/tasks/<issue_id>/state.yaml（与 coding/requirement/prototype 同根；靠 state.kind 区分）
+#
+# 并发安全：每个缺陷任务在 debug_tasks 中各占一项，互不覆盖。
+debug_tasks: []
+# 每项结构（共 5 个字段）：
+#   - task_id: 2026-09-16-fix-page-500
+#     phase: triage                     # triage | diagnose | prescribe | patch | prove | closeout
+#     channel: bugfix                   # bugfix-测试缺陷 | hotfix-生产故障（仅 debug 族有）
+#     worktree_path: ""                  # 空表示该任务仍在主仓
+#     started_at: 2026-05-25T14:30:00Z   # task 创建时间
+

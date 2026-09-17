@@ -68,6 +68,26 @@ export type InitResult = {
   results: InitPlatformResult[];
 };
 
+/** 将平台资产失败与 Superpowers 组件失败分开，避免「已安装又失败」误报 */
+export function classifyInitSummary(results: InitPlatformResult[]): {
+  installed: InitPlatformResult[];
+  skipped: InitPlatformResult[];
+  platformFailed: InitPlatformResult[];
+  superpowersFailed: InitPlatformResult[];
+} {
+  return {
+    installed: results.filter(
+      (r) =>
+        r.polaris === 'installed' || r.superpowers === 'installed' || r.openspec === 'installed',
+    ),
+    skipped: results.filter(
+      (r) => r.polaris === 'skipped' && r.superpowers === 'skipped' && r.openspec === 'skipped',
+    ),
+    platformFailed: results.filter((r) => r.polaris === 'failed' || r.openspec === 'failed'),
+    superpowersFailed: results.filter((r) => r.superpowers === 'failed'),
+  };
+}
+
 type Logger = (message: string) => void;
 
 const OPENSPEC_PACKAGE = '@fission-ai/openspec';
@@ -109,15 +129,11 @@ function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang
     `\n  ${green(bold('✓'))}  ${bold(t(lang, 'setupComplete'))} ${dim(`${t(lang, 'summaryScope')} ${scopeLabel}`)}\n`,
   );
 
-  const installed = results.filter(
-    (r) => r.polaris === 'installed' || r.superpowers === 'installed' || r.openspec === 'installed',
-  );
-  const skipped = results.filter(
-    (r) => r.polaris === 'skipped' && r.superpowers === 'skipped' && r.openspec === 'skipped',
-  );
-  const failed = results.filter(
-    (r) => r.polaris === 'failed' || r.superpowers === 'failed' || r.openspec === 'failed',
-  );
+  const summary = classifyInitSummary(results);
+  const installed = summary.installed;
+  const skipped = summary.skipped;
+  const superpowersFailed = summary.superpowersFailed;
+  const platformAssetFailed = summary.platformFailed;
 
   if (installed.length > 0) {
     console.log(`  ${green(t(lang, 'installed'))}`);
@@ -130,10 +146,13 @@ function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang
       `  ${yellow(t(lang, 'skippedLabel'))}  ${skipped.map((r) => r.platformName).join(', ')}`,
     );
   }
-  if (failed.length > 0) {
+  if (platformAssetFailed.length > 0) {
     console.log(
-      `  ${red(t(lang, 'failedLabel'))}   ${failed.map((r) => r.platformName).join(', ')}`,
+      `  ${red(t(lang, 'failedLabel'))}   ${platformAssetFailed.map((r) => r.platformName).join(', ')}`,
     );
+  }
+  if (superpowersFailed.length > 0) {
+    console.log(`  ${red(t(lang, 'failedComponentSuperpowers'))}`);
   }
 
   console.log(`\n  ${bold(t(lang, 'getStarted'))}`);

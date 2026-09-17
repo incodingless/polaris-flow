@@ -2,7 +2,7 @@
  * workflow.yaml RMW 入口（对齐 assets/shared/scripts/workflow-entry.sh）。
  * 持锁 → 解析 → 修改 → 写回 → 写后校验；由 `polaris workflow-entry` 调用。
  * `get-active-changes` 为只读：不持锁、不写盘，stdout 输出 task_id JSON 数组。
- * 任务列表由必填 `--kind`（coding|requirement|testcase|prototype）选定。
+ * 任务列表由必填 `--kind`（coding|requirement|testcase|prototype|debug）选定。
  */
 import { execFileSync } from 'child_process';
 import path from 'path';
@@ -44,6 +44,8 @@ export type WorkflowEntryArgs = {
   to?: string;
   setPhase?: string;
   setWorktreePath?: string;
+  /** debug 族通道：bugfix | hotfix（append-active 时写入 entry） */
+  channel?: string;
   /** 测试用：覆盖锁超时 */
   lockOptions?: {
     staleMs?: number;
@@ -129,6 +131,7 @@ export function applyWorkflowOp(
         phase: args.phase ?? '',
         worktree_path: args.worktreePath ?? '',
         started_at: args.startedAt ?? '',
+        channel: args.channel ?? '',
       });
       return {
         state: setTaskList(state, taskKind, list),
@@ -339,5 +342,6 @@ export function makeTaskEntry(
     phase: partial.phase ?? '',
     worktree_path: partial.worktree_path ?? '',
     started_at: partial.started_at ?? '',
+    channel: partial.channel ?? '',
   };
 }

@@ -11,23 +11,26 @@ import { fileExists } from '../../utils/file-system.js';
 import { getWorkflowTemplateYamlSrc } from '../assets/manifest.js';
 import { getWorkflowConfigPath } from '../assets/polaris-paths.js';
 
-/** 任务游标条目（四列表共用结构） */
+/** 任务游标条目（多列表共用结构） */
 export type WorkflowTaskEntry = {
   task_id: string;
   phase: string;
   worktree_path: string;
   started_at: string;
+  /** debug 族通道：bugfix | hotfix；其余 kind 省略或为空串 */
+  channel?: string;
 };
 
 /** 任务类型 → YAML 列表键 */
-export type WorkflowTaskKind = 'coding' | 'requirement' | 'testcase' | 'prototype';
+export type WorkflowTaskKind = 'coding' | 'requirement' | 'testcase' | 'prototype' | 'debug';
 
 /** kind 对应的 YAML 顶层键名 */
 export type WorkflowTaskListKey =
   | 'coding_tasks'
   | 'requirement_tasks'
   | 'testcase_tasks'
-  | 'prototype_tasks';
+  | 'prototype_tasks'
+  | 'debug_tasks';
 
 /** `.polaris/workflow.yaml` 根结构 */
 export type WorkflowState = {
@@ -35,6 +38,7 @@ export type WorkflowState = {
   requirement_tasks: WorkflowTaskEntry[];
   testcase_tasks: WorkflowTaskEntry[];
   prototype_tasks: WorkflowTaskEntry[];
+  debug_tasks: WorkflowTaskEntry[];
 };
 
 export const WORKFLOW_TASK_KINDS: readonly WorkflowTaskKind[] = [
@@ -42,6 +46,7 @@ export const WORKFLOW_TASK_KINDS: readonly WorkflowTaskKind[] = [
   'requirement',
   'testcase',
   'prototype',
+  'debug',
 ] as const;
 
 /** CLI / 报错用的 kind 合法值串 */
@@ -63,6 +68,8 @@ export function listKeyForKind(kind: string | undefined): WorkflowTaskListKey | 
       return 'testcase_tasks';
     case 'prototype':
       return 'prototype_tasks';
+    case 'debug':
+      return 'debug_tasks';
     default:
       return null;
   }
@@ -74,7 +81,8 @@ export function parseWorkflowTaskKind(raw: string | undefined): WorkflowTaskKind
     raw === 'coding' ||
     raw === 'requirement' ||
     raw === 'testcase' ||
-    raw === 'prototype'
+    raw === 'prototype' ||
+    raw === 'debug'
   ) {
     return raw;
   }
@@ -107,13 +115,14 @@ export function getWorkflowCursorPath(repoRoot: string): string {
   return getWorkflowStatePath(repoRoot);
 }
 
-/** 空骨架（四列表） */
+/** 空骨架（多列表） */
 export function emptyWorkflowState(): WorkflowState {
   return {
     coding_tasks: [],
     requirement_tasks: [],
     testcase_tasks: [],
     prototype_tasks: [],
+    debug_tasks: [],
   };
 }
 
@@ -129,6 +138,7 @@ function normalizeTaskEntry(raw: Record<string, unknown>): WorkflowTaskEntry {
     phase: String(raw.phase ?? ''),
     worktree_path: String(raw.worktree_path ?? ''),
     started_at: String(raw.started_at ?? ''),
+    channel: String(raw.channel ?? ''),
   };
 }
 
@@ -153,6 +163,7 @@ function normalizeWorkflowState(raw: unknown): WorkflowState {
     requirement_tasks: normalizeTaskList(obj.requirement_tasks),
     testcase_tasks: normalizeTaskList(obj.testcase_tasks),
     prototype_tasks: normalizeTaskList(obj.prototype_tasks),
+    debug_tasks: normalizeTaskList(obj.debug_tasks),
   };
 }
 
@@ -192,7 +203,7 @@ export async function ensureWorkflowStateFile(repoRoot: string): Promise<string>
     return filePath;
   }
   const skeleton =
-    'coding_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\nprototype_tasks: []\n';
+    'coding_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\nprototype_tasks: []\ndebug_tasks: []\n';
   await writeFile(filePath, skeleton, 'utf-8');
   return filePath;
 }
@@ -203,7 +214,7 @@ export async function ensureWorkflowCursorFile(repoRoot: string): Promise<string
 }
 
 /**
- * 写回 workflow.yaml（稳定字段顺序：coding → requirement → testcase → prototype）。
+ * 写回 workflow.yaml（稳定字段顺序：coding → requirement → testcase → prototype → debug）。
  */
 export async function saveWorkflowState(repoRoot: string, state: WorkflowState): Promise<void> {
   const filePath = getWorkflowStatePath(repoRoot);
@@ -214,6 +225,7 @@ export async function saveWorkflowState(repoRoot: string, state: WorkflowState):
     requirement_tasks: state.requirement_tasks.length === 0 ? [] : state.requirement_tasks,
     testcase_tasks: state.testcase_tasks.length === 0 ? [] : state.testcase_tasks,
     prototype_tasks: state.prototype_tasks.length === 0 ? [] : state.prototype_tasks,
+    debug_tasks: state.debug_tasks.length === 0 ? [] : state.debug_tasks,
   };
 
   const text = stringifyYaml(ordered, { lineWidth: 0 });

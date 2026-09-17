@@ -15,6 +15,7 @@ export type WorkflowEntryCommandOptions = {
   from?: string;
   to?: string;
   set?: string[];
+  channel?: string;
 };
 
 /**
@@ -64,6 +65,7 @@ export async function workflowEntryCommand(
     to: options.to,
     setPhase: sets.setPhase,
     setWorktreePath: sets.setWorktreePath,
+    channel: options.channel,
   });
 
   if (result.exitCode !== 0) {

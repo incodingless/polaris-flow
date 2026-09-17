@@ -152,7 +152,7 @@ export function resolveBlockStyle(
   forced?: BlockStyle,
 ): 'runtime' | 'top-level' {
   if (forced === 'runtime' || forced === 'top-level') return forced;
-  if (kind === 'coding') return 'runtime';
+  if (kind === 'coding' || kind === 'debug') return 'runtime';
   if (kind === 'requirement' || kind === 'prototype' || kind === 'testcase') {
     return 'top-level';
   }

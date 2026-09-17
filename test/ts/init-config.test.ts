@@ -25,6 +25,12 @@ describe('initPolarisConfig', () => {
     expect(layout.openspec).toBe(path.join(tmp, 'openspec'));
     expect((layout.tasks as { root: string }).root).toBe(path.join(tmp, '.polaris', 'tasks'));
     expect((layout.docs as { root: string }).root).toBe(path.join(tmp, 'docs'));
+    const docs = layout.docs as Record<string, string>;
+    expect(docs.prd).toBe('prd');
+    expect(docs.prototype).toBe('prototype');
+    expect(docs.architecture).toBe('architecture');
+    expect(docs.design).toBe('design');
+    expect(docs.testcases).toBe('testcases');
     expect(config.platforms).toEqual(['claude']);
     expect(config.platform).toBeUndefined();
 

@@ -52,6 +52,10 @@ export function shouldSkipSkillShortPath(shortPath: string): boolean {
   if (normalized.includes('/.workbuddy/') || normalized.startsWith('.workbuddy/')) {
     return true;
   }
+  // 族级共享样板：`<family>/_shared/*.md` 不作为叶技能/技能文件，改由 Step 3 注入该族每个叶技能
+  if (normalized.includes('/_shared/')) {
+    return true;
+  }
   const top = normalized.split('/')[0];
   return top === 'backup' || top === 'requirements-engineering';
 }
@@ -373,6 +377,48 @@ export async function copyPolarisSkillsForPlatform(
             'skill_policy_inject',
             policyFile.fullPath,
             path.join(skillRoot, 'policies', policyFile.shortPath),
+            overwrite,
+            prefix,
+          ),
+        );
+      }
+    }
+  }
+
+  // Step 3b：族级 `_shared/*.md` 注入该族每个叶技能（source 为 `<family>/_shared/<file>.md`）
+  const skillsAsset = assets.langDirAssets.find((asset) => asset.dir === 'skills');
+  if (skillsAsset) {
+    const familyShared = new Map<string, Array<{ fullPath: string; basename: string }>>();
+    for (const file of skillsAsset.files) {
+      const normalized = file.shortPath.replace(/\\/g, '/');
+      const m = /^([^/]+)\/_shared\/([^/]+)$/.exec(normalized);
+      if (!m) {
+        continue;
+      }
+      const list = familyShared.get(m[1]) ?? [];
+      list.push({ fullPath: file.fullPath, basename: m[2] });
+      familyShared.set(m[1], list);
+    }
+    for (const leaf of collectSkillLeafRoots(assets)) {
+      if (!leaf.family || leaf.skill === 'subagent-probe' || leaf.skill === 'subagent-dispatch') {
+        continue;
+      }
+      const shared = familyShared.get(leaf.family);
+      if (!shared || shared.length === 0) {
+        continue;
+      }
+      const skillRoot = resolveInstalledSkillRoot(
+        polarisSkillsBaseDir,
+        platformSkillsDir,
+        skillsLayout,
+        leaf,
+      );
+      for (const f of shared) {
+        jobs.push(
+          makePrefixedCopyJob(
+            'skill_family_policy_inject',
+            f.fullPath,
+            path.join(skillRoot, 'policies', f.basename),
             overwrite,
             prefix,
           ),

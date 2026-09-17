@@ -50,6 +50,7 @@ const FAMILY_BY_KIND: Record<WorkflowTaskKind, string> = {
   requirement: 'prd',
   testcase: 'testing',
   prototype: 'prototype',
+  debug: 'debug',
 };
 
 /**
@@ -83,7 +84,29 @@ const PHASE_TO_SKILL: Record<string, Record<string, string>> = {
   },
 };
 
-/** 在四个任务列表中查找 task_id == 目标 id 的 entry */
+/**
+ * debug 族：channel → (phase → 下一 skill)。
+ * bugfix（测试缺陷）：不装配 `prove`，`patch` 之后直接 `closeout`。
+ * hotfix（生产故障）：全六段装配，`patch` 之后进入 `prove`。
+ * `prescribe` 折叠是通道技能的运行时决策（跳过 prescribe phase 直接进 patch），不在此静态表表达。
+ */
+const DEBUG_PHASE_TO_SKILL: Record<string, Record<string, string>> = {
+  bugfix: {
+    triage: 'diagnose',
+    diagnose: 'prescribe',
+    prescribe: 'patch',
+    patch: 'closeout',
+  },
+  hotfix: {
+    triage: 'diagnose',
+    diagnose: 'prescribe',
+    prescribe: 'patch',
+    patch: 'prove',
+    prove: 'closeout',
+  },
+};
+
+/** 在五个任务列表中查找 task_id == 目标 id 的 entry */
 export function findEntryByTaskId(
   state: WorkflowState,
   taskId: string,
@@ -93,6 +116,7 @@ export function findEntryByTaskId(
     ['requirement', state.requirement_tasks],
     ['testcase', state.testcase_tasks],
     ['prototype', state.prototype_tasks],
+    ['debug', state.debug_tasks],
   ];
   for (const [kind, entries] of lists) {
     const hit = entries.find((e) => e.task_id === taskId);
@@ -104,13 +128,21 @@ export function findEntryByTaskId(
 }
 
 /** 把 phase 映射为下一 skill 名；未知/终结 phase 返回 null */
-export function resolveNextSkillName(kind: WorkflowTaskKind, phase: string): string | null {
-  const family = FAMILY_BY_KIND[kind];
-  const table = PHASE_TO_SKILL[family] ?? {};
+export function resolveNextSkillName(
+  kind: WorkflowTaskKind,
+  phase: string,
+  channel?: string,
+): string | null {
   const normalized = (phase ?? '').trim();
   if (!normalized) {
     return null;
   }
+  if (kind === 'debug') {
+    const table = DEBUG_PHASE_TO_SKILL[channel ?? ''] ?? {};
+    return table[normalized] ?? null;
+  }
+  const family = FAMILY_BY_KIND[kind];
+  const table = PHASE_TO_SKILL[family] ?? {};
   return table[normalized] ?? null;
 }
 
@@ -187,7 +219,7 @@ export async function runStateNext(args: StateNextArgs): Promise<StateNextResult
     return { exitCode: 0, next: 'done' };
   }
 
-  const skill = resolveNextSkillName(hit.kind, hit.entry.phase);
+  const skill = resolveNextSkillName(hit.kind, hit.entry.phase, hit.entry.channel);
   if (!skill) {
     // phase 未知或已终结（如 ship 清游标后不应再命中），视为完成。
     return { exitCode: 0, next: 'done', phase: hit.entry.phase, kind: hit.kind };

@@ -41,6 +41,7 @@ layout:
   docs:
     root: "<project_root>/docs"
     prd: "prd"
+    prototype: "prototype"
     architecture: "architecture"
     design: "design"
     testcases: "testcases"

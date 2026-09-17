@@ -33,6 +33,7 @@ polaris-flow 的命令文件是**宿主中立的 Markdown**：一份 `assets/{zh
 | `commands/coding/normal.md` | `commands/polaris/coding/normal.md` → `/polaris:coding:normal` | `commands/polaris-coding-normal.md` → `/polaris-coding-normal` |
 | `commands/prd/readiness.md` | `commands/polaris/prd/readiness.md` → `/polaris:prd:readiness` | `commands/polaris-prd-readiness.md` → `/polaris-prd-readiness` |
 | `commands/maintance/hotfix.md` | `commands/polaris/maintance/hotfix.md` → `/polaris:maintance:hotfix` | `commands/polaris-maintance-hotfix.md` → `/polaris-maintance-hotfix` |
+| `commands/maintance/bugfix.md` | `commands/polaris/maintance/bugfix.md` → `/polaris:maintance:bugfix` | `commands/polaris-maintance-bugfix.md` → `/polaris-maintance-bugfix` |
 
 > frontmatter 的 `name` 在 Claude Code 中**只是显示标签**，不参与命令名推导（对照 OpenSpec：`.claude/commands/opsx/explore.md` 的 `name` 为 `"OPSX: Explore"`，实际命令是 `/opsx:explore`）。因此**改文件名 / 改相对路径 = 改命令名，改错即破坏引用**。
 
@@ -81,7 +82,8 @@ frontmatter   triggers: ["/polaris{{CMD_SPR}}coding{{CMD_SPR}}normal"]
 | `/polaris:coding:tweak` | 小改动（跳过 brainstorming 与完整 plan） |
 | `/polaris:coding:normal` | 常规需求（P02 单入口：四件套 + 双向守门 + 合并主审） |
 | `/polaris:coding:sdd` | SDD 驱动开发（P03 完整链路的别名，等价 `/polaris:flow` 路由 `complex`） |
-| `/polaris:maintance:hotfix` | 快速修复 bug（跳过 brainstorming、constitution 审计、出口检查） |
+| `/polaris:maintance:hotfix` | 快速修复 bug（生产场景，根因已定位：跳过 brainstorming、constitution 审计、出口检查） |
+| `/polaris:maintance:bugfix` | 测试缺陷标准化修复（五段：triage 定性 → diagnose 定位 → prescribe 方案 → patch 实现与自验 → closeout 关闭Bug + 自有收尾归档到 `docs/troubleshooting/`；**不使用 openspec**，不交 `coding/ship`；含两处人确认） |
 | `/polaris:prd:readiness` | 需求就绪度评估（研发准出判定：五维度加权评分 + PASS/CONDITIONAL/FAIL；`ship` Step 1 的独立入口） |
 
 ## 退化路径

@@ -4,8 +4,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveAction } from '../../src/commands/prompts.js';
-import { runInit } from '../../src/commands/init.js';
+import { classifyInitSummary, runInit } from '../../src/commands/init.js';
 import type { InitPromptOptions } from '../../src/commands/prompts.js';
+import type { InitPlatformResult } from '../../src/commands/init.js';
 
 describe('resolveAction', () => {
   it('不存在时一律 install', () => {
@@ -40,5 +41,28 @@ describe('resolveAction', () => {
 describe('init', () => {
   it('exports runInit', () => {
     expect(typeof runInit).toBe('function');
+  });
+});
+
+describe('classifyInitSummary', () => {
+  const base: InitPlatformResult = {
+    baseDir: '/tmp',
+    platformId: 'trae-cn',
+    platformName: 'Trae-CN',
+    openspec: 'installed',
+    superpowers: 'failed',
+    polaris: 'installed',
+    skills: { copied: 1, skipped: 0 },
+    commands: { copied: 0, skipped: 0 },
+    agents: { copied: 0, skipped: 0 },
+    rules: { copied: 0, skipped: 0 },
+    hooks: { installed: false },
+  };
+
+  it('Polaris 成功但 Superpowers 失败时不把平台列入平台失败', () => {
+    const summary = classifyInitSummary([base]);
+    expect(summary.installed.map((r) => r.platformName)).toEqual(['Trae-CN']);
+    expect(summary.platformFailed).toEqual([]);
+    expect(summary.superpowersFailed.map((r) => r.platformName)).toEqual(['Trae-CN']);
   });
 });
