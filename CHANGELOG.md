@@ -4,6 +4,8 @@
 
 ### Added
 
+- **CLI 双入口分流**: `polaris` 仅暴露用户生命周期命令（init / status / dashboard / doctor / update / uninstall）；hooks/scripts 所用命令（workflow-entry、task-state-entry、worktree-* 等）仅挂在 `polaris-flow`；`uninstall` 仍为入口占位（尚未实现）
+- **polaris dashboard**: Dashboard **实现在同级 `polaris-web`**；本仓只保留启动器 `src/dashboard/server.ts`（定位兄弟目录或 `POLARIS_WEB_PATH`，执行 `scripts/dev.sh` 拉起 Vue + polaris-cli API）；支持 `--port` / `--api-port` / `--open`；删除本仓过时 `src/dashboard/web/` 占位静态页
 - **hotfix-branch-create / git-branch-merge**: 核心模块 `git-branch.ts`（原 hotfix-branch）；`polaris hotfix-branch-create` 基于主干建 `hotfix/<issue_id>`；新增 `polaris git-branch-merge` / `scripts/git-branch-merge.sh` 将指定分支以 `merge --no-ff` 合入主干（脏检查、冲突 abort、源分支保留）；`diagnose` Step 3.1.B / `closeout` 生产收尾分别调用创建与合并脚本
 - **worktree-commit-remove**: 新增 `polaris worktree-commit-remove` / `scripts/worktree-commit-remove.sh`：在 worktree 内 `add -A`+`commit`（已干净则跳过），再 `git worktree remove`；`closeout` 测试通道 worktree 收尾改调该脚本
 - **init Superpowers 网络逃逸**: 支持 `POLARIS_GITHUB_MIRROR` 改写 clone URL、`POLARIS_SUPERPOWERS_PATH` 本地目录安装；git 默认 `HTTP/1.1` 以规避 HTTP/2 framing 失败
@@ -30,6 +32,8 @@
 
 ### Tests
 
+- **CLI 双入口**: polaris 帮助仅生命周期六命令；polaris-flow 含 runtime；resolveCliEntry 识别 bin 名
+- **dashboard 路径解析**: POLARIS_WEB_PATH / 包根兄弟 / cwd 兄弟
 - **git-branch**: 覆盖 hotfix 创建（干净/脏/已存在/缺参）与合并进主干（成功保留源分支、脏阻断、分支不存在、源=主干）
 - **worktree-commit-remove**: 覆盖有改动提交并 remove、已干净跳过提交仍 remove、缺 message
 - **Superpowers 安装**: 覆盖 `trae-cn` agent id、GitHub 镜像 URL 改写、git HTTP/1.1 默认、init 摘要「Polaris 成功 + Superpowers 失败」

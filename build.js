@@ -24,13 +24,6 @@ try {
   runTsc(['--version']);
   runTsc();
 
-  // 将 dashboard 前端静态资源复制到 dist，供打包后服务使用
-  const webSrc = path.join('src', 'dashboard', 'web');
-  if (existsSync(webSrc)) {
-    const webDest = path.join('dist', 'dashboard', 'web');
-    cpSync(webSrc, webDest, { recursive: true });
-  }
-
   // 将 i18n 配置文件复制到 dist，供 CLI 运行时加载
   const i18nYaml = path.join('src', 'commands', 'i18n', 'messages.yaml');
   if (existsSync(i18nYaml)) {

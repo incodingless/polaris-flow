@@ -15,7 +15,7 @@ Polaris Flow 是一站式工作流平台，不是单纯的 CLI 壳。本仓库�
 - **安装**：`init` / `doctor` / `update` / `uninstall` 命令及平台检测逻辑
 - **工作流 schema**：OpenSpec schema 模板与配置（`assets/` + `src/core/`）
 - **Skills**：中英文 Skill 包与 `manifest.json` 安装清单
-- **Dashboard**：本地工作流状态可视化（`src/dashboard/`）
+- **Dashboard**：UI/API 实现在同级仓库 `polaris-web`；本仓 `polaris dashboard` 仅负责定位并启动（`src/dashboard/server.ts`）
 
 ## 架构分层
 
@@ -24,8 +24,17 @@ src/cli/        → Commander 入口，只做命令注册
 src/commands/   → 命令编排（交互、选项解析、输出格式化）
 src/core/       → 平台无关业务逻辑（可单测）
 src/utils/      → 文件 I/O 等通用工具
-src/dashboard/  → Dashboard 服务与前端静态资源
+src/dashboard/  → polaris dashboard 启动器（拉起同级 polaris-web，不内嵌前端）
 assets/         → 发布到 npm 的 skills、hooks等资产，由 init 分发到用户项目
+```
+
+同级仓库约定（开发态）：
+
+```
+polaris/
+├── polaris-flow/   # 本仓库（CLI / skills / 工作流）
+├── polaris-web/    # Dashboard 前端（Vue）+ scripts/dev.sh
+└── polaris-cli/    # Dashboard API（由 polaris-web/scripts/dev.sh 拉起）
 ```
 
 依赖方向：`cli → commands → core → utils`，禁止反向依赖。

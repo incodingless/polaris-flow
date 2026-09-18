@@ -1,4 +1,4 @@
-# .comet.yaml 字段说明
+# .polaris.yaml 字段说明
 
 规范路径：`comet/reference/comet-yaml-fields.md`
 
