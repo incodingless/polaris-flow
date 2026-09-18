@@ -1,0 +1,28 @@
+/* ====================== 基础样式 ====================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    font-size: var(--font-base);
+    background-color: var(--bg-global);
+    color: var(--text-secondary);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+  /* 统一容器 */
+.container {
+    padding: 0 var(--spacing-24);
+    margin: 0 auto;
+}
+
+  /* 统一分割线 */
+.divider {
+    height: 1px;
+    background-color: var(--border-normal);
+    margin: var(--spacing-16) 0;
+}

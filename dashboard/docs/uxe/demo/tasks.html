@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polaris — 任务管理</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<link rel="stylesheet" href="css/global.css">
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/component.css">
+<link rel="stylesheet" href="css/tasks.css">
+</head>
+<body>
+<div id="app">
+  <div class="app-shell">
+    <!-- ===== Top Navbar ===== -->
+    <nav class="top-navbar">
+      <div class="top-navbar__left">
+        <div class="top-navbar__brand">
+          <img class="top-navbar__logo" src="resources/logo.png" alt="Polaris" width="30" height="30">
+          <span class="top-navbar__brand-name">Polaris Buddy</span>
+        </div>
+      </div>
+      <div class="top-navbar__center"></div>
+      <div class="top-navbar__right">
+        <button class="top-nav-btn" @click="navigate('home')">首页</button>
+        <button class="top-nav-btn active" @click="navigate('tasks')">任务</button>
+        <button class="top-nav-btn" @click="navigate('settings')">设置</button>
+      </div>
+    </nav>
+
+    <!-- ===== Project Tabs Bar ===== -->
+    <div class="project-tabs-bar">
+      <button class="project-tabs-bar__manage" @click="openProjectSelector" aria-label="管理项目" title="管理项目">管理项目</button>
+      <button class="tab-scroll-btn" v-if="showTabScrollLeft" @click="scrollTabs(-1)">
+        <svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="project-tabs" ref="tabsContainer">
+        <div class="project-tab" v-for="(tab, i) in projectTabs" :key="tab.name"
+             :class="{ active: tab.active, deleted: tab.deleted }"
+             :aria-selected="tab.active" @click="activateTab(tab, i)">
+          <span v-if="tab.loading" class="project-tab__loading"></span>
+          <span class="project-tab__name">{{ tab.name }}</span>
+          <span v-if="!tab.deleted" class="project-tab__close" @click.stop="closeTab(tab, i)" :aria-label="'关闭' + tab.name + '标签'">✕</span>
+        </div>
+        <button type="button" class="project-tab-add" @click="openProjectSelector" aria-label="添加项目" title="添加项目">+</button>
+      </div>
+      <button class="tab-scroll-btn" v-if="showTabScrollRight" @click="scrollTabs(1)">
+        <svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </div>
+
+    <!-- ===== Main Container ===== -->
+    <div class="main-container">
+      <!-- Primary Sidebar (64px) -->
+      <aside class="primary-sidebar">
+        <nav class="primary-nav">
+          <div class="primary-nav-item active" @click="primaryNav('tasks')">
+            <span class="primary-nav-item__icon"><svg class="icon icon--nav" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+            <span class="primary-nav-item__label">任务</span>
+          </div>
+          <div class="primary-nav-item" @click="primaryNav('specs')">
+            <span class="primary-nav-item__icon"><svg class="icon icon--nav" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg></span>
+            <span class="primary-nav-item__label">规格</span>
+          </div>
+          <div class="primary-nav-item" @click="primaryNav('archive')">
+            <span class="primary-nav-item__icon"><svg class="icon icon--nav" viewBox="0 0 24 24"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></span>
+            <span class="primary-nav-item__label">归档</span>
+          </div>
+          <div class="primary-nav-item" @click="primaryNav('search')">
+            <span class="primary-nav-item__icon"><svg class="icon icon--nav" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+            <span class="primary-nav-item__label">检索</span>
+          </div>
+          <div class="primary-nav-item" @click="primaryNav('check')">
+            <span class="primary-nav-item__icon"><svg class="icon icon--nav" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span>
+            <span class="primary-nav-item__label">检测</span>
+          </div>
+        </nav>
+        <div class="primary-nav-bottom">
+          <div class="primary-nav-item" @click="navigate('settings')" title="项目设置">
+            <span class="primary-nav-item__icon"><svg class="icon icon--nav" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span>
+            <span class="primary-nav-item__label">设置</span>
+          </div>
+          <div class="primary-nav-item" @click="toggleSecondary" :title="secondaryCollapsed ? '展开侧边栏' : '折叠侧边栏'">
+            <span class="primary-nav-item__icon">
+              <svg v-if="secondaryCollapsed" class="icon icon--nav" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+              <svg v-else class="icon icon--nav" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+            </span>
+            <span class="primary-nav-item__label">{{ secondaryCollapsed ? '展开' : '折叠' }}</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Secondary Sidebar (280px) -->
+      <aside class="secondary-sidebar" :class="{ collapsed: secondaryCollapsed }">
+        <div class="secondary-actions">
+          <div class="secondary-actions__left">
+            <button class="btn btn--sm" @click="actionToast('New Change')">新变更</button>
+          </div>
+          <div class="secondary-actions__right">
+            <button class="btn btn--icon" @click="toggleSort" :title="sortBy === 'time' ? '按时间排序' : '按名称排序'">
+              <svg v-if="sortBy === 'time'" class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <svg v-else class="icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h6"/></svg>
+            </button>
+            <button class="btn btn--icon" @click="refreshTasks" title="刷新">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="task-list">
+          <div class="task-card-item" v-for="(task, i) in tasks" :key="task.id"
+               :class="{ 'task-card-item-active': viewingTask?.id === task.id }"
+               @click="openDetail(task)">
+            <div class="task-card-item-cols">
+              <div v-if="viewingTask?.id === task.id" class="task-card-active-bar"></div>
+              <div class="task-card-item-body">
+                <div class="task-card-row1">
+                  <span class="task-card-tag-id">#{{ task.displayId }}</span>
+                  <span v-if="task.groupTag" class="task-card-tag-group">{{ task.groupTag }}</span>
+                </div>
+                <div class="task-card-row2">
+                  <span class="task-card-avatar" :style="{ borderColor: getGroupColor(task.groupTag) }">
+                    <svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  </span>
+                  <span class="task-card-title">{{ task.title || task.name }}</span>
+                </div>
+                <div class="task-card-row3">
+                  <span class="task-card-time">{{ formatRelativeTime(task.time) }}</span>
+                  <span :class="['tag', 'task-card-status', statusTagClass(task)]">{{ task.status }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-if="tasks.length === 0" class="empty-state">
+            <div class="empty-state__text">暂无任务</div>
+          </div>
+        </div>
+        <div class="secondary-info">
+          <span>{{ tasks.length }} 个任务</span>
+          <span class="secondary-info__project" @click="openProjectSelector" title="切换项目">
+            <svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            {{ activeProject.name }}
+          </span>
+        </div>
+      </aside>
+
+      <!-- ===== Content Area ===== -->
+      <section class="content-area">
+
+        <!-- ===== TASK DETAIL VIEW ===== -->
+        <template v-if="viewingTask">
+          <div class="detail-header">
+            <div class="detail-header__info">
+              <div class="detail-header__title">{{ viewingTask.title || viewingTask.name }}</div>
+              <div class="detail-header__meta">
+                <span>创建: {{ viewingTask.time }}</span>
+                <span>规格: {{ viewingTask.specs }} 个</span>
+                <span>工作流: {{ viewingTask.workflow }}</span>
+                <span class="detail-header__meta-progress">
+                  任务进度: {{ viewingTask.doneSteps }}/{{ viewingTask.totalSteps }}
+                  <div class="detail-header__progress-bar">
+                    <div class="detail-header__progress-fill" :class="progressClass(viewingTask.pct)" :style="{ width: viewingTask.pct + '%' }"></div>
+                  </div>
+                </span>
+              </div>
+            </div>
+            <nav class="stage-progress-nav detail-header__nav" aria-label="阶段进展">
+              <div class="stage-progress-nav__track">
+                <template v-for="item in stageNavItems" :key="item.id">
+                  <span v-if="item.separator" class="stage-progress-nav__sep" :class="'stage-progress-nav__sep--' + item.separator" aria-hidden="true">
+                    <svg viewBox="0 0 6 22" fill="none"><path d="M5 1C2 6 2 16 5 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  </span>
+                  <button type="button" class="stage-progress-nav__item"
+                          :class="{ active: activeStageNav === item.id }"
+                          @click="selectStageNav(item.id)">
+                    <svg class="icon icon--stage-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <template v-if="item.id === 'info'"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></template>
+                      <template v-else-if="item.id === 'conversation'"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></template>
+                      <template v-else-if="item.id === 'review'"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></template>
+                      <template v-else-if="item.id === 'proposal'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></template>
+                      <template v-else-if="item.id === 'design'"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></template>
+                      <template v-else-if="item.id === 'tasks'"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></template>
+                      <template v-else-if="item.id === 'specs'"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></template>
+                      <template v-else-if="item.id === 'other'"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></template>
+                    </svg>
+                    <span>{{ item.label }}</span>
+                  </button>
+                </template>
+                <button type="button" class="stage-progress-nav__item stage-progress-nav__item--danger" @click="deleteSession">
+                  <svg class="icon icon--stage-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                  </svg>
+                  <span>删除</span>
+                </button>
+              </div>
+            </nav>
+          </div>
+
+          <div class="detail-body">
+          <div class="steps-progress">
+            <template v-for="(group, gi) in viewingTask.stepGroups" :key="gi">
+              <div class="step-group" :class="'group-' + group.status">
+                <span class="group-label">{{ group.name }}</span>
+                <div class="group-nodes">
+                  <div class="step-node" v-for="(step, si) in group.steps" :key="si" :class="'node-' + step.status">
+                    <div class="node-card">
+                      <span v-if="step.status === 'done'" class="node-check-icon">✓</span>
+                      <div class="node-circle">
+                        <span class="node-circle-num">{{ step.number }}</span>
+                      </div>
+                      <span class="node-name">{{ step.name }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <span v-if="gi < viewingTask.stepGroups.length - 1" class="group-sep">&gt;</span>
+            </template>
+          </div>
+
+          <!-- 状态阶段卡片 -->
+          <div class="stage-card" v-if="allStepsDone">
+            <div class="stage-card__header">
+              <span class="stage-card__num">{{ viewingTask.currentStep }}</span>
+              <h3>Execution Completed</h3>
+            </div>
+            <p>计划已执行完成，所有任务项均已通过验证。</p>
+            <div class="stage-card-actions">
+              <button class="btn-archive" @click="showToast('归档计划')">
+                <svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+                Archive Plan
+              </button>
+              <span class="tag tag-success">Done</span>
+            </div>
+          </div>
+          <div class="stage-card stage-card--active" v-else-if="currentGroupName">
+            <div class="stage-card__header">
+              <span class="stage-card__num">{{ viewingTask.currentStep }}</span>
+              <h3>{{ currentGroupName }}</h3>
+            </div>
+            <p>当前阶段进行中。进度：{{ viewingTask.doneSteps }}/{{ viewingTask.totalSteps }} 步骤</p>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="quick-actions">
+            <button class="btn" @click="showToast('打开提案目录')">
+              <svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              打开提案目录
+            </button>
+            <button class="btn" @click="showToast('优化提案')">
+              <svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              优化提案
+            </button>
+            <button class="btn btn--primary" @click="showToast('执行')">执行</button>
+            <button class="btn" @click="showToast('校验')">校验</button>
+            <button class="btn" @click="showToast('新窗口打开')">
+              <svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+              新窗口打开
+            </button>
+            <button class="btn btn-delete" @click="showToast('删除任务')">
+              <svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+              删除任务
+            </button>
+          </div>
+
+          <div class="tab-nav">
+            <div class="tab-nav-item" v-for="tab in detailTabs" :key="tab.id"
+                 :class="{ active: activeTab === tab.id }" @click="activeTab = tab.id">
+              {{ tab.label }} <span class="tab-nav-count">({{ tab.count }})</span>
+            </div>
+          </div>
+          <div class="view-content">
+            <!-- Proposal -->
+            <div class="markdown-view" v-if="activeTab === 'proposal'">
+              <h1>{{ viewingTask.name }} — 提案</h1>
+              <p>本提案描述了对用户认证模块的变更需求，包含以下核心改动：</p>
+              <h2>1. 背景</h2>
+              <p>当前系统的认证机制基于 session token，存在以下问题：会话无法跨服务共享、token 存储不满足合规要求。</p>
+              <h2>2. 方案</h2>
+              <p>采用 <code>JWT</code> + <code>OAuth 2.0</code> 替代现有方案，支持：</p>
+              <ul>
+                <li>无状态认证：JWT token 自包含用户信息</li>
+                <li>跨服务共享：各微服务独立验证 token</li>
+                <li>合规性：token 不存储在服务端 session</li>
+              </ul>
+              <h2>3. 影响范围</h2>
+              <p>涉及 <code>auth-service</code>、<code>api-gateway</code>、<code>user-service</code> 三个模块的变更。</p>
+              <pre><code># 新的认证流程
+Client → POST /auth/login → JWT Access Token
+Client → API Gateway + Bearer Token → Backend Services</code></pre>
+            </div>
+            <!-- Design -->
+            <div class="split-view" v-if="activeTab === 'design'" style="height:100%;">
+              <div class="split-view__left">
+                <div class="file-item" v-for="f in designFiles" :key="f" :class="{ active: selectedDesignFile === f }" @click="selectedDesignFile = f">
+                  <span class="file-item__icon"><svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+                  <span class="file-item__name">{{ f }}</span>
+                </div>
+              </div>
+              <div class="split-view__right">
+                <div class="markdown-view" style="padding:0;background:transparent;">
+                  <h2>{{ selectedDesignFile }}</h2>
+                  <p>设计文档内容预览 — {{ selectedDesignFile }} 的详细设计说明...</p>
+                  <pre><code># Architecture Overview
+┌─────────────┐     ┌─────────────┐
+│ API Gateway │ ──▶ │ Auth Service│
+└─────────────┘     └─────────────┘</code></pre>
+                </div>
+              </div>
+            </div>
+            <!-- Tasks -->
+            <div class="markdown-view" v-if="activeTab === 'tasks'">
+              <h1>任务分解</h1>
+              <h2>Phase 1: 基础设施</h2>
+              <ul><li>✅ 搭建 JWT 签发服务</li><li>✅ 配置 OAuth 2.0 客户端</li><li>⏳ 数据库迁移脚本</li></ul>
+              <h2>Phase 2: 集成</h2>
+              <ul><li>⏳ API Gateway JWT 验证中间件</li><li>⬚ 用户服务对接新认证接口</li><li>⬚ 前端登录页改造</li></ul>
+            </div>
+            <!-- Spec Deltas -->
+            <div class="split-view" v-if="activeTab === 'specs'" style="height:100%;">
+              <div class="split-view__left">
+                <div class="file-item" v-for="f in specDeltaFiles" :key="f" :class="{ active: selectedSpecFile === f }" @click="selectedSpecFile = f">
+                  <span class="file-item__icon"><svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
+                  <span class="file-item__name">{{ f }}</span>
+                </div>
+              </div>
+              <div class="split-view__right">
+                <div class="markdown-view" style="padding:0;background:transparent;">
+                  <h2>{{ selectedSpecFile }}</h2>
+                  <p>规格差异对比 — 展示原始规格与当前规格的变更差异...</p>
+                  <pre><code>## Diff: auth-api-spec.yaml
++ POST /auth/refresh  # 新增 token 刷新端点
+- GET  /auth/session  # 移除 session 查询端点
+~ PUT  /auth/login    # 修改登录响应格式</code></pre>
+                </div>
+              </div>
+            </div>
+            <!-- Other -->
+            <div class="split-view" v-if="activeTab === 'other'" style="height:100%;">
+              <div class="split-view__left">
+                <div class="file-item" v-for="f in otherFiles" :key="f" :class="{ active: selectedOtherFile === f }" @click="selectedOtherFile = f">
+                  <span class="file-item__icon"><svg class="icon icon--sm" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></span>
+                  <span class="file-item__name">{{ f }}</span>
+                </div>
+              </div>
+              <div class="split-view__right">
+                <div class="markdown-view" style="padding:0;background:transparent;">
+                  <h2>{{ selectedOtherFile }}</h2>
+                  <p>附件内容预览...</p>
+                  <p v-if="selectedOtherFile === 'comments.md'">2026-06-08 <strong>@dev-team</strong>: 认证模块需要安全评审<br>2026-06-07 <strong>@security</strong>: 已通过安全评审</p>
+                  <p v-else>文件内容加载中...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div><!-- /.detail-body -->
+        </template>
+
+      </section>
+    </div>
+
+    <!-- ===== Bottom Status Bar ===== -->
+    <div class="bottom-bar">
+      <div class="bottom-bar__left">
+        <span class="bottom-bar__stat">项目: <strong>{{ activeProject.name }}</strong></span>
+      </div>
+      <div class="bottom-bar__center">System Timeline · {{ statusMessage }}</div>
+      <div class="bottom-bar__right">
+        <span class="bottom-bar__stat">Running <strong>0</strong></span>
+        <span class="bottom-bar__stat">Tasks <strong>{{ tasks.length }}</strong></span>
+        <span class="bottom-bar__stat">v<strong>0.1.0</strong></span>
+      </div>
+    </div>
+
+    <!-- ===== Project Selector Modal ===== -->
+    <div class="modal-overlay" v-if="showProjectSelector" @click.self="showProjectSelector = false" @keydown.escape="showProjectSelector = false">
+      <div class="modal">
+        <div class="modal__header">
+          <div class="modal__header-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+          <div class="modal__header-info">
+            <div class="modal__title">Project Selector 项目选择器</div>
+            <div class="modal__desc">切换到其他项目或添加新项目</div>
+          </div>
+          <button class="modal__close" @click="showProjectSelector = false">✕</button>
+        </div>
+        <div class="modal__body">
+          <div class="modal__section-title">Your Projects 你的项目</div>
+          <div v-if="projectList.length === 0" style="text-align:center;padding:var(--spacing-24);color:var(--text-helper);">暂无项目</div>
+          <div class="project-item" v-for="proj in projectList" :key="proj.name"
+               :class="{ 'project-item--active': proj.name === activeProject.name, 'project-item--disabled': proj.deleted }"
+               @click="selectProject(proj)">
+            <div class="project-item__icon"><svg class="icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+            <div class="project-item__info">
+              <div class="project-item__name">{{ proj.name }}</div>
+              <div class="project-item__path">{{ proj.path }}</div>
+            </div>
+            <span class="badge badge--modal-active" v-if="proj.name === activeProject.name">Active ✓</span>
+            <span class="badge badge--error" v-if="proj.deleted">已删除</span>
+          </div>
+        </div>
+        <div class="modal__footer">
+          <button type="button" class="modal__footer-cta" @click="openAddProject">+ Add New Project 添加新项目</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Add Project Modal ===== -->
+    <div class="modal-overlay" v-if="showAddProject" @click.self="showAddProject = false" @keydown.escape="showAddProject = false">
+      <div class="modal modal--wide">
+        <div class="modal__header">
+          <div class="modal__header-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6M9 14h6"/></svg></div>
+          <div class="modal__header-info">
+            <div class="modal__title">Add Project 添加项目</div>
+            <div class="modal__desc">浏览已经包含 openspec/ 文件夹的仓库</div>
+          </div>
+          <button class="modal__close" @click="showAddProject = false">✕</button>
+        </div>
+        <div class="modal__body">
+          <div class="notice-box">需要新项目？请先安装 OpenSpec，并在仓库中运行 <code>openspec init</code><br><a href="#">安装 OpenSpec</a> &nbsp;·&nbsp; <a href="#">CLI 设置指南</a></div>
+          <div class="breadcrumb">
+            <span @click="navToRoot" title="根目录"><svg class="icon icon--sm" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span> /
+            <span v-for="(seg, i) in browsePath" :key="i" @click="navToBreadcrumb(i)" :class="{ current: i === browsePath.length - 1 }">{{ seg }}</span>
+          </div>
+          <div class="dir-list">
+            <div class="dir-item" v-for="dir in dirList" :key="dir" @click="enterDir(dir)">
+              <span class="dir-item__icon"><svg class="icon icon--sm" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+              <span class="dir-item__name">{{ dir }}</span>
+              <span class="dir-item__arrow"><svg class="icon icon--sm" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></span>
+            </div>
+          </div>
+          <p class="text-error" v-if="addError">{{ addError }}</p>
+        </div>
+        <div class="modal__footer">
+          <div class="modal__path-hint">当前路径: {{ currentBrowsePathStr }}</div>
+          <button type="button" class="btn--modal-cta" :disabled="!hasOpenspecDir" @click="confirmAddProject">
+            {{ hasOpenspecDir ? 'Add This Directory 添加此目录' : '该目录未初始化 OpenSpec' }}
+          </button>
+          <div class="path-input-row">
+            <span class="path-input-row__toggle" @click="showManualInput = !showManualInput">Or enter path manually 或手动输入路径</span>
+          </div>
+          <div v-if="showManualInput" class="path-input-row">
+            <input class="path-input" v-model="manualPath" placeholder="/path/to/project" @keydown.enter="validateManualPath">
+            <button class="btn" @click="validateManualPath">验证</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div v-if="toast.show" style="position:fixed;bottom:48px;left:50%;transform:translateX(-50%);background:var(--bg-card);color:var(--text-primary);padding:10px 24px;border-radius:var(--radius-md);border:1px solid var(--border-normal);z-index:400;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.4);">{{ toast.message }}</div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed } = Vue;
+
+createApp({
+  setup() {
+    /* ---- Project & Nav ---- */
+    const activeProject = reactive({ name: 'polaris-cli', path: '/Users/me/projects/polaris-cli' });
+    const projectTabs = reactive([
+      { name: 'polaris-cli', active: true, deleted: false, loading: false },
+      { name: 'backend-service', active: false, deleted: false, loading: false },
+      { name: 'legacy', active: false, deleted: true, loading: false },
+    ]);
+    const statusMessage = ref('就绪');
+    function primaryNav(target) { showToast(`导航至: ${target}（Demo 占位）`); }
+    const secondaryCollapsed = ref(false);
+    function toggleSecondary() { secondaryCollapsed.value = !secondaryCollapsed.value; }
+    const sortBy = ref('time');
+    function toggleSort() { sortBy.value = sortBy.value === 'time' ? 'name' : 'time'; }
+
+    /* Project tabs */
+    const showTabScrollLeft = ref(false);
+    const showTabScrollRight = ref(false);
+    function scrollTabs(dir) { /* placeholder */ }
+    function activateTab(tab) {
+      if (tab.deleted) { showToast('该项目已不存在，请关闭标签后重新添加'); return; }
+      if (tab.active) { refreshTasks(); return; }
+      tab.loading = true;
+      projectTabs.forEach(t => t.active = false);
+      tab.active = true;
+      activeProject.name = tab.name;
+      setTimeout(() => { tab.loading = false; showToast(`已切换到: ${tab.name}`); }, 800);
+    }
+    function closeTab(tab, i) {
+      if (projectTabs.length === 1) { showToast('已关闭所有项目标签'); return; }
+      const wasActive = tab.active;
+      projectTabs.splice(i, 1);
+      if (wasActive) {
+        const newActive = projectTabs[Math.min(i, projectTabs.length - 1)];
+        newActive.active = true;
+        activeProject.name = newActive.name;
+      }
+      showToast(`已关闭标签: ${tab.name}`);
+    }
+
+    /* 8 步工作流模板（4 阶段） */
+    const WORKFLOW_TEMPLATE = [
+      { name: 'PROPOSAL PREPARATION', steps: [
+        { name: 'Created', number: 0 }, { name: 'Optimizing', number: 1 }, { name: 'Draft', number: 2 },
+      ]},
+      { name: 'REVIEW AND REFINE', steps: [
+        { name: 'Generating', number: 3 }, { name: 'Review', number: 4 },
+      ]},
+      { name: 'EXECUTION COMPLETE', steps: [
+        { name: 'Executing', number: 5 }, { name: 'Completed', number: 6 },
+      ]},
+      { name: 'ARCHIVE', steps: [
+        { name: 'Archiving', number: 7 }, { name: 'Archived', number: 8 },
+      ]},
+    ];
+
+    function buildStepGroups(activeStep, executionDone) {
+      return WORKFLOW_TEMPLATE.map((group) => {
+        const steps = group.steps.map((s) => {
+          let status = 'pending';
+          if (executionDone && s.number <= 6) status = 'done';
+          else if (!executionDone && s.number < activeStep) status = 'done';
+          else if (!executionDone && s.number === activeStep) status = 'active';
+          return { ...s, status };
+        });
+        const allDone = steps.every((s) => s.status === 'done');
+        const hasActive = steps.some((s) => s.status === 'active');
+        const groupStatus = allDone ? 'completed' : hasActive ? 'active' : 'pending';
+        return { name: group.name, status: groupStatus, steps };
+      });
+    }
+
+    function workflowMeta(activeStep, executionDone) {
+      const totalSteps = 9;
+      const doneSteps = executionDone ? 7 : activeStep;
+      return {
+        stepGroups: buildStepGroups(activeStep, executionDone),
+        currentStep: executionDone ? 6 : activeStep,
+        doneSteps,
+        totalSteps,
+        pct: Math.round((doneSteps / totalSteps) * 100),
+      };
+    }
+
+    const DEFAULT_REPOS = [
+      { name: 'polaris-cli', path: './', permission: '读写', purpose: '主仓库' },
+      { name: 'openspec', path: './openspec/', permission: '读写', purpose: '规格定义' },
+    ];
+
+    /* Tasks */
+    const tasks = reactive([
+      { id: 1, displayId: 987, name: 'add-user-auth', title: 'Add User Authentication', groupTag: 'BE',
+        time: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+        workflow: 'polaris-flow-backend', status: 'Reviewing', statusType: 'info', specs: 3,
+        ...workflowMeta(4, false),
+        repos: DEFAULT_REPOS,
+        background: '当前系统的认证机制基于 session token，存在会话无法跨服务共享、token 存储不满足合规要求等问题。',
+      },
+      { id: 2, displayId: 986, name: 'fix-payment-bug', title: 'Fix Payment Processing Bug', groupTag: 'FE',
+        time: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+        workflow: 'polaris-flow-backend', status: '进行中', statusType: 'warning', specs: 1,
+        ...workflowMeta(5, false),
+        repos: DEFAULT_REPOS,
+        background: '支付回调偶发超时导致订单状态不一致，需排查 webhook 重试逻辑。',
+      },
+      { id: 3, displayId: 985, name: 'azure-upload-support', title: 'Azure 容器上传与 Steam 发布集成', groupTag: 'FS',
+        time: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+        workflow: 'standard', status: 'Execution Complete', statusType: 'success', specs: 2,
+        ...workflowMeta(6, true),
+        repos: [
+          { name: 'game-build', path: './build/', permission: '读写', purpose: '构建产物' },
+          { name: 'steam-deploy', path: './deploy/steam/', permission: '只读', purpose: 'Steam 发布脚本' },
+        ],
+        background: '需要将 Azure 容器镜像上传流程与 Steam 发布管道集成，实现一键部署。',
+      },
+      { id: 4, displayId: 984, name: 'update-docs', title: 'Update Project Documentation', groupTag: 'TS',
+        time: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
+        workflow: 'polaris-flow-backend', status: '阻塞', statusType: 'error', specs: 1,
+        ...workflowMeta(1, false),
+        repos: DEFAULT_REPOS,
+        background: 'API 文档与实现不同步，需批量更新 OpenAPI 规格与示例。',
+      },
+      { id: 5, displayId: 983, name: 'add-search-feature', title: 'Add Full-Text Search', groupTag: 'RQ',
+        time: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+        workflow: 'polaris-flow-backend', status: 'Drafting', statusType: 'info', specs: 4,
+        ...workflowMeta(2, false),
+        repos: DEFAULT_REPOS,
+        background: '现有列表检索仅支持前缀匹配，需引入全文搜索引擎提升查询体验。',
+      },
+    ]);
+
+    /* ---- Detail View State ---- */
+    const viewingTask = ref(tasks[2]);
+
+    const allStepsDone = computed(() => {
+      const t = viewingTask.value;
+      return t && t.statusType === 'success' && t.currentStep === 6;
+    });
+
+    const currentGroupName = computed(() => {
+      const t = viewingTask.value;
+      if (!t || allStepsDone.value) return '';
+      const active = t.stepGroups.find((g) => g.status === 'active');
+      return active ? active.name : '';
+    });
+
+    /* 阶段进展导航 */
+    const stageNavItems = [
+      { id: 'info', label: '详情' },
+      { id: 'conversation', label: '检测' },
+      { id: 'review', label: 'Review' },
+      { id: 'proposal', label: 'Proposal', separator: 'blue' },
+      { id: 'design', label: 'Design', separator: 'orange' },
+      { id: 'tasks', label: 'Tasks', separator: 'green' },
+      { id: 'specs', label: 'Specs', separator: 'purple' },
+      { id: 'other', label: 'Other', separator: 'gray' }
+    ];
+    const activeStageNav = ref('info');
+
+    const STAGE_TO_TAB = { proposal: 'proposal', design: 'design', tasks: 'tasks', specs: 'specs', other: 'other' };
+
+    function selectStageNav(id) {
+      activeStageNav.value = id;
+      if (STAGE_TO_TAB[id]) {
+        activeTab.value = STAGE_TO_TAB[id];
+        return;
+      }
+      showToast(`${id} 视图（Demo 占位）`);
+    }
+
+    function deleteSession() {
+      showToast('删除变更');
+    }
+
+    function openDetail(task) {
+      viewingTask.value = task;
+      activeTab.value = 'proposal';
+      activeStageNav.value = 'info';
+    }
+    function refreshTasks() { showToast('任务列表已刷新'); statusMessage.value = '任务列表已刷新'; }
+    function progressClass(val) {
+      if (val < 50) return 'detail-header__progress-fill--low';
+      if (val < 100) return 'detail-header__progress-fill--mid';
+      return 'detail-header__progress-fill--high';
+    }
+
+    function formatRelativeTime(isoOrDate) {
+      const d = new Date(isoOrDate);
+      const diff = Date.now() - d.getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return '刚刚';
+      if (mins < 60) return mins + ' 分钟前';
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return hours + ' 小时前';
+      const days = Math.floor(hours / 24);
+      if (days < 30) return days + ' 天前';
+      return d.toISOString().slice(0, 10);
+    }
+
+    function statusTagClass(task) {
+      const map = { success: 'tag-success', warning: 'tag-warning', error: 'tag-warning', info: 'tag-info', accent: 'tag-info' };
+      return map[task.statusType] || 'tag-disabled';
+    }
+
+    /* ---- Detail View State ---- */
+    const detailTabs = [
+      { id: 'proposal', label: '提案', count: 1 },
+      { id: 'design', label: '设计', count: 3 },
+      { id: 'tasks', label: '任务', count: 6 },
+      { id: 'specs', label: '规格差异', count: 2 },
+      { id: 'other', label: '其他', count: 4 },
+    ];
+    const activeTab = ref('proposal');
+    const designFiles = ['architecture.md', 'api-design.yaml', 'database-schema.sql'];
+    const selectedDesignFile = ref('architecture.md');
+    const specDeltaFiles = ['auth-api-spec.yaml', 'user-model-spec.yaml'];
+    const selectedSpecFile = ref('auth-api-spec.yaml');
+    const otherFiles = ['comments.md', 'changelog.txt', 'review-notes.md', 'screenshots/'];
+    const selectedOtherFile = ref('comments.md');
+
+    function getGroupColor(tag) {
+      const map = { BE: '#3b82f6', FE: '#38b950', FS: '#8b5cf6', TS: '#f59e0b', RQ: '#ef4444' };
+      return map[tag] || '#6b7280';
+    }
+
+    /* Project Selector */
+    const showProjectSelector = ref(false);
+    const projectList = reactive([
+      { name: 'polaris-cli', path: '/Users/me/projects/polaris-cli', deleted: false },
+      { name: 'backend-service', path: '/Users/me/projects/backend', deleted: false },
+      { name: 'old-legacy-project', path: '/Users/me/projects/legacy', deleted: true },
+    ]);
+    function openProjectSelector() { showProjectSelector.value = true; }
+    function selectProject(proj) {
+      if (proj.deleted) { showToast('该项目已不存在，请关闭标签后重新添加'); return; }
+      if (proj.name === activeProject.name) return;
+      const exists = projectTabs.find(t => t.name === proj.name);
+      if (!exists) projectTabs.push({ name: proj.name, active: false, deleted: false, loading: false });
+      projectTabs.forEach(t => t.active = false);
+      const tab = projectTabs.find(t => t.name === proj.name);
+      if (tab) tab.active = true;
+      activeProject.name = proj.name;
+      activeProject.path = proj.path;
+      showProjectSelector.value = false;
+      showToast(`已切换到项目: ${proj.name}`);
+    }
+
+    /* Add Project */
+    const showAddProject = ref(false);
+    const browsePath = reactive(['Users', 'me', 'projects']);
+    const dirList = reactive(['my-new-app', 'polaris-cli', 'backend-service', 'demo-project']);
+    const addError = ref('');
+    const showManualInput = ref(false);
+    const manualPath = ref('');
+    const currentBrowsePathStr = computed(() => '/' + browsePath.join('/'));
+    const hasOpenspecDir = computed(() => browsePath.length >= 3 && browsePath[browsePath.length - 1] !== 'demo-project');
+    function openAddProject() { showProjectSelector.value = false; showAddProject.value = true; }
+    function navToRoot() { browsePath.splice(0, browsePath.length, 'Users'); }
+    function navToBreadcrumb(i) { browsePath.splice(i + 1); }
+    function enterDir(dir) { browsePath.push(dir); }
+    function confirmAddProject() {
+      if (!hasOpenspecDir.value) return;
+      showAddProject.value = false;
+      const name = browsePath[browsePath.length - 1];
+      if (!projectTabs.find(t => t.name === name)) projectTabs.push({ name, active: false, deleted: false, loading: false });
+      projectTabs.forEach(t => t.active = false);
+      const tab = projectTabs.find(t => t.name === name);
+      if (tab) tab.active = true;
+      activeProject.name = name;
+      showToast('项目添加成功');
+    }
+    function validateManualPath() { if (manualPath.value.trim()) showToast('路径验证通过: ' + manualPath.value); }
+
+    /* Toast */
+    const toast = reactive({ show: false, message: '' });
+    let toastTimer = null;
+    function showToast(msg) {
+      toast.message = msg; toast.show = true;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.show = false; }, 2500);
+    }
+    function navigate(page) { showToast(`导航至: ${page}（Demo 占位）`); }
+    function actionToast(action) { showToast(`执行: ${action}（Demo 占位）`); }
+
+    return {
+      activeProject, projectTabs, statusMessage,
+      primaryNav, secondaryCollapsed, toggleSecondary, sortBy, toggleSort,
+      showTabScrollLeft, showTabScrollRight, scrollTabs, activateTab, closeTab,
+      tasks, viewingTask, allStepsDone, currentGroupName,
+      stageNavItems, activeStageNav, selectStageNav, deleteSession,
+      openDetail, refreshTasks, progressClass, formatRelativeTime, statusTagClass,
+      detailTabs, activeTab,
+      designFiles, selectedDesignFile,
+      specDeltaFiles, selectedSpecFile,
+      otherFiles, selectedOtherFile,
+      getGroupColor,
+      showProjectSelector, projectList, openProjectSelector, selectProject,
+      showAddProject, browsePath, dirList, addError, showManualInput, manualPath,
+      currentBrowsePathStr, hasOpenspecDir,
+      openAddProject, navToRoot, navToBreadcrumb, enterDir, confirmAddProject, validateManualPath,
+      toast, showToast, navigate, actionToast,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

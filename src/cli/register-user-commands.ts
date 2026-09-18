@@ -7,7 +7,7 @@ import { initCommand } from '../commands/init.js';
 import { updateCommand } from '../commands/update.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { statusCommand } from '../commands/status.js';
-import { startDashboard } from '../dashboard/server.js';
+import { DEFAULT_DASHBOARD_PORT, dashboardCommand } from '../commands/dashboard.js';
 
 /**
  * 注册 polaris 用户命令：init / status / dashboard / doctor / update / uninstall。
@@ -63,26 +63,23 @@ export function registerUserCommands(program: Command): void {
 
   program
     .command('dashboard')
-    .description('Start local Dashboard (launches sibling polaris-web)')
+    .description('Start the local workbench (API + web UI on one port)')
     .argument('[path]', 'project root to visualize', process.cwd())
-    .option('--port <n>', 'Vue frontend port (POLARIS_WEB_PORT)', '5173')
-    .option('--api-port <n>', 'API port via polaris-cli (POLARIS_API_PORT)', '3700')
-    .option('--open', 'open browser after start')
-    .action(async (projectPath: string, options: { port?: string; apiPort?: string; open?: boolean }) => {
-      const port = Number(options.port ?? 5173);
-      const apiPort = Number(options.apiPort ?? 3700);
-      try {
-        await startDashboard({
-          port: Number.isFinite(port) ? port : 5173,
-          apiPort: Number.isFinite(apiPort) ? apiPort : 3700,
-          projectPath,
-          open: Boolean(options.open),
+    .option('--port <n>', 'server port', String(DEFAULT_DASHBOARD_PORT))
+    .option('--no-open', 'do not open the browser automatically')
+    .option('--api-only', 'serve the API only (for `npm run dev` in dashboard/)')
+    .action(
+      async (
+        projectPath: string,
+        options: { port?: string; open?: boolean; apiOnly?: boolean },
+      ) => {
+        await dashboardCommand(projectPath, {
+          port: options.port,
+          open: options.open,
+          apiOnly: options.apiOnly,
         });
-      } catch (err) {
-        console.error(`[dashboard] ${(err as Error).message}`);
-        process.exitCode = 1;
-      }
-    });
+      },
+    );
 
   program
     .command('doctor')

@@ -30,6 +30,9 @@
   "scripts": {
     "build": "node build.js",
     "build:sh": "bash scripts/build.sh",
+    "build:web": "npm --prefix dashboard run build",
+    "migrate:dashboard": "node scripts/migrate-dashboard.js",
+    "migrate:dashboard:write": "node scripts/migrate-dashboard.js --write",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

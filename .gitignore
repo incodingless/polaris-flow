@@ -92,3 +92,5 @@ skills-lock.json
 .cursor/
 
 assets/zh/skills/prd/temp
+# 本目录索引需要提交；全局 gitignore 默认忽略 README.md，这里显式反向放行
+!dashboard/docs/README.md
