@@ -1,7 +1,8 @@
 # Dashboard 集成设计（polaris-web + Dashboard API 全部并入 polaris-flow）
 
 日期：2026-09-18
-状态：**待评审** — 归属已定：**前端与 Dashboard API 全部并入 polaris-flow**，`polaris-web` 与 `polaris-cli` 两仓退役。剩余待决：D2（集成节奏）、D3（首发只读）
+状态：**已定稿** — 四项决策全部关闭：全部并入 polaris-flow（已决 1、2）；M1 先搬 + M2 立即对齐且中间态不发版（已决 3）；首发只读（已决 4）。仅剩两个可后置项（§7 D4、D5）
+实施计划：`docs/plans/2026-09-18-dashboard-integration-m1.md`
 范围：让 `polaris dashboard` 成为「单命令、单进程、单端口」的工作台；前端落点与工具隔离、`/api/*` 契约、数据源对齐、分阶段落地路线
 
 ---
@@ -207,11 +208,25 @@ execFileSync(process.execPath, [vitePath, 'build'], { cwd: 'dashboard', stdio: '
 
 ### 4.4 迁入清单
 
+**迁移方式（约束）**：**一律复制，绝不移动**。`polaris-web` 与 `polaris-cli` 在迁移期间保持原样可查，直到 M4 确认退役。复制由脚本 `scripts/migrate-dashboard.js` 完成，不手工 `cp` —— 目的是让"搬了什么"可复现、可审查、可重跑。
+
+```
+pnpm migrate:dashboard          # 预演：只列清单，不写盘
+pnpm migrate:dashboard:write    # 实际复制（遇既有目标文件则中止）
+node scripts/migrate-dashboard.js --write --force   # 允许覆盖既有目标文件
+```
+
+脚本性质：白名单驱动（只搬清单条目，不是黑名单排除）、源仓只读、只做机械复制不做内容改写、默认预演、源仓缺条目时**报错中止**而非静默跳过。实测预演结果：**98 个文件 / 1279 KB**（web 88 + cli 10）。
+
+清单：
+
 | 类别 | 条目 | 处理 |
 | --- | --- | --- |
-| 搬 | `index.html` / `vite.config.js` / `package.json` / `package-lock.json` / `public/` / `src/` | 进 `dashboard/` |
-| 搬 | `docs/` 中的**前端**文档：`uxe/`、`Polaris Dashboard 全局布局框架定义.md`、`Polaris Dashboard 页面布局及交互规范.md`、`dashboard需求.md`、`resources-configuration-guide.md`、`api-elegant-comet.md` | 进 `dashboard/docs/` |
-| 不搬 | `docs/agent-guide.md`、`development.md`、`quickstart.md`、`troubleshooting.md` | 这些描述的是 **polaris-cli 后端**，而该后端即将退役；搬进来即成为误导性文档。逐个人工确认后丢弃或改写到 `src/dashboard/` 侧文档 |
+| 搬 | `index.html` / `vite.config.js` / `package.json` / `package-lock.json` / `public/` / `src/` | 进 `dashboard/`（`src/composables/useTasksMock.js` 排除，无引用的死代码） |
+| 搬 | `docs/` 中的**前端**文档：`uxe/`、`superpowers/`、`Polaris Dashboard 全局布局框架定义.md`、`Polaris Dashboard 页面布局及交互规范.md`、`dashboard需求.md`、`api-elegant-comet.md`、`resources-configuration-guide.md`、`README.md` | 进 `dashboard/docs/` |
+| 搬 | polaris-cli 的 Dashboard API **10 个文件**：`change-scanner.ts`、`markdown.ts`、`router.ts`、`server.ts`、`api/{changes,check,configs,filesystem,projects,workflow}.ts` | 进 `src/dashboard/`（**`server.ts` 会覆盖现有启动器**，属预期行为） |
+| **不搬** | polaris-cli 的 `api/change-operations.ts`、`api/change-validate.ts`、`api/compose.ts` | 三者依赖外部 `openspec` CLI 或对应 §5.1/§5.2 已判定删除的路由。排除后**不再需要连带搬 `polaris-cli/src/utils/spawnAsync.ts`**，复制结果可直接编译 |
+| 不搬 | `docs/agent-guide.md`、`development.md`、`quickstart.md`、`troubleshooting.md` | 描述的是 **polaris-cli 后端**，而该后端即将退役；搬进来即成为误导性文档。逐个人工确认后丢弃或改写到 `src/dashboard/` 侧文档 |
 | 不搬 | `.polaris/continue-jobs/*.json`、`openspec/`（含 `schemas/polaris-flow-backend`）、`.trae/skills/*`、`.DS_Store` | polaris-web 仓自己的运行时残留，非产品代码 |
 | 不搬 | `scripts/dev.sh`、`CLAUDE.md`、`node_modules/`、`dist/` | 前两者描述的是旧三仓形态，本就作废 |
 | 元数据 | git 历史（6 commit） | 用 `git subtree add` / `filter-repo` 保留，或直接拷（历史价值低，二选一即可） |
@@ -245,7 +260,7 @@ execFileSync(process.execPath, [vitePath, 'build'], { cwd: 'dashboard', stdio: '
 
 ### 5.2 写操作：白名单化，全部经原语
 
-M1/M2 阶段面板**只读**（§7 D3）。进入 M3 后仅开放下列操作，且每个都映射到既有 CLI 原语：
+M1/M2 阶段面板**只读**（§7 已决 4）。进入 M3 后仅开放下列操作，且每个都映射到既有 CLI 原语：
 
 | 面板操作 | 落到的原语 | 备注 |
 | --- | --- | --- |
@@ -263,14 +278,17 @@ M1/M2 阶段面板**只读**（§7 D3）。进入 M3 后仅开放下列操作，
 
 交付物：
 
-1. **前端迁入**（§4.4 清单）：`polaris-web` 的 `index.html` / `vite.config.js` / `package.json` / `public/` / `src/` / 前端文档 → `dashboard/`；删 `useTasksMock.js`、删 `/static` proxy、`base` 调整为相对路径。前端 npm 依赖就位。
-2. **服务端**：`src/dashboard/static.ts` + 重写 `src/dashboard/server.ts` —— 单进程、单端口、静态托管 `dist/web`、`listening` 后开浏览器。
-3. **API 迁入**：`src/dashboard/{router.ts,api/*}` 由 polaris-cli 搬入，**数据源先原样保留**（仍读 `openspec/changes/`），只为让骨架先跑起来。
-4. **契约文档初稿**（§五 前置产物）。
-5. **拆除旧机制**：`resolvePolarisWebRoot` / `POLARIS_WEB_PATH` / `startDashboard` 的 spawn 逻辑、`--api-port`、`polaris-web/scripts/dev.sh` 的引用。
-6. **构建与 CI**：`build.js` 追加 vite 步骤；根 `package.json` 加 `build:web`；`.github/workflows/ci.yml` 在 `pnpm run build` 之前补 `npm ci --prefix dashboard`；清理 `eslint.config.js` 的过时 ignore；补 `prepublish-check.js` 的 `.vue`。
+1. **跑迁移脚本**：`pnpm migrate:dashboard` 预演并人工核对清单 → `pnpm migrate:dashboard:write --force`（`--force` 是因为 `src/dashboard/server.ts` 是既有文件、必然冲突）。产出 §4.4 的 98 个文件。源两仓零改动。
+2. **前端适配**：`vite.config.js` 删 `/static` proxy、`base` 改为可静态托管；`package.json` 去 `private` 并改名；`dashboard/docs/README.md` 清理死链；`cd dashboard && npm install` 装依赖。
+3. **服务端**：`src/dashboard/server.ts`（上一步已被 polaris-cli 版本覆盖）+ 新增 `src/dashboard/static.ts` → 单进程、单端口、静态托管 `dist/web`、`listening` 后开浏览器。
+4. **API 裁剪**：`src/dashboard/router.ts` 删掉指向未搬迁文件的引用与路由（`executeStepOperation`、`validateChange`、`createChange`/`listSchemas`、`PUT /api/configs/:path`）；`src/dashboard/api/*.ts` **数据源先原样保留**（仍读 `openspec/changes/`）。
+5. **契约文档初稿**（§五 前置产物）。
+6. **拆除旧机制**：`resolvePolarisWebRoot` / `POLARIS_WEB_PATH` / `startDashboard` 的 spawn 逻辑、`--api-port`。
+7. **构建与 CI**：`build.js` 追加 vite 步骤；根 `package.json` 加 `build:web`；`.github/workflows/ci.yml` 在 `pnpm run build` 之前补 `npm ci --prefix dashboard`；清理 `eslint.config.js` 的过时 ignore；补 `prepublish-check.js` 的 `.vue`。
 
 验收：`pnpm build && node bin/polaris.js dashboard` 单进程起在 3700，浏览器自动打开并看到界面；`--api-only` + `cd dashboard && npm run dev` 可做 HMR 开发；`pnpm format:check` 与 `pnpm lint` 仍只作用于 `src/`，前端代码零改动。
+
+**构建完整性提醒**：第 1 步（纯复制）执行后本仓**处于不可构建状态** —— 搬来的 `router.ts` 引用了刻意未搬的三个文件，`server.ts` 还是 polaris-cli 的旧版。第 3、4 步完成即恢复。这是 M1 内部的一次性窗口，不应把第 1 步单独提交。
 
 **中间态声明**：M1 结束时面板对「5 类 kind + 新阶段」仍不可见（因数据源还是旧的）。此状态**只用于验证骨架，不得发版**，README 不加 `dashboard` 使用说明。
 
@@ -309,7 +327,7 @@ M1/M2 阶段面板**只读**（§7 D3）。进入 M3 后仅开放下列操作，
 
 ## 七、决策台账
 
-> 编号沿用了早期两仓草案，以便文中既有交叉引用（§5.2 的 D3、§5.1 的 D4）继续有效。原先的 D1（前端产物如何跨仓进入）随"全部合并"作废，现记为「已决 1」。
+> 编号沿用早期两仓草案，以便文中既有交叉引用继续有效。原先的 D1（前端产物如何跨仓进入）随"全部合并"作废，现记为「已决 1」；D2、D3 已分别定案为「已决 3」「已决 4」。
 
 ### 已决 1 — 归属：前端与 API 全部并入 polaris-flow
 
@@ -323,16 +341,17 @@ M1/M2 阶段面板**只读**（§7 D3）。进入 M3 后仅开放下列操作，
 
 依据见 §3.3。备选 `dashboard-web/`（彻底避开与 `src/dashboard/` 的重名）同样可行，命名可再定，不影响其余设计。
 
-### D2 集成节奏（待决）
+### 已决 3（原 D2）— 集成节奏：M1 先搬 + M2 立即对齐，中间态不发版
 
-| 方案 | 做法 | 风险 |
-| --- | --- | --- |
-| **A（推荐）M1 先搬 + M2 立即对齐，中间态不发版** | 最快看到界面，用真实数据驱动 M2 | M1 到 M2 之间是"半成品"，须靠"不发版"纪律约束 |
-| B 先对齐数据源再搬前端 | 没有半成品窗口 | 前端适配要盲写，无界面验证，返工概率更高 |
+先跑迁移脚本与骨架（最快看到界面），随即用真实数据驱动 M2 的数据源对齐。M1 到 M2 之间是"半成品"，靠"不发版"纪律约束（M1 末尾的中间态声明）。
 
-### D3 首发形态：只读 vs 开放写（待决）
+代价已知：M1 结束时面板对 5 类 kind 与新阶段不可见。备选方案（先对齐数据源再搬前端）被否，原因是前端适配要盲写、无界面验证，返工概率更高。
 
-**推荐首发只读**（含"在编辑器打开文件""在文件管理器定位"这类零风险动作），M3 再开放写。理由：§3.4 表明旧写路径既绕过锁又依赖外部 CLI，把写操作做对是独立一档工作量，不应阻塞 G1–G3 的验收。
+### 已决 4（原 D3）— 首发形态：只读
+
+M1/M2 阶段面板**只读**，含"在编辑器打开文件""在文件管理器定位"这类零风险动作；写操作推迟到 M3，且每个都必须映射到既有 CLI 原语（§5.2）。
+
+理由：§3.4 表明旧写路径既绕过 `.locks/` 又依赖外部 `openspec` CLI，把写操作做对是独立一档工作量，不应阻塞 G1–G3 的验收。
 
 ### D4 多项目注册表落点（可后置）
 
@@ -355,7 +374,7 @@ M1/M2 阶段面板**只读**（§7 D3）。进入 M3 后仅开放下列操作，
 | 前端 git 历史丢失 | 追溯困难 | 用 `git subtree` / `filter-repo` 保留（仅 6 commit，成本极低） |
 | 静态服务路径穿越 | 本地文件泄露 | `static.ts` 归一化路径并断言落在 `dist/web` 内；`/api/reveal` 白名单 |
 | `prepublish-check` 扫不到 `.vue` | 密钥扫描盲点 | M1 补 `TEXT_EXTENSIONS` |
-| 面板写坏模型 | 破坏 `.polaris` 一致性 | D3 只读首发；M3 全部经原语 + 测试覆盖锁行为 |
+| 面板写坏模型 | 破坏 `.polaris` 一致性 | 首发只读（已决 4）；M3 全部经原语 + 测试覆盖锁行为 |
 | Windows 兼容 | 路径分隔符 / MIME / 构建命令 | `path` API 统一处理；build.js 用 `process.execPath` 调 vite，不 spawn npm |
 
 ---
