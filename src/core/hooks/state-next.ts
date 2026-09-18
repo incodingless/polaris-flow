@@ -56,8 +56,11 @@ const FAMILY_BY_KIND: Record<WorkflowTaskKind, string> = {
 /**
  * phase → 下一 skill 名（仅含可自动衔接的目标）。
  * `delivery`/`archive` 为历史别名，映射到现行 `ship`。
+ *
+ * 导出供 `test/ts/task-kind-phases.test.ts` 做漂移护栏：本表的 phase key 必须都是
+ * `task-kind-layout.ts` 已登记的阶段或已声明别名，否则任一侧新增/遗留的 phase 名会静默失配。
  */
-const PHASE_TO_SKILL: Record<string, Record<string, string>> = {
+export const PHASE_TO_SKILL: Record<string, Record<string, string>> = {
   coding: {
     plan: 'plan',
     design: 'design',
@@ -89,8 +92,10 @@ const PHASE_TO_SKILL: Record<string, Record<string, string>> = {
  * 两条通道装配相同（`diagnose → patch → closeout`）：`channel` 只决定各阶段技能内部的加严分支
  * （现场保全 / 止血 / 回退路径 / 数据脚本·埋点·开关 / 独立验证 / 发布确认），**不改变阶段序列**，
  * 因此这里不按 channel 分表。`channel` 仍写入 entry，由各阶段技能读取。
+ *
+ * 导出供漂移护栏（同 `PHASE_TO_SKILL`）。
  */
-const DEBUG_PHASE_TO_SKILL: Record<string, string> = {
+export const DEBUG_PHASE_TO_SKILL: Record<string, string> = {
   diagnose: 'patch',
   patch: 'closeout',
 };
