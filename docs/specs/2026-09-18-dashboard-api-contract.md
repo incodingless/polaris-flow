@@ -109,12 +109,27 @@ M1 之后，数据源切到 polaris-flow 的当前模型；**字段名与形状�
 | kind | phase 序列 |
 | --- | --- |
 | coding | `specify` → `plan` → `design`（可选） → `tasks` → `build` → `verify` → `ship`；旁路 `retro` 不推进游标 |
-| debug | `triage` → `diagnose` → `prescribe` → `patch` → `prove` → `closeout`（测试通道不装 `prove`） |
+| debug | `diagnose` → `patch` → `closeout`（**三阶段**；两通道装配相同，差别只在 `channel` 决定的加严分支；起始阶段 `diagnose`） |
 | requirement | `discovery` → `draft` → `refine` → `ship` |
 | testcase | `discovery` → `draft` → `refine` → `ship` |
 | prototype | `blueprint` → `build` → `review` → `ship` |
 
 coding 三模式（`tweak` / `normal` / `full`）不改变 phase 名，只决定装配哪些阶段技能。
+
+### 枚举的真相来源（2026-09-18 订正）
+
+本表的裁定依据是 **`assets/zh/skills/README.md` §阶段一览** 与各 kind 的 `state.yaml` 模板注释（两者互洽）。以下 in-repo 文本与本表**不一致，均属陈旧，不作为实现依据**：
+
+| 陈旧处 | 它写的 | 为什么不算数 |
+| --- | --- | --- |
+| `assets/shared/templates/workflow-template.yaml:16` 注释 | coding 为 `specify \| plan \| design \| build \| verify \| delivery`（缺 `tasks`、用 `delivery`） | 与技能 README 和 state 模板都矛盾 |
+| `assets/shared/templates/workflow-template.yaml:68` 注释 | debug 为 `triage \| diagnose \| prescribe \| patch \| prove \| closeout` | 六段时代遗留 |
+| `docs/specs/2026-09-16-debug-workflow-design.md` | debug 六阶段 | 该文档自身在 debug README 里被声明为「成文于六段时代，阶段名以 README 为准」；2026-09-17 已三阶段合并 |
+| `src/core/config/task-kind-layout.ts` 的 debug `initialPhase: 'triage'` 与 `initPatches['runtime.triage.*']` | 起始阶段 `triage` | 六段时代遗留，**属缺陷**：debug 实际起始阶段是 `diagnose`（`debug/diagnose/SKILL.md:133` 即 `--phase diagnose`） |
+
+debug 三阶段合并的原始记录：`assets/zh/skills/debug/README.md:7`（「2026-09-17 三阶段合并」——`triage` + `diagnose` + `prescribe` 合并为单一 `diagnose`，`prove` 并入 `patch` 的 1.5 步）。
+
+> debug 族的模板与注释对齐不在 Dashboard 范围内（那是 debug 技能族自己的迁移）；但 `task-kind-layout.ts` 的 `initialPhase` 属 M2 直接改动文件，须一并修正，否则新建的 debug 任务会写成 `phase: triage`，面板显示「未知阶段」。
 
 ## 六、契约变更流程
 

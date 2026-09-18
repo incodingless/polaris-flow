@@ -77,7 +77,7 @@ Dashboard API 是 **polaris-cli 时代**的模型，与 polaris-flow 现状已�
 | 任务列表来源 | 扫 `openspec/changes/*/` + `.openspec.yaml` 的 `schema`/`summary`/`created`/`labels` | `.polaris/workflow.yaml` 的 5 个数组：`coding_tasks` / `requirement_tasks` / `testcase_tasks` / `prototype_tasks` / `debug_tasks`，字段 `task_id` / `phase` / `channel` / `worktree_path` / `started_at` |
 | 单任务运行态 | 无（phase 由 `tasks.md` 勾选反推） | `.polaris/tasks/<id>/state.yaml`、`.polaris/testcases/<id>/state.yaml`（靠 `state.kind` 区分） |
 | 当前阶段 | `getChangePhase()` 按文件存在性猜：tasks.md / tech-design.md / specs/ / proposal.md | `state.yaml.phase`，单一真相 |
-| 阶段/步骤定义 | 内置 `config/tasks.yaml`：`prepare → proposal → specs → design → tasks → apply → archive → completion`，含 `create`/`brainstorm`/`design-domain-model` 等 step | 8 阶段 `specify → plan → design → tasks → build → verify → ship`（+ 旁路 `retro`）× 3 模式 `tweak` / `normal` / `full`；debug 族另有 `triage → diagnose → prescribe → patch → prove → closeout` |
+| 阶段/步骤定义 | 内置 `config/tasks.yaml`：`prepare → proposal → specs → design → tasks → apply → archive → completion`，含 `create`/`brainstorm`/`design-domain-model` 等 step | 8 阶段 `specify → plan → design → tasks → build → verify → ship`（+ 旁路 `retro`）× 3 模式 `tweak` / `normal` / `full`；debug 族另有 `diagnose → patch → closeout`（三阶段，两通道装配相同） |
 | 任务类型 | 单一种类（隐含 coding） | 5 类 kind，其中 requirement / testcase / prototype / debug 对面板完全不可见 |
 | 归档位置 | `openspec/changes/archive/<date>-<name>` | `.polaris/archive/<id>/`（运行态快照）+ `openspec` 侧产物 |
 | 多项目 | `~/.polaris/projects.json` | 全局配置在 `~/.polaris/polaris.yaml`，无项目注册表 |
