@@ -15,7 +15,7 @@ Polaris Flow 是一站式工作流平台，不是单纯的 CLI 壳。本仓库�
 - **安装**：`init` / `doctor` / `update` / `uninstall` 命令及平台检测逻辑
 - **工作流 schema**：OpenSpec schema 模板与配置（`assets/` + `src/core/`）
 - **Skills**：中英文 Skill 包与 `manifest.json` 安装清单
-- **Dashboard**：UI/API 实现在同级仓库 `polaris-web`；本仓 `polaris dashboard` 仅负责定位并启动（`src/dashboard/server.ts`）
+- **Dashboard**：本地工作台，单进程单端口。传输层在 `src/dashboard/`，前端子工程在 `dashboard/`，前端产物构建到 `dist/web/`
 
 ## 架构分层
 
@@ -24,18 +24,22 @@ src/cli/        → Commander 入口，只做命令注册
 src/commands/   → 命令编排（交互、选项解析、输出格式化）
 src/core/       → 平台无关业务逻辑（可单测）
 src/utils/      → 文件 I/O 等通用工具
-src/dashboard/  → polaris dashboard 启动器（拉起同级 polaris-web，不内嵌前端）
+src/dashboard/  → Dashboard API（传输层：路由、静态托管；业务语义一律下沉 src/core/）
+dashboard/      → Dashboard 前端子工程（Vue + Vite，自带 package.json/lockfile，不参与 pnpm workspace）
 assets/         → 发布到 npm 的 skills、hooks等资产，由 init 分发到用户项目
 ```
 
-同级仓库约定（开发态）：
+仓库结构（单仓）：
 
 ```
-polaris/
-├── polaris-flow/   # 本仓库（CLI / skills / 工作流）
-├── polaris-web/    # Dashboard 前端（Vue）+ scripts/dev.sh
-└── polaris-cli/    # Dashboard API（由 polaris-web/scripts/dev.sh 拉起）
+polaris-flow/
+├── src/            # CLI、命令编排、core、Dashboard API
+├── dashboard/      # Dashboard 前端子工程；由 build.js 构建到 dist/web
+├── assets/         # 发布到 npm 的 skills / hooks 等资产
+└── dist/           # 构建产物：dist/*（后端 tsc）、dist/web（前端 vite）
 ```
+
+`polaris-web` 与 `polaris-cli` 两仓已于 2026-09-18 并入本仓，不再单独存在。前端**不得**放进 `src/` 下 —— `lint-staged` / `format:check` / `lint` 三条 glob 均以仓库根锚定且只覆盖 `src/**`，放进去会被 prettier 重排（本仓 `semi: true`，前端风格是不写分号）。
 
 依赖方向：`cli → commands → core → utils`，禁止反向依赖。
 

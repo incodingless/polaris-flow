@@ -21,7 +21,20 @@ const SECRET_PATTERNS = [
 ];
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist']);
-const TEXT_EXTENSIONS = new Set(['.js', '.ts', '.json', '.md', '.txt', '.yml', '.yaml', '.toml']);
+// .vue 也要扫：Dashboard 前端（dashboard/）的组件是 .vue，不纳入即为密钥扫描盲点
+const TEXT_EXTENSIONS = new Set([
+  '.js',
+  '.ts',
+  '.json',
+  '.md',
+  '.txt',
+  '.yml',
+  '.yaml',
+  '.toml',
+  '.vue',
+  '.html',
+  '.css',
+]);
 const README_IMAGE_PATTERN = /\b(?:src|srcset)=["'](?:\.\/)?img\//;
 
 function* walkFiles(dir) {

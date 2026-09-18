@@ -29,6 +29,9 @@
 - **agents 安装**: 将 `assets/<lang>/agents/` 下评审 agent（含 `propose-review-agent`、`design-review-agent`、`plan-review-agent`、`openspec-review-agent`）写入 `.<platform>/agents/`；session-start 注入 `challenger.model`
 - **outside-voice 协议与模板**: `policies/outside-voice.md`、`templates/outside-voice-prompt.tmpl.md`
 - **propose 主审**: 新增 `propose-review-agent`；`polaris-flow-propose` Step 4.6 派发主审 + 询问 Outside Voice
+- **Dashboard 并入本仓**: `polaris-web`（Vue 3 + Vite 前端）与 `polaris-cli` 的 Dashboard API 一并并入；前端落仓库根 `dashboard/`、API 落 `src/dashboard/`，两源仓退役。迁移由 `scripts/migrate-dashboard.js` 以复制方式完成（白名单驱动、源仓只读、默认预演）
+- **polaris dashboard 单进程单端口**: 同一端口同时提供 `/api/*` 与前端静态资源（`dist/web/`），就绪后自动打开浏览器；新增 `--api-only` 供前端 HMR 开发、`--no-open` 关闭自动打开。`build.js` 在 tsc 之后追加 vite 步骤，前端产物与后端编译产物同级不混层
+- **Dashboard API 契约**: 新增 `docs/specs/2026-09-18-dashboard-api-contract.md` 冻结 `/api/*` 的端点、字段名、错误形状与只读性 —— 前端纯 JS、后端 TS，无共享类型，契约是唯一形式化保证
 
 ### Tests
 
@@ -137,6 +140,9 @@
 - **平台支持收窄**: 仅保留 claude / cursor / trae 三个目标平台，删除其余平台（codex / opencode / windsurf / qwen / qoder / gemini / copilot / kiro / cline / pi / lingma 等）的元数据、命令适配器、hook installer、规则格式、Superpowers agent 映射、OpenSpec 迁移与探测逻辑；`hookFormat` 类型从 7 值收窄到 `'claude-code'`，`rulesFormat` 从 `'md' | 'mdc' | 'copilot'` 收窄到 `'md' | 'mdc'`
 - **Pi extension**: 删除 `install/pi-extension.ts` 与 `installCommands` 内 Pi 分流，Pi 平台不再走 TS extension 生成
 - **死代码**: 删除无外部 import 的 `hasCodexPluginSuperpowers` / `hasOpenCodePluginSuperpowers` / `hasPluginSuperpowers` 及其辅助函数（`hasSuperpowersInPluginCache` / `hasOpenCodePolarisCommands`）
+- **旧 Dashboard 启动链**: 移除 `--api-port`、`POLARIS_WEB_PATH`、`resolvePolarisWebRoot`（定位同级仓库）与 `startDashboard` 的子进程 spawn 逻辑，命令描述改为「单进程工作台」
+- **绕过锁的 Dashboard 写路由**: 删除 `POST /api/changes/:name/tasks/:id`（直改 `tasks.md`）、`PUT /api/configs/:path`（直写配置文件）、`POST /api/changes/:name/steps/:stepId/operations` 与 `POST /api/changes/:name/validate`（依赖外部 `openspec` CLI）、`POST /api/compose` 与 `GET /api/schemas`。面板在 M1/M2 为只读，写操作推迟到 M3 并落到 CLI 原语
+- **失效测试**: 删除 `test/ts/dashboard-resolve.test.ts`（被测的 `resolvePolarisWebRoot` 已移除）
 
 ## 0.1.0
 
