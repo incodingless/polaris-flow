@@ -123,6 +123,44 @@ export async function fetchTaskPlanLint(project, taskId, kind) {
   return parseResponse(res)
 }
 
+/**
+ * 推进任务的阶段（写）。
+ *
+ * 只写游标，且后端只接受**严格更晚**的阶段（回退留痕属后续切片）。
+ * `kind` 带上是为了让后端在 id 重名时能定位到正确的游标数组。
+ */
+export async function advanceTaskPhase(project, taskId, to, kind) {
+  const res = await fetch(
+    BASE + '/tasks/' + encodeURIComponent(taskId) + '/phase' + projectQuery(project, { kind }),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to })
+    }
+  )
+  return parseResponse(res)
+}
+
+/**
+ * 勾选计划文件的一行（写）。
+ *
+ * `index` 是**第几个复选框（0-based，按出现顺序）**，不是行号 —— 与看板渲染的
+ * `item.index` 同源。`file` 可省略，省略时后端按产物表推导计划文件（前端不需要
+ * 知道各 kind 的计划文件在哪）。
+ */
+export async function setTaskCheckbox(project, taskId, index, checked, options = {}) {
+  const { file, kind } = options
+  const res = await fetch(
+    BASE + '/tasks/' + encodeURIComponent(taskId) + '/checkbox' + projectQuery(project, { kind }),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ index, checked, file })
+    }
+  )
+  return parseResponse(res)
+}
+
 /** 获取 workflow 阶段定义（用于查看面板 Tab） */
 export async function fetchWorkflowPhases(workflowId) {
   if (!workflowId) return { error: '缺少 workflow 名称' }

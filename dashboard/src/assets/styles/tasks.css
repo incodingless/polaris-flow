@@ -1867,6 +1867,22 @@
   border-color: var(--success);
   background: var(--success);
 }
+/* 可勾选时的按钮态：外观与只读的 span 一致，只补可点反馈 */
+.tasks-kanban__status--button {
+  padding: 0;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.tasks-kanban__status--button:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+.tasks-kanban__status--button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.tasks-kanban__status--busy {
+  border-color: var(--primary);
+}
 .tasks-kanban__status-icon {
   width: 12px;
   height: 12px;

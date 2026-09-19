@@ -26,6 +26,9 @@
         :content="file.content || ''"
         :file="file"
         :board-title="boardTitle"
+        :editable="editable"
+        :busy-index="busyIndex"
+        @toggle="$emit('toggle', $event)"
       />
       <pre v-else class="tasks-file-panel__source"><code>{{ file.content || '（空文件）' }}</code></pre>
     </div>
@@ -41,8 +44,22 @@ import TasksKanbanPreview from './TasksKanbanPreview.vue'
 
 const props = defineProps({
   file: { type: Object, default: null },
-  boardTitle: { type: String, default: '' }
+  boardTitle: { type: String, default: '' },
+  /**
+   * 可勾选的计划文件（项目根相对路径，来自 task.plan_file）。
+   * 只有当前文件**正是**它时才允许勾选 —— 靠路径精确比对，不靠文件名猜，
+   * 否则在同名文件（如 openspec 的 tasks.md 与 .polaris 的 tasks.md）上会改错对象。
+   */
+  planFile: { type: String, default: '' },
+  /** 正在提交的复选框序号 */
+  busyIndex: { type: Number, default: null }
 })
+
+defineEmits(['toggle'])
+
+const editable = computed(
+  () => props.planFile !== '' && props.file?.path === props.planFile
+)
 
 const viewMode = ref('preview')
 

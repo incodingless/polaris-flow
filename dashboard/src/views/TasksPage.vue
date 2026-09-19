@@ -59,6 +59,8 @@
           :validating="validating"
           :validate-result="validateResult"
           :validate-error="validateError"
+          :busy-index="busyCheckboxIndex"
+          :advancing="advancing"
           @stage-nav="selectStageNav"
           @view-session="viewSession"
           @delete-session="deleteSession"
@@ -66,6 +68,8 @@
           @tab-change="activeTab = $event"
           @refresh-file="handleRefreshFile"
           @revalidate="runValidate"
+          @toggle-checkbox="handleToggleCheckbox"
+          @advance-phase="handleAdvancePhase"
         />
         <div v-else class="content-area__empty">
           <p>暂无内容</p>
@@ -115,7 +119,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { store, showToast } from '../stores/index.js'
-import { revealPath, fetchTaskPlanLint } from '../api/index.js'
+import { revealPath, fetchTaskPlanLint, advanceTaskPhase, setTaskCheckbox } from '../api/index.js'
 import { resolveStageTab } from '../utils/workflow.js'
 import { getDefaultDetailTabId, fileKey, fileDisplayName } from '../utils/changeFiles.js'
 import { useTasks } from '../composables/useTasks.js'
@@ -192,6 +196,9 @@ const refreshingFileKey = ref('')
 const validating = ref(false)
 const validateResult = ref(null)
 const validateError = ref('')
+/** 正在提交的复选框序号；非 null 时看板上的复选框全部禁用（写操作互斥） */
+const busyCheckboxIndex = ref(null)
+const advancing = ref(false)
 /** 按「项目路径::变更名」缓存各变更最后一次检测结果 */
 const validateCache = reactive({})
 
@@ -305,6 +312,59 @@ async function runValidate() {
   } else {
     showToast(`计划校验：${(data.violations || []).length} 项未通过`)
   }
+}
+
+/**
+ * 勾选计划文件的一行（写）。
+ *
+ * `index` 是「第几个复选框（0-based）」，与看板渲染的 `item.index` 同源 ——
+ * 不传行号，因为行号会随标题/空行增删而变。文件路径也不传：后端按产物表推导，
+ * 前端因此不必知道 coding 与 debug 的计划文件分别在哪。
+ *
+ * 写成功后重取详情（文件内容 + 进度 + 阶段条一次刷全），不在前端本地改状态 ——
+ * 本地改出来的「一致」是假一致，跟真实文件无关。
+ */
+async function handleToggleCheckbox({ index, checked }) {
+  const task = viewingTask.value
+  if (!task || busyCheckboxIndex.value != null) return
+
+  busyCheckboxIndex.value = index
+  const { data, error } = await setTaskCheckbox(store.activeProject, task.name, index, checked, {
+    kind: task.kind
+  })
+  busyCheckboxIndex.value = null
+
+  if (error) {
+    showToast('勾选失败: ' + error)
+    return
+  }
+  showToast(`已${checked ? '勾选' : '取消勾选'}第 ${data.ordinal + 1} 项（${data.tasks_done}/${data.tasks_total}）`)
+  await openDetail(task)
+}
+
+/**
+ * 推进阶段（写）。只做推进 —— 回退要写 `regressions[]` 留痕，属后续切片。
+ * 「目标必须严格更晚」由后端把关（原语不校验 phase 取值），前端只负责给默认目标与确认。
+ */
+async function handleAdvancePhase(target) {
+  const task = viewingTask.value
+  if (!task || advancing.value || !target?.code) return
+
+  advancing.value = true
+  const { data, error } = await advanceTaskPhase(
+    store.activeProject,
+    task.name,
+    target.code,
+    task.kind
+  )
+  advancing.value = false
+
+  if (error) {
+    showToast('推进失败: ' + error)
+    return
+  }
+  showToast(`阶段已推进：${data.from} → ${data.to}`)
+  await openDetail(task)
 }
 
 async function viewSession() {

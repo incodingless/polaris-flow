@@ -72,6 +72,44 @@
         <p v-if="stepCheckText" class="stage-card__check">{{ stepCheckText }}</p>
       </div>
 
+      <!-- 推进阶段（M3 写操作）。只做推进：回退要写 regressions[] 留痕，属后续切片，
+           所以这里不摆一个点了会报错的灰按钮。目标由步骤条推导，阶段未登记时不出现。 -->
+      <div v-if="nextPhase" class="phase-advance">
+        <template v-if="!confirmingAdvance">
+          <button
+            type="button"
+            class="btn btn--sm"
+            :disabled="advancing"
+            @click="confirmingAdvance = true"
+          >
+            推进阶段 → {{ nextPhase.name }}
+          </button>
+          <span class="phase-advance__hint">写入 workflow.yaml 游标（当前 {{ task.phase }}）</span>
+        </template>
+        <template v-else>
+          <span class="phase-advance__confirm">
+            确认推进：<code>{{ task.phase }}</code> → <code>{{ nextPhase.code }}</code>
+            （{{ nextPhase.name }}）
+          </span>
+          <button
+            type="button"
+            class="btn btn--sm btn--primary"
+            :disabled="advancing"
+            @click="onConfirmAdvance"
+          >
+            {{ advancing ? '推进中...' : '确认推进' }}
+          </button>
+          <button
+            type="button"
+            class="btn btn--sm"
+            :disabled="advancing"
+            @click="confirmingAdvance = false"
+          >
+            取消
+          </button>
+        </template>
+      </div>
+
       </div>
 
       <Transition name="review-slide">
@@ -110,6 +148,9 @@
                 v-if="activeTab === 'tasks'"
                 :file="singleTabFile"
                 :board-title="task.title"
+                :plan-file="task.planFile || ''"
+                :busy-index="busyIndex"
+                @toggle="$emit('toggle-checkbox', $event)"
               />
               <ChangeFileView
                 v-else
@@ -147,6 +188,9 @@
                   v-if="activeTab === 'tasks'"
                   :file="selectedFile"
                   :board-title="task.title"
+                  :plan-file="task.planFile || ''"
+                  :busy-index="busyIndex"
+                  @toggle="$emit('toggle-checkbox', $event)"
                 />
                 <ChangeFileView v-else :file="selectedFile" />
               </div>
@@ -165,6 +209,7 @@ import {
   progressClass,
   buildStageNavItems,
   findActiveStep,
+  findNextPhase,
   findStepByNumber,
   STEP_STATUS_LABELS,
   formatStepCheck,
@@ -196,7 +241,11 @@ const props = defineProps({
   refreshingFileKey: { type: String, default: '' },
   validating: { type: Boolean, default: false },
   validateResult: { type: Object, default: null },
-  validateError: { type: String, default: '' }
+  validateError: { type: String, default: '' },
+  /** 正在提交的复选框序号（写操作互斥，避免连点） */
+  busyIndex: { type: Number, default: null },
+  /** 正在推进阶段 */
+  advancing: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
@@ -206,7 +255,9 @@ const emit = defineEmits([
   'action',
   'tab-change',
   'refresh-file',
-  'revalidate'
+  'revalidate',
+  'toggle-checkbox',
+  'advance-phase'
 ])
 
 const stageNavItems = computed(() => buildStageNavItems(props.task))
@@ -276,6 +327,25 @@ const showCompletionCard = computed(() =>
 
 const stepCheckText = computed(() => formatStepCheck(displayStep.value?.check))
 
+// ---- 推进阶段（M3 写操作） ----
+
+/** 目标阶段；由步骤条推导（后端仍是权威，会再校验目标必须严格更晚） */
+const nextPhase = computed(() => findNextPhase(props.task))
+
+/** 二次确认：不可逆类操作要先显示「从哪到哪」，避免一点就写 */
+const confirmingAdvance = ref(false)
+
+// 切任务时收起确认态，否则会在新任务上残留上一个任务的确认框
+watch(() => props.task.name, () => {
+  confirmingAdvance.value = false
+})
+
+function onConfirmAdvance() {
+  if (!nextPhase.value) return
+  emit('advance-phase', nextPhase.value)
+  confirmingAdvance.value = false
+}
+
 // 步骤操作（operations）端点在 M2 移除，操作白名单属 M3（设计文档 §5.2）。
 // M3 的写操作各自有显式入口（阶段推进 / 交付清理 / 计划校验），都落在下面的
 // 面板或卡片上，不用这个通用「步骤操作」通道 —— 所以相关模板与状态一并删掉了。
@@ -298,5 +368,22 @@ function stepTagClass(status) {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+}
+.phase-advance {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  flex-wrap: wrap;
+  margin-top: var(--spacing-8);
+  padding-top: var(--spacing-8);
+  border-top: 1px dashed var(--border-normal);
+}
+.phase-advance__hint {
+  font-size: 12px;
+  color: var(--text-helper);
+}
+.phase-advance__confirm {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 </style>

@@ -94,6 +94,29 @@ export function parseCheckboxes(content: string): TaskProgress | null {
 }
 
 /**
+ * 该 kind 声明的「计划文件」候选路径（按产物表声明顺序，项目根相对 posix）。
+ *
+ * 依据是产物表的 `checkboxes: true` 标记，**不写死 `tasks.md` 或
+ * `openspec/changes/<id>/`** —— coding 的计划在 `openspec/changes/<id>/tasks.md`，
+ * debug 的在 `.polaris/tasks/<id>/tasks.md`；写死任一个都会让另一族定位错文件。
+ *
+ * 读取（进度 / 校验）与写入（勾选）共用本函数：两侧各自推导必然漂移，而漂移的表现
+ * 是「面板算了进度、勾选却落到另一个文件」这类静默错位。
+ */
+export function planFileCandidates(kind: WorkflowTaskKind, taskId: string): string[] {
+  return getKindArtifacts(kind)
+    .filter((a) => a.checkboxes)
+    .flatMap((a) => a.relPaths.map((rel) => rel.replace('<id>', taskId)));
+}
+
+/** 该 kind 的候选里**实际存在**的那个；都不存在返回空串 */
+export function findPlanFile(projectRoot: string, kind: WorkflowTaskKind, taskId: string): string {
+  return (
+    planFileCandidates(kind, taskId).find((rel) => existsSync(path.join(projectRoot, rel))) ?? ''
+  );
+}
+
+/**
  * 读该 kind 声明的复选框产物（产物表里 `checkboxes: true` 的那条）→ 进度。
  * 未声明或无文件时返回 null（UI 不渲染该行）。
  */
@@ -102,17 +125,14 @@ export function readTaskCheckboxes(
   kind: WorkflowTaskKind,
   taskId: string,
 ): TaskProgress | null {
-  const targets = getKindArtifacts(kind).filter((a) => a.checkboxes);
-  for (const artifact of targets) {
-    for (const rel of artifact.relPaths) {
-      const abs = path.join(projectRoot, rel.replace('<id>', taskId));
-      if (!existsSync(abs)) {
-        continue;
-      }
-      const progress = parseCheckboxes(readTextSafe(abs));
-      if (progress) {
-        return progress;
-      }
+  for (const rel of planFileCandidates(kind, taskId)) {
+    const abs = path.join(projectRoot, rel);
+    if (!existsSync(abs)) {
+      continue;
+    }
+    const progress = parseCheckboxes(readTextSafe(abs));
+    if (progress) {
+      return progress;
     }
   }
   return null;

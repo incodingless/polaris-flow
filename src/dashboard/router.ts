@@ -4,9 +4,12 @@
  * 定位：`src/dashboard/` 是传输层（HTTP 编解码、路由、序列化），业务语义一律下沉 `src/core/`。
  * 数据源与响应形状见 `docs/specs/2026-09-18-dashboard-api-contract.md`（M2 定稿）。
  *
- * 只读：本表除 `projects` 的注册表维护（写 `~/.polaris/`，非任务模型）与 `reveal`
- * （调系统文件管理器、不改文件）外，全部为只读。任何新增写操作必须落到
- * polaris-flow 的 CLI 原语并经 `.polaris/.locks/`。
+ * 只读性：除下列三类外全部只读 ——
+ *   - `projects` 的注册表维护（写 `~/.polaris/`，非任务模型）
+ *   - `reveal`（调系统文件管理器，不改文件）
+ *   - **M3 的三个写端点**：`POST /api/tasks/:id/phase`、`POST /api/tasks/:id/cleanup`、
+ *     `POST /api/tasks/:id/checkbox` —— 它们一律转调 `src/core/hooks/*` 的原语并持
+ *     `.polaris/.locks/`，**本层不写任何文件**（见契约 §五）。
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { existsSync } from 'node:fs';
@@ -89,6 +92,36 @@ async function handleApiRoute(
       return json(
         res,
         await tasksApi.lintTaskPlan(projectRoot, id, queryOf(reqUrl).get('kind') ?? undefined),
+      );
+    }
+
+    // POST /api/tasks/:id/phase —— 推进阶段（写；经 workflow-entry 原语 + workflow.lock）
+    const phaseMatch = pathname.match(/^\/api\/tasks\/([^/]+)\/phase$/);
+    if (method === 'POST' && phaseMatch) {
+      const id = decodeURIComponent(phaseMatch[1]!);
+      return json(
+        res,
+        await tasksApi.advanceTaskPhase(
+          projectRoot,
+          id,
+          body,
+          queryOf(reqUrl).get('kind') ?? undefined,
+        ),
+      );
+    }
+
+    // POST /api/tasks/:id/checkbox —— 勾选 tasks.md（写；经 task-state-entry 原语 + task-state 锁）
+    const checkboxMatch = pathname.match(/^\/api\/tasks\/([^/]+)\/checkbox$/);
+    if (method === 'POST' && checkboxMatch) {
+      const id = decodeURIComponent(checkboxMatch[1]!);
+      return json(
+        res,
+        await tasksApi.setTaskCheckbox(
+          projectRoot,
+          id,
+          body,
+          queryOf(reqUrl).get('kind') ?? undefined,
+        ),
       );
     }
 

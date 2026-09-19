@@ -86,7 +86,29 @@
             :key="item.index"
             class="tasks-kanban__task-row"
           >
+            <button
+              v-if="editable"
+              type="button"
+              class="tasks-kanban__status tasks-kanban__status--button"
+              :class="{
+                'tasks-kanban__status--done': item.done,
+                'tasks-kanban__status--busy': busyIndex === item.index
+              }"
+              :disabled="busyIndex != null"
+              :aria-label="item.done ? '标记为未完成' : '标记为已完成'"
+              @click="$emit('toggle', { index: item.index, checked: !item.done })"
+            >
+              <svg
+                v-if="item.done"
+                class="tasks-kanban__status-icon"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </button>
             <span
+              v-else
               class="tasks-kanban__status"
               :class="{ 'tasks-kanban__status--done': item.done }"
               role="img"
@@ -122,8 +144,14 @@ import { fileDisplayName } from '../../utils/changeFiles.js'
 const props = defineProps({
   content: { type: String, default: '' },
   file: { type: Object, default: null },
-  boardTitle: { type: String, default: '' }
+  boardTitle: { type: String, default: '' },
+  /** 可勾选（仅当该文件是产物表声明的计划文件时由上层置真） */
+  editable: { type: Boolean, default: false },
+  /** 正在提交的复选框序号；非 null 时全部复选框禁用，避免并发误点 */
+  busyIndex: { type: Number, default: null }
 })
+
+defineEmits(['toggle'])
 
 const statusTabs = [
   { id: 'all', label: '全部任务' },

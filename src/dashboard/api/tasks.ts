@@ -1,11 +1,13 @@
 /**
- * 任务列表与详情 API（`GET /api/tasks`、`GET /api/tasks/:id`），只读。
+ * 任务读写 API（`/api/tasks*`）。
  *
  * 数据源：`.polaris/workflow.yaml` 的 5 个游标数组 + `state.yaml`（运行态）
  * + `openspec/changes/<id>/` 文件树。**phase 取自游标**，不取 `state.yaml.phase`
  * （依据 `docs/specs/2026-09-19-phase-truth-unification-design.md` §1.1）。
  *
- * 本模块只做「编排 scan 层 + 组响应形状」，不含业务语义。
+ * 写操作（M3）：**一律经 `src/core/hooks/*` 的原语函数**，本模块不写任何文件
+ * —— `advanceTaskPhase` 调 `runWorkflowEntry`（持 `workflow.lock`），并在返回前
+ * 回读游标校对。这是设计文档 §5.2 的硬约束：绕过 `.locks/` 的直写路径不许存在。
  */
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -21,7 +23,15 @@ import {
 } from '../../core/config/task-kind-layout.js';
 import { parseWorkflowTaskKind, type WorkflowTaskKind } from '../../core/config/workflow-state.js';
 import { runTasksLint } from '../../core/hooks/tasks-lint.js';
-import { listTaskFiles, readTaskCheckboxes, type TaskFile } from '../scan/files.js';
+import { runTaskStateEntry } from '../../core/hooks/task-state-entry.js';
+import { runWorkflowEntry } from '../../core/hooks/workflow-entry.js';
+import {
+  findPlanFile,
+  listTaskFiles,
+  planFileCandidates,
+  readTaskCheckboxes,
+  type TaskFile,
+} from '../scan/files.js';
 import { readTaskRuntime } from '../scan/state.js';
 import {
   scanArchivedTasks,
@@ -79,6 +89,11 @@ export type TaskItem = {
   /** `tasks.md` 复选框进度；该 kind 无此产物时为 null */
   tasks_done: number | null;
   tasks_total: number | null;
+  /**
+   * 可勾选的计划文件（项目根相对 posix）；该 kind 无复选框产物或文件未生成时为空串。
+   * 前端据此判断「当前展示的文件能否直接勾选」，而不是靠文件名猜。
+   */
+  plan_file: string;
   /** 步骤条数据（与 `/api/workflow/:kind/phases` 的定义同源） */
   phase_groups: PhaseGroup[];
 };
@@ -189,6 +204,7 @@ function toTaskItem(cursor: TaskCursor, projectRoot: string): TaskItem {
   const phase = archived ? 'archived' : (cursor.phase ?? '');
   const checkboxes =
     runtime && !archived && kind ? readTaskCheckboxes(projectRoot, kind, cursor.task_id) : null;
+  const planFile = !archived && kind ? findPlanFile(projectRoot, kind, cursor.task_id) : '';
 
   return {
     task_id: cursor.task_id,
@@ -212,6 +228,7 @@ function toTaskItem(cursor: TaskCursor, projectRoot: string): TaskItem {
     task_path: taskPathOf(cursor),
     tasks_done: checkboxes?.done ?? null,
     tasks_total: checkboxes?.total ?? null,
+    plan_file: planFile,
     phase_groups: buildPhaseGroups(kind, phase, runtime?.phaseStatuses ?? {}, archived),
   };
 }
@@ -305,7 +322,9 @@ export async function getTaskDetail(
   return { ...item, files, artifacts };
 }
 
-/** 计划校验端点（只读）：跑 `tasks-lint`，不写任何文件 */
+/**
+ * 计划校验端点（只读）：跑 `tasks-lint`，不写任何文件
+ */
 export type PlanLintResponse = {
   /** null 表示「没有可校验的计划文件」，不是失败 */
   pass: boolean | null;
@@ -334,22 +353,234 @@ export async function lintTaskPlan(
     return { pass: null, violations: [], file: '', reason: '无法确定任务类型，不猜计划文件位置' };
   }
 
-  // 计划文件由产物表声明（`checkboxes: true` 的那条），**不写死 `tasks.md`** ——
-  // 每个 kind 的计划文件名/落点可以不同，写死会让 debug / prototype 静默校验错文件。
-  const targets = getKindArtifacts(cursor.kind)
-    .filter((a) => a.checkboxes)
-    .flatMap((a) => a.relPaths.map((rel) => rel.replace('<id>', cursor.task_id)));
-  if (targets.length === 0) {
+  const candidates = planFileCandidates(cursor.kind, cursor.task_id);
+  if (candidates.length === 0) {
     return { pass: null, violations: [], file: '', reason: '该任务类型无计划文件' };
   }
 
-  const rel = targets.find((r) => existsSync(path.join(projectRoot, r)));
+  const rel = findPlanFile(projectRoot, cursor.kind, cursor.task_id);
   if (!rel) {
     return { pass: null, violations: [], file: '', reason: '计划文件尚未生成' };
   }
 
   const result = await runTasksLint(path.join(projectRoot, rel));
   return { pass: result.pass, violations: result.violations, file: rel, reason: '' };
+}
+
+export type AdvancePhaseResponse =
+  | {
+      ok: true;
+      task_id: string;
+      kind: WorkflowTaskKind;
+      from: string;
+      to: string;
+      /** 回读后的步骤条，前端直接据此重渲染，不必再拉一次详情 */
+      phase_groups: PhaseGroup[];
+      phase_index: number;
+      phase_total: number;
+    }
+  | { error: string };
+
+/**
+ * 推进阶段（M3 写操作之一）。
+ *
+ * 只写**游标**（`workflow.yaml`），不碰 `state.yaml.phase` —— 后者是只写不读的镜像
+ * （phase 真相归一设计 §1.1），面板去维护它只会制造第二个真相。
+ *
+ * 按 D19 **只做推进**：目标阶段必须严格晚于当前；回退需要写 `regressions[]` 留痕，
+ * 属独立切片。校验放在传输层是有意的 —— 原语 `update-active` 不校验 phase 取值
+ * （原语级白名单属「phase 归一 A 案」），面板若不自守就会把拼错的阶段名写进游标。
+ */
+export async function advanceTaskPhase(
+  projectRoot: string,
+  taskId: string,
+  rawBody: string,
+  kindHint?: string,
+): Promise<AdvancePhaseResponse> {
+  let payload: { to?: unknown; kind?: unknown };
+  try {
+    payload = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    return { error: '无效的 JSON 请求体' };
+  }
+  const to = typeof payload.to === 'string' ? payload.to.trim() : '';
+  if (!to) {
+    return { error: '缺少 to（目标阶段）' };
+  }
+  const hint = kindHint ?? (typeof payload.kind === 'string' ? payload.kind : undefined);
+
+  const cursor = findCursor(taskId, hint, await scanTaskList(projectRoot), []);
+  if (!cursor) {
+    return { error: `Task "${taskId}" not found` };
+  }
+  if (cursor.source !== 'cursor') {
+    return { error: `任务「${taskId}」已归档（来源 ${cursor.source}），不能推进阶段` };
+  }
+  const kind = cursor.kind;
+  if (!kind) {
+    return { error: `无法确定任务「${taskId}」的类型，不能推进阶段` };
+  }
+
+  const mainline = getKindPhases(kind);
+  const legal = mainline.map((p) => `${p.code}(${p.name})`).join(' / ');
+  if (!isKnownPhase(kind, to)) {
+    return { error: `未知阶段「${to}」。${kind} 的合法阶段：${legal}` };
+  }
+  if (!mainline.some((p) => p.code === to)) {
+    return {
+      error: `「${to}」是旁路阶段，不在 ${kind} 的主序列中，不能由面板推进。合法阶段：${legal}`,
+    };
+  }
+
+  const from = cursor.phase ?? '';
+  const fromIdx = phaseIndexIn(kind, from);
+  const toIdx = phaseIndexIn(kind, to);
+  if (fromIdx < 0) {
+    return {
+      error: `当前阶段「${from || '(空)'}」未登记在 ${kind} 的阶段表中，无法判断推进方向；请人工确认后用 CLI 处理`,
+    };
+  }
+  if (toIdx <= fromIdx) {
+    return {
+      error: `只支持推进：当前「${from}」，目标「${to}」不比它更晚（回退留痕属后续切片）`,
+    };
+  }
+
+  const wf = await runWorkflowEntry({
+    op: 'update-active',
+    skill: 'dashboard',
+    kind,
+    repoRoot: projectRoot,
+    whereTaskId: taskId,
+    setPhase: to,
+  });
+  if (wf.exitCode !== 0) {
+    return { error: wf.message || `原语执行失败（exit ${wf.exitCode}）` };
+  }
+
+  // 不信原语的自述，回读游标校对 —— 「写了但没写对」比「没写」更难发现
+  const after = findCursor(taskId, kind, await scanTaskList(projectRoot), []);
+  if (!after || after.phase !== to) {
+    return {
+      error: `写入后回读不一致：期望 phase=${to}，实际 ${after ? after.phase : '(条目已消失)'}`,
+    };
+  }
+
+  const item = toTaskItem(after, projectRoot);
+  return {
+    ok: true,
+    task_id: taskId,
+    kind,
+    from,
+    to,
+    phase_groups: item.phase_groups,
+    phase_index: item.phase_index,
+    phase_total: item.phase_total,
+  };
+}
+
+export type SetCheckboxResponse =
+  | {
+      ok: true;
+      task_id: string;
+      /** 被改动的文件（项目根相对路径） */
+      file: string;
+      /** 复选框序号（0-based） */
+      ordinal: number;
+      /** 1-based 行号，便于人对照编辑器 */
+      line: number;
+      checked: boolean;
+      /** 是否真的改动了（已是目标值时为 false） */
+      changed: boolean;
+      tasks_done: number;
+      tasks_total: number;
+      /** `state.yaml` 的 `runtime.build` 计数是否同步（无该块时为 false） */
+      state_synced: boolean;
+    }
+  | { error: string };
+
+/**
+ * 勾选 `tasks.md` 的一行（M3 写操作之一）。
+ *
+ * 经 `task-state-entry set-checkbox`：它持 `task-state-<id>.lock`，并在**同一次锁内**
+ * 把 `state.yaml` 的 `runtime.build` 计数一起改掉（验收要求三者一致）。本层只做
+ * 参数整形与回读，不碰文件。
+ *
+ * `file` 可由调用方显式给出；不给时按**产物表**声明（`checkboxes: true` 的那条）推导
+ * —— 前端因此不需要知道各 kind 的计划文件在哪，也就不会写死 `openspec/changes/...`。
+ */
+export async function setTaskCheckbox(
+  projectRoot: string,
+  taskId: string,
+  rawBody: string,
+  kindHint?: string,
+): Promise<SetCheckboxResponse> {
+  let payload: { file?: unknown; index?: unknown; checked?: unknown; kind?: unknown };
+  try {
+    payload = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    return { error: '无效的 JSON 请求体' };
+  }
+  if (typeof payload.checked !== 'boolean') {
+    return { error: '缺少 checked（true | false）' };
+  }
+  if (!Number.isInteger(payload.index) || (payload.index as number) < 0) {
+    return { error: 'index 必须是非负整数（第几个复选框，0-based）' };
+  }
+  const hint = kindHint ?? (typeof payload.kind === 'string' ? payload.kind : undefined);
+
+  const cursor = findCursor(taskId, hint, await scanTaskList(projectRoot), []);
+  if (!cursor) {
+    return { error: `Task "${taskId}" not found` };
+  }
+  if (cursor.source !== 'cursor') {
+    return { error: `任务「${taskId}」已归档（来源 ${cursor.source}），不能改动` };
+  }
+  const kind = cursor.kind;
+  if (!kind) {
+    return { error: `无法确定任务「${taskId}」的类型，不能定位计划文件` };
+  }
+
+  let rel = typeof payload.file === 'string' ? payload.file.trim() : '';
+  if (!rel) {
+    const candidates = planFileCandidates(kind, taskId);
+    if (candidates.length === 0) {
+      return { error: `${kind} 类型无复选框产物，无可勾选内容` };
+    }
+    rel = findPlanFile(projectRoot, kind, taskId);
+    if (!rel) {
+      return { error: `计划文件尚未生成：${candidates[0]}` };
+    }
+  }
+
+  const result = await runTaskStateEntry({
+    op: 'set-checkbox',
+    repoRoot: projectRoot,
+    taskId,
+    kind,
+    skill: 'dashboard',
+    file: rel,
+    index: payload.index as number,
+    checked: payload.checked,
+  });
+  if (result.exitCode !== 0) {
+    return { error: result.message || `原语执行失败（exit ${result.exitCode}）` };
+  }
+
+  const value = (result.value ?? {}) as Record<string, unknown>;
+  const progress = readTaskCheckboxes(projectRoot, kind, taskId);
+  return {
+    ok: true,
+    task_id: taskId,
+    file: typeof value.file === 'string' ? value.file : rel,
+    ordinal: typeof value.ordinal === 'number' ? value.ordinal : (payload.index as number),
+    line: typeof value.line === 'number' ? value.line : 0,
+    checked: payload.checked,
+    changed: value.changed === true,
+    tasks_done: progress?.done ?? 0,
+    tasks_total: progress?.total ?? 0,
+    state_synced: value.state_synced === true,
+  };
 }
 
 export type TaskStats = {

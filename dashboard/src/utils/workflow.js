@@ -99,6 +99,31 @@ export function findNextStep(stepGroups, step) {
   return steps[index + 1]
 }
 
+/**
+ * 下一个可推进到的阶段（步骤条形状 → `{ code, name }`），没有则 null。
+ *
+ * 从「当前进行中」的那个往后找，**跳过 `skipped` 的阶段**（如 coding 的 design 被
+ * 显式跳过）—— 否则面板会给出「推进到 design」这种会把状态推回去的建议。
+ *
+ * 与后端 `advanceTaskPhase` 的约束一致：只做推进。但两侧都不依赖对方来判定 ——
+ * 后端才是权威（它还会再校验目标必须严格更晚），这里只是给按钮一个默认目标。
+ * 若任务阶段未登记（后端 `phase_known: false`），步骤条全是 `pending`，此处返回 null，
+ * 按钮不出现 —— 宁可不给入口，也不猜。
+ */
+export function findNextPhase(task) {
+  const groups = task?.stepGroups || []
+  const steps = flattenSteps(groups)
+  const active = steps.find((s) => s.status === 'active')
+  if (!active) return null
+
+  const index = steps.findIndex((s) => s.number === active.number)
+  for (let i = index + 1; i < steps.length; i++) {
+    if (steps[i].status === 'skipped') continue
+    return { code: steps[i].id, name: steps[i].name }
+  }
+  return null
+}
+
 /** 进度元数据（步骤条用） */
 /** 判断任务是否已归档（后端对归档项给合成 phase `archived`） */
 export function isArchivedTask(task) {

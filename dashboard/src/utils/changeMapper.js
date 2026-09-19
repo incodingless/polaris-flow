@@ -134,6 +134,8 @@ export function mapChangeToTask(task, index = 0, projectPath = '') {
     specCount: existingArtifactCount(task),
     tasksDone: task.tasks_done,
     tasksTotal: task.tasks_total,
+    // 可勾选的计划文件（项目根相对 posix）；非空且与当前展示文件一致时才允许勾选
+    planFile: task.plan_file || '',
     stepGroups,
     currentStep: activeStep?.number ?? Math.max(1, doneSteps),
     doneSteps,
