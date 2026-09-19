@@ -1,62 +1,60 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+/**
+ * 环境诊断 API（`GET /api/check`）：直接复用 `src/core/doctor.ts`。
+ *
+ * 只做一处映射：doctor 的 `'fail'` → 面板认的 `'error'`。
+ * **不把 `'fail'` 透穿给前端** —— 面板侧的状态枚举是 `ok|warn|error`，
+ * 两套词表在前端混用会静默错渲染。
+ *
+ * 旧实现是 5 条硬编码的 `existsSync`（检查 `polaris.meta.yaml` / `polaris.record.yaml` /
+ * `openspec/polaris.yaml` 等）。那些路径已失实，整块替换。
+ */
+import type { InstallScope } from '../../core/assets/polaris-paths.js';
+import { loadPolarisConfig } from '../../core/config/polaris-project-config.js';
+import { runDiagnostics, type DiagnosticStatus } from '../../core/doctor.js';
 
-export interface CheckResult {
+export type CheckStatus = 'ok' | 'warn' | 'error';
+
+export type CheckItem = {
   name: string;
-  status: 'ok' | 'warn' | 'error';
+  status: CheckStatus;
   description: string;
+};
+
+export type CheckResponse = {
+  checks: CheckItem[];
+  summary: { ok: number; warn: number; error: number };
+};
+
+/** doctor 状态 → 面板状态 */
+function toCheckStatus(status: DiagnosticStatus): CheckStatus {
+  return status === 'fail' ? 'error' : status;
 }
 
-export function runChecks(projectRoot: string): {
-  checks: CheckResult[];
-  summary: { ok: number; warn: number; error: number };
-} {
-  const checks: CheckResult[] = [];
+/** 取项目配置里的安装作用域（影响 doctor 检查哪一套 skills） */
+async function resolveScope(projectRoot: string): Promise<InstallScope> {
+  try {
+    const config = await loadPolarisConfig(projectRoot);
+    return config?.scope === 'global' ? 'global' : 'project';
+  } catch {
+    return 'project';
+  }
+}
 
-  const polarisDir = join(projectRoot, '.polaris');
-  checks.push({
-    name: '.polaris 目录',
-    status: existsSync(polarisDir) ? 'ok' : 'error',
-    description: existsSync(polarisDir)
-      ? '.polaris 目录存在'
-      : '.polaris 目录不存在，请运行 polaris init',
-  });
+/** 运行诊断 */
+export async function runChecks(projectRoot: string): Promise<CheckResponse> {
+  const items = await runDiagnostics(projectRoot, await resolveScope(projectRoot));
+  const checks: CheckItem[] = items.map((item) => ({
+    name: item.name,
+    status: toCheckStatus(item.status),
+    description: item.message,
+  }));
 
-  const metaFile = join(polarisDir, 'polaris.meta.yaml');
-  checks.push({
-    name: 'polaris.meta.yaml',
-    status: existsSync(metaFile) ? 'ok' : 'error',
-    description: existsSync(metaFile) ? '项目元数据文件存在' : '项目元数据文件不存在',
-  });
-
-  const recordFile = join(polarisDir, 'polaris.record.yaml');
-  checks.push({
-    name: 'polaris.record.yaml',
-    status: existsSync(recordFile) ? 'ok' : 'warn',
-    description: existsSync(recordFile)
-      ? '安装记录文件存在'
-      : '安装记录文件不存在（可能尚未执行安装）',
-  });
-
-  const openspecDir = join(projectRoot, 'openspec');
-  checks.push({
-    name: 'openspec 目录',
-    status: existsSync(openspecDir) ? 'ok' : 'warn',
-    description: existsSync(openspecDir) ? 'openspec 目录存在' : 'openspec 目录不存在',
-  });
-
-  const polarisYaml = join(projectRoot, 'openspec', 'polaris.yaml');
-  checks.push({
-    name: 'polaris.yaml',
-    status: existsSync(polarisYaml) ? 'ok' : 'warn',
-    description: existsSync(polarisYaml) ? '项目配置文件存在' : '项目配置文件不存在',
-  });
-
-  const summary = {
-    ok: checks.filter((c) => c.status === 'ok').length,
-    warn: checks.filter((c) => c.status === 'warn').length,
-    error: checks.filter((c) => c.status === 'error').length,
+  return {
+    checks,
+    summary: {
+      ok: checks.filter((c) => c.status === 'ok').length,
+      warn: checks.filter((c) => c.status === 'warn').length,
+      error: checks.filter((c) => c.status === 'error').length,
+    },
   };
-
-  return { checks, summary };
 }

@@ -3,6 +3,8 @@ import { join, resolve, normalize } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { getPolarisConfigPath } from '../../core/assets/polaris-paths.js';
+
 const execFileAsync = promisify(execFile);
 
 export interface DirEntry {
@@ -36,16 +38,22 @@ export function listDirs(parentPath: string): { dirs?: DirEntry[]; error?: strin
   }
 }
 
-export function checkOpenspec(parentPath: string): { exists: boolean; error?: string } {
-  if (!parentPath || !parentPath.trim()) {
+/**
+ * 判断目录是否已 `polaris init`。
+ *
+ * 判据是 `.polaris/config.yaml` 存在（走 `polaris-paths` 的路径助手，不自己拼路径）。
+ * 旧实现名为 `checkOpenspec`、判的是 `<dir>/openspec` 子目录 —— 那是 openspec 时代的
+ * 判据，与"能否作为工作台项目"无关。
+ */
+export function checkInitialized(targetPath: string): { exists: boolean; error?: string } {
+  if (!targetPath || !targetPath.trim()) {
     return { exists: false, error: '路径不能为空' };
   }
-  if (parentPath.includes('..')) {
+  if (targetPath.includes('..')) {
     return { exists: false, error: '无效的路径' };
   }
 
-  const openspecDir = join(parentPath, 'openspec');
-  return { exists: existsSync(openspecDir) };
+  return { exists: existsSync(getPolarisConfigPath(targetPath)) };
 }
 
 /** 在系统文件管理器中打开目录或文件 */

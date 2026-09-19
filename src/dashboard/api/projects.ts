@@ -2,7 +2,6 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { computeStats } from '../change-scanner.js';
 
 export interface ProjectItem {
   id: string;
@@ -147,21 +146,5 @@ export function setDefaultProject(body: string): {
   return { ok: true, defaultProjectId: data.id };
 }
 
-export function getAggregateStats(): {
-  totalTasks: number;
-  doneTasks: number;
-  pendingTasks: number;
-} {
-  const store = readProjects();
-  let totalTasks = 0,
-    doneTasks = 0;
-
-  for (const p of store.projects) {
-    if (!existsSync(p.path)) continue;
-    const stats = computeStats(p.path);
-    totalTasks += stats.totalTasks;
-    doneTasks += stats.doneTasks;
-  }
-
-  return { totalTasks, doneTasks, pendingTasks: totalTasks - doneTasks };
-}
+// getAggregateStats 已移除：它建立在 openspec 时代的 change-scanner 之上（按 openspec/changes 聚合
+// tasksTotal/tasksDone）。/api/stats 改为按项目汇总，实现见 api/tasks.ts 的 computeTaskStats。

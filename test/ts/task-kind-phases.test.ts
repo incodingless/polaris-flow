@@ -18,6 +18,7 @@ import {
   TASK_KIND_LAYOUTS,
   getKindArtifacts,
   getKindGroups,
+  getKindLabel,
   getKindPhases,
   getTaskKindLayout,
   isKnownPhase,
@@ -245,5 +246,11 @@ describe('布局表完整性', () => {
       expect(layout.phases.length).toBeGreaterThan(0);
       expect(layout.artifacts.length).toBeGreaterThan(0);
     }
+  });
+
+  it('五类 kind 都有界面显示名且互不重复（前端不再自持类型名表）', () => {
+    const labels = WORKFLOW_TASK_KINDS.map((kind) => getKindLabel(kind));
+    expect(labels.every((label) => label.length > 0)).toBe(true);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });

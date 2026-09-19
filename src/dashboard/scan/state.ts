@@ -34,6 +34,15 @@ export type TaskRuntime = {
   stateMissing: boolean;
   /** `state.yaml` 的 mtime（ISO）；取不到为空串 */
   updatedAt: string;
+  /**
+   * 各阶段在 `state.yaml` 里记录的状态（`phase code → status`）。
+   *
+   * 用途：把**可跳过**阶段渲染成「已跳过」而不是「已完成」—— 例如 coding 走 plan 的
+   * B 分支（跳过深度设计）时，`runtime.design.status = skipped`。
+   * 取值位置两种都收：`runtime.<phase>.status`（coding / debug）与顶层 `<phase>.status`
+   * （requirement / testcase / prototype 的 state 结构）。
+   */
+  phaseStatuses: Record<string, string>;
 };
 
 /** 各 kind 在 state.yaml 里的名字字段（有名字的 kind 才登记） */
@@ -90,6 +99,30 @@ function nameFromState(state: Record<string, unknown>, kind: WorkflowTaskKind): 
   return '';
 }
 
+/**
+ * 收集各阶段的状态：`runtime.<phase>.status` 与顶层 `<phase>.status` 都收。
+ * 判据是「值是对象且带 string 类型的 status」，不写死阶段名 —— 阶段表变了这里不用改。
+ */
+function collectPhaseStatuses(state: Record<string, unknown>): Record<string, string> {
+  const result: Record<string, string> = {};
+  const collect = (container: unknown) => {
+    if (!container || typeof container !== 'object' || Array.isArray(container)) {
+      return;
+    }
+    for (const [key, value] of Object.entries(container as Record<string, unknown>)) {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const status = (value as Record<string, unknown>).status;
+        if (typeof status === 'string' && status) {
+          result[key] = status;
+        }
+      }
+    }
+  };
+  collect(state.runtime);
+  collect(state);
+  return result;
+}
+
 /** 取 state.yaml 的 workflow 模式（字典结构取 `mode`；旧字符串写法直接返回） */
 function modeFromState(state: Record<string, unknown>): string {
   const workflow = state.workflow;
@@ -125,6 +158,7 @@ export function readTaskRuntime(
     worktreePath: '',
     stateMissing: !existsSync(statePath),
     updatedAt: '',
+    phaseStatuses: {},
   };
 
   if (base.stateMissing) {
@@ -150,6 +184,7 @@ export function readTaskRuntime(
 
   base.channel = typeof state.channel === 'string' ? state.channel : '';
   base.mode = modeFromState(state);
+  base.phaseStatuses = collectPhaseStatuses(state);
   base.title =
     nameFromState(state, kind) || titleFromArtifacts(projectRoot, kind, taskId) || taskId;
 

@@ -82,6 +82,8 @@ export type TaskKindLayout = {
   bootstrapFiles: TaskBootstrapFile[];
   /** 阶段序列（含旁路；旁路用 `bypass` 标记） */
   phases: KindPhaseDef[];
+  /** 面向界面的中文类型名（单一真相，前端不再自持一份） */
+  label: string;
   /** 各阶段产物（**只登记已核实的路径**，不确定的不写） */
   artifacts: KindArtifactDef[];
 };
@@ -90,6 +92,7 @@ export type TaskKindLayout = {
 export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
   coding: {
     kind: 'coding',
+    label: '开发',
     storageSegment: 'tasks',
     initialPhase: 'specify',
     stateTemplate: 'state.example.yaml',
@@ -140,6 +143,7 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
   },
   requirement: {
     kind: 'requirement',
+    label: '需求',
     storageSegment: 'tasks',
     initialPhase: 'discovery',
     stateTemplate: 'prd-state.example.yaml',
@@ -175,6 +179,7 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
   },
   testcase: {
     kind: 'testcase',
+    label: '测试用例',
     storageSegment: 'testcases',
     initialPhase: 'discovery',
     stateTemplate: 'testcase-state.example.yaml',
@@ -206,6 +211,7 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
   },
   prototype: {
     kind: 'prototype',
+    label: '原型',
     storageSegment: 'tasks',
     initialPhase: 'blueprint',
     stateTemplate: 'prototype-state.example.yaml',
@@ -232,6 +238,7 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
   },
   debug: {
     kind: 'debug',
+    label: '缺陷修复',
     storageSegment: 'tasks',
     // 三阶段：diagnose → patch → closeout（2026-09-17 合并）。
     // 原 triage 起始阶段与 runtime.triage.* 属六段时代遗留，已一并改正，否则新建
@@ -323,6 +330,11 @@ export function phaseIndexIn(kind: WorkflowTaskKind, phase: string): number {
  */
 export function isKnownPhase(kind: WorkflowTaskKind, phase: string): boolean {
   return TASK_KIND_LAYOUTS[kind].phases.some((p) => p.code === phase);
+}
+
+/** 取 kind 的界面显示名（单一真相；前端不再自持一份类型名表） */
+export function getKindLabel(kind: WorkflowTaskKind): string {
+  return TASK_KIND_LAYOUTS[kind].label;
 }
 
 /** 取 kind 的产物定义；传 phase 则只取该阶段的 */

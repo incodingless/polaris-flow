@@ -2,10 +2,11 @@
  * Dashboard API 路由表：把 `/api/*` 请求分发到 `api/` 下的处理器。
  *
  * 定位：`src/dashboard/` 是传输层（HTTP 编解码、路由、序列化），业务语义一律下沉 `src/core/`。
- * 来源：由 polaris-cli 的 `src/core/dashboard/router.ts` 复制并入（见 scripts/migrate-dashboard.js）。
+ * 数据源与响应形状见 `docs/specs/2026-09-18-dashboard-api-contract.md`（M2 定稿）。
  *
- * 注意：数据源目前仍是 openspec 时代的模型（读 `openspec/changes/`），M2 再切换到
- * `.polaris/workflow.yaml` + `state.yaml`。契约见 docs/specs/2026-09-18-dashboard-api-contract.md。
+ * 只读：本表除 `projects` 的注册表维护（写 `~/.polaris/`，非任务模型）与 `reveal`
+ * （调系统文件管理器、不改文件）外，全部为只读。任何新增写操作必须落到
+ * polaris-flow 的 CLI 原语并经 `.polaris/.locks/`。
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { existsSync } from 'node:fs';
@@ -30,17 +31,9 @@ export async function handleRequest(
   const pathname = idx === -1 ? url : url.slice(0, idx);
   const method = req.method ?? 'GET';
 
-  // API routes
-  if (pathname.startsWith('/api/')) {
-    const body =
-      method === 'POST' || method === 'PUT' || method === 'DELETE' ? await parseBody(req) : '';
-    handleApiRoute(method, pathname, url, body, res, projectRoot);
-    return;
-  }
-
-  // All other requests: API server status
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ message: 'polaris dashboard API server', endpoints: '/api/*' }));
+  const body =
+    method === 'POST' || method === 'PUT' || method === 'DELETE' ? await parseBody(req) : '';
+  await handleApiRoute(method, pathname, url, body, res, projectRoot);
 }
 
 /** 从 ?project= 解析项目根目录，用于多项目仪表盘 */
@@ -54,6 +47,12 @@ export function resolveProjectRoot(reqUrl: string, defaultRoot: string): string 
   return defaultRoot;
 }
 
+/** 取查询参数（reqUrl 里没有 `?` 时返回空表） */
+function queryOf(reqUrl: string): URLSearchParams {
+  const qIdx = reqUrl.indexOf('?');
+  return new URLSearchParams(qIdx === -1 ? '' : reqUrl.slice(qIdx + 1));
+}
+
 async function handleApiRoute(
   method: string,
   pathname: string,
@@ -64,102 +63,86 @@ async function handleApiRoute(
 ): Promise<void> {
   const projectRoot = resolveProjectRoot(reqUrl, defaultProjectRoot);
   try {
-    const changesApi = await import('./api/changes.js');
+    const tasksApi = await import('./api/tasks.js');
     const configsApi = await import('./api/configs.js');
     const projectsApi = await import('./api/projects.js');
     const filesystemApi = await import('./api/filesystem.js');
     const workflowApi = await import('./api/workflow.js');
 
-    // GET /api/changes
-    if (method === 'GET' && pathname === '/api/changes') {
-      const filterParam =
-        new URLSearchParams(reqUrl.slice(reqUrl.indexOf('?'))).get('filter') || 'active';
-      const filter = filterParam === 'all' || filterParam === 'archived' ? filterParam : 'active';
-      return json(res, changesApi.listChanges(projectRoot, filter));
+    // ---- 任务 ----
+
+    // GET /api/tasks?status=active|archived|all&kind=
+    if (method === 'GET' && pathname === '/api/tasks') {
+      const q = queryOf(reqUrl);
+      const statusParam = q.get('status');
+      const status = statusParam === 'archived' || statusParam === 'all' ? statusParam : 'active';
+      return json(
+        res,
+        await tasksApi.listTasks(projectRoot, { status, kind: q.get('kind') ?? undefined }),
+      );
     }
 
-    // GET /api/changes/:name
-    const changeMatch = pathname.match(/^\/api\/changes\/([^/]+)$/);
-    if (method === 'GET' && changeMatch) {
-      return json(res, changesApi.getChange(projectRoot, changeMatch[1]!));
+    // GET /api/tasks/:id?kind=
+    const taskMatch = pathname.match(/^\/api\/tasks\/([^/]+)$/);
+    if (method === 'GET' && taskMatch) {
+      const id = decodeURIComponent(taskMatch[1]!);
+      return json(
+        res,
+        await tasksApi.getTaskDetail(projectRoot, id, queryOf(reqUrl).get('kind') ?? undefined),
+      );
     }
 
-    // 以下写路由在并入时刻意移除，不在 M1 提供：
-    //   POST /api/changes/:name/tasks/:id            —— 直改 tasks.md，绕过 .locks/；M3 经原语重建
-    //   POST /api/changes/:name/steps/:stepId/operations —— 依赖外部 openspec CLI + POLARIS_CONTINUE_CMD
-    //   POST /api/changes/:name/validate             —— 依赖外部 openspec CLI
-    //   PUT  /api/configs/:path                      —— 直写配置文件，绕过 .locks/
-    //   POST /api/compose、GET /api/schemas          —— 由 M3 的 CLI 原语承接
-    // 依据：设计文档 §5.1 / §5.2 与「首发只读」决策。
+    // ---- 配置（只读） ----
 
-    // GET /api/configs
     if (method === 'GET' && pathname === '/api/configs') {
       return json(res, configsApi.listConfigs(projectRoot));
     }
 
-    // GET /api/configs/:path*
     const configGetMatch = pathname.match(/^\/api\/configs\/(.+)$/);
     if (method === 'GET' && configGetMatch) {
-      return json(res, configsApi.getConfig(projectRoot, configGetMatch[1]!));
+      return json(res, configsApi.getConfig(projectRoot, decodeURIComponent(configGetMatch[1]!)));
     }
 
-    // GET /api/projects
+    // ---- 项目注册表 ----
+
     if (method === 'GET' && pathname === '/api/projects') {
       return json(res, projectsApi.listProjects(projectRoot));
     }
-
-    // POST /api/projects
     if (method === 'POST' && pathname === '/api/projects') {
       return json(res, projectsApi.addProject(body));
     }
-
-    // DELETE /api/projects
     if (method === 'DELETE' && pathname === '/api/projects') {
-      const qs = reqUrl.includes('?')
-        ? new URLSearchParams(reqUrl.slice(reqUrl.indexOf('?')))
-        : null;
-      const id = qs?.get('id');
+      const id = queryOf(reqUrl).get('id');
       if (id) {
         return json(res, projectsApi.removeProjectById(id));
       }
       return json(res, projectsApi.deleteProject(body));
     }
-
-    // PUT /api/projects/default
     if (method === 'PUT' && pathname === '/api/projects/default') {
       return json(res, projectsApi.setDefaultProject(body));
     }
 
-    // GET /api/stats
+    // ---- 统计 / 目录 ----
+
     if (method === 'GET' && pathname === '/api/stats') {
-      return json(res, projectsApi.getAggregateStats());
+      return json(res, await tasksApi.computeTaskStats(projectRoot));
     }
-
-    // GET /api/dirs?path=
     if (method === 'GET' && pathname === '/api/dirs') {
-      const qs = reqUrl.includes('?')
-        ? new URLSearchParams(reqUrl.slice(reqUrl.indexOf('?')))
-        : null;
-      const dirPath = qs?.get('path') ?? '';
-      return json(res, filesystemApi.listDirs(dirPath));
+      return json(res, filesystemApi.listDirs(queryOf(reqUrl).get('path') ?? ''));
     }
 
-    // GET /api/check-openspec?path=
-    if (method === 'GET' && pathname === '/api/check-openspec') {
-      const qs = reqUrl.includes('?')
-        ? new URLSearchParams(reqUrl.slice(reqUrl.indexOf('?')))
-        : null;
-      const dirPath = qs?.get('path') ?? '';
-      return json(res, filesystemApi.checkOpenspec(dirPath));
-    }
+    // ---- 诊断 ----
 
-    // GET /api/check
+    // GET /api/check-initialized?path= —— 判据是 `.polaris/config.yaml` 存在
+    if (method === 'GET' && pathname === '/api/check-initialized') {
+      return json(res, filesystemApi.checkInitialized(queryOf(reqUrl).get('path') ?? ''));
+    }
     if (method === 'GET' && pathname === '/api/check') {
-      const checkApi = await import('./api/check.js');
-      return json(res, checkApi.runChecks(projectRoot));
+      return json(res, await (await import('./api/check.js')).runChecks(projectRoot));
     }
 
-    // POST /api/reveal
+    // ---- 零风险动作：在系统文件管理器中定位 ----
+
     if (method === 'POST' && pathname === '/api/reveal') {
       let payload: { path?: string } = {};
       try {
@@ -167,40 +150,40 @@ async function handleApiRoute(
       } catch {
         return json(res, { error: '无效的 JSON 请求体' });
       }
-      const targetPath = payload.path ?? '';
-      const projectsApi = await import('./api/projects.js');
       const projectList = projectsApi.listProjects(defaultProjectRoot);
       const allowedRoots = [
         defaultProjectRoot,
         projectRoot,
         ...(projectList.projects || []).map((p: { path: string }) => p.path),
       ];
-      const result = await filesystemApi.revealPath(targetPath, allowedRoots);
-      return json(res, result);
+      return json(res, await filesystemApi.revealPath(payload.path ?? '', allowedRoots));
     }
 
-    // GET /api/workflow/:id/phases
+    // ---- 流程定义（数据源 = src/core/config/task-kind-layout.ts 的阶段表） ----
+
     const phasesMatch = pathname.match(/^\/api\/workflow\/([^/]+)\/phases$/);
     if (method === 'GET' && phasesMatch) {
-      return json(res, workflowApi.getWorkflowPhases(phasesMatch[1]!));
+      return json(res, workflowApi.getWorkflowPhases(decodeURIComponent(phasesMatch[1]!)));
     }
 
-    // GET /api/workflow/:id/steps/:stepId/operations
-    const opsMatch = pathname.match(/^\/api\/workflow\/([^/]+)\/steps\/([^/]+)\/operations$/);
-    if (method === 'GET' && opsMatch) {
-      return json(res, workflowApi.getStepOperations(opsMatch[1]!, opsMatch[2]!));
-    }
-
-    // GET /api/workflow/:id/artifacts
     const artifactMatch = pathname.match(/^\/api\/workflow\/([^/]+)\/artifacts$/);
     if (method === 'GET' && artifactMatch) {
-      return json(res, workflowApi.getWorkflowArtifacts(artifactMatch[1]!));
+      return json(res, workflowApi.getWorkflowArtifacts(decodeURIComponent(artifactMatch[1]!)));
     }
 
-    // GET /api/workflow
     if (method === 'GET' && pathname === '/api/workflow') {
       return json(res, workflowApi.getWorkflowListResponse());
     }
+
+    // 以下端点已移除，不再提供（依据：设计文档 §5.1 / §5.2 与「首发只读」）：
+    //   /api/changes、/api/changes/:name        —— 改名 /api/tasks
+    //   POST /api/changes/:name/tasks/:id       —— 直改 tasks.md，绕过 .locks/；M3 经原语重建
+    //   POST /api/changes/:name/steps/:stepId/operations —— 依赖外部 openspec CLI + POLARIS_CONTINUE_CMD
+    //   POST /api/changes/:name/validate        —— 依赖外部 openspec CLI
+    //   PUT  /api/configs/:path                 —— 直写配置文件，绕过 .locks/
+    //   POST /api/compose、GET /api/schemas     —— 由 M3 的 CLI 原语承接
+    //   /api/check-openspec                     —— 改名 /api/check-initialized
+    //   GET /api/workflow/:kind/steps/:stepId/operations —— 操作白名单属 M3，M2 无操作可列
 
     res.writeHead(404);
     res.end(JSON.stringify({ error: 'API not found' }));
