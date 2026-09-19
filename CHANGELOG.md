@@ -5,7 +5,7 @@
 ### Added
 
 - **CLI 双入口分流**: `polaris` 仅暴露用户生命周期命令（init / status / dashboard / doctor / update / uninstall）；hooks/scripts 所用命令（workflow-entry、task-state-entry、worktree-* 等）仅挂在 `polaris-flow`；`uninstall` 仍为入口占位（尚未实现）
-- **polaris dashboard**: Dashboard **实现在同级 `polaris-web`**；本仓只保留启动器 `src/dashboard/server.ts`（定位兄弟目录或 `POLARIS_WEB_PATH`，执行 `scripts/dev.sh` 拉起 Vue + polaris-cli API）；支持 `--port` / `--api-port` / `--open`；删除本仓过时 `src/dashboard/web/` 占位静态页
+- **polaris dashboard**: 用户面单命令入口（`init` / `status` / `dashboard` / `doctor` / `update` / `uninstall` 六条生命周期命令之一）。**注**：本条原先描述的是「实现在同级 `polaris-web`、本仓只留启动器」的形态，该形态已在同版本内被下方「Dashboard 并入本仓 / 单进程单端口」取代 —— 保留此条仅说明命令归属，形态以 M1/M2 条目为准
 - **hotfix-branch-create / git-branch-merge**: 核心模块 `git-branch.ts`（原 hotfix-branch）；`polaris hotfix-branch-create` 基于主干建 `hotfix/<issue_id>`；新增 `polaris git-branch-merge` / `scripts/git-branch-merge.sh` 将指定分支以 `merge --no-ff` 合入主干（脏检查、冲突 abort、源分支保留）；`diagnose` Step 3.1.B / `closeout` 生产收尾分别调用创建与合并脚本
 - **worktree-commit-remove**: 新增 `polaris worktree-commit-remove` / `scripts/worktree-commit-remove.sh`：在 worktree 内 `add -A`+`commit`（已干净则跳过），再 `git worktree remove`；`closeout` 测试通道 worktree 收尾改调该脚本
 - **init Superpowers 网络逃逸**: 支持 `POLARIS_GITHUB_MIRROR` 改写 clone URL、`POLARIS_SUPERPOWERS_PATH` 本地目录安装；git 默认 `HTTP/1.1` 以规避 HTTP/2 framing 失败
@@ -32,6 +32,9 @@
 - **Dashboard 并入本仓**: `polaris-web`（Vue 3 + Vite 前端）与 `polaris-cli` 的 Dashboard API 一并并入；前端落仓库根 `dashboard/`、API 落 `src/dashboard/`，两源仓退役。迁移由 `scripts/migrate-dashboard.js` 以复制方式完成（白名单驱动、源仓只读、默认预演）
 - **polaris dashboard 单进程单端口**: 同一端口同时提供 `/api/*` 与前端静态资源（`dist/web/`），就绪后自动打开浏览器；新增 `--api-only` 供前端 HMR 开发、`--no-open` 关闭自动打开。`build.js` 在 tsc 之后追加 vite 步骤，前端产物与后端编译产物同级不混层
 - **Dashboard API 契约**: 新增 `docs/specs/2026-09-18-dashboard-api-contract.md` 冻结 `/api/*` 的端点、字段名、错误形状与只读性 —— 前端纯 JS、后端 TS，无共享类型，契约是唯一形式化保证
+- **任务类型布局表补阶段与产物**: `src/core/config/task-kind-layout.ts` 新增 `phases` / `artifacts` 与 `getKindPhases` / `getKindGroups` / `phaseGroupOf` / `phaseIndexIn` / `isKnownPhase` / `getKindArtifacts` / `getKindLabel`。「kind → 阶段」自此有单一真相，Dashboard 不再依赖任何 YAML 流程定义
+- **Dashboard 扫描层**: 新增 `src/dashboard/scan/`（游标 / 运行态 / 文件树三个扫描器）。归档扫描覆盖两个落点 —— `.polaris/archive/`（含 prototype 嵌套）与 `docs/troubleshooting/`（debug 族）
+- **phase 真相归一设计**: 新增 `docs/specs/2026-09-19-phase-truth-unification-design.md`，查实「phase 权威是 workflow.yaml 游标而非 state.yaml.phase」并列出去重方案与待决项
 
 ### Tests
 
@@ -101,6 +104,14 @@
 - **polaris-paths 职责拆分**: 平台/插件路径（`getPlugin*` / `getPlatform*` / 相关常量）迁入 `platforms.ts`；`getInstallSkillBase` / `resolveWorktreeRoot` 迁入 `install/layout`；合并重复的 `getPlatformContextDir`（调用方统一从 `platforms` 取）
 - **assets/layout 相对路径**: 落盘映射改用平台 `contextDir`/`globalContextDir` 相对片段，不再依赖绝对路径的 `getPlatformContextDir`
 - **发布包 assets 源路径**: `getAssetsDir` / `getShared*` / 各 template 源从 `polaris-paths` 迁入 `assets/manifest`；`polaris-paths` 只保留运行时 `.polaris` / worktree 路径；`assets/layout` 只负责落盘映射
+- **Dashboard 数据源切换到现行模型**: 端点由 openspec 时代模型（扫 `openspec/changes/` + 按文件存在性反推 phase + 内置 `config/tasks.yaml` 定义 8 步）改为 `.polaris/workflow.yaml` 的 5 类游标 + 阶段表 + `openspec/changes/<id>/` 文件树。**5 类 kind（coding / requirement / testcase / prototype / debug）全部可见**，phase 与游标一致，未知阶段原样显示并标注而不报错
+- **端点改名**: `/api/changes` → `/api/tasks`（带 `status` / `kind` 参数）、`/api/changes/:name` → `/api/tasks/:id`、`/api/check-openspec` → `/api/check-initialized`（判据改为 `.polaris/config.yaml` 存在）；均**不保留别名、不做兼容层**
+- **`/api/check` 改接 `src/core/doctor.ts`**: 替换原先 5 条硬编码的 `existsSync`（`polaris.meta.yaml` / `polaris.record.yaml` / `openspec/polaris.yaml` 等已失实路径）
+- **`/api/workflow*` 改由阶段表派生**: 移除对不存在的 `config/tasks.yaml` 的读取与缓存
+- **配置面板换源**: `/api/configs` 列 `.polaris/*.yaml`；`getConfig` 补越界防护。前端一级导航「规格」→「配置」
+- **`/api/stats` 重定义**: 按项目汇总（`by_kind` / `by_phase` / 复选框合计），旧的 `totalChanges` / `pendingTasks` 语义作废
+- **前端适配收敛在映射层**: 新字段差异集中在 `dashboard/src/utils/changeMapper.js` 与 `utils/workflow.js`，组件渲染契约不变；删除硬编码的旧 9 步模板与「四件套」Tab 常量，改为阶段表驱动；任务卡片新增「开发模式」与「通道」标签
+- **dashboard 契约定稿**: `docs/specs/2026-09-18-dashboard-api-contract.md` 状态由 M1 定形转为 M2 定稿，补字段定义、归档双来源、phase 权威字段与守卫测试清单
 
 ### Fixed
 
@@ -143,6 +154,9 @@
 - **旧 Dashboard 启动链**: 移除 `--api-port`、`POLARIS_WEB_PATH`、`resolvePolarisWebRoot`（定位同级仓库）与 `startDashboard` 的子进程 spawn 逻辑，命令描述改为「单进程工作台」
 - **绕过锁的 Dashboard 写路由**: 删除 `POST /api/changes/:name/tasks/:id`（直改 `tasks.md`）、`PUT /api/configs/:path`（直写配置文件）、`POST /api/changes/:name/steps/:stepId/operations` 与 `POST /api/changes/:name/validate`（依赖外部 `openspec` CLI）、`POST /api/compose` 与 `GET /api/schemas`。面板在 M1/M2 为只读，写操作推迟到 M3 并落到 CLI 原语
 - **失效测试**: 删除 `test/ts/dashboard-resolve.test.ts`（被测的 `resolvePolarisWebRoot` 已移除）
+- **Dashboard 旧模型代码**: 删除 `src/dashboard/change-scanner.ts`（按文件存在性反推 phase 的整组逻辑：`getChangePhase` / `computeStepStatuses` / `isArtifactDone` 及 6 个 check 函数）、`src/dashboard/api/changes.ts`、`src/dashboard/markdown.ts`（全仓无引用）；`api/projects.ts` 的 `getAggregateStats`（建立在旧扫描器之上）
+- **Dashboard 已移除端点**: `/api/changes` 与 `/api/changes/:name`、`/api/check-openspec`、`GET /api/workflow/:kind/steps/:stepId/operations`（操作白名单属 M3）
+- **前端死代码**: 删除无引用组件 `MiniProgress.vue` / `PhaseBadge.vue` 与零引用导出（`workflowMeta` / `formatRelativeTime` / `statusTagClass` / `normalizeWorkflowPhases` / `normalizeStepOperations` / `normalizeArtifactPhases`）
 
 ## 0.1.0
 
