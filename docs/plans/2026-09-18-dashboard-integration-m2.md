@@ -624,3 +624,50 @@ pnpm format:check && pnpm lint && pnpm build && pnpm test
 - **M3 写操作与多项目**：§5.2 的原语映射（勾选任务 / 推进阶段 / `tasks-lint` / `ship-cleanup`）；多项目注册表落点（D4）；`/api/reveal` 白名单收紧。
 - **M4 收敛与退役**：`test/ts/dashboard.test.ts`（路由 / 静态托管 / 项目解析 / 锁行为）；README 补齐 `dashboard` 用法；`npm pack` 解包终检；两源仓确认可归档。
 - **本计划外但已登记**：debug 族模板与技能目录的阶段对齐（D7）；`workflow-template.yaml` 陈旧枚举注释（§二）；`CHANGELOG.md` 的 0.1.1 条目下有两个 `### Tests` 段。
+
+---
+
+## 十一、执行记录（2026-09-19 完成）
+
+**状态：Task 1–7 全部完成**，共 8 笔提交（含前置的决策与设计）。计划内的 Step 未逐条勾选 —— 实现过程中有几处**偏离**，逐条记录如下，避免「勾了但没做」的假账。
+
+| 提交 | 内容 |
+| --- | --- |
+| `6d31fd3` | docs：debug 三阶段订正 + 本计划 |
+| `005dd31` | feat(core)：阶段表 / 产物表 + debug `initialPhase` 修正 + 26 项护栏（Task 1） |
+| `c3bed3e` | feat(dashboard)：`scan/` 三个扫描器 + 21 项单测（Task 2） |
+| `0994ea0` | feat(dashboard)：端点重写、旧模型退役（Task 3） |
+| `e248ffa` | feat(dashboard-web)：前端对齐（Task 4 + 5 合并为一个提交） |
+| `8772d03` | chore(dashboard-web)：死代码清理（Task 6） |
+| `a214875` | docs：契约定稿 + CHANGELOG（Task 7） |
+
+### 与计划的偏离（均已落到代码/文档）
+
+1. **Task 4 与 Task 5 合并为一个提交**。理由：改 API 函数名会立刻打断调用方，分两个提交会让中间态的前端无法构建（`vite build` 会报未导出）。计划里把「改名」与「渲染改造」分列，是我低估了耦合。
+2. **前端适配改为「映射层收敛」而非逐组件改**。Task 5 原列了 12 个组件/视图要改；实际做法是让 `changeMapper.js` 把新字段映射回**组件既有的数据结构**，组件级改动只剩「调用已删 API」与导航改名。理由：组件渲染契约不必跟着数据源换血，改动面越小漂移面越小。副作用：`STAGE_NAV_ITEMS` / `STAGE_TO_TAB` / `DETAIL_TABS` 三个常量改成函数（`buildStageNavItems` / `resolveStageTab`）。
+3. **`readTaskRuntime` 增加入参而非自查**（Task 2 Step 2）：`phase` 由调用方从游标传入。计划原本写「由 `scan/tasks.ts` 传入或在此回查」，实现时定为必传 —— 回查会让「谁是权威」在模块内重新模糊。
+4. **`scanTaskList` / `scanArchivedTasks` 为 async**（计划写的是同步签名）：`loadWorkflowState` 是 `fs/promises` 实现，同步签名做不到，除非自己重读一遍 YAML（那正是要避免的重复路径逻辑）。
+5. **归档扫描改为「目录为主、INDEX.md 只为日期」**。计划写「解析 INDEX.md 的每行 + 目录」；实现时反过来：以 `docs/troubleshooting/<id>/` 目录为准（它才是产物），`INDEX.md` 只用来取日期 —— 否则索引文件一旦缺行就会漏任务。
+6. **另加两处计划外但必要的改动**：`getConfig` 补越界防护（`../` 与绝对路径拒绝）；`TaskItem` 增加 `kind_label` / `mode` / `channel`，并把「开发模式 / 通道」标签放进任务卡片（否则验收里「三模式与 debug 族能正确渲染」在界面上无从体现）。
+7. **fixture 建在 `/tmp/m2-fixture`**（计划写建在 `test-project/prdtesting`）：后者是用户的真实项目，不该往里塞演示数据。fixture 覆盖 5 类 kind + 一个 `phase: nonsense` 的反例 + 双来源归档。
+8. **Task 6 只删掉 2 个组件**（`MiniProgress` / `PhaseBadge`）。计划候选清单里其余组件（`TasksFilePanel` / `ValidationPanel` / `ReviewPanel` 等）经 grep 确认**仍被引用**，故保留。
+
+### 实施期踩的两个坑（都吃了教训）
+
+1. **用跨行正则删函数，把中间内容一起吃掉**。`/**…*/` 的非贪婪匹配会从更早的注释开始，删 `workflowMeta` 时连带删掉了 `assignGlobalStepNumbers` 等；`vite build` 报「is not exported」才发现。改为按索引定位（向上只吃紧邻注释块、向下取首个 `\n}\n`）重做，并用导出清单复核。
+2. **BSD grep 的 `\|` 与 `\b` 都不可靠**，在两条「核对」脚本里各产生一次假结果（假阴性：明明在位却报缺失）。核对类脚本一律用 `grep -E` 且不用 `\b`。
+
+### 验收结果（对齐 §九 完成判据）
+
+| # | 判据 | 结果 |
+| --- | --- | --- |
+| 1 | 5 类 kind 全部可见 | ✅ fixture 实测 6 个活跃任务覆盖 5 类，`counts.by_kind` 五项齐全 |
+| 2 | phase 与游标一致 | ✅ 单测反例守护（`state.yaml.phase=specify` + 游标 `build` → 返回 `build`） |
+| 3 | 三模式与 debug 族正确渲染 | ✅ `mode` 原文返回、展示层把 `sdd` 与 `normal` 归一；卡片显示模式与通道标签；debug 三阶段步骤条正确 |
+| 4 | 配置面板显示 `.polaris/config.yaml` | ✅ `/api/configs` 返回 `config.yaml` + `workflow.yaml` |
+| 5 | 检测页接 `doctor` | ✅ 返回 node/bash/git/openspec/skills-lock/polaris-skills 六项，旧的失实路径条目消失 |
+| 6 | `dashboard/` 零 prettier 触碰、范围不变 | ✅ `prettier --check src/` 仍 14 个既有不合格（与改造前同数）；`eslint src/` 13 errors（同基线） |
+| 7 | 无 `/api/changes*` 残留 | ✅ 后端路由（6 个已删端点全部 404）、前端调用、契约文档三处一致 |
+| 8 | 未知值不崩 | ✅ `phase: nonsense` 实测返回 `phase_known: false` 且不抛错；单测另有覆盖 |
+
+**测试与基线对照**：`6 failed | 35 passed（41 文件）`，失败集合与改造前**同一批 6 个文件**（agents-install / command-adapters / file-system / openspec / session-start-sh.integration / task-state），零新增失败。
