@@ -1,7 +1,7 @@
 # Dashboard 写操作与多项目 M3 实施计划
 
 日期：2026-09-19
-状态：**待放行** —— 决策 D4、D20-reveal 已由用户拍板（见 §二），其余待定
+状态：**已放行，实施中** —— 决策 D4 / D17–D21 全部已决（用户 2026-09-19）
 上游设计：`docs/specs/2026-09-18-dashboard-integration-design.md` §5.2 / §六 M3 / §7 D4
 前置：M2 已完成（`docs/plans/2026-09-18-dashboard-integration-m2.md` §十一 执行记录）
 
@@ -48,23 +48,23 @@
 2. **读取时标记失效**：已注册项可能后来被删目录或不再使用 polaris-flow。`GET /api/projects` 对这类项返回 `stale: true` 与原因，**不自动删除**（删除是用户的动作）。
 3. **不并入 `~/.polaris/polaris.yaml`**：否决设计文档里的倾向（并入）—— 用户选保持现状，理由是注册表是 dashboard 的可视化清单，与全局安装配置是两件事。**设计文档 §7 D4 需同步订正为已决**。
 
-### D17 — 写操作怎么调原语：进程内 vs spawn CLI
+### D17 — 写操作怎么调原语：进程内 vs spawn CLI —— ✅ 已决（用户：按建议来）
 
-- **建议：进程内调用 `src/core/hooks/*`**。理由：① M1 的设计承诺就是「API 在本仓以便复用 `src/core/` 的路径/锁/校验」，spawn 会把刚拆掉的「外部 CLI 依赖」装回来，还要依赖 `dist/` 已构建与 `polaris-flow` 在 PATH（本仓测试已多次踩到 `CLI not found`）；② 锁是进程内的文件锁，进程内调用没有额外风险；③ 既有先例：`runDeliveryCleanup` 自己就是进程内调 `runWorkflowEntry`。
-- 备选：spawn `node bin/polaris.js <op>`（与技能一致，但多一层进程与 PATH 依赖）。
+- **决定：进程内调用 `src/core/hooks/*`**。理由：① M1 的设计承诺就是「API 在本仓以便复用 `src/core/` 的路径/锁/校验」，spawn 会把刚拆掉的「外部 CLI 依赖」装回来，还要依赖 `dist/` 已构建与 `polaris-flow` 在 PATH（本仓测试已多次踩到 `CLI not found`）；② 锁是进程内的文件锁，进程内调用没有额外风险；③ 既有先例：`runDeliveryCleanup` 自己就是进程内调 `runWorkflowEntry`。
+- 备选：spawn `node bin/polaris.js <op>`（与技能一致，但多一层进程与 PATH 依赖）——**未采纳**。
 - **「不允许 API 直接改文件」的落地口径**：API 层禁止 `writeFile`/`rm` 任何项目内文件；只能调原语函数。这条要写进 Global Constraints，并由验收的 grep 检查兜住。
 
-### D18 — 复选框薄原语的落点
+### D18 — 复选框薄原语的落点 —— ✅ 已决（用户：按建议来）
 
 设计要求「新增一个薄原语（如 `task-state-entry` 的扩展），不允许 API 直接改文件」。
 
-- **建议：扩展 `task-state-entry`，新增 op `set-checkbox`**。理由：它已持有 task-state 锁；勾选 `tasks.md` 与写该任务的 `state.yaml` 是**同一次语义操作**（见下），必须同锁；避免新造脚本 + 复制一套取锁逻辑。
+- **决定：扩展 `task-state-entry`，新增 op `set-checkbox`**。理由：它已持有 task-state 锁；勾选 `tasks.md` 与写该任务的 `state.yaml` 是**同一次语义操作**（见下），必须同锁；避免新造脚本 + 复制一套取锁逻辑。
   - 参数：`--repo-root --task-id --kind --file <项目根相对路径> --index <n> --checked <true|false>`
   - 行为：只替换目标行的复选框字符，**其余字节原样保留**（缩进、文字、行尾）；索引越界或文件不存在 → 报错不改盘；幂等（已是目标值则无操作）。
 - **同一次锁内还要同步计数**（这条决定验收能不能过）：设计 §六 M3 的验收是「勾选任务后 `state.yaml` / `tasks.md` / `.locks/` 状态一致」。coding 的 `state.yaml` 有 `runtime.build.total_tasks` / `completed_tasks` —— 勾选后不同步，`state.yaml` 就与 `tasks.md` 不一致。建议：**若 state 中存在 `runtime.build` 块则同步这两个计数**；不存在（如 debug 族）则只改 `tasks.md`。
 - 备选：新造 `tasks-check` 独立原语（职责更单一，但要复制取锁逻辑，且 `tasks.md` 与 `state.yaml` 的原子性更难保证）。
 
-### D19 — 「推进阶段」是否包含**回退**，以及要不要留痕
+### D19 — 「推进阶段」是否包含**回退**，以及要不要留痕 —— ✅ 已决（用户：按建议来，选 A）
 
 设计 §5.2 写的是「推进/回退阶段」，但回退涉及留痕：
 
@@ -79,9 +79,9 @@
 | B | 做回退，并新增数组 append op（`--append`） | 多一个原语能力；但回退的语义（哪些阶段可退、谁批准）需要单独设计 |
 | C | 回退用读改写（`get-json` → 改数组 → `set`） | 有竞态（两次调用之间别的写者可能插入），**不推荐** |
 
-- **建议选 A**，并把「回退 + `regressions[]` 留痕」登记为 M3 之后的独立切片。
+- **决定选 A**（用户已确认），并把「回退 + `regressions[]` 留痕」登记为 M3 之后的独立切片。
 
-### D20 — 「交付清理」的缺陷修复与确认交互
+### D20 — 「交付清理」的缺陷修复与确认交互 —— ✅ 已决（用户：按建议来）
 
 - **必须修** `ship-cleanup` 的 `kind: 'coding'` 硬编码（事实 #7）。修法：
   - `runDeliveryCleanup(changeId, originRepo, kind)` 接收 kind（CLI 侧加 `--kind`，缺省 `coding` 保持 CLI 兼容；但**面板必须显式传**）；

@@ -142,7 +142,8 @@ async function handleApiRoute(
     }
 
     // ---- 零风险动作：在系统文件管理器中定位 ----
-
+    // 白名单口径 = 当前项目根 + 已注册项目根（去重、剔空）。
+    // `revealPath` 是 fail-closed，所以这里给出空名单时结果就是拒绝 —— 正是期望行为。
     if (method === 'POST' && pathname === '/api/reveal') {
       let payload: { path?: string } = {};
       try {
@@ -152,9 +153,13 @@ async function handleApiRoute(
       }
       const projectList = projectsApi.listProjects(defaultProjectRoot);
       const allowedRoots = [
-        defaultProjectRoot,
-        projectRoot,
-        ...(projectList.projects || []).map((p: { path: string }) => p.path),
+        ...new Set(
+          [
+            defaultProjectRoot,
+            projectRoot,
+            ...(projectList.projects || []).map((p: { path: string }) => p.path),
+          ].filter((root): root is string => Boolean(root && root.trim())),
+        ),
       ];
       return json(res, await filesystemApi.revealPath(payload.path ?? '', allowedRoots));
     }
