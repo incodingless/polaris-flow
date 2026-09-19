@@ -330,12 +330,17 @@ export function registerRuntimeCommands(program: Command): void {
 
   program
     .command('ship-cleanup')
-    .description('Delete workflow active entry and .polaris/tasks leftovers')
+    .description('Delete workflow active entry and .polaris/<segment>/<id> leftovers')
     .argument('<change_id>')
     .argument('<origin_repo>')
+    .option('--kind <kind>', 'coding|requirement|testcase|prototype|debug (default: coding)')
+    .option('--dry-run', 'only print what would be deleted; change nothing')
     .option(...PLATFORM_OPTION)
-    .action(async (changeId: string, originRepo: string) => {
-      await shipCleanupCommand(changeId, originRepo);
+    .action(async (changeId: string, originRepo: string, options) => {
+      await shipCleanupCommand(changeId, originRepo, {
+        kind: options.kind,
+        dryRun: options.dryRun,
+      });
     });
 
   program

@@ -4,6 +4,11 @@
 import { runConstitutionValidity } from '../../core/hooks/constitution-validity.js';
 import { runHarnessSync, type HarnessSyncConflictMode } from '../../core/hooks/harness-sync.js';
 import { runDeliveryCleanup } from '../../core/hooks/delivery-cleanup.js';
+import {
+  parseWorkflowTaskKind,
+  workflowTaskKindErrorMessage,
+  type WorkflowTaskKind,
+} from '../../core/config/workflow-state.js';
 import { runTasksLint } from '../../core/hooks/tasks-lint.js';
 import { createHotfixBranch, mergeBranchToMain } from '../../core/hooks/git-branch.js';
 import { create, merge, rebase, commitAndRemove } from '../../core/hooks/worktree.js';
@@ -55,10 +60,7 @@ export async function worktreeCommitRemoveCommand(
 }
 
 /** hotfix-branch-create：基于主干建 hotfix/<issue_id> 并切换 */
-export async function hotfixBranchCreateCommand(
-  issueId: string,
-  repoRoot: string,
-): Promise<void> {
+export async function hotfixBranchCreateCommand(issueId: string, repoRoot: string): Promise<void> {
   const result = await createHotfixBranch(issueId, repoRoot);
   if (result.payload) {
     console.log(JSON.stringify(result.payload));
@@ -70,10 +72,7 @@ export async function hotfixBranchCreateCommand(
 }
 
 /** git-branch-merge：将指定分支 merge --no-ff 进主干 */
-export async function gitBranchMergeCommand(
-  sourceBranch: string,
-  repoRoot: string,
-): Promise<void> {
+export async function gitBranchMergeCommand(sourceBranch: string, repoRoot: string): Promise<void> {
   const result = await mergeBranchToMain(sourceBranch, repoRoot);
   if (result.payload) {
     console.log(JSON.stringify(result.payload));
@@ -133,9 +132,42 @@ export async function harnessSyncCommand(
   if (result.exitCode !== 0) process.exitCode = result.exitCode;
 }
 
-/** ship-cleanup */
-export async function shipCleanupCommand(changeId: string, originRepo: string): Promise<void> {
-  const result = await runDeliveryCleanup(changeId, originRepo);
+/**
+ * ship-cleanup。
+ *
+ * `--kind` 缺省 `coding` 仅为兼容旧调用；**对非 coding 任务必须显式传** ——
+ * 写死 coding 会让「删条目」静默失败而档案照样被删（见 `delivery-cleanup.ts` 文件头）。
+ */
+export async function shipCleanupCommand(
+  changeId: string,
+  originRepo: string,
+  options?: { kind?: string; dryRun?: boolean },
+): Promise<void> {
+  let kind: WorkflowTaskKind | undefined;
+  if (options?.kind !== undefined) {
+    const parsed = parseWorkflowTaskKind(options.kind);
+    if (!parsed) {
+      console.error(`[ship-cleanup] ${workflowTaskKindErrorMessage()}`);
+      process.exitCode = 1;
+      return;
+    }
+    kind = parsed;
+  }
+
+  const result = await runDeliveryCleanup(changeId, originRepo, kind, {
+    dryRun: options?.dryRun,
+  });
+  if (result.plan?.ok) {
+    console.log(
+      JSON.stringify({
+        task_id: changeId,
+        kind: result.plan.kind,
+        entry: result.plan.entry,
+        will_delete: result.plan.willDelete,
+        dry_run: options?.dryRun === true,
+      }),
+    );
+  }
   if (result.message) {
     console.error(`[ship-cleanup] ${result.message}`);
   }
