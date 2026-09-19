@@ -270,6 +270,13 @@ M1/M2 阶段面板**只读**（§7 已决 4）。进入 M3 后仅开放下列操
 | 交付清理 | `ship-cleanup` | |
 | 「继续 / 调度智能体」 | ❌ 本设计不做 | 旧实现依赖 `POLARIS_CONTINUE_CMD` + 外部 openspec CLI；polaris-flow 的调度走宿主 hook，不应由面板代劳 |
 
+**M3 实现后的口径澄清**（2026-09-19，未改本表的设计意图，只补落地结论）：
+
+- 「勾选任务」的薄原语落在 `task-state-entry` 的 `set-checkbox`，且**同锁内**同步 `state.yaml` 的 `runtime.build` 计数 —— 否则「`state.yaml` / `tasks.md` / `.locks/` 三者一致」这条验收不成立。
+- 「推进/回退阶段」**只做推进**。回退按 debug 族约定要写 `regressions[]` 留痕，而 `--set` 是标量路径赋值、往数组 append 没有现成 op；读改写有竞态。回退登记为后续独立切片。
+- **没有引入通用的「操作通道」**：旧设计里的 `GET /api/workflow/:kind/steps/:stepId/operations` 不再恢复。三个写操作各自有显式入口，比「列一串可执行操作」更可读也更可确认（不可逆操作还要先预演）。
+- 「交付清理」落地前**先修了一个既有缺陷**：`ship-cleanup` 把 `kind` 写死 `coding`，对非 coding 任务会「删条目」静默失败却照删档案。现为「kind 显式传入 + 预检 + 删条目后全量回读」。
+
 ---
 
 ## 六、实施路线
@@ -305,11 +312,24 @@ M1/M2 阶段面板**只读**（§7 已决 4）。进入 M3 后仅开放下列操
 
 **单仓之后 M2 可落在同一个 PR 里**，前后端两侧可以一起改、一起验。
 
-### M3 — 写操作与多项目
+### M3 — 写操作与多项目 —— ✅ 已完成（2026-09-19）
 
 交付物：§5.2 的原语映射 + 必要的薄原语；多项目注册表落点确定；`/api/reveal` 白名单收紧。
 
 验收：勾选任务后 `state.yaml` / `tasks.md` / `.locks/` 状态一致，无绕过锁的直写路径（需测试覆盖）。
+
+**实际交付**（计划与执行记录见 `docs/plans/2026-09-19-dashboard-integration-m3.md`）：
+
+| 项 | 落地 |
+| --- | --- |
+| 写面 | 三个端点：勾选（§5.2 第一条）、推进阶段、交付清理。**`/api/workflow/:kind/steps/:stepId/operations` 不再恢复** —— M3 的结论是「不做通用操作通道」，写操作各自有显式入口 |
+| 薄原语 | 扩 `task-state-entry` 加 `set-checkbox`（复用其 task-state 锁），**同锁内**同步 `state.yaml` 的 `runtime.build` 计数 |
+| 推进 vs 回退 | 「推进/回退」**只做推进**：回退要写 `regressions[]` 留痕，而 `--set` 是标量赋值、往数组 append 无现成 op，读改写有竞态。回退登记为后续独立切片 |
+| 「继续 / 调度智能体」 | **不做**（§5.2 明确），保持不做 |
+| 交付清理 | **先修既有缺陷再加**：`ship-cleanup` 原把 `kind` 写死 `coding`，对非 coding 任务会静默删档；现为「kind 显式传入 + 预检 + 删条目后全量回读」 |
+| 注册表 | D4 已决（见下），三条约束落地 |
+| `reveal` | 收紧为 fail-closed（空白名单即拒绝） |
+| 已知依赖 | 面板推进后若由宿主自动衔接，走 `polaris state next`，而 prototype / debug 两张转移表偏移一位（见 `docs/specs/2026-09-19-phase-truth-unification-design.md` D13）。**当前面板不触发自动衔接** |
 
 ### M4 — 收敛与退役
 
@@ -353,9 +373,21 @@ M1/M2 阶段面板**只读**，含"在编辑器打开文件""在文件管理器�
 
 理由：§3.4 表明旧写路径既绕过 `.locks/` 又依赖外部 `openspec` CLI，把写操作做对是独立一档工作量，不应阻塞 G1–G3 的验收。
 
-### D4 多项目注册表落点（可后置）
+### D4 多项目注册表落点 —— ✅ 已决（用户 2026-09-19）
 
-沿用 `~/.polaris/projects.json`，还是并入 `~/.polaris/polaris.yaml`？按 AGENTS.md「移除过时路径、不加兼容层」，倾向并入 `polaris.yaml`；但会动到全局配置的既有读写路径，建议 M3 单独决策。
+**继续用 `~/.polaris/projects.json`，不并入 `polaris.yaml`。** 本文档原先倾向「并入」（按 AGENTS.md「移除过时路径、不加兼容层」），但用户选保持现状，理由是**注册表是 dashboard 的可视化清单，与全局安装配置是两件事**。
+
+语义（用户定义）：
+
+> 注册表里保存的是**所有被加入 dashboard 做可视化、且使用 polaris-flow 的项目**。
+
+由此三条落地要求（细则见 `docs/specs/2026-09-18-dashboard-api-contract.md` §一）：
+
+1. 加入时校验已 `polaris init`（判据 `.polaris/config.yaml`），不合规给出可操作提示
+2. 存量失效项标 `stale` + 原因，**不自动删**（删除是用户的动作）
+3. `stale` 每次读时算、不落盘
+
+M3 已实现（`src/dashboard/api/projects.ts`）。**不做数据迁移**：只拦新增，存量为可见性。
 
 ### D5 端口默认值（可后置）
 

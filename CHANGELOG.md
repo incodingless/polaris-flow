@@ -35,6 +35,13 @@
 - **任务类型布局表补阶段与产物**: `src/core/config/task-kind-layout.ts` 新增 `phases` / `artifacts` 与 `getKindPhases` / `getKindGroups` / `phaseGroupOf` / `phaseIndexIn` / `isKnownPhase` / `getKindArtifacts` / `getKindLabel`。「kind → 阶段」自此有单一真相，Dashboard 不再依赖任何 YAML 流程定义
 - **Dashboard 扫描层**: 新增 `src/dashboard/scan/`（游标 / 运行态 / 文件树三个扫描器）。归档扫描覆盖两个落点 —— `.polaris/archive/`（含 prototype 嵌套）与 `docs/troubleshooting/`（debug 族）
 - **phase 真相归一设计**: 新增 `docs/specs/2026-09-19-phase-truth-unification-design.md`，查实「phase 权威是 workflow.yaml 游标而非 state.yaml.phase」并列出去重方案与待决项
+- **M3 写操作实施计划**: 新增 `docs/plans/2026-09-19-dashboard-integration-m3.md`（8 个 task、决策台账 D4/D17–D21、逐条带行号的事实核对）
+- **`task-state-entry set-checkbox` 原语**: 勾选 `tasks.md` 的一行，持 `task-state-<id>.lock`，并在**同一次锁内**同步 `state.yaml` 的 `runtime.build.{total_tasks,completed_tasks}`；只替换目标行的复选框字符，缩进/正文/CRLF 逐字节保留；幂等。序号取「第几个复选框」而非行号
+- **`src/core/hooks/tasks-checkbox.ts`**: 复选框的规则与编辑收敛为一份（`CHECKBOX_LINE_RE` / `countCheckboxes` / `applySetCheckbox`），读取方（`scan/files.ts`）与写入方共用，消除两侧各自推导导致的静默错位
+- **Dashboard 三个写端点**: `POST /api/tasks/:id/checkbox`、`POST /api/tasks/:id/phase`、`POST /api/tasks/:id/cleanup`（均转调 CLI 原语并持 `.locks/`，`src/dashboard/` 自身不写项目文件）
+- **`GET /api/tasks/:id/plan-lint`**: 只读校验任务计划文件，转调本仓 `tasks-lint`；`pass: null` 表示「没有可校验的计划文件」而非失败
+- **`planDeliveryCleanup` 预演**: 交付清理前先算出将删除的路径与将移除的游标条目
+- **`ProjectView`（含 `stale` / `reason`）**: 项目注册表条目叠加运行期判定，每次读时算、不落盘
 
 ### Tests
 
@@ -112,6 +119,13 @@
 - **`/api/stats` 重定义**: 按项目汇总（`by_kind` / `by_phase` / 复选框合计），旧的 `totalChanges` / `pendingTasks` 语义作废
 - **前端适配收敛在映射层**: 新字段差异集中在 `dashboard/src/utils/changeMapper.js` 与 `utils/workflow.js`，组件渲染契约不变；删除硬编码的旧 9 步模板与「四件套」Tab 常量，改为阶段表驱动；任务卡片新增「开发模式」与「通道」标签
 - **dashboard 契约定稿**: `docs/specs/2026-09-18-dashboard-api-contract.md` 状态由 M1 定形转为 M2 定稿，补字段定义、归档双来源、phase 权威字段与守卫测试清单
+- **面板由只读开放为可写（M3）**: 写面收敛为三个端点，每个都落到既有原语并经 `.polaris/.locks/`。`src/dashboard/**` 里除写全局注册表 `~/.polaris/projects.json`（非任务模型）外**不出现任何写文件调用**，该不变量由契约 §5.1 登记并配机械检查命令
+- **推进阶段只写游标**: 不碰 `state.yaml.phase`（那是只写不读的镜像，见 phase 真相归一设计 §1.1）。目标是旁路阶段 / 未登记 / 不严格晚于当前 / 任务已归档时一律拒绝并给出可读原因 —— 原语 `update-active` 不校验 phase 取值，这层是唯一拦网。**只做推进，不做回退**（回退需写 `regressions[]` 留痕，`--set` 无数组 append 能力）
+- **`/api/reveal` 收紧为 fail-closed**: 旧实现 `if (allowedRoots.length > 0)` 才校验，传空数组即放行任意路径。改为被调用方自己守住边界（空白名单直接拒绝），并抽出纯函数 `isWithinAllowedRoots`（同时修掉用 `'/'` 拼前缀在 Windows 上把 `/a/bc` 误判为 `/a/b` 子路径的问题）；判定顺序改为**先授权后存在性**，不向探测者泄漏路径是否存在
+- **项目注册表口径（D4 已决）**: 注册表语义定为「所有被加入 dashboard 做可视化、且使用 polaris-flow 的项目」。新增 `addProject` 的「已 `polaris init`」校验；`listProjects` 对失效项返回 `stale` + `reason` 且**不自动删**；**不并入** `~/.polaris/polaris.yaml`（否决设计文档原倾向）。不做数据迁移，只拦新增
+- **前端适配**: 看板复选框可点（仅当文件路径 === `task.plan_file`，按路径精确比对）；步骤卡下方加「推进阶段 → <名称>」两段式内联确认；完成卡片的「Archive Plan」改为接成交付清理（预演 → 列出将删路径 → 确认删除）；项目选择器对失效项显示徽标与原因。所有写操作成功后**重取详情**而不是本地改状态
+- **契约定稿 M3**: `docs/specs/2026-09-18-dashboard-api-contract.md` 新增 §五「写操作」（不变量、三个端点与原语映射、拒绝面、预演口径、与自动衔接的已知依赖）；§二 路由表补 4 条并重标只读性；§八 守卫测试清单补 6 个测试文件
+- **设计文档订正**: §7 D4 由「倾向并入 `polaris.yaml`」改为「已决：继续用 `~/.polaris/projects.json`」并写明语义；§5.2 表后补 M3 落地口径（只做推进、不做通用操作通道、先修 `ship-cleanup` 缺陷）
 
 ### Fixed
 
@@ -143,6 +157,11 @@
 - **hooks-install**: Trae/Claude 六场景（不存在写入、合并保留用户配置、overwrite 替换 hooks）
 - **hook-platform-params**: platform 解析优先级、stdin JSON、`_polaris-cli` 占位替换、hooks command 路径改写、SessionStart session_id
 - **session-start.sh 集成**: 薄包装无 CLI 失败提示；stdin cwd/session_id 全链路落盘；CLI 路径优先于 stdin.cwd
+
+- **`ship-cleanup` 的静默数据丢失**: `src/core/hooks/delivery-cleanup.ts` 把 `kind` 写死 `coding`，于是对 debug / requirement / testcase / prototype 任务「删游标条目」静默失败（`delete-active` 在 `coding_tasks` 里找不到 → 过滤后列表没变 → 其 `no_tid` 校验**假通过** → exit 0），而函数接着 `rm -rf` 任务档案目录 —— 结果是**退出码 0、档案已蒸发、游标条目还在**。另 testcase 的目录是 `.polaris/testcases/<id>/`，旧实现只删 `tasks` 路径（漏删）。修法三条：`kind` 由调用方给出（CLI 缺省 `coding` 仅为兼容，面板显式传）；新增 `planDeliveryCleanup` 预检（目标不在指定 kind 的列表里就报错，并指出它实际属于哪个 kind）；删条目后**全量回读** `workflow.yaml`，只要该 id 还留在任何 kind 的列表里就中止且**不删档案**（这条不依赖任何单一 kind 的校验正确，只依赖「游标还有引用 → 档案不能删」）。CLI 加 `--kind` / `--dry-run`
+- **`ship-cleanup` 成功路径漏带 `plan`**: 执行后回报的 `will_delete` 为空，面板的「删了什么」成了空话
+- **前端两个悬空引用（M2 遗留）**: `dashboard/src/views/TasksPage.vue` 的 `handleTaskAction` 仍调用 `executeStepOperation` / `actionToast`，而这两个函数已随 M2 的 `useTasks` 一并删除。`vite build` 不校验未定义全局名，所以逃过了构建；任一 `@action` 都会 `ReferenceError`。一并清掉随之失效的步骤操作 UI（`stage-card-actions` / `stepOperations` / `onStepAction` / `executingOperationCode` prop / `shouldShowStepOperations`）
+- **`state.yaml.phase` 的权威性误判（M2 契约遗留）**: 契约原写「以 `state.yaml.phase` 为单一真相」，实际权威是 `workflow.yaml` 游标（`state.yaml.phase` 在 `src/` 内零读取方，且 coding 族从不调用 `enter/complete-phase`，其值长期停在建任务时写的 `specify`）
 
 ### Removed
 
