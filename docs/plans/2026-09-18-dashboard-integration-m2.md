@@ -28,6 +28,7 @@
 | 10 | 可用的验证样本不足：`test-project/prdtesting` 已 init，但 5 个数组全空、`.polaris/tasks/` 为空 | "5 类 kind 全可见"**无法用现成样本验**，必须自造 fixture（Task 5 Step 6） |
 | 11 | 前端消费面收敛：`api/index.js` 20 个函数、`utils/` 8 个模块、`composables/` 3 个、`views/` 5 个、`components/` 29 个；总计约 3200 行 | 规模可控，但**字段级依赖必须逐条对齐**（§三 那张表就是依据），不能靠"看起来能跑" |
 | 12 | **`src/core/hooks/state-next.ts` 已有一份 per-kind 的 phase 知识表**（`PHASE_TO_SKILL` / `DEBUG_PHASE_TO_SKILL`），其测试 `state-next.test.ts:105` 明确断言 triage/prescribe/prove 返回 null、`specify` 返回 null | 这是**独立的第三处 phase 真相**（前两处见 §二）。Task 1 新表若与它各自漂移，就会重演 `triage` 事故 → Task 1 Step 2 必须加**漂移护栏**：state-next 的 phase key 必须是新表已登记阶段或已声明别名 |
+| 13 | **`phase` 的权威是 `workflow.yaml` 的游标，不是 `state.yaml.phase`**：全仓唯一读取方 `polaris state next` 读的是 `hit.entry.phase`；而 `state.yaml.phase` **src/ 内零读取方**，coding 族又从不调用 `enter/complete-phase`，所以它会长期停在建任务时的 `specify` 或 `idle` | M1 契约原写「state.yaml 为单一真相」**是错的**，已订正。Task 2 的 `readTaskRuntime` 改为**接收游标 phase**，不读 `state.yaml.phase`（见 Task 2 Step 2）。完整调研与归一方案见 `docs/specs/2026-09-19-phase-truth-unification-design.md` |
 
 ---
 
@@ -67,7 +68,7 @@
 | --- | --- | --- |
 | `t.name`（`useTasks.js:58,171`） | `task_id` | `.polaris/workflow.yaml` 各项 |
 | `t.title` / `change.summary`（`changeMapper.js:97,139`） | `title` | 按 kind 取：requirement→`req_name`→`req_name_cn`；prototype→`name`；testcase→`testcase_plan.md` 一级标题；coding→`openspec/changes/<id>/change-brief.md`→`intention.md` 一级标题；debug→`diagnose-brief.md` 一级标题；全落空→`task_id` |
-| `change.phase`（`changeMapper.js:104,146`） | `phase` | **`state.yaml.phase`**，单一真相 |
+| `change.phase`（`changeMapper.js:104,146`） | `phase` | **`.polaris/workflow.yaml` 游标的 `phase`**（权威；见 §一 事实 #13），**不读 `state.yaml.phase`** |
 | `change.currentGroup`（`changeMapper.js:121,147`、`useTasks.js:50,200`、`ChangeDetailDrawer.vue:44`） | `phase_group` | 阶段表：phase → 所属分组名 |
 | `change.stepStatuses` / `change.workflow`（`changeMapper.js:27-35,75`） | `phase_groups` | 阶段表 + `phase` 算出的 done/active/pending |
 | `change.stepsDone` / `stepsTotal`（`changeMapper.js:73,87`、`dashboardHelpers.js:36-38`） | `phase_index` / `phase_total` | 阶段表序位 |
@@ -332,24 +333,39 @@ export function scanArchivedTasks(projectRoot: string): TaskCursor[];
 
 ```ts
 export type TaskRuntime = {
-  /** state.yaml.phase —— 唯一真相；缺失时为空串 */
+  /**
+   * **权威 phase：`.polaris/workflow.yaml` 游标项的 `phase`**，由 `scan/tasks.ts` 传入或在此回查。
+   * 缺失时为空串。**不读 `state.yaml.phase`** —— 那是只写不读的非权威镜像
+   * （coding 族从不调用 enter/complete-phase，其 state.yaml.phase 会长期停在建任务时的 `specify`）。
+   * 依据：`docs/specs/2026-09-19-phase-truth-unification-design.md` §1.1。
+   */
   phase: string;
-  /** 归一化后的通道；仅 debug 族有 */
+  /** 归一化后的通道（`state.yaml.channel`）；仅 debug 族有 */
   channel: string;
-  /** 归一化后的模式（sdd 与 normal 视为同一档，见事实 #5） */
+  /** 归一化后的模式（`state.yaml.workflow.mode`；sdd 与 normal 视为同一档，见事实 #5） */
   mode: string;
+  /** 任务名（`state.yaml` 的 req_name / name，或文档首标题，或回退 task_id） */
   title: string;
+  /** 任务目录里的 worktree 路径（`state.yaml.worktree.path`） */
   worktreePath: string;
-  /** state.yaml 缺失为 true —— 用于 UI 提示"运行态未初始化"，不用于反推阶段 */
+  /** state.yaml 缺失为 true —— 用于 UI 提示"运行态未初始化"。**不得据此反推阶段** */
   stateMissing: boolean;
+  /** 取 state.yaml 的 mtime */
   updatedAt: string;
 };
 
-/** 按 kind 定位并读取 state.yaml；路径一律用 getTaskKindStatePath */
-export function readTaskRuntime(projectRoot: string, kind: WorkflowTaskKind, taskId: string): TaskRuntime;
+/** 按 kind 定位并读取 state.yaml（路径一律用 getTaskKindStatePath）；phase 由调用方从游标给出 */
+export function readTaskRuntime(
+  projectRoot: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+  cursorPhase: string,
+): TaskRuntime;
 ```
 
 `title` 取值规则见 §三 字段表第 2 行；取一级标题用一个小的「首个 `# ` 行」提取函数，**不引入 markdown 解析依赖**。
+
+> 单测要加一条反例：**`state.yaml.phase` 与游标 phase 不同**时，`readTaskRuntime` 返回的是**游标值**（这条护栏防的是契约 §三 那类失误复发）。
 
 - [ ] **Step 3: `scan/files.ts`**
 
@@ -600,10 +616,11 @@ pnpm format:check && pnpm lint && pnpm build && pnpm test
 5. **检测页接 `doctor`**：旧的 `polaris.meta.yaml` / `openspec/polaris.yaml` 条目消失，出现 `doctor` 的实际检查项。
 6. **`dashboard/` 零文件被 prettier 触碰**，`pnpm format:check` / `pnpm lint` 范围与行为与改造前一致，零 ignore 例外。
 7. **无 `/api/changes*` 残留**：后端路由、前端调用、契约文档三处一致（`grep` 三处皆空）。
-8. **未知值不崩**：手工把某任务的 `state.yaml.phase` 改成 `nonsense`，面板显示原值并标注，不抛错。
+8. **未知值不崩**：手工把某任务**游标里的 `phase`** 改成 `nonsense`，面板显示原值并标注，不抛错。
 
 ## 十、后续（不在本计划内）
 
+- **phase 真相归一**（独立里程碑，见 `docs/specs/2026-09-19-phase-truth-unification-design.md`）：单一枚举 + 游标语义统一 + 原语白名单校验 + 文档不再自持枚举。该设计还查出 `state-next` 的 prototype / debug 两张转移表**偏移一位**（会跳阶段），其 D13 待决。与 M2 解耦，可独立提交与回退。
 - **M3 写操作与多项目**：§5.2 的原语映射（勾选任务 / 推进阶段 / `tasks-lint` / `ship-cleanup`）；多项目注册表落点（D4）；`/api/reveal` 白名单收紧。
 - **M4 收敛与退役**：`test/ts/dashboard.test.ts`（路由 / 静态托管 / 项目解析 / 锁行为）；README 补齐 `dashboard` 用法；`npm pack` 解包终检；两源仓确认可归档。
 - **本计划外但已登记**：debug 族模板与技能目录的阶段对齐（D7）；`workflow-template.yaml` 陈旧枚举注释（§二）；`CHANGELOG.md` 的 0.1.1 条目下有两个 `### Tests` 段。

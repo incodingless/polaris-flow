@@ -70,7 +70,7 @@ M1 之后，数据源切到 polaris-flow 的当前模型；**字段名与形状�
 | --- | --- | --- |
 | `task_id` | `string` | `.polaris/workflow.yaml` 各任务数组项 |
 | `kind` | `'coding' \| 'requirement' \| 'testcase' \| 'prototype' \| 'debug'` | 由所在数组决定（`coding_tasks` / `requirement_tasks` / `testcase_tasks` / `prototype_tasks` / `debug_tasks`） |
-| `phase` | `string` | **`state.yaml` 的 `phase` 为单一真相**，不由文件存在性反推 |
+| `phase` | `string` | **`.polaris/workflow.yaml` 游标的 `phase`**（权威，见 `docs/specs/2026-09-19-phase-truth-unification-design.md` §1.1）；不由文件存在性反推，**也不读 `state.yaml.phase`**（那是只写不读的非权威镜像） |
 | `channel` | `'bugfix' \| 'hotfix' \| undefined` | 仅 debug 族有 |
 | `worktree_path` | `string` | 空串表示仍在主仓 |
 | `started_at` | `string`（ISO 8601） | |
@@ -79,7 +79,7 @@ M1 之后，数据源切到 polaris-flow 的当前模型；**字段名与形状�
 
 | 用途 | 路径 |
 | --- | --- |
-| 运行态 | `.polaris/tasks/<task_id>/state.yaml`、`.polaris/testcases/<task_id>/state.yaml`（`state.kind` 区分） |
+| 运行态 | `.polaris/tasks/<task_id>/state.yaml`、`.polaris/testcases/<task_id>/state.yaml`（`state.kind` 区分）；**`phase` 除外 —— 它取自 `.polaris/workflow.yaml` 的游标** |
 | 叙事与规格 | `openspec/changes/<task_id>/`（四件套 + `intention.md` + `change-brief.md` + `detailed-design.md` + `reviews/`） |
 | 归档 | `.polaris/archive/<task_id>/` |
 
