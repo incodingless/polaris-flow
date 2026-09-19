@@ -30,8 +30,12 @@
           v-for="proj in projects"
           :key="proj.id"
           class="project-item"
-          :class="{ 'project-item--active': proj.id === activeId }"
-          @click="$emit('select', proj)"
+          :class="{
+            'project-item--active': proj.id === activeId,
+            'project-item--stale': proj.stale
+          }"
+          :title="proj.stale ? `失效：${proj.reason}（请删除后重新添加）` : proj.path"
+          @click="!proj.stale && $emit('select', proj)"
         >
           <div class="project-item__icon">
             <svg class="icon" viewBox="0 0 24 24">
@@ -39,8 +43,13 @@
             </svg>
           </div>
           <div class="project-item__info">
-            <div class="project-item__name">{{ proj.name }}</div>
+            <div class="project-item__name">
+              {{ proj.name }}
+              <!-- 失效项可见但不自动清理：删除只能是用户的动作 -->
+              <span v-if="proj.stale" class="badge badge--stale" :title="proj.reason">失效</span>
+            </div>
             <div class="project-item__path">{{ proj.path }}</div>
+            <div v-if="proj.stale" class="project-item__stale-reason">{{ proj.reason }}</div>
           </div>
           <div class="project-item__actions" @click.stop>
             <span v-if="proj.id === defaultProjectId" class="badge badge--modal-default">
@@ -53,6 +62,8 @@
               v-else
               type="button"
               class="btn btn--sm btn--ghost project-item__set-default"
+              :disabled="proj.stale"
+              :title="proj.stale ? '失效项目不能设为默认' : ''"
               @click="$emit('set-default', proj)"
             >
               设为默认
