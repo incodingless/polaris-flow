@@ -1,7 +1,7 @@
 # Dashboard 写操作与多项目 M3 实施计划
 
 日期：2026-09-19
-状态：**已放行，实施中** —— 决策 D4 / D17–D21 全部已决（用户 2026-09-19）
+状态：**已完成**（2026-09-19）—— 决策 D4 / D17–D21 全部已决，执行记录见 §八
 上游设计：`docs/specs/2026-09-18-dashboard-integration-design.md` §5.2 / §六 M3 / §7 D4
 前置：M2 已完成（`docs/plans/2026-09-18-dashboard-integration-m2.md` §十一 执行记录）
 
@@ -306,3 +306,57 @@ grep -rnE "writeFile|writeFileSync|\brm\(|rename\(|mkdir" src/dashboard/ | grep 
 - **回退阶段 + `regressions[]` 留痕**（D19 选项 B）—— 需要数组 append 能力，且要先定「谁可退、退到哪」的语义。
 - **phase 真相归一的 A 案**（`docs/specs/2026-09-19-phase-truth-unification-design.md`，D12–D16 待决）。**注意依赖关系**：面板推进阶段后，宿主的自动衔接会走 `polaris state next`，而其中 prototype / debug 两张表**偏移一位**（D13）—— 若 M3 之后要开自动衔接，D13 必须先修。
 - **M4 收敛与退役**：`test/ts/dashboard.test.ts`；README / AGENTS.md 更新；`npm pack` 解包终检；两源仓归档。
+
+---
+
+## 八、执行记录（2026-09-19 完成）
+
+**状态：Task 1–8 全部完成**，8 笔提交（`71e29a7` → `c24a5da`）。计划里的 Step 未逐条勾选 —— 实现过程中有偏离，逐条记录如下，避免「勾了但没做」的假账。
+
+| 提交 | 内容 |
+| --- | --- |
+| `71e29a7` | Task 1：`reveal` 收紧为 fail-closed + 17 项单测 |
+| `e44853a` | Task 2：`set-checkbox` 薄原语 + 17 项单测 |
+| `d2c1dbe` | Task 3：修 `ship-cleanup` 静默删档 + 11 项单测 |
+| `34b1293` | Task 4：`/api/tasks/:id/plan-lint` 只读链路 + 6 项单测 |
+| `87f758e` | Task 5：推进阶段 + 勾选写端点 + 17 项单测 |
+| `139d88b` | Task 6：交付清理端点（预演→确认）+ 前端确认流程 |
+| `4a2f7fd` | Task 7：注册表口径 D4 + 8 项单测 |
+| `c24a5da` | Task 8：契约定稿 + 设计文档订正 + CHANGELOG |
+
+### 与计划的偏离（均已落到代码/文档）
+
+1. **补了一个计划漏列的写端点**：`POST /api/tasks/:id/checkbox`。计划 File Structure 提到「三个写处理器（checkbox / phase / cleanup）」，但 §五 Tasks 里 Task 2 只写原语、Task 4/5/6 分别只覆盖 lint/phase/cleanup —— 复选框端点漏在了两个 task 之间。验收判据 #1（勾选后三者一致）没有它不可达，故补进 Task 5。
+2. **复选框序号语义定为「第几个复选框」而非行号**（计划 Step 1 的措辞是「第 2 行变 `- [x]`」，易读成行号）。理由：行号随标题/空行增删而漂移，序号才是界面上的「第 N 个任务」；前端 `parseTaskMarkdown` 本来就产出 `item.index` 序号。同时把前端 `CHECKBOX_RE` 由 `(.+)` 放宽为 `(.*)` —— 否则正文为空的复选框行会被前端漏计，此后序号整体错位一格。
+3. **新增 `src/core/hooks/tasks-checkbox.ts`**（计划未列）。计划把规则放在 `task-state-entry` 里，但**读取方**（`scan/files.ts` 的进度统计）也需要同一套「哪些行算复选框」规则；放两处必漂移，而漂移的表现是「进度算的是 A 文件、勾选落到 B 文件」这类无报错的静默错位。故单独成模块，读写共用。
+4. **计划文件定位另抽 `planFileCandidates` / `findPlanFile`** 至 `scan/files.ts`，`lintTaskPlan` 与 `setTaskCheckbox` 共用；`TaskItem` 相应新增 `plan_file`，让前端按**路径精确比对**判断「当前展示的文件能否勾选」，不靠文件名猜。
+5. **`runDeliveryCleanup` 的成功路径补带 `plan`**（计划未提）。否则 `confirm` 回报的 `will_delete` 为空，面板的「删了什么」成了空话 —— 实测 curl 时发现。
+6. **注册表路径支持 `POLARIS_PROJECTS_FILE` 覆盖**（计划未提）。这是 Task 7 单测的**前提**：不覆盖就会往用户真实的 `~/.polaris/projects.json` 写测试数据。做成函数而非常量（常量在模块加载时求值，测试来不及设环境变量）。
+7. **测试文件命名与计划 File Structure 略有出入**：计划只列了 `dashboard-write.test.ts`。实际拆成 `dashboard-filesystem.test.ts`（Task 1）、`dashboard-planlint.test.ts`（Task 4，只读端点，与写端点混在一个文件里语义不清）、`dashboard-write.test.ts`（Task 5/6）、`dashboard-projects.test.ts`（Task 7），加上 `task-state-checkbox.test.ts`、`delivery-cleanup.test.ts` —— 共 6 个新文件、76 项新测试。
+8. **`ship-cleanup` 的 CLI 也加了 `--dry-run`**（计划只要求端点带预演）：CLI 与面板两个入口的能力一致，省得排查时两边行为不同。
+
+### 实施期踩的坑
+
+1. **`router.ts` 里替换锚点时误删了 `GET /api/tasks/:id` 的路由行**。用「注释行 + 正则行」当锚点做替换，新内容里没把锚点带回来。靠 `grep tasksApi\.` 逐条核对端点清单发现 —— 这类事故 `vite build` 与类型检查都拦不住（`taskMatch` 声明没了，TS 会报错，但**只在构建时**）。**教训：替换锚点时必须把锚点本身写回 new_string**。
+2. **测试暴露了我一个错误前提**：`findCursor` 的 `kind` hint 是**软偏好**（命中不到会回落到任意 kind），我却写了一条「传错 kind 必然报错」的测试。真实行为更好 —— kind 一律取自游标，所以面板不可能重演旧版「传错 kind 就静默删档」。已把测试改成钉住这个前提。
+3. **`eslint` 的 `no-useless-assignment`**：`let payload = {}` 紧接 try/catch 重新赋值会被判为无用初始值，改成只声明不初始化。
+
+### 验收结果（对齐 §六 完成判据）
+
+| # | 判据 | 结果 |
+| --- | --- | --- |
+| 1 | 勾选后 `tasks.md` / `state.yaml` / `.locks/` 三者一致 | ✅ 单测断言计数同步（`completed_tasks: 1`）；e2e 实测文件、计数、锁文件释放三者同步；无 `runtime.build` 块时**不新建** `state.yaml` |
+| 2 | 推进后游标正确、面板回读一致 | ✅ e2e 实测 `specify → plan` 落盘、回读校对通过；`state.yaml.phase` 保持 `specify` 不被改写 |
+| 3 | 无绕过锁的直写路径 | ✅ `grep -rnE "writeFile\|writeFileSync\|rm(\|rename(\|mkdir(" src/dashboard/` 只命中 `api/projects.ts` 写全局注册表（契约 §5.1 显式登记的例外） |
+| 4 | 交付清理有 dry-run 与确认，传错 kind 必须中止 | ✅ e2e 实测：`{}` 被拒、`dry_run` 零副作用、`confirm` 真删；`delivery-cleanup.test.ts` 有「debug 任务不传 kind 必须失败且目录完好」的回归测试；跨两个 kind 列表残留时中止且不删档案 |
+| 5 | `reveal` fail-closed | ✅ 17 项单测含空白名单 / 纯空白名单 / 默认参数三种拒绝；顺带修掉 `'/'` 拼前缀在 Windows 上的误判 |
+| 6 | 注册表语义落地 | ✅ 未 init 被拒且不落注册表；失效项标 `stale` + 原因、条目仍在；目录恢复后立刻变回正常 |
+| 7 | 基线零新增 | ✅ `prettier --check src/` **11** 个不合格（改造前 11）；`eslint src/` **13** errors（同基线）；测试 **6 failed \| 41 passed（47 文件）**，失败集合与改造前**同一批 6 个文件** |
+
+**测试增量**：41 → 47 文件，35 → 41 passed，新增 6 个测试文件 76 项全绿，零新增失败。
+
+### 未做（登记为后续）
+
+- **回退阶段 + `regressions[]` 留痕**（D19 选项 B）：需要数组 append 能力，且要先定「谁可退、退到哪」。
+- **开启自动衔接**：面板目前不触发 `polaris state next`；若要开，**D13（prototype / debug 两张转移表偏移一位）必须先修**。
+- **M4 收敛与退役**。
