@@ -98,36 +98,8 @@ export function getTabFiles(filesByTab, tabId) {
 }
 
 /** 解析 workflow phases 接口响应 */
-export function normalizeWorkflowPhases(data) {
-  if (!data?.phases || !Array.isArray(data.phases)) return []
-  return data.phases.map((phase) => ({
-    code: phase.code,
-    name: phase.name
-  }))
-}
-
 /** 解析步骤操作接口响应 */
-export function normalizeStepOperations(data) {
-  if (!Array.isArray(data)) return []
-  return data
-    .filter((op) => op?.code && op?.name)
-    .map((op) => ({
-      code: op.code,
-      name: op.name,
-      target: op.target || ''
-    }))
-}
-
 /** 解析 workflow artifacts 接口响应（用于文件分组） */
-export function normalizeArtifactPhases(data) {
-  if (!data?.phases || !Array.isArray(data.phases)) return []
-  return data.phases.map((phase) => ({
-    code: phase.code,
-    name: phase.name,
-    artifacts: Array.isArray(phase.artifacts) ? phase.artifacts : []
-  }))
-}
-
 /** 取第一个 Tab id，用于默认选中 */
 export function getDefaultDetailTabId(workflowPhases = []) {
   return workflowPhases[0]?.code || ''

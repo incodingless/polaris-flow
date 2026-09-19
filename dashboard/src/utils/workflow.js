@@ -100,20 +100,6 @@ export function findNextStep(stepGroups, step) {
 }
 
 /** 进度元数据（步骤条用） */
-export function workflowMeta(stepGroups = []) {
-  const steps = flattenSteps(stepGroups)
-  const doneSteps = steps.filter((s) => s.status === 'done' || s.status === 'skipped').length
-  const activeStep = steps.find((s) => s.status === 'active')
-  const totalSteps = steps.length
-  return {
-    stepGroups,
-    currentStep: activeStep?.number ?? Math.max(1, doneSteps),
-    doneSteps,
-    totalSteps,
-    pct: totalSteps ? Math.round((doneSteps / totalSteps) * 100) : 0
-  }
-}
-
 /** 判断任务是否已归档（后端对归档项给合成 phase `archived`） */
 export function isArchivedTask(task) {
   return task?.phase === 'archived' || !!task?.archivedAt || !!task?.archivedDate
@@ -146,20 +132,6 @@ export function formatTaskCardTime(task) {
 }
 
 /** 相对时间格式化 */
-export function formatRelativeTime(isoOrDate) {
-  const d = new Date(isoOrDate)
-  if (Number.isNaN(d.getTime())) return ''
-  const diff = Date.now() - d.getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return '刚刚'
-  if (mins < 60) return mins + ' 分钟前'
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return hours + ' 小时前'
-  const days = Math.floor(hours / 24)
-  if (days < 30) return days + ' 天前'
-  return d.toISOString().slice(0, 10)
-}
-
 /** 任务卡片阶段标签：空心样式，文字为当前阶段名 */
 export function formatStageTag(task) {
   const label = task?.currentGroup || task?.status || '未知'
@@ -171,17 +143,6 @@ export function formatStageTag(task) {
 }
 
 /** 状态标签样式类 */
-export function statusTagClass(task) {
-  const map = {
-    success: 'tag-success',
-    warning: 'tag-warning',
-    error: 'tag-warning',
-    info: 'tag-info',
-    accent: 'tag-info'
-  }
-  return map[task.statusType] || 'tag-disabled'
-}
-
 /** 类型角标颜色（按 kind，旧的 BE/FE/FS/TS/RQ 标签色已作废） */
 export function getGroupColor(tag) {
   const map = {
