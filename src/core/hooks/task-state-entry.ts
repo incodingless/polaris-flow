@@ -16,6 +16,7 @@ import { fileExists } from '../../utils/file-system.js';
 import { parseWorkflowTaskKind, type WorkflowTaskKind } from '../config/workflow-state.js';
 import { resolveRepoRoot } from './workflow-entry.js';
 import { acquireExclusiveLock, WorkflowLockError } from './workflow-lock.js';
+import { applySetCheckbox, CheckboxError, countCheckboxes } from './tasks-checkbox.js';
 
 export type TaskStateEntryOp =
   | 'get'
@@ -24,7 +25,8 @@ export type TaskStateEntryOp =
   | 'enter-phase'
   | 'complete-phase'
   | 'set-identity'
-  | 'get-identity';
+  | 'get-identity'
+  | 'set-checkbox';
 
 export type BlockStyle = 'runtime' | 'top-level' | 'auto';
 
@@ -54,6 +56,12 @@ export type TaskStateEntryArgs = {
   deliveredName?: string;
   /** 锁写者标识；缺省用 op 名 */
   skill?: string;
+  /** set-checkbox：项目根相对路径（posix） */
+  file?: string;
+  /** set-checkbox：复选框序号（0-based，按出现顺序） */
+  index?: number;
+  /** set-checkbox：目标勾选态 */
+  checked?: boolean;
   lockOptions?: {
     staleMs?: number;
     spinMs?: number;
@@ -125,10 +133,7 @@ export function parseSetValue(raw: string): unknown {
     if (!Number.isNaN(n)) return n;
   }
   // 去掉一层引号
-  if (
-    (raw.startsWith('"') && raw.endsWith('"')) ||
-    (raw.startsWith("'") && raw.endsWith("'"))
-  ) {
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
     return raw.slice(1, -1);
   }
   return raw;
@@ -192,9 +197,7 @@ export async function resolveStateFilePath(
     try {
       const raw = parseYaml(await readFile(primary, 'utf-8'));
       if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-        const wt = (raw as Record<string, unknown>).worktree as
-          | Record<string, unknown>
-          | undefined;
+        const wt = (raw as Record<string, unknown>).worktree as Record<string, unknown> | undefined;
         const wtPath = typeof wt?.path === 'string' ? wt.path.trim() : '';
         if (wtPath) {
           const wtState = path.join(wtPath, '.polaris', 'tasks', taskId, 'state.yaml');
@@ -344,7 +347,7 @@ export async function runTaskStateEntry(args: TaskStateEntryArgs): Promise<TaskS
     return {
       exitCode: 3,
       message:
-        '缺少 op(get|get-json|set|enter-phase|complete-phase|set-identity|get-identity)',
+        '缺少 op(get|get-json|set|enter-phase|complete-phase|set-identity|get-identity|set-checkbox)',
     };
   }
 
@@ -372,7 +375,8 @@ export async function runTaskStateEntry(args: TaskStateEntryArgs): Promise<TaskS
     args.op === 'set' ||
     args.op === 'enter-phase' ||
     args.op === 'complete-phase' ||
-    args.op === 'set-identity';
+    args.op === 'set-identity' ||
+    args.op === 'set-checkbox';
 
   if (!isWrite) {
     return runReadOp(args, statePath);
@@ -410,7 +414,7 @@ export async function runTaskStateEntry(args: TaskStateEntryArgs): Promise<TaskS
   }
 
   try {
-    return await runWriteOp(args, statePath, kind);
+    return await runWriteOp(args, statePath, kind, lockRepo);
   } finally {
     lock.release();
   }
@@ -474,7 +478,10 @@ async function runReadOp(
     }
     case 'get-json': {
       if (args.pathsCsv) {
-        const paths = args.pathsCsv.split(',').map((s) => s.trim()).filter(Boolean);
+        const paths = args.pathsCsv
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
         const obj: Record<string, unknown> = {};
         for (const p of paths) {
           obj[p] = getByPath(state, p) ?? null;
@@ -500,7 +507,15 @@ async function runWriteOp(
   args: TaskStateEntryArgs,
   statePath: string,
   kind: WorkflowTaskKind | null,
+  repoRoot: string,
 ): Promise<TaskStateEntryResult> {
+  // set-checkbox 不是 state.yaml 的修改，而是「改 tasks.md + 同锁同步 state 计数」。
+  // 单独分支：通用路径末尾会无条件写回 state.yaml，而 state.yaml 可能不存在
+  // （debug 族），无脑回写会凭空造出一个空 state.yaml。
+  if (args.op === 'set-checkbox') {
+    return runSetCheckbox(args, statePath, repoRoot);
+  }
+
   let state: Record<string, unknown>;
   try {
     state = await loadStateObject(statePath);
@@ -571,4 +586,120 @@ async function runWriteOp(
   }
 
   return { exitCode: 0 };
+}
+
+/**
+ * `set-checkbox`：勾选 `tasks.md` 的一行，并在**同一次锁内**同步 `state.yaml` 的
+ * `runtime.build.{total_tasks,completed_tasks}`。
+ *
+ * 为什么必须同锁同步：面板的验收是「勾选任务后 `tasks.md` / `state.yaml` / `.locks/`
+ * 三者一致」。分两次调用（先改文件、再改 state）会在两次之间留下不一致窗口，且第二次
+ * 会被别的写者插队。同一把 `task-state-<id>.lock` 里做完，才是原子的。
+ *
+ * 只在 state 里**已有** `runtime.build` 块时同步：没有该块（debug / requirement 等族）
+ * 说明该 kind 不用这两个计数，凭空添字段是替它做决定。
+ */
+async function runSetCheckbox(
+  args: TaskStateEntryArgs,
+  statePath: string,
+  repoRoot: string,
+): Promise<TaskStateEntryResult> {
+  // CLI 壳只设 exitCode、不打印 message，所以这里自己打原因 —— 否则用户只看到
+  // 退出码 3，不知道是哪个参数不对。
+  const fail = (code: number, message: string): TaskStateEntryResult => {
+    console.error(`[task-state-entry] 阻断：${message}`);
+    return { exitCode: code, message };
+  };
+
+  const relFile = (args.file ?? '').trim();
+  if (!relFile) {
+    return fail(3, 'set-checkbox 需要 --file（项目根相对路径）');
+  }
+  if (path.isAbsolute(relFile) || relFile.split(/[/\\]/).includes('..')) {
+    return fail(3, `--file 必须是项目根内的相对路径: ${relFile}`);
+  }
+  if (args.index === undefined) {
+    return fail(3, 'set-checkbox 需要 --index');
+  }
+  if (typeof args.checked !== 'boolean') {
+    return fail(3, 'set-checkbox 需要 --checked <true|false>');
+  }
+
+  const absFile = path.resolve(repoRoot, relFile);
+  if (!absFile.startsWith(repoRoot + path.sep)) {
+    return fail(3, `--file 越出项目根: ${relFile}`);
+  }
+  if (!(await fileExists(absFile))) {
+    return fail(2, `目标文件不存在: ${relFile}`);
+  }
+
+  let raw: string;
+  try {
+    raw = await readFile(absFile, 'utf-8');
+  } catch (err) {
+    return fail(2, `无法读取 ${relFile}: ${(err as Error).message}`);
+  }
+
+  let edit;
+  try {
+    edit = applySetCheckbox(raw, args.index, args.checked);
+  } catch (err) {
+    if (err instanceof CheckboxError) {
+      return fail(3, err.message);
+    }
+    throw err;
+  }
+
+  if (edit.changed) {
+    await writeFile(absFile, edit.content, 'utf-8');
+    const back = await readFile(absFile, 'utf-8');
+    if (back !== edit.content) {
+      return fail(2, `写后校验失败：回读内容与写入不一致: ${relFile}`);
+    }
+  }
+
+  const progress = countCheckboxes(edit.content);
+  let stateSynced = false;
+  let stateSkippedReason = '';
+  if (!progress) {
+    stateSkippedReason = '目标文件无复选框';
+  } else {
+    const state = await loadStateObject(statePath);
+    const block = getByPath(state, 'runtime.build');
+    if (!block || typeof block !== 'object' || Array.isArray(block)) {
+      stateSkippedReason = 'state 无 runtime.build 块';
+    } else if (
+      getByPath(state, 'runtime.build.total_tasks') !== progress.total ||
+      getByPath(state, 'runtime.build.completed_tasks') !== progress.done
+    ) {
+      setByPath(state, 'runtime.build.total_tasks', progress.total);
+      setByPath(state, 'runtime.build.completed_tasks', progress.done);
+      await saveStateObject(statePath, state);
+
+      const verify = await loadStateObject(statePath);
+      if (
+        getByPath(verify, 'runtime.build.total_tasks') !== progress.total ||
+        getByPath(verify, 'runtime.build.completed_tasks') !== progress.done
+      ) {
+        console.error('[task-state-entry] 写后校验失败：state 计数未落盘');
+        return { exitCode: 2, message: '写后校验失败：state 计数未落盘' };
+      }
+      stateSynced = true;
+    }
+  }
+
+  const value = {
+    file: relFile,
+    ordinal: edit.ordinal,
+    /** 1-based 行号，便于人对照编辑器 */
+    line: edit.lineNo + 1,
+    checked: edit.after,
+    changed: edit.changed,
+    total: progress?.total ?? 0,
+    done: progress?.done ?? 0,
+    state_synced: stateSynced,
+    state_skipped_reason: stateSkippedReason,
+  };
+  console.log(JSON.stringify(value));
+  return { exitCode: 0, value };
 }

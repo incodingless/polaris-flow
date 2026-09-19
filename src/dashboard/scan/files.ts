@@ -14,6 +14,7 @@ import path from 'node:path';
 import { getTaskKindDir } from '../../core/assets/polaris-paths.js';
 import { getKindArtifacts } from '../../core/config/task-kind-layout.js';
 import type { WorkflowTaskKind } from '../../core/config/workflow-state.js';
+import { countCheckboxes } from '../../core/hooks/tasks-checkbox.js';
 
 export type TaskFile = {
   /** 相对项目根的 posix 路径，如 `.polaris/tasks/x/state.yaml` */
@@ -82,20 +83,14 @@ export function listTaskFiles(
     }));
 }
 
-/** 解析 markdown 复选框 → { total, done }；无复选框返回 null */
+/**
+ * 解析 markdown 复选框 → `{ total, done }`；无复选框返回 null。
+ *
+ * 规则与**写入方**共用 `src/core/hooks/tasks-checkbox.ts` —— 读与写的「哪些行算复选框」
+ * 必须一致，否则面板按序号勾选会改错行（序号在读侧算、落盘在写侧算，不一致时无报错）。
+ */
 export function parseCheckboxes(content: string): TaskProgress | null {
-  let total = 0;
-  let done = 0;
-  for (const line of content.split('\n')) {
-    const matched = line.match(/^\s*- \[(.)\] /);
-    if (matched) {
-      total += 1;
-      if (matched[1] !== ' ') {
-        done += 1;
-      }
-    }
-  }
-  return total > 0 ? { total, done } : null;
+  return countCheckboxes(content);
 }
 
 /**

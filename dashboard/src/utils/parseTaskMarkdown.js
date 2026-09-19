@@ -1,6 +1,9 @@
 const UNGROUPED_TITLE = '未分组'
 const HEADING_RE = /^(#{1,3})\s+(.+)/
-const CHECKBOX_RE = /^\s*- \[(.)\] (.+)/
+// 复选框规则必须与后端 `src/core/hooks/tasks-checkbox.ts` 的 CHECKBOX_LINE_RE 一致：
+// 面板按「第几个复选框」发勾选序号，落盘侧按同一规则定位行。用 (.+) 会漏掉正文为空的
+// 复选框行（`- [ ] `），导致此后的序号整体错位一格 —— 点击改的是别的任务，且无报错。
+const CHECKBOX_RE = /^\s*- \[(.)\] (.*)/
 
 /** 计算分组进度统计 */
 function sectionStats(items) {

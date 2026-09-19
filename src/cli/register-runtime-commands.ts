@@ -117,10 +117,12 @@ export function registerRuntimeCommands(program: Command): void {
 
   program
     .command('task-state-entry')
-    .description('RMW .polaris/tasks/<id>/state.yaml (get/set/enter-phase/complete-phase/identity)')
+    .description(
+      'RMW .polaris/tasks/<id>/state.yaml (get/set/enter-phase/complete-phase/identity) 与 tasks.md 复选框 (set-checkbox)',
+    )
     .argument(
       '<op>',
-      'get|get-json|set|enter-phase|complete-phase|set-identity|get-identity',
+      'get|get-json|set|enter-phase|complete-phase|set-identity|get-identity|set-checkbox',
     )
     .option('--repo-root <path>', 'main repo root')
     .option('--task-id <id>', 'task id under .polaris/tasks (or testcases)')
@@ -156,6 +158,9 @@ export function registerRuntimeCommands(program: Command): void {
     .option('--page-prefix <v>')
     .option('--work-dir <v>')
     .option('--delivered-name <v>')
+    .option('--file <relpath>', 'set-checkbox: tasks.md 的项目根相对路径')
+    .option('--index <n>', 'set-checkbox: 复选框序号（0-based，按出现顺序）')
+    .option('--checked <bool>', 'set-checkbox: true|false')
     .option(...PLATFORM_OPTION)
     .action(async (op: string, options) => {
       await taskStateEntryCommand(op, {
@@ -177,6 +182,9 @@ export function registerRuntimeCommands(program: Command): void {
         pagePrefix: options.pagePrefix,
         workDir: options.workDir,
         deliveredName: options.deliveredName,
+        file: options.file,
+        index: options.index,
+        checked: options.checked,
       });
     });
 
@@ -184,7 +192,9 @@ export function registerRuntimeCommands(program: Command): void {
 
   stateProgram
     .command('next')
-    .description('Resolve next skill from workflow phase + auto_transition (NEXT: auto|manual|done)')
+    .description(
+      'Resolve next skill from workflow phase + auto_transition (NEXT: auto|manual|done)',
+    )
     .argument('<change-name>', 'coding / requirement / testcase / prototype id')
     .option('--repo-root <path>', 'main repo root')
     .option(...PLATFORM_OPTION)

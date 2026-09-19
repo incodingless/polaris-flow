@@ -26,6 +26,9 @@ export type TaskStateEntryCommandOptions = {
   pagePrefix?: string;
   workDir?: string;
   deliveredName?: string;
+  file?: string;
+  index?: string;
+  checked?: string;
 };
 
 /**
@@ -62,6 +65,11 @@ export async function taskStateEntryCommand(
     pagePrefix: options.pagePrefix,
     workDir: options.workDir,
     deliveredName: options.deliveredName,
+    file: options.file,
+    // --index / --checked 从 CLI 来是字符串：这里转成类型化的入参，
+    // 非法值留给 core 层报「必须是非负整数 / true|false」，不在此处静默兜底成 0。
+    index: options.index === undefined ? undefined : Number(options.index),
+    checked: options.checked === 'true' ? true : options.checked === 'false' ? false : undefined,
   });
 
   if (result.exitCode !== 0) {
