@@ -49,11 +49,16 @@
         </div>
         <p>计划已执行完成，所有任务项均已通过验证。</p>
         <div class="stage-card-actions">
-          <button class="btn-archive" @click="$emit('action', '归档计划')">
+          <button
+            v-if="canWrite"
+            class="btn-archive"
+            :disabled="cleaning"
+            @click="$emit('cleanup-request')"
+          >
             <svg class="icon icon--sm" viewBox="0 0 24 24">
               <path d="M21 8v13H3V8" /><path d="M1 3h22v5H1z" /><path d="M10 12h4" />
             </svg>
-            Archive Plan
+            交付清理
           </button>
           <span class="tag tag-success">Done</span>
         </div>
@@ -108,6 +113,43 @@
             取消
           </button>
         </template>
+      </div>
+
+      <!-- 交付清理的确认面板：先给「将删除什么」，确认后才执行。
+           这是不可逆操作（删游标条目 + rm -rf 任务档案目录），所以把路径逐条列出来，
+           而不是用一句「确定吗」。 -->
+      <div v-if="cleanupPlan" class="cleanup-confirm">
+        <p class="cleanup-confirm__title">交付清理（不可逆）</p>
+        <ul class="cleanup-confirm__list">
+          <li v-if="cleanupPlan.entry">
+            游标条目：<code>{{ cleanupPlan.entry.kind }}_tasks</code> /
+            <code>{{ task.name }}</code>（phase: {{ cleanupPlan.entry.phase }}）
+          </li>
+          <li v-for="p in cleanupPlan.will_delete" :key="p">
+            删除目录：<code>{{ p }}</code>
+          </li>
+          <li v-if="!cleanupPlan.will_delete.length" class="cleanup-confirm__none">
+            （没有需要删除的档案目录）
+          </li>
+        </ul>
+        <div class="cleanup-confirm__actions">
+          <button
+            type="button"
+            class="btn btn--sm btn--primary"
+            :disabled="cleaning"
+            @click="$emit('cleanup-confirm')"
+          >
+            {{ cleaning ? '清理中...' : '确认删除' }}
+          </button>
+          <button
+            type="button"
+            class="btn btn--sm"
+            :disabled="cleaning"
+            @click="$emit('cleanup-cancel')"
+          >
+            取消
+          </button>
+        </div>
       </div>
 
       </div>
@@ -211,6 +253,7 @@ import {
   findActiveStep,
   findNextPhase,
   findStepByNumber,
+  isArchivedTask,
   STEP_STATUS_LABELS,
   formatStepCheck,
   stepFallbackText
@@ -245,7 +288,11 @@ const props = defineProps({
   /** 正在提交的复选框序号（写操作互斥，避免连点） */
   busyIndex: { type: Number, default: null },
   /** 正在推进阶段 */
-  advancing: { type: Boolean, default: false }
+  advancing: { type: Boolean, default: false },
+  /** 交付清理的预演结果（null = 未在确认中） */
+  cleanupPlan: { type: Object, default: null },
+  /** 正在执行交付清理 */
+  cleaning: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
@@ -257,8 +304,14 @@ const emit = defineEmits([
   'refresh-file',
   'revalidate',
   'toggle-checkbox',
-  'advance-phase'
+  'advance-phase',
+  'cleanup-request',
+  'cleanup-confirm',
+  'cleanup-cancel'
 ])
+
+/** 归档任务的档案已不在活跃游标里，写操作一律不提供入口（后端也会拒） */
+const canWrite = computed(() => !isArchivedTask(props.task))
 
 const stageNavItems = computed(() => buildStageNavItems(props.task))
 
@@ -385,5 +438,32 @@ function stepTagClass(status) {
 .phase-advance__confirm {
   font-size: 13px;
   color: var(--text-secondary);
+}
+.cleanup-confirm {
+  margin-top: var(--spacing-8);
+  padding: var(--spacing-12);
+  border: 1px solid var(--danger, var(--border-normal));
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+}
+.cleanup-confirm__title {
+  margin: 0 0 var(--spacing-8);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--danger, var(--text-primary));
+}
+.cleanup-confirm__list {
+  margin: 0 0 var(--spacing-8);
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+.cleanup-confirm__none {
+  color: var(--text-helper);
+}
+.cleanup-confirm__actions {
+  display: flex;
+  gap: var(--spacing-8);
 }
 </style>

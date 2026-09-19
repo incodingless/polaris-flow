@@ -161,6 +161,26 @@ export async function setTaskCheckbox(project, taskId, index, checked, options =
   return parseResponse(res)
 }
 
+/**
+ * 交付清理（**不可逆**）。
+ *
+ * 必须显式二选一：`dryRun: true` 只返回将删除的路径与将移除的游标条目，
+ * 真删要再调一次且不带 dryRun（后端要求 body 里出现 confirm:true）——
+ * 「默认执行」的默认值在这种操作上等于没有确认。
+ */
+export async function cleanupTask(project, taskId, options = {}) {
+  const { dryRun = false, kind } = options
+  const res = await fetch(
+    BASE + '/tasks/' + encodeURIComponent(taskId) + '/cleanup' + projectQuery(project, { kind }),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dryRun ? { dry_run: true } : { confirm: true })
+    }
+  )
+  return parseResponse(res)
+}
+
 /** 获取 workflow 阶段定义（用于查看面板 Tab） */
 export async function fetchWorkflowPhases(workflowId) {
   if (!workflowId) return { error: '缺少 workflow 名称' }

@@ -70,6 +70,11 @@
           @revalidate="runValidate"
           @toggle-checkbox="handleToggleCheckbox"
           @advance-phase="handleAdvancePhase"
+          :cleanup-plan="cleanupPlan"
+          :cleaning="cleaning"
+          @cleanup-request="handleCleanupRequest"
+          @cleanup-confirm="handleCleanupConfirm"
+          @cleanup-cancel="cleanupPlan = null"
         />
         <div v-else class="content-area__empty">
           <p>暂无内容</p>
@@ -119,7 +124,13 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { store, showToast } from '../stores/index.js'
-import { revealPath, fetchTaskPlanLint, advanceTaskPhase, setTaskCheckbox } from '../api/index.js'
+import {
+  revealPath,
+  fetchTaskPlanLint,
+  advanceTaskPhase,
+  setTaskCheckbox,
+  cleanupTask
+} from '../api/index.js'
 import { resolveStageTab } from '../utils/workflow.js'
 import { getDefaultDetailTabId, fileKey, fileDisplayName } from '../utils/changeFiles.js'
 import { useTasks } from '../composables/useTasks.js'
@@ -199,6 +210,8 @@ const validateError = ref('')
 /** 正在提交的复选框序号；非 null 时看板上的复选框全部禁用（写操作互斥） */
 const busyCheckboxIndex = ref(null)
 const advancing = ref(false)
+const cleanupPlan = ref(null)
+const cleaning = ref(false)
 /** 按「项目路径::变更名」缓存各变更最后一次检测结果 */
 const validateCache = reactive({})
 
@@ -367,6 +380,48 @@ async function handleAdvancePhase(target) {
   await openDetail(task)
 }
 
+/**
+ * 交付清理第一步：预演（不改盘）。
+ *
+ * 先拿「将删除什么」再问用户 —— 这个操作不可逆（删游标条目 + rm -rf 任务档案目录），
+ * 用一个「确定吗」的弹窗是没有信息量的确认。
+ */
+async function handleCleanupRequest() {
+  const task = viewingTask.value
+  if (!task || cleaning.value) return
+
+  const { data, error } = await cleanupTask(store.activeProject, task.name, {
+    dryRun: true,
+    kind: task.kind
+  })
+  if (error) {
+    showToast('预演失败: ' + error)
+    return
+  }
+  cleanupPlan.value = data
+}
+
+/** 交付清理第二步：真删。删完该任务已不在列表里，所以刷新列表而不是重取详情 */
+async function handleCleanupConfirm() {
+  const task = viewingTask.value
+  if (!task || cleaning.value) return
+
+  cleaning.value = true
+  const { data, error } = await cleanupTask(store.activeProject, task.name, { kind: task.kind })
+  cleaning.value = false
+  cleanupPlan.value = null
+
+  if (error) {
+    showToast('交付清理失败: ' + error)
+    return
+  }
+  const removed = (data.will_delete || []).length
+  showToast(`已交付清理：移除游标条目${removed ? `、删除 ${removed} 个目录` : ''}`)
+  activeStageNav.value = ''
+  await loadProjectData(store.activeProject, store.taskFilter)
+  activeTab.value = getDefaultDetailTabId(viewingTask.value?.workflowPhases) || ''
+}
+
 async function viewSession() {
   await handleTaskAction('打开变更')
 }
@@ -393,6 +448,8 @@ async function handleOpenDetail(task) {
   activeTab.value = getDefaultDetailTabId(viewingTask.value?.workflowPhases) || ''
   detailDrawerOpen.value = false
   activeStageNav.value = ''
+  // 换任务时收起上一个任务的清理确认框，否则「确认删除」会指向新任务
+  cleanupPlan.value = null
   if (result?.error) return
 }
 

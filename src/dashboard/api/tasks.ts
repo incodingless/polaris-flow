@@ -24,6 +24,7 @@ import {
 import { parseWorkflowTaskKind, type WorkflowTaskKind } from '../../core/config/workflow-state.js';
 import { runTasksLint } from '../../core/hooks/tasks-lint.js';
 import { runTaskStateEntry } from '../../core/hooks/task-state-entry.js';
+import { planDeliveryCleanup, runDeliveryCleanup } from '../../core/hooks/delivery-cleanup.js';
 import { runWorkflowEntry } from '../../core/hooks/workflow-entry.js';
 import {
   findPlanFile,
@@ -580,6 +581,94 @@ export async function setTaskCheckbox(
     tasks_done: progress?.done ?? 0,
     tasks_total: progress?.total ?? 0,
     state_synced: value.state_synced === true,
+  };
+}
+
+export type CleanupResponse =
+  | {
+      ok: true;
+      /** true = 仅预演，未做任何修改 */
+      dry_run: boolean;
+      task_id: string;
+      kind: WorkflowTaskKind;
+      /** 将被删除（或已删除）的**绝对路径** */
+      will_delete: string[];
+      /** 将移出（或已移出）游标的条目 */
+      entry: { kind: WorkflowTaskKind; phase: string } | null;
+    }
+  | { error: string };
+
+/**
+ * 交付清理（M3 写操作之一，**不可逆**）。
+ *
+ * 经 `ship-cleanup` 原语：删游标条目 + `rm -rf` 任务档案目录。因为不可逆，
+ * 必须显式二选一：`{dry_run:true}` 只算清单，`{confirm:true}` 才真的执行。
+ * 两者都不给就报错 —— 「默认执行」的默认值在这种操作上等于没有确认。
+ *
+ * `kind` 由游标读出后**显式**传给原语：旧实现把 kind 写死 coding，导致非 coding 任务
+ * 「删条目」静默失败而档案照样被删（已修，但这条路径必须继续显式传）。
+ */
+export async function cleanupTask(
+  projectRoot: string,
+  taskId: string,
+  rawBody: string,
+  kindHint?: string,
+): Promise<CleanupResponse> {
+  let payload: { dry_run?: unknown; confirm?: unknown; kind?: unknown };
+  try {
+    payload = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    return { error: '无效的 JSON 请求体' };
+  }
+
+  const dryRun = payload.dry_run === true;
+  const confirmed = payload.confirm === true;
+  if (!dryRun && !confirmed) {
+    return {
+      error: '交付清理不可逆：必须显式指定 dry_run:true（预演）或 confirm:true（执行）',
+    };
+  }
+  const hint = kindHint ?? (typeof payload.kind === 'string' ? payload.kind : undefined);
+
+  const cursor = findCursor(taskId, hint, await scanTaskList(projectRoot), []);
+  if (!cursor) {
+    return { error: `Task "${taskId}" not found` };
+  }
+  if (cursor.source !== 'cursor') {
+    return { error: `任务「${taskId}」不在活跃游标中（来源 ${cursor.source}），无需清理` };
+  }
+  const kind = cursor.kind;
+  if (!kind) {
+    return { error: `无法确定任务「${taskId}」的类型，不能清理` };
+  }
+
+  if (dryRun) {
+    const plan = await planDeliveryCleanup(taskId, projectRoot, kind);
+    if (!plan.ok) {
+      return { error: plan.message };
+    }
+    return {
+      ok: true,
+      dry_run: true,
+      task_id: taskId,
+      kind,
+      will_delete: plan.willDelete,
+      entry: plan.entry,
+    };
+  }
+
+  const result = await runDeliveryCleanup(taskId, projectRoot, kind);
+  if (result.exitCode !== 0) {
+    return { error: result.message || `原语执行失败（exit ${result.exitCode}）` };
+  }
+  const plan = result.plan;
+  return {
+    ok: true,
+    dry_run: false,
+    task_id: taskId,
+    kind,
+    will_delete: plan && plan.ok ? plan.willDelete : [],
+    entry: plan && plan.ok ? plan.entry : null,
   };
 }
 

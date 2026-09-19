@@ -125,7 +125,17 @@ async function handleApiRoute(
       );
     }
 
-    // GET /api/tasks/:id?kind=
+    // POST /api/tasks/:id/cleanup —— 交付清理（写，不可逆；须显式 dry_run 或 confirm）
+    const cleanupMatch = pathname.match(/^\/api\/tasks\/([^/]+)\/cleanup$/);
+    if (method === 'POST' && cleanupMatch) {
+      const id = decodeURIComponent(cleanupMatch[1]!);
+      return json(
+        res,
+        await tasksApi.cleanupTask(projectRoot, id, body, queryOf(reqUrl).get('kind') ?? undefined),
+      );
+    }
+
+    // GET /api/tasks/:id?kind= —— 列表项 + 文件树 + 产物
     const taskMatch = pathname.match(/^\/api\/tasks\/([^/]+)$/);
     if (method === 'GET' && taskMatch) {
       const id = decodeURIComponent(taskMatch[1]!);

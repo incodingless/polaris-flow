@@ -23,7 +23,7 @@ import {
   type WorkflowState,
 } from '../../src/core/config/workflow-state.js';
 import { getWorkflowLockPath } from '../../src/core/hooks/workflow-lock.js';
-import { advanceTaskPhase, setTaskCheckbox } from '../../src/dashboard/api/tasks.js';
+import { advanceTaskPhase, cleanupTask, setTaskCheckbox } from '../../src/dashboard/api/tasks.js';
 
 async function tmpProject(): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), 'polaris-write-'));
@@ -251,5 +251,97 @@ describe('setTaskCheckbox', () => {
       ? await import('node:fs/promises').then((fs) => fs.readdir(locks))
       : [];
     expect(files.filter((f) => f.includes('task-state'))).toEqual([]);
+  });
+});
+
+describe('cleanupTask', () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = await tmpProject();
+    await makeCodingTask(root);
+  });
+
+  it('两个标记都不给 → 拒绝（不可逆操作不许「默认执行」）', async () => {
+    const res = await cleanupTask(root, 'c-1', '{}', 'coding');
+    expect('error' in res && res.error).toMatch(/dry_run|confirm/);
+    expect((await loadWorkflowState(root)).coding_tasks).toHaveLength(1);
+  });
+
+  it('dry_run：给出将删除的绝对路径与将移除的条目，且不改盘', async () => {
+    const res = await cleanupTask(root, 'c-1', JSON.stringify({ dry_run: true }), 'coding');
+
+    expect('error' in res).toBe(false);
+    if ('error' in res) return;
+    expect(res.dry_run).toBe(true);
+    expect(res.will_delete).toHaveLength(1);
+    expect(res.will_delete[0]).toBe(path.join(root, '.polaris', 'tasks', 'c-1'));
+    expect(res.entry?.kind).toBe('coding');
+    expect(res.entry?.phase).toBe('specify');
+
+    // 预演必须零副作用
+    expect(existsSync(path.join(root, '.polaris/tasks/c-1/state.yaml'))).toBe(true);
+    expect((await loadWorkflowState(root)).coding_tasks).toHaveLength(1);
+  });
+
+  it('confirm：移除游标条目 + 删除档案目录，并回报删了什么', async () => {
+    const res = await cleanupTask(root, 'c-1', JSON.stringify({ confirm: true }), 'coding');
+
+    expect('error' in res).toBe(false);
+    if ('error' in res) return;
+    expect(res.dry_run).toBe(false);
+    // 执行后也要回报清单 —— 面板据此告诉用户删了什么，不能只给一个「成功」
+    expect(res.will_delete).toHaveLength(1);
+    expect(res.entry?.kind).toBe('coding');
+    expect((await loadWorkflowState(root)).coding_tasks).toHaveLength(0);
+    expect(existsSync(path.join(root, '.polaris/tasks/c-1'))).toBe(false);
+  });
+
+  it('kind 从游标读出后显式传给原语：debug 任务不传 kind 也能清理', async () => {
+    const r = await tmpProject();
+    const state = emptyWorkflowState() as WorkflowState;
+    state.debug_tasks = [
+      { task_id: 'd-1', phase: 'patch', worktree_path: '', started_at: '', channel: 'bugfix' },
+    ];
+    await saveWorkflowState(r, state);
+    await put(r, '.polaris/tasks/d-1/state.yaml', 'kind: debug\ntask_id: d-1\n');
+
+    const res = await cleanupTask(r, 'd-1', JSON.stringify({ confirm: true }), undefined);
+    if ('error' in res) throw new Error(res.error);
+    expect(res.kind).toBe('debug');
+    expect((await loadWorkflowState(r)).debug_tasks).toHaveLength(0);
+    expect(existsSync(path.join(r, '.polaris/tasks/d-1'))).toBe(false);
+  });
+
+  it('任务不存在 / 已归档来源 → 拒绝', async () => {
+    const missing = await cleanupTask(root, 'nope', JSON.stringify({ confirm: true }), 'coding');
+    expect('error' in missing && missing.error).toMatch(/not found/);
+  });
+
+  it('kind 提示与实际不符时以游标为准（不会因此漏删或误删）', async () => {
+    // findCursor 的 hint 是**软偏好**：命中不到会回落到任意 kind，之后 kind 一律取自游标。
+    // 所以「传错 kind」在这里的后果是零 —— 真正会因此出错的是旧版 ship-cleanup 那种
+    // 「外部传 kind 且写死」。这条测试钉住「以游标为准」这个前提。
+    const res = await cleanupTask(root, 'c-1', JSON.stringify({ confirm: true }), 'requirement');
+    if ('error' in res) throw new Error(res.error);
+
+    expect(res.kind).toBe('coding');
+    expect((await loadWorkflowState(root)).coding_tasks).toHaveLength(0);
+    expect(existsSync(path.join(root, '.polaris/tasks/c-1'))).toBe(false);
+  });
+
+  it('同一 id 落在两个 kind 列表里 → 因残留而中止，且档案不删', async () => {
+    // 异常数据。delete-active 只清指定 kind，另一个 kind 仍残留 ——
+    // 后回读必须拦住「条目还在、档案已删」这种状态。这是那类事故的回归测试。
+    const state = await loadWorkflowState(root);
+    state.debug_tasks = [
+      { task_id: 'c-1', phase: 'diagnose', worktree_path: '', started_at: '', channel: '' },
+    ];
+    await saveWorkflowState(root, state);
+
+    const res = await cleanupTask(root, 'c-1', JSON.stringify({ confirm: true }), 'coding');
+    expect('error' in res && res.error).toMatch(/残留/);
+    // 游标还有引用 → 档案必须完好
+    expect(existsSync(path.join(root, '.polaris/tasks/c-1/state.yaml'))).toBe(true);
   });
 });

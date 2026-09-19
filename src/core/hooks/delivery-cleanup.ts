@@ -148,5 +148,6 @@ export async function runDeliveryCleanup(
     await rm(target, { recursive: true, force: true });
   }
 
-  return { exitCode: 0 };
+  // 带上 plan：调用方（面板）要告诉用户「删了什么」，不能只回一个 exitCode
+  return { exitCode: 0, plan };
 }
