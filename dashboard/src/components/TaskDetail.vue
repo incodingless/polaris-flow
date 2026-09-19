@@ -70,18 +70,6 @@
         <p v-if="displayStep.description">{{ displayStep.description }}</p>
         <p v-else>{{ stepFallbackText(displayStep) }}</p>
         <p v-if="stepCheckText" class="stage-card__check">{{ stepCheckText }}</p>
-        <div v-if="showStepOperations" class="stage-card-actions">
-          <button
-            v-for="op in stepOperations"
-            :key="op.code + (op.target || '')"
-            class="btn"
-            :class="{ 'btn--primary': op.code === 'continue' }"
-            :disabled="!!executingOperationCode"
-            @click="onStepAction(op)"
-          >
-            {{ executingOperationCode === op.code ? `${op.name}...` : op.name }}
-          </button>
-        </div>
       </div>
 
       </div>
@@ -178,7 +166,6 @@ import {
   buildStageNavItems,
   findActiveStep,
   findStepByNumber,
-  shouldShowStepOperations,
   STEP_STATUS_LABELS,
   formatStepCheck,
   stepFallbackText
@@ -207,7 +194,6 @@ const props = defineProps({
   allStepsDone: { type: Boolean, default: false },
   currentGroupName: { type: String, default: '' },
   refreshingFileKey: { type: String, default: '' },
-  executingOperationCode: { type: String, default: '' },
   validating: { type: Boolean, default: false },
   validateResult: { type: Object, default: null },
   validateError: { type: String, default: '' }
@@ -251,13 +237,10 @@ const selectedFile = computed(() => {
 })
 
 const selectedStepNumber = ref(null)
-const stepOperations = ref([])
-let stepOperationsRequestId = 0
 
 watch(() => props.task.name, () => {
   selectedStepNumber.value = null
   selectedFileKey.value = ''
-  stepOperations.value = []
 })
 
 watch([() => props.activeTab, activeTabFiles], () => {
@@ -293,27 +276,9 @@ const showCompletionCard = computed(() =>
 
 const stepCheckText = computed(() => formatStepCheck(displayStep.value?.check))
 
-/** 按步骤状态与后继步骤决定是否展示操作按钮 */
-const showStepOperations = computed(() =>
-  shouldShowStepOperations(
-    displayStep.value,
-    props.task.stepGroups || [],
-    stepOperations.value
-  )
-)
-
-// 步骤操作（operations）端点在 M2 移除 —— 操作白名单属 M3（设计文档 §5.2）。
-// stepOperations 保持空数组，showStepOperations 因此恒为 false，操作按钮不再渲染。
-
-function onStepAction(op) {
-  const step = displayStep.value
-  emit('action', {
-    code: op.code,
-    name: op.name,
-    target: op.target,
-    stepId: step?.id || ''
-  })
-}
+// 步骤操作（operations）端点在 M2 移除，操作白名单属 M3（设计文档 §5.2）。
+// M3 的写操作各自有显式入口（阶段推进 / 交付清理 / 计划校验），都落在下面的
+// 面板或卡片上，不用这个通用「步骤操作」通道 —— 所以相关模板与状态一并删掉了。
 
 function onSelectStep(step) {
   selectedStepNumber.value = step.number

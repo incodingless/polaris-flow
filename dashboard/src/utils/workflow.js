@@ -201,21 +201,6 @@ export function resolveStageTab(task, id) {
   return names.includes(id) ? id : 'other'
 }
 
-/**
- * 判断是否展示阶段操作按钮。
- * M2 面板只读（操作白名单属 M3），`stepOperations` 恒为空 → 恒为 false；
- * 保留函数是为了 M3 接线时组件无需改动。
- */
-export function shouldShowStepOperations(step, stepGroups, stepOperations = []) {
-  if (!step || !stepOperations.length) return false
-  if (step.status === 'active') return true
-  if (step.status === 'done') {
-    const next = findNextStep(stepGroups, step)
-    return next?.status === 'pending'
-  }
-  return false
-}
-
 export const STEP_STATUS_LABELS = {
   done: '已完成',
   active: '进行中',

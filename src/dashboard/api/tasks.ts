@@ -20,6 +20,7 @@ import {
   phaseIndexIn,
 } from '../../core/config/task-kind-layout.js';
 import { parseWorkflowTaskKind, type WorkflowTaskKind } from '../../core/config/workflow-state.js';
+import { runTasksLint } from '../../core/hooks/tasks-lint.js';
 import { listTaskFiles, readTaskCheckboxes, type TaskFile } from '../scan/files.js';
 import { readTaskRuntime } from '../scan/state.js';
 import {
@@ -302,6 +303,53 @@ export async function getTaskDetail(
     : [];
 
   return { ...item, files, artifacts };
+}
+
+/** 计划校验端点（只读）：跑 `tasks-lint`，不写任何文件 */
+export type PlanLintResponse = {
+  /** null 表示「没有可校验的计划文件」，不是失败 */
+  pass: boolean | null;
+  violations: string[];
+  /** 实际被检查的文件（项目根相对路径）；无可校验文件时为空串 */
+  file: string;
+  /** pass 为 null 时的原因 */
+  reason: string;
+};
+
+export async function lintTaskPlan(
+  projectRoot: string,
+  taskId: string,
+  kindHint?: string,
+): Promise<PlanLintResponse | { error: string }> {
+  const cursor = findCursor(
+    taskId,
+    kindHint,
+    await scanTaskList(projectRoot),
+    scanArchivedTasks(projectRoot),
+  );
+  if (!cursor) {
+    return { error: `Task "${taskId}" not found` };
+  }
+  if (!cursor.kind) {
+    return { pass: null, violations: [], file: '', reason: '无法确定任务类型，不猜计划文件位置' };
+  }
+
+  // 计划文件由产物表声明（`checkboxes: true` 的那条），**不写死 `tasks.md`** ——
+  // 每个 kind 的计划文件名/落点可以不同，写死会让 debug / prototype 静默校验错文件。
+  const targets = getKindArtifacts(cursor.kind)
+    .filter((a) => a.checkboxes)
+    .flatMap((a) => a.relPaths.map((rel) => rel.replace('<id>', cursor.task_id)));
+  if (targets.length === 0) {
+    return { pass: null, violations: [], file: '', reason: '该任务类型无计划文件' };
+  }
+
+  const rel = targets.find((r) => existsSync(path.join(projectRoot, r)));
+  if (!rel) {
+    return { pass: null, violations: [], file: '', reason: '计划文件尚未生成' };
+  }
+
+  const result = await runTasksLint(path.join(projectRoot, rel));
+  return { pass: result.pass, violations: result.violations, file: rel, reason: '' };
 }
 
 export type TaskStats = {

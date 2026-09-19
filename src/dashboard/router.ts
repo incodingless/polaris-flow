@@ -82,6 +82,16 @@ async function handleApiRoute(
       );
     }
 
+    // GET /api/tasks/:id/plan-lint?kind= —— 只读：跑 tasks-lint 校验计划文件
+    const lintMatch = pathname.match(/^\/api\/tasks\/([^/]+)\/plan-lint$/);
+    if (method === 'GET' && lintMatch) {
+      const id = decodeURIComponent(lintMatch[1]!);
+      return json(
+        res,
+        await tasksApi.lintTaskPlan(projectRoot, id, queryOf(reqUrl).get('kind') ?? undefined),
+      );
+    }
+
     // GET /api/tasks/:id?kind=
     const taskMatch = pathname.match(/^\/api\/tasks\/([^/]+)$/);
     if (method === 'GET' && taskMatch) {

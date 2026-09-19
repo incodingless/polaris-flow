@@ -107,6 +107,22 @@ export async function fetchTaskDetail(project, taskId, kind) {
   return parseResponse(res)
 }
 
+/**
+ * 校验任务的计划文件（只读，跑 CLI 的 tasks-lint）。
+ * 响应形状：{ pass: boolean|null, violations: string[], file: string, reason: string }
+ * `pass` 为 null 表示「没有可校验的计划文件」，不是失败。
+ */
+export async function fetchTaskPlanLint(project, taskId, kind) {
+  const res = await fetch(
+    BASE +
+      '/tasks/' +
+      encodeURIComponent(taskId) +
+      '/plan-lint' +
+      projectQuery(project, { kind })
+  )
+  return parseResponse(res)
+}
+
 /** 获取 workflow 阶段定义（用于查看面板 Tab） */
 export async function fetchWorkflowPhases(workflowId) {
   if (!workflowId) return { error: '缺少 workflow 名称' }

@@ -56,12 +56,16 @@
           :all-steps-done="allStepsDone"
           :current-group-name="currentGroupName"
           :refreshing-file-key="refreshingFileKey"
+          :validating="validating"
+          :validate-result="validateResult"
+          :validate-error="validateError"
           @stage-nav="selectStageNav"
           @view-session="viewSession"
           @delete-session="deleteSession"
           @action="handleTaskAction"
           @tab-change="activeTab = $event"
           @refresh-file="handleRefreshFile"
+          @revalidate="runValidate"
         />
         <div v-else class="content-area__empty">
           <p>暂无内容</p>
@@ -111,7 +115,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { store, showToast } from '../stores/index.js'
-import { revealPath } from '../api/index.js'
+import { revealPath, fetchTaskPlanLint } from '../api/index.js'
 import { resolveStageTab } from '../utils/workflow.js'
 import { getDefaultDetailTabId, fileKey, fileDisplayName } from '../utils/changeFiles.js'
 import { useTasks } from '../composables/useTasks.js'
@@ -185,7 +189,6 @@ const activeStageNav = ref('')
 const detailDrawerOpen = ref(false)
 const secondaryCollapsed = ref(false)
 const refreshingFileKey = ref('')
-const executingOperationCode = ref('')
 const validating = ref(false)
 const validateResult = ref(null)
 const validateError = ref('')
@@ -270,9 +273,38 @@ function selectStageNav(id) {
   showToast(`${id} 视图（Demo 占位）`)
 }
 
-/** 结构校验端点在 M2 移除（它依赖外部 openspec CLI）。校验请在 CLI 侧跑 tasks-lint */
+/**
+ * 校验计划（只读）。
+ *
+ * 走 `GET /api/tasks/:id/plan-lint` → 后端转调 CLI 的 `tasks-lint`，不改任何文件。
+ * 计划文件由产物表声明，前端只需把 `kind` 带上让后端定位，不自己拼路径。
+ */
 async function runValidate() {
-  showToast('结构校验请在 CLI 侧执行（tasks-lint）；面板 M2 只读')
+  const task = viewingTask.value
+  if (!task) return
+
+  validating.value = true
+  validateError.value = ''
+  const { data, error } = await fetchTaskPlanLint(store.activeProject, task.name, task.kind)
+  validating.value = false
+
+  if (error) {
+    validateResult.value = null
+    validateError.value = error
+    saveValidateCache(null, error, task)
+    return
+  }
+
+  validateResult.value = data
+  saveValidateCache(data, '', task)
+
+  if (data.pass === null) {
+    showToast(`未校验：${data.reason || '无可校验文件'}`)
+  } else if (data.pass) {
+    showToast('计划校验通过')
+  } else {
+    showToast(`计划校验：${(data.violations || []).length} 项未通过`)
+  }
 }
 
 async function viewSession() {
@@ -310,19 +342,9 @@ async function handleOpenSpecFile(file) {
 
 async function handleTaskAction(action) {
   if (action && typeof action === 'object' && action.code) {
-    if (executingOperationCode.value) return
-
-    if (action.code === 'continue') {
-      executingOperationCode.value = action.code
-      const result = await executeStepOperation(action)
-      executingOperationCode.value = ''
-      if (result?.error) return
-      const message = result?.data?.message || `已继续: ${result?.data?.artifact || action.name}`
-      showToast(message)
-      return
-    }
-
-    showToast(`操作: ${action.name}（待实现）`)
+    // 步骤操作（operations）端点在 M2 移除，操作白名单属 M3；M3 的写操作走
+    // 各自的显式入口（阶段推进 / 交付清理），不从这个通用回调进。
+    showToast(`操作: ${action.name}（暂无可用操作）`)
     return
   }
   if (action === '打开变更') {
@@ -341,7 +363,7 @@ async function handleTaskAction(action) {
     }
     return
   }
-  actionToast(action)
+  showToast(String(action || '未知操作'))
 }
 
 onMounted(async () => {
