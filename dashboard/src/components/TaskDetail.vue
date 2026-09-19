@@ -173,10 +173,9 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { fetchWorkflowStepOperations } from '../api/index.js'
 import {
   progressClass,
-  STAGE_NAV_ITEMS,
+  buildStageNavItems,
   findActiveStep,
   findStepByNumber,
   shouldShowStepOperations,
@@ -190,8 +189,7 @@ import {
   categorizeChangeFiles,
   fileDisplayName,
   fileKey,
-  getTabFiles,
-  normalizeStepOperations
+  getTabFiles
 } from '../utils/changeFiles.js'
 import StageActionNav from './tasks/StageActionNav.vue'
 import StepsProgress from './tasks/StepsProgress.vue'
@@ -225,7 +223,7 @@ const emit = defineEmits([
   'revalidate'
 ])
 
-const stageNavItems = STAGE_NAV_ITEMS
+const stageNavItems = computed(() => buildStageNavItems(props.task))
 
 const showReviewPanel = computed(() => props.activeStageNav === 'review')
 const showValidationPanel = computed(() => props.activeStageNav === 'conversation')
@@ -304,28 +302,8 @@ const showStepOperations = computed(() =>
   )
 )
 
-/** 按当前展示步骤拉取可执行操作 */
-async function loadStepOperations(step) {
-  const workflowId = props.task.schemaId || props.task.workflow || ''
-  if (!workflowId || !step?.id) {
-    stepOperations.value = []
-    return
-  }
-
-  const requestId = ++stepOperationsRequestId
-  const { data, error } = await fetchWorkflowStepOperations(workflowId, step.id)
-  if (requestId !== stepOperationsRequestId) return
-
-  if (error) {
-    stepOperations.value = []
-    return
-  }
-  stepOperations.value = normalizeStepOperations(data)
-}
-
-watch(displayStep, (step) => {
-  loadStepOperations(step)
-}, { immediate: true })
+// 步骤操作（operations）端点在 M2 移除 —— 操作白名单属 M3（设计文档 §5.2）。
+// stepOperations 保持空数组，showStepOperations 因此恒为 false，操作按钮不再渲染。
 
 function onStepAction(op) {
   const step = displayStep.value

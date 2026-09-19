@@ -1,6 +1,6 @@
 import { reactive, ref, computed } from 'vue'
 import { store, showToast, setCurrentProject, restoreCurrentProject, setDefaultProjectId } from '../stores/index.js'
-import { fetchProjects, addProject, deleteProject, fetchDir, fetchCheckOpenspec, setDefaultProject as setDefaultProjectApi } from '../api/index.js'
+import { fetchProjects, addProject, deleteProject, fetchDir, fetchCheckInitialized, setDefaultProject as setDefaultProjectApi } from '../api/index.js'
 
 /** 从绝对路径解析面包屑分段 */
 function pathSegments(absPath) {
@@ -180,7 +180,7 @@ export function useProjects(onProjectSwitch) {
 
     dirList.splice(0, dirList.length, ...data)
 
-    const { data: checkData, error: checkError } = await fetchCheckOpenspec(parentDir)
+    const { data: checkData, error: checkError } = await fetchCheckInitialized(parentDir)
     loadingDirs.value = false
     hasOpenspecDir.value = !checkError && checkData?.exists === true
     return true

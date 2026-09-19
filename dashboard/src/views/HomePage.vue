@@ -61,9 +61,9 @@
         <DashboardStatCard
           icon="specs"
           title-en="Specs"
-          title-cn="参考规范"
-          :value="stats.referenceSpecCount"
-          hint="参考规范"
+          title-cn="配置文件"
+          :value="stats.configCount"
+          hint=".polaris/*.yaml"
         />
         <DashboardStatCard
           variant="tasks"

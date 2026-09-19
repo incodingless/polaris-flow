@@ -2,27 +2,15 @@ import { reactive, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { store, showToast } from '../stores/index.js'
 import {
-  fetchChanges,
-  fetchChangeDetail,
+  fetchTasks,
+  fetchTaskDetail,
   fetchConfigs,
-  fetchConfigContent,
-  fetchWorkflowPhases,
-  fetchWorkflowArtifacts,
-  executeChangeStepOperation,
-  validateChange
+  fetchConfigContent
 } from '../api/index.js'
 import { mapChangeToTask, mapChangeDetail } from '../utils/changeMapper.js'
-import { normalizeWorkflowPhases, normalizeArtifactPhases, fileKey, fileDisplayName } from '../utils/changeFiles.js'
+import { fileKey, fileDisplayName } from '../utils/changeFiles.js'
 
-/** 过滤出规格相关配置文件 */
-function filterSpecFiles(files) {
-  return (files || []).filter((f) => {
-    const p = f.path || ''
-    return p.includes('openspec/schemas/') || p.includes('openspec/specs/') || p === 'openspec/polaris.yaml'
-  })
-}
-
-/** 任务页数据：变更列表与详情加载 */
+/** 任务页数据：任务列表与详情加载 */
 export function useTasks() {
   const router = useRouter()
   const tasks = reactive([])
@@ -38,7 +26,7 @@ export function useTasks() {
   const allStepsDone = computed(() => {
     const t = viewingTask.value
     if (!t) return false
-    if (t.phase === 'done' || t.phase === 'archived') return true
+    if (t.phase === 'archived') return true
     const groups = t.stepGroups
     return groups?.length > 0 && groups.every((g) => g.status === 'completed')
   })
@@ -55,16 +43,14 @@ export function useTasks() {
     const q = (store.searchQuery || '').trim().toLowerCase()
     if (!q) return tasks
     return tasks.filter((t) => {
-      const haystack = [
-        t.name,
-        t.title,
-        ...(Array.isArray(t.labels) ? t.labels : [])
-      ].join(' ').toLowerCase()
+      const haystack = [t.name, t.title, ...(Array.isArray(t.labels) ? t.labels : [])]
+        .join(' ')
+        .toLowerCase()
       return haystack.includes(q)
     })
   })
 
-  /** 按关键词过滤规格文件列表 */
+  /** 按关键词过滤配置文件列表 */
   const filteredSpecFiles = computed(() => {
     const q = (store.searchQuery || '').trim().toLowerCase()
     if (!q) return store.specFiles
@@ -87,7 +73,7 @@ export function useTasks() {
     return sorted
   }
 
-  /** 规格文件列表排序（按名称或修改时间） */
+  /** 配置文件列表排序（按名称或修改时间） */
   function sortSpecFileList(list) {
     const sorted = [...list]
     if (sortBy.value === 'name') {
@@ -100,19 +86,24 @@ export function useTasks() {
 
   function applyTaskList(rawTasks, counts) {
     const projectPath = store.activeProject?.path || ''
-    const mapped = rawTasks.map((change, index) => mapChangeToTask(change, index, projectPath))
+    const mapped = rawTasks.map((task, index) => mapChangeToTask(task, index, projectPath))
     const sorted = sortTaskList(mapped)
     tasks.splice(0, tasks.length, ...sorted)
     store.tasks = tasks
     store.taskCounts = {
       active: counts?.active ?? 0,
-      archived: counts?.archived ?? 0
+      archived: counts?.archived ?? 0,
+      byKind: counts?.by_kind ?? {}
     }
     return sorted
   }
 
-  /** 加载指定项目的变更列表，并自动选中第一项详情 */
-  async function loadProjectData(project, filter = store.taskFilter, options = {}) {
+  /**
+   * 加载指定项目的任务列表，并自动选中第一项详情。
+   * @param {object} project
+   * @param {'active'|'archived'|'all'} status
+   */
+  async function loadProjectData(project, status = store.taskFilter, options = {}) {
     const { autoSelectFirst = true } = options
     if (!project?.path) {
       tasks.splice(0, tasks.length)
@@ -121,13 +112,13 @@ export function useTasks() {
       return { ok: true }
     }
 
-    store.taskFilter = filter
+    store.taskFilter = status
     switchingProject.value = true
     loadingTasks.value = true
     store.loading = true
-    store.statusMessage = filter === 'archived' ? '加载归档列表...' : '加载任务列表...'
+    store.statusMessage = status === 'archived' ? '加载归档列表...' : '加载任务列表...'
 
-    const { data, error } = await fetchChanges(project, filter)
+    const { data, error } = await fetchTasks(project, { status })
 
     loadingTasks.value = false
     store.loading = false
@@ -154,14 +145,14 @@ export function useTasks() {
     return { ok: true }
   }
 
-  /** 打开变更详情 */
+  /** 打开任务详情 */
   async function openDetail(task, project = store.activeProject) {
     if (!task?.name || !project?.path) return { error: '无效的任务或项目' }
 
-    store.primaryNavMode = store.primaryNavMode === 'specs' ? 'specs' : 'tasks'
+    store.primaryNavMode = store.primaryNavMode === 'config' ? 'config' : 'tasks'
     store.statusMessage = '加载任务详情...'
 
-    const { data, error } = await fetchChangeDetail(project, task.name)
+    const { data, error } = await fetchTaskDetail(project, task.name, task.kind)
     if (error) {
       store.statusMessage = '就绪'
       showToast('加载任务详情失败: ' + error)
@@ -169,28 +160,7 @@ export function useTasks() {
     }
 
     const index = tasks.findIndex((t) => t.name === task.name)
-    const projectPath = project?.path || ''
-    const mapped = mapChangeDetail(data, index >= 0 ? index : 0, projectPath)
-    const workflowName = mapped.workflow || task.workflow || ''
-
-    if (workflowName) {
-      const [phasesResult, artifactsResult] = await Promise.all([
-        fetchWorkflowPhases(workflowName),
-        fetchWorkflowArtifacts(workflowName)
-      ])
-      if (phasesResult.error) {
-        showToast('加载阶段定义失败: ' + phasesResult.error)
-        mapped.workflowPhases = []
-      } else {
-        mapped.workflowPhases = normalizeWorkflowPhases(phasesResult.data)
-      }
-      if (artifactsResult.error) {
-        showToast('加载产出物定义失败: ' + artifactsResult.error)
-        mapped.artifactPhases = []
-      } else {
-        mapped.artifactPhases = normalizeArtifactPhases(artifactsResult.data)
-      }
-    }
+    const mapped = mapChangeDetail(data, index >= 0 ? index : 0, project?.path || '')
 
     store.statusMessage = '就绪'
     viewingTask.value = mapped
@@ -206,17 +176,17 @@ export function useTasks() {
     return { ok: true }
   }
 
-  /** 重新加载单个变更文件内容 */
+  /** 重新加载单个任务文件内容 */
   async function refreshChangeFile(file, project = store.activeProject, task = viewingTask.value) {
     if (!file || !task?.name || !project?.path) {
       return { error: '无效的文件或项目' }
     }
 
     const targetKey = fileKey(file)
-    const { data, error } = await fetchChangeDetail(project, task.name)
+    const { data, error } = await fetchTaskDetail(project, task.name, task.kind)
     if (error) return { error }
 
-    const remoteFile = [...(data.files || []), ...(data.specs || [])].find(
+    const remoteFile = [...(data.files || []), ...(data.specFiles || [])].find(
       (item) => fileKey(item) === targetKey
     )
     if (!remoteFile) {
@@ -244,39 +214,39 @@ export function useTasks() {
     return { ok: true }
   }
 
-  /** 加载规格文件列表 */
-  async function loadSpecFiles(project = store.activeProject) {
+  /** 加载配置文件列表（`.polaris/*.yaml`；后端已按此过滤，前端不再筛路径前缀） */
+  async function loadConfigFiles(project = store.activeProject) {
     if (!project?.path) {
       showToast('请先选择项目')
       return { error: '无项目' }
     }
 
     loadingSpecs.value = true
-    store.statusMessage = '加载规格文件...'
+    store.statusMessage = '加载配置文件...'
     const { data, error } = await fetchConfigs(project)
     loadingSpecs.value = false
     store.statusMessage = '就绪'
 
     if (error) {
-      showToast('加载规格失败: ' + error)
+      showToast('加载配置失败: ' + error)
       return { error }
     }
 
-    const specs = sortSpecFileList(filterSpecFiles(data))
-    store.specFiles.splice(0, store.specFiles.length, ...specs)
+    const configs = sortSpecFileList(data)
+    store.specFiles.splice(0, store.specFiles.length, ...configs)
     store.viewingSpecFile = null
     store.specFileContent = null
     viewingTask.value = null
     store.currentTask = null
 
-    if (specs.length > 0) {
-      await openSpecFile(specs[0], project)
+    if (configs.length > 0) {
+      await openConfigFile(configs[0], project)
     }
     return { ok: true }
   }
 
-  /** 打开规格文件内容 */
-  async function openSpecFile(file, project = store.activeProject) {
+  /** 打开配置文件内容 */
+  async function openConfigFile(file, project = store.activeProject) {
     if (!file?.path || !project?.path) return { error: '无效的文件或项目' }
 
     store.viewingSpecFile = file
@@ -298,10 +268,10 @@ export function useTasks() {
       showToast('请先选择项目')
       return
     }
-    if (store.primaryNavMode === 'specs') {
-      const result = await loadSpecFiles()
-      if (!result?.error) showToast('规格列表已刷新')
-      store.statusMessage = '规格列表已刷新'
+    if (store.primaryNavMode === 'config') {
+      const result = await loadConfigFiles()
+      if (!result?.error) showToast('配置列表已刷新')
+      store.statusMessage = '配置列表已刷新'
       return
     }
     const result = await loadProjectData(store.activeProject, store.taskFilter)
@@ -352,67 +322,21 @@ export function useTasks() {
       return
     }
 
-    if (target === 'specs') {
-      store.primaryNavMode = 'specs'
+    if (target === 'config') {
+      store.primaryNavMode = 'config'
       store.searchQuery = ''
-      const result = await loadSpecFiles()
-      if (result?.error) showToast('加载规格失败: ' + result.error)
+      const result = await loadConfigFiles()
+      if (result?.error) showToast('加载配置失败: ' + result.error)
       return
     }
 
     if (target === 'check') {
       router.push('/check')
-      return
     }
-  }
-
-  /** 执行当前变更的步骤操作 */
-  async function executeStepOperation(operation, project = store.activeProject, task = viewingTask.value) {
-    if (!operation?.code || !task?.name || !project?.path) {
-      return { error: '无效的操作或项目' }
-    }
-    const stepId = operation.stepId
-    if (!stepId) {
-      return { error: '缺少步骤 ID' }
-    }
-
-    store.statusMessage = `执行操作: ${operation.name || operation.code}...`
-    const { data, error } = await executeChangeStepOperation(project, task.name, stepId, operation)
-    store.statusMessage = '就绪'
-
-    if (error) {
-      showToast('操作失败: ' + error)
-      return { error }
-    }
-
-    await openDetail(task, project)
-    return { ok: true, data }
-  }
-
-  /** 对当前变更执行 openspec validate 结构检测 */
-  async function runChangeValidate(project = store.activeProject, task = viewingTask.value) {
-    if (!task?.name || !project?.path) {
-      return { error: '无效的任务或项目' }
-    }
-
-    store.statusMessage = '正在检测...'
-    const { data, error } = await validateChange(project, task.name)
-    store.statusMessage = '就绪'
-
-    if (error) {
-      showToast('检测失败: ' + error)
-      return { error }
-    }
-
-    return { ok: true, data }
-  }
-
-  function actionToast(action) {
-    showToast(`执行: ${action}（待实现）`)
   }
 
   const activePrimaryNav = computed(() => {
-    if (store.primaryNavMode === 'specs') return 'specs'
+    if (store.primaryNavMode === 'config') return 'config'
     if (store.taskFilter === 'archived') return 'archive'
     return 'tasks'
   })
@@ -435,14 +359,11 @@ export function useTasks() {
     loadProjectData,
     openDetail,
     refreshChangeFile,
-    openSpecFile,
-    loadSpecFiles,
+    openConfigFile,
+    loadConfigFiles,
     refreshTasks,
     toggleSort,
     setSearchQuery,
-    primaryNav,
-    executeStepOperation,
-    runChangeValidate,
-    actionToast
+    primaryNav
   }
 }

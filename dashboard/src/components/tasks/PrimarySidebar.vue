@@ -16,8 +16,8 @@
       </div>
       <div
         class="primary-nav-item"
-        :class="{ active: activeNav === 'specs' }"
-        @click="$emit('nav', 'specs')"
+        :class="{ active: activeNav === 'config' }"
+        @click="$emit('nav', 'config')"
       >
         <span class="primary-nav-item__icon">
           <svg class="icon icon--nav" viewBox="0 0 24 24">
@@ -25,7 +25,7 @@
             <path d="M14 2v6h6M8 13h8M8 17h8" />
           </svg>
         </span>
-        <span class="primary-nav-item__label">规格</span>
+        <span class="primary-nav-item__label">配置</span>
       </div>
       <div
         class="primary-nav-item"

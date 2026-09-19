@@ -72,35 +72,37 @@ export async function fetchDir(parentDir) {
   return { data: result.data.dirs || [] }
 }
 
-/** 检查目录下是否存在 openspec 子目录 */
-export async function fetchCheckOpenspec(dirPath) {
-  const url = BASE + '/check-openspec?path=' + encodeURIComponent(dirPath)
+/** 检查目录是否已 polaris init（判据：.polaris/config.yaml 存在） */
+export async function fetchCheckInitialized(dirPath) {
+  const url = BASE + '/check-initialized?path=' + encodeURIComponent(dirPath)
   const res = await fetch(url)
   const result = await parseResponse(res)
   if (result.error) return result
   return { data: { exists: result.data.exists === true } }
 }
 
-/** 获取变更列表 */
-export async function fetchChanges(project, filter = 'active') {
-  const res = await fetch(BASE + '/changes' + projectQuery(project, { filter }))
+/**
+ * 获取任务列表。
+ * @param {object} project 当前项目（取 path 作为 ?project=）
+ * @param {{status?: 'active'|'archived'|'all', kind?: string}} options
+ */
+export async function fetchTasks(project, options = {}) {
+  const { status = 'active', kind } = options
+  const res = await fetch(BASE + '/tasks' + projectQuery(project, { status, kind }))
   const result = await parseResponse(res)
   if (result.error) return result
   return {
     data: {
       tasks: result.data.tasks || [],
-      counts: result.data.counts || { active: 0, archived: 0 }
+      counts: result.data.counts || { active: 0, archived: 0, by_kind: {} }
     }
   }
 }
 
-/** fetchChanges 别名，兼容旧调用 */
-export const fetchTasks = fetchChanges
-
-/** 获取单个变更详情 */
-export async function fetchChangeDetail(project, name) {
+/** 获取单个任务详情 */
+export async function fetchTaskDetail(project, taskId, kind) {
   const res = await fetch(
-    BASE + '/changes/' + encodeURIComponent(name) + projectQuery(project)
+    BASE + '/tasks/' + encodeURIComponent(taskId) + projectQuery(project, { kind })
   )
   return parseResponse(res)
 }
@@ -119,46 +121,9 @@ export async function fetchWorkflowArtifacts(workflowId) {
   return parseResponse(res)
 }
 
-/** 获取指定步骤的可执行操作列表 */
-export async function fetchWorkflowStepOperations(workflowId, stepId) {
-  if (!workflowId || !stepId) return { error: '缺少 workflow 或步骤' }
-  const url = BASE + '/workflow/' + encodeURIComponent(workflowId)
-    + '/steps/' + encodeURIComponent(stepId) + '/operations'
-  const res = await fetch(url)
+export async function fetchStats(project) {
+  const res = await fetch(BASE + '/stats' + projectQuery(project))
   return parseResponse(res)
-}
-
-/** 执行变更步骤操作（如继续、评审等） */
-export async function executeChangeStepOperation(project, changeName, stepId, operation) {
-  if (!changeName || !stepId || !operation?.code) {
-    return { error: '缺少变更、步骤或操作' }
-  }
-  const url = BASE + '/changes/' + encodeURIComponent(changeName)
-    + '/steps/' + encodeURIComponent(stepId) + '/operations'
-    + projectQuery(project)
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      code: operation.code,
-      target: operation.target || undefined
-    })
-  })
-  return parseResponse(res)
-}
-
-/** 对指定变更执行 openspec validate 结构校验 */
-export async function validateChange(project, changeName) {
-  if (!changeName) return { error: '缺少变更名称' }
-  const url = BASE + '/changes/' + encodeURIComponent(changeName) + '/validate'
-    + projectQuery(project)
-  const res = await fetch(url, { method: 'POST' })
-  return parseResponse(res)
-}
-
-export async function fetchStats() {
-  const res = await fetch(BASE + '/stats')
-  return res.json()
 }
 
 /** 列出项目配置文件 */
@@ -194,7 +159,3 @@ export async function fetchCheck(project) {
   return parseResponse(res)
 }
 
-/** @deprecated 使用 fetchCheck */
-export async function fetchChecks(project) {
-  return fetchCheck(project)
-}

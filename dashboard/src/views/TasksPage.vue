@@ -33,7 +33,7 @@
         :viewing-spec-file="store.viewingSpecFile"
         :task-total="tasks.length"
         :spec-total="store.specFiles.length"
-        @new-change="actionToast('New Change')"
+        @new-change="showToast('新建任务入口属 M3')"
         @toggle-sort="toggleSort"
         @refresh="refreshTasks"
         @select="handleOpenDetail"
@@ -43,7 +43,7 @@
 
       <section class="content-area">
         <SpecContentPanel
-          v-if="store.primaryNavMode === 'specs'"
+          v-if="store.primaryNavMode === 'config'"
           :file="store.viewingSpecFile"
           :content="store.specFileContent"
           :loading="loadingSpecContent"
@@ -56,17 +56,12 @@
           :all-steps-done="allStepsDone"
           :current-group-name="currentGroupName"
           :refreshing-file-key="refreshingFileKey"
-          :executing-operation-code="executingOperationCode"
-          :validating="validating"
-          :validate-result="validateResult"
-          :validate-error="validateError"
           @stage-nav="selectStageNav"
           @view-session="viewSession"
           @delete-session="deleteSession"
           @action="handleTaskAction"
           @tab-change="activeTab = $event"
           @refresh-file="handleRefreshFile"
-          @revalidate="runValidate"
         />
         <div v-else class="content-area__empty">
           <p>暂无内容</p>
@@ -117,7 +112,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { store, showToast } from '../stores/index.js'
 import { revealPath } from '../api/index.js'
-import { STAGE_TO_TAB } from '../utils/workflow.js'
+import { resolveStageTab } from '../utils/workflow.js'
 import { getDefaultDetailTabId, fileKey, fileDisplayName } from '../utils/changeFiles.js'
 import { useTasks } from '../composables/useTasks.js'
 import { useProjects } from '../composables/useProjects.js'
@@ -148,14 +143,11 @@ const {
   loadProjectData,
   openDetail,
   refreshChangeFile,
-  openSpecFile,
+  openConfigFile,
   refreshTasks,
   toggleSort,
   setSearchQuery,
-  primaryNav,
-  executeStepOperation,
-  runChangeValidate,
-  actionToast
+  primaryNav
 } = useTasks()
 
 const {
@@ -188,7 +180,7 @@ const {
   removingProjectId
 } = useProjects(loadProjectData)
 
-const activeTab = ref('proposal')
+const activeTab = ref('')
 const activeStageNav = ref('')
 const detailDrawerOpen = ref(false)
 const secondaryCollapsed = ref(false)
@@ -270,37 +262,17 @@ function selectStageNav(id) {
 
   closeDetailDrawer()
   activeStageNav.value = id
-  if (STAGE_TO_TAB[id]) {
-    activeTab.value = STAGE_TO_TAB[id]
+  const tabId = resolveStageTab(viewingTask.value, id)
+  if (tabId) {
+    activeTab.value = tabId
     return
   }
   showToast(`${id} 视图（Demo 占位）`)
 }
 
+/** 结构校验端点在 M2 移除（它依赖外部 openspec CLI）。校验请在 CLI 侧跑 tasks-lint */
 async function runValidate() {
-  if (validating.value || !viewingTask.value) return
-
-  const task = viewingTask.value
-  validating.value = true
-  validateError.value = ''
-  const result = await runChangeValidate()
-  validating.value = false
-
-  if (result?.error) {
-    validateResult.value = null
-    validateError.value = result.error
-    saveValidateCache(null, result.error, task)
-    return
-  }
-
-  validateResult.value = result.data
-  saveValidateCache(result.data, '', task)
-  const failed = result.data?.summary?.totals?.failed ?? 0
-  if (result.data?.valid) {
-    showToast('检测完成：全部通过')
-  } else {
-    showToast(`检测完成：${failed} 项未通过`)
-  }
+  showToast('结构校验请在 CLI 侧执行（tasks-lint）；面板 M2 只读')
 }
 
 async function viewSession() {
@@ -326,14 +298,14 @@ async function handleRefreshFile(file) {
 
 async function handleOpenDetail(task) {
   const result = await openDetail(task)
-  activeTab.value = getDefaultDetailTabId(viewingTask.value?.workflowPhases) || 'proposal'
+  activeTab.value = getDefaultDetailTabId(viewingTask.value?.workflowPhases) || ''
   detailDrawerOpen.value = false
   activeStageNav.value = ''
   if (result?.error) return
 }
 
 async function handleOpenSpecFile(file) {
-  await openSpecFile(file)
+  await openConfigFile(file)
 }
 
 async function handleTaskAction(action) {

@@ -1,53 +1,42 @@
-/** 变更阶段顺序（用于计算已完成阶段） */
-const PHASE_ORDER = ['proposal', 'design', 'specs', 'tasks']
+/**
+ * 卡片/详情的展示助手。
+ *
+ * 旧的 `PHASE_ORDER = ['proposal','design','specs','tasks']` 与 `PHASE_BADGE_LABELS`
+ * 是 openspec 时代的四件套阶段表，已整块作废 —— 现在的阶段与分组一律来自
+ * `task.stepGroups`（由后端阶段表派生，映射见 `changeMapper.js`）。
+ */
 
-/** 阶段展示标签 */
-const PHASE_BADGE_LABELS = {
-  proposal: 'Proposal 提案',
-  design: 'Design 设计',
-  specs: 'Specs 规格',
-  tasks: 'Tasks 任务'
-}
-
-/** 阶段在流程中的索引，未知阶段返回 -1 */
-function phaseIndex(phase) {
-  if (phase === 'done' || phase === 'archived') return PHASE_ORDER.length
-  return PHASE_ORDER.indexOf(phase)
-}
-
-/** 根据当前 phase 推导已完成的阶段徽章 */
-export function getCompletedPhaseBadges(change) {
-  const idx = phaseIndex(change.phase)
-  const badges = PHASE_ORDER.slice(0, idx).map((p) => ({
-    key: p,
-    label: PHASE_BADGE_LABELS[p],
-    type: p
-  }))
-
-  const otherCount = change.otherCount ?? change.otherFiles ?? 0
-  if (otherCount > 0) {
-    badges.push({ key: 'other', label: `Other ${otherCount}`, type: 'other' })
+/** 根据步骤分组推导已完成的阶段徽章（含已跳过） */
+export function getCompletedPhaseBadges(task) {
+  const badges = []
+  for (const group of task?.stepGroups || []) {
+    for (const step of group.steps || []) {
+      if (step.status === 'done' || step.status === 'skipped') {
+        badges.push({
+          key: step.id,
+          label: step.name,
+          type: step.status === 'skipped' ? 'skipped' : 'phase'
+        })
+      }
+    }
   }
   return badges
 }
 
-/** 变更阶段进度百分比：已完成阶段数 / 总阶段数 */
-export function getChangeProgressPct(change) {
-  const total = change.stepsTotal || PHASE_ORDER.length
-  const done = typeof change.stepsDone === 'number'
-    ? change.stepsDone
-    : phaseIndex(change.phase)
+/** 阶段进度百分比（优先用映射层算好的 pct，避免两处算法） */
+export function getChangeProgressPct(task) {
+  if (typeof task?.pct === 'number') return task.pct
+  const total = task?.totalSteps || task?.stepsTotal || 0
+  const done = typeof task?.doneSteps === 'number' ? task.doneSteps : 0
   if (!total) return 0
   return Math.min(100, Math.round((done / total) * 100))
 }
 
-/** 规范差异条数（兼容多种 API 字段） */
-export function getSpecDeltaCount(change) {
-  return change.specDeltas
-    ?? change.specDeltaCount
-    ?? change.specsCount
-    ?? (Array.isArray(change.specs) ? change.specs.length : null)
-    ?? 0
+/** 产物计数（列表卡片上的「规格」数字） */
+export function getSpecDeltaCount(task) {
+  if (typeof task?.specs === 'number') return task.specs
+  if (Array.isArray(task?.specs)) return task.specs.length
+  return 0
 }
 
 /** 进度条颜色档位 */
@@ -57,11 +46,11 @@ export function progressBarClass(pct) {
   return 'mini-progress__bar--low'
 }
 
-/** 格式化变更标题：英文名 + 中文摘要 */
-export function formatChangeTitle(change) {
-  const name = change.name || ''
-  const summary = change.summary || change.title || ''
-  if (summary && summary !== name) return `${name} ${summary}`
+/** 格式化任务标题：id + 标题（标题与 id 相同时只给 id） */
+export function formatChangeTitle(task) {
+  const name = task?.name || task?.id || ''
+  const title = task?.title || ''
+  if (title && title !== name) return `${name} ${title}`
   return name
 }
 
@@ -78,9 +67,13 @@ export function formatTimestamp(iso) {
   }
 }
 
-/** 任务进度文案：已完成/总数 */
-export function formatTaskStats(change) {
-  const done = change.tasksDone ?? 0
-  const total = change.tasksTotal ?? 0
-  return `${done}/${total}`
+/**
+ * 任务进度文案：已完成/总数。
+ * 只有声明了复选框产物的 kind（coding / debug）才有值，其余显示破折号
+ * —— 旧的 `0/0` 会让「无此概念」看起来像「一条都没做」。
+ */
+export function formatTaskStats(task) {
+  const total = task?.tasksTotal
+  if (total === null || total === undefined) return '—'
+  return `${task?.tasksDone ?? 0}/${total}`
 }

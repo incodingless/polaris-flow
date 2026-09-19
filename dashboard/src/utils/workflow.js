@@ -1,51 +1,54 @@
-/** 8 步工作流模板（4 阶段） */
-export const WORKFLOW_TEMPLATE = [
-  {
-    name: 'PROPOSAL PREPARATION',
-    steps: [
-      { name: 'Created', number: 0 },
-      { name: 'Optimizing', number: 1 },
-      { name: 'Draft', number: 2 }
-    ]
-  },
-  {
-    name: 'REVIEW AND REFINE',
-    steps: [
-      { name: 'Generating', number: 3 },
-      { name: 'Review', number: 4 }
-    ]
-  },
-  {
-    name: 'EXECUTION COMPLETE',
-    steps: [
-      { name: 'Executing', number: 5 },
-      { name: 'Completed', number: 6 }
-    ]
-  },
-  {
-    name: 'ARCHIVE',
-    steps: [
-      { name: 'Archiving', number: 7 },
-      { name: 'Archived', number: 8 }
-    ]
-  }
-]
+/**
+ * 阶段与步骤的展示层助手 —— **数据源是后端阶段表**（`src/core/config/task-kind-layout.ts`），
+ * 本文件不再自持任何阶段清单。
+ *
+ * 旧实现硬编码了 openspec 时代的 9 步模板（Created/Optimizing/Draft/Generating/Review/
+ * Executing/Completed/Archiving/Archived）与「四件套」Tab，已整块移除。
+ */
 
-/** 根据当前步骤构建分组节点状态 */
-export function buildStepGroups(activeStep, executionDone) {
-  return WORKFLOW_TEMPLATE.map((group) => {
-    const steps = group.steps.map((s) => {
-      let status = 'pending'
-      if (executionDone && s.number <= 6) status = 'done'
-      else if (!executionDone && s.number < activeStep) status = 'done'
-      else if (!executionDone && s.number === activeStep) status = 'active'
-      return { ...s, status }
-    })
-    const allDone = steps.every((s) => s.status === 'done')
-    const hasActive = steps.some((s) => s.status === 'active')
-    const groupStatus = allDone ? 'completed' : hasActive ? 'active' : 'pending'
-    return { name: group.name, status: groupStatus, steps }
-  })
+/** kind 缩写（卡片角标用；纯展示，与阶段表无关） */
+export const KIND_ABBR = {
+  coding: 'COD',
+  requirement: 'REQ',
+  testcase: 'TC',
+  prototype: 'PRO',
+  debug: 'DBG'
+}
+
+/** 不在阶段表里、但会出现在 `phase` 字段里的特殊值 */
+export const PHASE_EXTRA_LABELS = {
+  idle: '空闲',
+  archived: '已归档'
+}
+
+/** 历史别名：写盘一律用现行名，读到时归一，避免「静默显示未知阶段」 */
+const PHASE_ALIASES = {
+  delivery: 'ship',
+  archive: 'ship'
+}
+
+/** 归一阶段名（别名 → 现行名） */
+export function normalizePhase(phase) {
+  const raw = String(phase ?? '').trim()
+  return PHASE_ALIASES[raw] ?? raw
+}
+
+/** 阶段显示名：优先用后端阶段表给的中文名，其次特殊值表，最后回落原值 */
+export function displayPhase(phase, phaseNames = {}) {
+  const code = normalizePhase(phase)
+  if (!code) return '未开始'
+  return phaseNames[code] || PHASE_EXTRA_LABELS[code] || code
+}
+
+/**
+ * 模式显示名。`state.yaml` 的历史值域含 `sdd`，现行值域是 `tweak|normal|full`
+ * —— 两者视为同一档（`sdd` 即 `normal`），未登记值原样显示，不显示为空白。
+ */
+export function displayMode(mode) {
+  const raw = String(mode ?? '').trim()
+  if (!raw) return ''
+  if (raw === 'sdd') return 'normal'
+  return raw
 }
 
 /** 为所有阶段步骤分配全局连续序号（从 1 开始） */
@@ -58,146 +61,6 @@ export function assignGlobalStepNumbers(stepGroups) {
       number: n++
     }))
   }))
-}
-
-/** 计算工作流进度元数据 */
-export function workflowMeta(activeStep, executionDone) {
-  const totalSteps = 9
-  const doneSteps = executionDone ? 7 : activeStep
-  const stepGroups = assignGlobalStepNumbers(buildStepGroups(activeStep, executionDone))
-  const activeStepNode = stepGroups.flatMap((g) => g.steps).find((s) => s.status === 'active')
-  return {
-    stepGroups,
-    currentStep: activeStepNode?.number ?? (executionDone ? 7 : Math.max(1, activeStep)),
-    doneSteps,
-    totalSteps,
-    pct: Math.round((doneSteps / totalSteps) * 100)
-  }
-}
-
-/** 判断任务是否已归档 */
-export function isArchivedTask(task) {
-  return task?.phase === 'archived' || !!task?.archivedDate
-}
-
-/** 去掉归档 slug 前的日期前缀，如 2026-04-06-build-customer → build-customer */
-export function stripArchivedNameDate(name) {
-  if (!name) return ''
-  const matched = String(name).match(/^\d{4}-\d{2}-\d{2}-(.+)$/)
-  return matched ? matched[1] : String(name)
-}
-
-/** 任务卡片/列表展示标题 */
-export function formatTaskCardTitle(task) {
-  if (!task) return ''
-  if (task.title) return task.title
-  if (isArchivedTask(task)) return stripArchivedNameDate(task.name)
-  return task.name || ''
-}
-
-/** 任务卡片时间行文案 */
-export function formatTaskCardTime(task) {
-  const archived = isArchivedTask(task)
-  const rawDate = archived ? task.archivedDate : task.created
-  const date = rawDate ? String(rawDate).slice(0, 10) : ''
-  if (archived) {
-    return { text: date ? `归档于 ${date}` : '已归档', archived: true }
-  }
-  return { text: date ? `创建于 ${date}` : '', archived: false }
-}
-
-/** 相对时间格式化 */
-export function formatRelativeTime(isoOrDate) {
-  const d = new Date(isoOrDate)
-  const diff = Date.now() - d.getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return '刚刚'
-  if (mins < 60) return mins + ' 分钟前'
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return hours + ' 小时前'
-  const days = Math.floor(hours / 24)
-  if (days < 30) return days + ' 天前'
-  return d.toISOString().slice(0, 10)
-}
-
-/** 任务卡片阶段标签：空心样式，文字为当前阶段名 */
-export function formatStageTag(task) {
-  const label = task?.currentGroup || task?.status || '未知'
-  const stepStatus = task?.currentStepStatus === 'done' ? 'done' : 'active'
-  return {
-    label,
-    className: stepStatus === 'done' ? 'tag-outline-success' : 'tag-outline-warning'
-  }
-}
-
-/** 状态标签样式类 */
-export function statusTagClass(task) {
-  const map = {
-    success: 'tag-success',
-    warning: 'tag-warning',
-    error: 'tag-warning',
-    info: 'tag-info',
-    accent: 'tag-info'
-  }
-  return map[task.statusType] || 'tag-disabled'
-}
-
-/** 分组标签颜色 */
-export function getGroupColor(tag) {
-  const map = { BE: '#3b82f6', FE: '#38b950', FS: '#8b5cf6', TS: '#f59e0b', RQ: '#ef4444' }
-  return map[tag] || '#6b7280'
-}
-
-/** 进度条颜色分级 */
-export function progressClass(val) {
-  if (val < 50) return 'detail-header__progress-fill--low'
-  if (val < 100) return 'detail-header__progress-fill--mid'
-  return 'detail-header__progress-fill--high'
-}
-
-/** 阶段导航与详情 Tab 映射 */
-export const STAGE_TO_TAB = {
-  proposal: 'proposal',
-  design: 'design',
-  tasks: 'tasks',
-  specs: 'specs',
-  other: 'other'
-}
-
-/** 标题栏左侧：内容阶段导航 */
-export const STAGE_CONTENT_NAV_IDS = ['proposal', 'design', 'tasks', 'specs', 'other']
-
-/** 标题栏右侧：会话操作导航 */
-export const STAGE_ACTION_NAV_IDS = ['info', 'conversation', 'review']
-
-export const STAGE_NAV_ITEMS = [
-  { id: 'info', label: '详情' },
-  { id: 'conversation', label: '检测' },
-  { id: 'review', label: '查看' },
-  { id: 'proposal', label: 'Proposal', separator: 'blue' },
-  { id: 'design', label: 'Design', separator: 'orange' },
-  { id: 'tasks', label: 'Tasks', separator: 'green' },
-  { id: 'specs', label: 'Specs', separator: 'purple' },
-  { id: 'other', label: 'Other', separator: 'gray' }
-]
-
-export const DETAIL_TABS = [
-  { id: 'proposal', label: '提案', count: 1 },
-  { id: 'design', label: '设计', count: 3 },
-  { id: 'tasks', label: '任务', count: 6 },
-  { id: 'specs', label: '规格差异', count: 2 },
-  { id: 'other', label: '其他', count: 4 }
-]
-
-/** 流程缩略图：分隔线颜色与图标循环 */
-const WORKFLOW_THUMB_SEP_COLORS = ['blue', 'orange', 'green', 'purple', 'gray']
-const WORKFLOW_THUMB_ICON_IDS = ['proposal', 'design', 'tasks', 'specs', 'other']
-
-export function getWorkflowThumbMeta(index) {
-  return {
-    separator: WORKFLOW_THUMB_SEP_COLORS[index % WORKFLOW_THUMB_SEP_COLORS.length],
-    iconId: WORKFLOW_THUMB_ICON_IDS[index % WORKFLOW_THUMB_ICON_IDS.length]
-  }
 }
 
 /** 扁平化步骤列表，附带所属分组名 */
@@ -236,11 +99,151 @@ export function findNextStep(stepGroups, step) {
   return steps[index + 1]
 }
 
+/** 进度元数据（步骤条用） */
+export function workflowMeta(stepGroups = []) {
+  const steps = flattenSteps(stepGroups)
+  const doneSteps = steps.filter((s) => s.status === 'done' || s.status === 'skipped').length
+  const activeStep = steps.find((s) => s.status === 'active')
+  const totalSteps = steps.length
+  return {
+    stepGroups,
+    currentStep: activeStep?.number ?? Math.max(1, doneSteps),
+    doneSteps,
+    totalSteps,
+    pct: totalSteps ? Math.round((doneSteps / totalSteps) * 100) : 0
+  }
+}
+
+/** 判断任务是否已归档（后端对归档项给合成 phase `archived`） */
+export function isArchivedTask(task) {
+  return task?.phase === 'archived' || !!task?.archivedAt || !!task?.archivedDate
+}
+
+/** 去掉归档 slug 前的日期前缀，如 2026-04-06-build-customer → build-customer */
+export function stripArchivedNameDate(name) {
+  if (!name) return ''
+  const matched = String(name).match(/^\d{4}-\d{2}-\d{2}-(.+)$/)
+  return matched ? matched[1] : String(name)
+}
+
+/** 任务卡片/列表展示标题 */
+export function formatTaskCardTitle(task) {
+  if (!task) return ''
+  if (task.title) return task.title
+  if (isArchivedTask(task)) return stripArchivedNameDate(task.name)
+  return task.name || ''
+}
+
+/** 任务卡片时间行文案 */
+export function formatTaskCardTime(task) {
+  const archived = isArchivedTask(task)
+  const rawDate = archived ? task.archivedDate : task.created
+  const date = rawDate ? String(rawDate).slice(0, 10) : ''
+  if (archived) {
+    return { text: date ? `归档于 ${date}` : '已归档', archived: true }
+  }
+  return { text: date ? `创建于 ${date}` : '', archived: false }
+}
+
+/** 相对时间格式化 */
+export function formatRelativeTime(isoOrDate) {
+  const d = new Date(isoOrDate)
+  if (Number.isNaN(d.getTime())) return ''
+  const diff = Date.now() - d.getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return '刚刚'
+  if (mins < 60) return mins + ' 分钟前'
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return hours + ' 小时前'
+  const days = Math.floor(hours / 24)
+  if (days < 30) return days + ' 天前'
+  return d.toISOString().slice(0, 10)
+}
+
+/** 任务卡片阶段标签：空心样式，文字为当前阶段名 */
+export function formatStageTag(task) {
+  const label = task?.currentGroup || task?.status || '未知'
+  const stepStatus = task?.currentStepStatus === 'done' ? 'done' : 'active'
+  return {
+    label,
+    className: stepStatus === 'done' ? 'tag-outline-success' : 'tag-outline-warning'
+  }
+}
+
+/** 状态标签样式类 */
+export function statusTagClass(task) {
+  const map = {
+    success: 'tag-success',
+    warning: 'tag-warning',
+    error: 'tag-warning',
+    info: 'tag-info',
+    accent: 'tag-info'
+  }
+  return map[task.statusType] || 'tag-disabled'
+}
+
+/** 类型角标颜色（按 kind，旧的 BE/FE/FS/TS/RQ 标签色已作废） */
+export function getGroupColor(tag) {
+  const map = {
+    COD: '#3b82f6',
+    REQ: '#8b5cf6',
+    TC: '#f59e0b',
+    PRO: '#38b950',
+    DBG: '#ef4444'
+  }
+  return map[tag] || '#6b7280'
+}
+
+/** 进度条颜色分级 */
+export function progressClass(val) {
+  if (val < 50) return 'detail-header__progress-fill--low'
+  if (val < 100) return 'detail-header__progress-fill--mid'
+  return 'detail-header__progress-fill--high'
+}
+
+/** 标题栏右侧：会话操作导航（与阶段无关的固定项） */
+export const STAGE_ACTION_NAV_IDS = ['info', 'conversation', 'review']
+
+export const STAGE_ACTION_NAV_ITEMS = [
+  { id: 'info', label: '详情' },
+  { id: 'conversation', label: '检测' },
+  { id: 'review', label: '查看' }
+]
+
+/** 分隔线颜色循环（阶段分组按序取色） */
+const WORKFLOW_THUMB_SEP_COLORS = ['blue', 'orange', 'green', 'purple', 'gray']
+
+export function getWorkflowThumbMeta(index) {
+  return {
+    separator: WORKFLOW_THUMB_SEP_COLORS[index % WORKFLOW_THUMB_SEP_COLORS.length],
+    iconId: 'other'
+  }
+}
+
 /**
- * 判断是否展示阶段操作按钮：
- * - 进行中步骤：展示当前阶段操作（如「继续」）
- * - 已完成步骤：仅当下一步为待执行时展示
- * - 其他状态：不展示
+ * 内容导航项 = 操作导航（固定） + 该任务的**阶段分组**。
+ * 分组名即 Tab id；「四件套」那套 hardcoded Tab 已作废。
+ */
+export function buildStageNavItems(task) {
+  const groups = (task?.stepGroups || []).map((group, index) => ({
+    id: group.name,
+    label: group.name,
+    separator: WORKFLOW_THUMB_SEP_COLORS[index % WORKFLOW_THUMB_SEP_COLORS.length]
+  }))
+  return [...STAGE_ACTION_NAV_ITEMS, ...groups]
+}
+
+/** 阶段/Tab id → 实际 Tab；不是本任务的阶段分组时归「other」 */
+export function resolveStageTab(task, id) {
+  if (!id) return ''
+  const names = (task?.stepGroups || []).map((g) => g.name)
+  return names.includes(id) ? id : 'other'
+}
+
+/**
+ * 判断是否展示阶段操作按钮。
+ * M2 面板只读（操作白名单属 M3），`stepOperations` 恒为空 → 恒为 false；
+ * 保留函数是为了 M3 接线时组件无需改动。
  */
 export function shouldShowStepOperations(step, stepGroups, stepOperations = []) {
   if (!step || !stepOperations.length) return false
@@ -255,18 +258,22 @@ export function shouldShowStepOperations(step, stepGroups, stepOperations = []) 
 export const STEP_STATUS_LABELS = {
   done: '已完成',
   active: '进行中',
-  pending: '待执行'
+  pending: '待执行',
+  skipped: '已跳过'
 }
 
-/** 完成条件文案 */
+/**
+ * 阶段产物文案。
+ *
+ * 旧实现解析的是 openspec 时代的 `check.type`（`file-content` / `tasks-done` / `none` 等
+ * 由 `config/tasks.yaml` 声明）。M2 起产物由后端产物表给出，映射层把该阶段的产物
+ * 折成 `{ type: 'file-exists' | 'dir-exists', path }` —— 本函数只负责渲染。
+ */
 export function formatStepCheck(check) {
   if (!check?.type) return ''
   const typeLabels = {
-    'file-exists': '文件存在',
-    'dir-exists': '目录存在',
-    'file-content': '文件内容',
-    'tasks-done': '任务完成',
-    none: '手动步骤'
+    'file-exists': '产物',
+    'dir-exists': '产物目录'
   }
   const label = typeLabels[check.type] || check.type
   return check.path ? `${label}：${check.path}` : label
@@ -275,8 +282,8 @@ export function formatStepCheck(check) {
 /** 无描述时的步骤说明兜底 */
 export function stepFallbackText(step) {
   if (!step) return ''
-  if (step.status === 'active') return '当前步骤进行中，完成后将自动进入下一步。'
-  if (step.status === 'done') return '该步骤已完成。'
-  return '该步骤尚未开始，需先完成前置步骤。'
+  if (step.status === 'active') return '当前阶段进行中。'
+  if (step.status === 'done') return '该阶段已完成。'
+  if (step.status === 'skipped') return '该阶段已跳过。'
+  return '该阶段尚未开始。'
 }
-
