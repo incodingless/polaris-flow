@@ -2,15 +2,25 @@
  * `polaris state next <change-name>` 核心逻辑：读 workflow 游标 + auto_transition，
  * 输出确定性的下一步衔接指令（对齐 assets/zh/policies/auto-transition.md）。
  *
+ * **阶段 → 技能**的映射**不在这里**，而在 `src/core/config/task-kind-layout.ts` 的阶段表上
+ * （`skillForPhase`）。本模块只做三件事：读游标、判定是否自动衔接、拼完整技能名。
+ *
+ * 这里曾经有两张手写的转移表（`PHASE_TO_SKILL` / `DEBUG_PHASE_TO_SKILL`），其中
+ * **prototype 与 debug 两张偏移了一位**——按"游标 = 待执行阶段"的约定，游标为 `build`
+ * 时返回 `ship`、为 `diagnose` 时返回 `patch`，会让自动衔接**逐段跳阶段且不报错**；
+ * `closeout` 更是直接返回 null（`NEXT: done`，跳过关单）。2026-09-19 删除，
+ * 见 `docs/specs/2026-09-19-phase-truth-unification-design.md` 的 D13。
+ *
  * 只读，不写盘、不持锁：
  *   - 未找到 entry → `NEXT: done`
  *   - 找到 entry 且 phase 可映射到下一 skill：
  *       auto_transition 开 → `NEXT: auto` + `SKILL`
  *       auto_transition 关 → `NEXT: manual` + `SKILL` + `HINT`
- *   - 找到 entry 但 phase 未知/终结 → `NEXT: done`
+ *   - 找到 entry 但 phase 无衔接（入口/旁路/未登记）→ `NEXT: done`
  */
 import path from 'path';
 
+import { skillForPhase } from '../config/task-kind-layout.js';
 import { loadPolarisConfig, type ProjectPolarisConfig } from '../config/polaris-project-config.js';
 import { loadTaskState, type TaskState } from '../config/task-state.js';
 import {
@@ -53,53 +63,6 @@ const FAMILY_BY_KIND: Record<WorkflowTaskKind, string> = {
   debug: 'debug',
 };
 
-/**
- * phase → 下一 skill 名（仅含可自动衔接的目标）。
- * `delivery`/`archive` 为历史别名，映射到现行 `ship`。
- *
- * 导出供 `test/ts/task-kind-phases.test.ts` 做漂移护栏：本表的 phase key 必须都是
- * `task-kind-layout.ts` 已登记的阶段或已声明别名，否则任一侧新增/遗留的 phase 名会静默失配。
- */
-export const PHASE_TO_SKILL: Record<string, Record<string, string>> = {
-  coding: {
-    plan: 'plan',
-    design: 'design',
-    tasks: 'tasks',
-    build: 'build',
-    verify: 'verify',
-    ship: 'ship',
-    delivery: 'ship',
-    archive: 'ship',
-  },
-  prd: {
-    draft: 'draft',
-    refine: 'refine',
-    ship: 'ship',
-    delivery: 'ship',
-  },
-  testing: {},
-  prototype: {
-    blueprint: 'build',
-    build: 'ship',
-    review: 'ship',
-    ship: 'ship',
-    delivery: 'ship',
-  },
-};
-
-/**
- * debug 族：phase → 下一 skill。
- * 两条通道装配相同（`diagnose → patch → closeout`）：`channel` 只决定各阶段技能内部的加严分支
- * （现场保全 / 止血 / 回退路径 / 数据脚本·埋点·开关 / 独立验证 / 发布确认），**不改变阶段序列**，
- * 因此这里不按 channel 分表。`channel` 仍写入 entry，由各阶段技能读取。
- *
- * 导出供漂移护栏（同 `PHASE_TO_SKILL`）。
- */
-export const DEBUG_PHASE_TO_SKILL: Record<string, string> = {
-  diagnose: 'patch',
-  patch: 'closeout',
-};
-
 /** 在五个任务列表中查找 task_id == 目标 id 的 entry */
 export function findEntryByTaskId(
   state: WorkflowState,
@@ -119,24 +82,6 @@ export function findEntryByTaskId(
     }
   }
   return null;
-}
-
-/** 把 phase 映射为下一 skill 名；未知/终结 phase 返回 null */
-export function resolveNextSkillName(
-  kind: WorkflowTaskKind,
-  phase: string,
-  _channel?: string,
-): string | null {
-  const normalized = (phase ?? '').trim();
-  if (!normalized) {
-    return null;
-  }
-  if (kind === 'debug') {
-    return DEBUG_PHASE_TO_SKILL[normalized] ?? null;
-  }
-  const family = FAMILY_BY_KIND[kind];
-  const table = PHASE_TO_SKILL[family] ?? {};
-  return table[normalized] ?? null;
 }
 
 /** 拼装完整 skill 名：`polaris<sep><family><sep><skill>` */
@@ -212,9 +157,9 @@ export async function runStateNext(args: StateNextArgs): Promise<StateNextResult
     return { exitCode: 0, next: 'done' };
   }
 
-  const skill = resolveNextSkillName(hit.kind, hit.entry.phase, hit.entry.channel);
+  const skill = skillForPhase(hit.kind, hit.entry.phase);
   if (!skill) {
-    // phase 未知或已终结（如 ship 清游标后不应再命中），视为完成。
+    // 入口阶段 / 旁路阶段 / 未登记值 → 无自动衔接，视为完成。
     return { exitCode: 0, next: 'done', phase: hit.entry.phase, kind: hit.kind };
   }
 
