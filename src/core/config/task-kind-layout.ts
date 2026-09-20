@@ -46,6 +46,17 @@ export type KindPhaseDef = {
    * 不计入进度分母（仅 coding 的 retro）。
    */
   bypass?: boolean;
+  /**
+   * 该阶段对应的技能名（族的相对名）。**缺省 = 同名（`code`）**。
+   *
+   * 显式 `null` = 「无自动衔接」，三种情形（都在本表逐条登记，不留隐性默认）：
+   *   - **入口阶段**：coding `specify` / requirement·testcase `discovery` /
+   *     prototype `blueprint` / debug `diagnose` —— 由入口命令显式进入，不走 `state next`
+   *   - **旁路阶段**：coding `retro` —— 可出现在 state.yaml，但不属推进游标的主序列
+   *   - **技能名与阶段码尚未对齐**：testcase 全族 —— 现有技能目录是 `case`/`acceptance`，
+   *     与 `discovery`/`draft`/`refine`/`ship` 对不上，映射过去只会产出不存在的技能名
+   */
+  skill?: string | null;
 };
 
 /** 产物定义 */
@@ -108,14 +119,14 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     usesDraft: true,
     bootstrapFiles: [],
     phases: [
-      { code: 'specify', name: '澄清', group: '澄清与方案' },
+      { code: 'specify', name: '澄清', group: '澄清与方案', skill: null },
       { code: 'plan', name: '提案', group: '澄清与方案' },
       { code: 'design', name: '深度设计', group: '澄清与方案', optional: true },
       { code: 'tasks', name: '任务规划', group: '实现' },
       { code: 'build', name: '构建', group: '实现' },
       { code: 'verify', name: '验收', group: '收口' },
       { code: 'ship', name: '交付', group: '收口' },
-      { code: 'retro', name: '复盘', group: '旁路', bypass: true },
+      { code: 'retro', name: '复盘', group: '旁路', bypass: true, skill: null },
     ],
     artifacts: [
       {
@@ -156,7 +167,7 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     usesDraft: false,
     bootstrapFiles: [],
     phases: [
-      { code: 'discovery', name: '澄清', group: '澄清与草稿' },
+      { code: 'discovery', name: '澄清', group: '澄清与草稿', skill: null },
       { code: 'draft', name: '草稿', group: '澄清与草稿' },
       { code: 'refine', name: '完善', group: '完善与交付' },
       { code: 'ship', name: '交付', group: '完善与交付' },
@@ -198,10 +209,10 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
       },
     ],
     phases: [
-      { code: 'discovery', name: '澄清', group: '澄清与草稿' },
-      { code: 'draft', name: '草稿', group: '澄清与草稿' },
-      { code: 'refine', name: '完善', group: '完善与交付' },
-      { code: 'ship', name: '交付', group: '完善与交付' },
+      { code: 'discovery', name: '澄清', group: '澄清与草稿', skill: null },
+      { code: 'draft', name: '草稿', group: '澄清与草稿', skill: null },
+      { code: 'refine', name: '完善', group: '完善与交付', skill: null },
+      { code: 'ship', name: '交付', group: '完善与交付', skill: null },
     ],
     // 只登记已核实项：testing/ 族的 SKILL.md 目前不含任何路径引用，
     // 其余产物待该族落地后按实测补，不猜。
@@ -224,7 +235,7 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     usesDraft: false,
     bootstrapFiles: [],
     phases: [
-      { code: 'blueprint', name: '原型蓝图', group: '蓝图' },
+      { code: 'blueprint', name: '原型蓝图', group: '蓝图', skill: null },
       { code: 'build', name: '原型构建', group: '构建与评审' },
       { code: 'review', name: '原型评审', group: '构建与评审' },
       { code: 'ship', name: '交付', group: '交付' },
@@ -254,7 +265,7 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     usesDraft: false,
     bootstrapFiles: [],
     phases: [
-      { code: 'diagnose', name: '诊断与方案', group: '诊断' },
+      { code: 'diagnose', name: '诊断与方案', group: '诊断', skill: null },
       { code: 'patch', name: '实现与自验', group: '修复与关单' },
       { code: 'closeout', name: '关闭 Bug', group: '修复与关单' },
     ],
@@ -330,6 +341,67 @@ export function phaseIndexIn(kind: WorkflowTaskKind, phase: string): number {
  */
 export function isKnownPhase(kind: WorkflowTaskKind, phase: string): boolean {
   return TASK_KIND_LAYOUTS[kind].phases.some((p) => p.code === phase);
+}
+
+/**
+ * phase 的历史别名 → 现行阶段码。
+ *
+ * `delivery` / `archive` 是 `ship` 的旧名，存量 `workflow.yaml` 里可能有。
+ * 它们**不是**阶段（不在任何 phases 表里），只在「读取游标」与「写入校验白名单」两处归一。
+ */
+const PHASE_ALIASES: Record<string, string> = {
+  delivery: 'ship',
+  archive: 'ship',
+};
+
+/** 归一 phase：去空白 + 别名折叠。空串原样返回 */
+export function normalizePhase(phase: string): string {
+  const raw = (phase ?? '').trim();
+  return PHASE_ALIASES[raw] ?? raw;
+}
+
+/**
+ * 游标 phase → **应执行的技能名**（族的相对名，如 `plan`）；无后续返回 null。
+ *
+ * 语义前提（见 `docs/specs/2026-09-19-phase-truth-unification-design.md` §4.1）：
+ * 技能在**出口**把游标设成"接下来要执行的阶段"，所以游标 phase 即待执行阶段
+ * ⇒ `phase → 技能` **同名映射**为默认，例外只在本表的 `skill` 字段上逐条登记。
+ *
+ * **刻意不维护第二张转移表**：下一阶段由技能自己决定（`coding/plan` 的 design/tasks
+ * 二分支就是证据），任何集中式转移图都注定与技能分支冲突 —— 那张图会漂移，而漂移的
+ * 表现是"跳过某个阶段"，不报错。
+ *
+ * 返回 null 的四种情形：空/未知阶段、入口阶段、旁路阶段、技能名未对齐的族。
+ */
+export function skillForPhase(kind: WorkflowTaskKind, phase: string): string | null {
+  const code = normalizePhase(phase);
+  if (!code) return null;
+  const def = TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === code);
+  if (!def) return null;
+  if (def.skill === null) return null;
+  return def.skill ?? def.code;
+}
+
+/**
+ * 写入相位时的合法取值：该 kind 已登记阶段（含旁路）∪ 已登记别名 ∪ `{ idle, '' }`。
+ *
+ * 为什么要原语级校验（A 案的 G3）：写错 phase 名现在**什么都不报**，要等几个月后
+ * 面板显示「未知阶段」才被发现。校验把这件事提前到提交前。
+ *
+ * `idle` 刻意**不入 phases 表**（D15）：它是「无阶段」空值而非阶段，不进进度条；
+ * 但必须被白名单接受 —— 存量数据与 `initPatches` 默认值都会写它。
+ */
+export function isWritablePhase(kind: WorkflowTaskKind, phase: string): boolean {
+  const raw = (phase ?? '').trim();
+  if (raw === '' || raw === 'idle') return true;
+  if (Object.prototype.hasOwnProperty.call(PHASE_ALIASES, raw)) return true;
+  return TASK_KIND_LAYOUTS[kind].phases.some((p) => p.code === raw);
+}
+
+/** 校验失败时打印的合法集合（含 `idle` 与别名，便于直接照抄） */
+export function writablePhaseList(kind: WorkflowTaskKind): string {
+  const codes = TASK_KIND_LAYOUTS[kind].phases.map((p) => p.code);
+  return [...codes, 'idle', ...Object.keys(PHASE_ALIASES)].join(' | ');
 }
 
 /** 取 kind 的界面显示名（单一真相；前端不再自持一份类型名表） */

@@ -11,6 +11,8 @@
  * 3. 分组派生（旁路不进分组）与序号计算
  * 4. 未登记值不抛错（「未知值不崩」的兜底依据）
  * 5. 产物表只引用已登记阶段；debug 归档落 docs/troubleshooting（不是 .polaris/archive）
+ * 6. **`skillForPhase` 的语义表**（A 案的核心：游标 = 待执行阶段 ⇒ 同名映射 + 例外登记）
+ *    与**写入白名单** `isWritablePhase`（原语校验的依据）
  */
 import { describe, expect, it } from 'vitest';
 
@@ -22,15 +24,14 @@ import {
   getKindPhases,
   getTaskKindLayout,
   isKnownPhase,
+  isWritablePhase,
   phaseGroupOf,
   phaseIndexIn,
+  skillForPhase,
+  writablePhaseList,
   type TaskKindLayout,
 } from '../../src/core/config/task-kind-layout.js';
 import { WORKFLOW_TASK_KINDS } from '../../src/core/config/workflow-state.js';
-import {
-  DEBUG_PHASE_TO_SKILL,
-  PHASE_TO_SKILL,
-} from '../../src/core/hooks/state-next.js';
 
 /** 契约 §五 的 phase 序列（主序列，不含旁路） */
 const CONTRACT_PHASES: Record<string, string[]> = {
@@ -173,65 +174,126 @@ describe('产物表', () => {
   });
 });
 
-describe('与 state-next 的 phase→skill 表互不漂移', () => {
+describe('skillForPhase：游标 phase → 技能名（A 案的核心语义）', () => {
   /**
-   * `src/core/hooks/state-next.ts` 已有一份 per-kind 的 phase 知识（`PHASE_TO_SKILL` /
-   * `DEBUG_PHASE_TO_SKILL`）——它是**转移表**（phase → 下一 skill），比本表的枚举**窄**：
-   *   - `specify` 刻意无转移（建任务时由 task-init 直接进入，见 state-next.test.ts 的断言）
-   *   - `delivery` / `archive` 是历史别名，归一到 `ship`
-   * 所以这里是「子集」断言，不是相等断言。价值在于：**任何一边出现对方不认识的 phase 名，这里先红**
-   * —— `triage` 那类六段时代遗留如果在 state-next 里复活，会被这条挡住。
+   * 这条断言表是 `docs/specs/2026-09-19-phase-truth-unification-design.md` §4.1 的
+   * **可执行形式**。约定只有一条：**游标 phase = 接下来要执行的阶段 ⇒ 同名映射**；
+   * 例外（入口阶段 / 旁路阶段 / 技能名未对齐的族）在阶段表的 `skill` 字段上逐条登记。
+   *
+   * 它取代了原来那条"盯 `state-next` 里两张转移表"的护栏：那两张表已被删除，
+   * 漂移的可能性也随之消失 —— 现在**只有这一份真相**。
    */
-  const LEGACY_ALIASES: Record<string, string[]> = {
-    coding: ['delivery', 'archive'],
-    requirement: ['delivery'],
-    prototype: ['delivery'],
-  };
+  it('非例外阶段一律同名映射（游标即待执行阶段）', () => {
+    // coding：specify 是入口（见下），其余全部同名
+    expect(skillForPhase('coding', 'plan')).toBe('plan');
+    expect(skillForPhase('coding', 'design')).toBe('design');
+    expect(skillForPhase('coding', 'tasks')).toBe('tasks');
+    expect(skillForPhase('coding', 'build')).toBe('build');
+    expect(skillForPhase('coding', 'verify')).toBe('verify');
+    expect(skillForPhase('coding', 'ship')).toBe('ship');
 
-  const FAMILY_BY_KIND: Record<string, string> = {
-    coding: 'coding',
-    requirement: 'prd',
-    testcase: 'testing',
-    prototype: 'prototype',
-  };
+    expect(skillForPhase('requirement', 'draft')).toBe('draft');
+    expect(skillForPhase('requirement', 'refine')).toBe('refine');
+    expect(skillForPhase('requirement', 'ship')).toBe('ship');
 
-  function phaseKeysOfFamily(family: string): string[] {
-    const hit = Object.entries(FAMILY_BY_KIND).find(([, f]) => f === family);
-    return hit ? getKindPhases(hit[0] as never, { includeBypass: true }).map((p) => p.code) : [];
-  }
+    // prototype：build 出口把游标置 ship，所以游标为 build 时必须跑 build
+    // —— 这正是 A 案修掉的"偏移一位"（旧表 build→ship 会跳过 prototype:build）
+    expect(skillForPhase('prototype', 'build')).toBe('build');
+    expect(skillForPhase('prototype', 'review')).toBe('review');
+    expect(skillForPhase('prototype', 'ship')).toBe('ship');
 
-  it('PHASE_TO_SKILL 的每个 key 都要么是已知 phase，要么是已登记的历史别名', () => {
-    for (const [family, table] of Object.entries(PHASE_TO_SKILL)) {
-      const known = new Set(phaseKeysOfFamily(family));
-      const aliases = new Set(
-        Object.entries(FAMILY_BY_KIND)
-          .filter(([, f]) => f === family)
-          .flatMap(([kind]) => LEGACY_ALIASES[kind] ?? []),
-      );
-      for (const key of Object.keys(table)) {
-        expect(
-          known.has(key) || aliases.has(key),
-          `${family} 的 phase "${key}" 既不是已知阶段、也不是登记过的别名`,
-        ).toBe(true);
+    // debug：旧表 diagnose→patch、patch→closeout、closeout→null 三段全跳
+    expect(skillForPhase('debug', 'patch')).toBe('patch');
+    expect(skillForPhase('debug', 'closeout')).toBe('closeout');
+  });
+
+  it('入口阶段无自动衔接（由入口命令显式进入）', () => {
+    expect(skillForPhase('coding', 'specify')).toBeNull();
+    expect(skillForPhase('requirement', 'discovery')).toBeNull();
+    expect(skillForPhase('testcase', 'discovery')).toBeNull();
+    expect(skillForPhase('prototype', 'blueprint')).toBeNull();
+    expect(skillForPhase('debug', 'diagnose')).toBeNull();
+  });
+
+  it('旁路阶段无自动衔接（不在推进游标的主序列）', () => {
+    expect(skillForPhase('coding', 'retro')).toBeNull();
+  });
+
+  it('testcase 全族无自动衔接 —— 技能目录名（case/acceptance）与阶段码对不上', () => {
+    for (const phase of ['discovery', 'draft', 'refine', 'ship']) {
+      expect(skillForPhase('testcase', phase)).toBeNull();
+    }
+  });
+
+  it('idle / 空串 / 未登记值 → null（未知值不崩）', () => {
+    for (const kind of WORKFLOW_TASK_KINDS) {
+      expect(skillForPhase(kind, 'idle')).toBeNull();
+      expect(skillForPhase(kind, '')).toBeNull();
+      expect(skillForPhase(kind, '  ')).toBeNull();
+      expect(skillForPhase(kind, 'nonsense')).toBeNull();
+    }
+  });
+
+  it('历史别名 delivery / archive 归一到 ship（存量游标可读）', () => {
+    expect(skillForPhase('coding', 'delivery')).toBe('ship');
+    expect(skillForPhase('coding', 'archive')).toBe('ship');
+    expect(skillForPhase('requirement', 'delivery')).toBe('ship');
+    expect(skillForPhase('prototype', 'delivery')).toBe('ship');
+  });
+
+  it('六段时代遗留（triage / prescribe / prove）彻底无衔接', () => {
+    for (const gone of ['triage', 'prescribe', 'prove']) {
+      expect(skillForPhase('debug', gone)).toBeNull();
+    }
+  });
+
+  it('每个 skill 字段登记值要么是 null、要么与本族技能目录同名（不留隐性默认）', () => {
+    // skill 字段只在例外处出现；出现时必须是 null（无衔接）。
+    // 将来若真要"阶段码 ≠ 技能名"的映射，这里会先红，提醒去读设计文档 §4.1 的例外清单。
+    for (const kind of WORKFLOW_TASK_KINDS) {
+      for (const phase of getKindPhases(kind, { includeBypass: true })) {
+        if (phase.skill === undefined) continue;
+        expect(phase.skill, `${kind}/${phase.code} 的 skill 只能显式为 null`).toBeNull();
       }
     }
   });
+});
 
-  it('DEBUG_PHASE_TO_SKILL 的每个 key 都是已知的 debug 阶段（且不含终结段 closeout）', () => {
-    const known = new Set(getKindPhases('debug', { includeBypass: true }).map((p) => p.code));
-    for (const key of Object.keys(DEBUG_PHASE_TO_SKILL)) {
-      expect(known.has(key), `debug 的 phase "${key}" 不是已知阶段`).toBe(true);
+describe('写入白名单（原语校验的依据）', () => {
+  it('已登记阶段 + idle + 历史别名都是合法写入值', () => {
+    for (const kind of WORKFLOW_TASK_KINDS) {
+      for (const phase of getKindPhases(kind, { includeBypass: true })) {
+        expect(isWritablePhase(kind, phase.code), `${kind}/${phase.code}`).toBe(true);
+      }
+      expect(isWritablePhase(kind, 'idle')).toBe(true);
+      expect(isWritablePhase(kind, '')).toBe(true);
+      expect(isWritablePhase(kind, 'delivery')).toBe(true);
+      expect(isWritablePhase(kind, 'archive')).toBe(true);
     }
-    // closeout 是终结段，游标随后被清除，不应有转移项
-    expect(Object.keys(DEBUG_PHASE_TO_SKILL)).not.toContain('closeout');
   });
 
-  it('两处对 debug 的阶段集合认识一致', () => {
-    const fromLayout = getKindPhases('debug', { includeBypass: true })
-      .map((p) => p.code)
-      .sort();
-    const fromStateNext = [...Object.keys(DEBUG_PHASE_TO_SKILL), 'closeout'].sort();
-    expect(fromStateNext).toEqual(fromLayout);
+  it('拼错的阶段名被拒（这是 A 案 G3 的落点）', () => {
+    expect(isWritablePhase('coding', 'nonsense')).toBe(false);
+    expect(isWritablePhase('coding', 'buiild')).toBe(false);
+    expect(isWritablePhase('debug', 'triage')).toBe(false);
+    // 跨 kind 借用也非法：delivery 之外，别的族的阶段码不算数
+    expect(isWritablePhase('coding', 'closeout')).toBe(false);
+    expect(isWritablePhase('debug', 'specify')).toBe(false);
+  });
+
+  it('idle 不进 phases 表（不占进度分母），但白名单接受它', () => {
+    for (const kind of WORKFLOW_TASK_KINDS) {
+      expect(getKindPhases(kind, { includeBypass: true }).map((p) => p.code)).not.toContain('idle');
+      expect(isKnownPhase(kind, 'idle')).toBe(false);
+      expect(isWritablePhase(kind, 'idle')).toBe(true);
+    }
+  });
+
+  it('报错信息里列出全部合法值（含 idle 与别名，便于照抄）', () => {
+    const list = writablePhaseList('debug');
+    for (const code of ['diagnose', 'patch', 'closeout', 'idle', 'delivery', 'archive']) {
+      expect(list).toContain(code);
+    }
   });
 });
 
