@@ -13,7 +13,10 @@
  * 5. 产物表只引用已登记阶段；debug 归档落 docs/troubleshooting（不是 .polaris/archive）
  * 6. **`skillForPhase` 的语义表**（A 案的核心：游标 = 待执行阶段 ⇒ 同名映射 + 例外登记）
  *    与**写入白名单** `isWritablePhase`（原语校验的依据）
+ * 7. 各 `*.example.yaml` 的阶段注释是**单一表的镜像**（不新增第二份枚举）
  */
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -32,6 +35,7 @@ import {
   type TaskKindLayout,
 } from '../../src/core/config/task-kind-layout.js';
 import { WORKFLOW_TASK_KINDS } from '../../src/core/config/workflow-state.js';
+import { getTaskStateTemplateSrc } from '../../src/core/assets/manifest.js';
 
 /** 契约 §五 的 phase 序列（主序列，不含旁路） */
 const CONTRACT_PHASES: Record<string, string[]> = {
@@ -294,6 +298,67 @@ describe('写入白名单（原语校验的依据）', () => {
     for (const code of ['diagnose', 'patch', 'closeout', 'idle', 'delivery', 'archive']) {
       expect(list).toContain(code);
     }
+  });
+});
+
+describe('state 模板的阶段注释是单一表的镜像（A 案 G4）', () => {
+  /**
+   * 各 `*.example.yaml` 的 `# 可选值:` 注释是给**写 state 的人**看的镜像，不是真相。
+   * 真相在阶段表；这里只守「镜像不许出现表外值」+「主序列不许漏项」——
+   * 漏项比错值更隐蔽：读注释的人会以为某阶段不存在。
+   */
+  /**
+   * 取**顶格 `phase:` 上方最近的一条**「可选值 / 当前阶段」注释。
+   *
+   * 不能简单地找第一条 `# 可选值:` —— 模板里 `language` 字段也有一条
+   * （`en-英文 | zh-中文`），第一条匹配会解析出 `en` 这种假值。
+   */
+  function parsePhaseCodes(text: string): string[] {
+    const lines = text.split('\n');
+    const phaseIdx = lines.findIndex((l) => /^phase:/.test(l));
+    if (phaseIdx < 0) return [];
+    for (let i = phaseIdx - 1; i >= 0; i--) {
+      const line = lines[i]!;
+      if (!/^\s*#/.test(line)) continue;
+      const matched = line.match(/^\s*#\s*(?:可选值|当前阶段)\s*[:：]\s*(.+)$/);
+      if (!matched) continue;
+      return matched[1]!
+        .split('|')
+        .map((item) => item.trim().split('-')[0]?.trim() ?? '')
+        .filter(Boolean);
+    }
+    return [];
+  }
+
+  it('每个 kind 的 state 模板都有一条可解析的阶段注释', async () => {
+    for (const kind of WORKFLOW_TASK_KINDS) {
+      const file = TASK_KIND_LAYOUTS[kind].stateTemplate;
+      const text = await readFile(getTaskStateTemplateSrc(file), 'utf-8');
+      expect(parsePhaseCodes(text).length, `${file} 缺阶段注释`).toBeGreaterThan(0);
+    }
+  });
+
+  it('注释里不含表外值，且主序列一个不漏', async () => {
+    for (const kind of WORKFLOW_TASK_KINDS) {
+      const file = TASK_KIND_LAYOUTS[kind].stateTemplate;
+      const codes = parsePhaseCodes(await readFile(getTaskStateTemplateSrc(file), 'utf-8'));
+
+      for (const code of codes) {
+        expect(isWritablePhase(kind, code), `${file} 的「${code}」不是合法阶段`).toBe(true);
+      }
+      for (const phase of getKindPhases(kind)) {
+        expect(codes, `${file} 漏了主序列阶段「${phase.code}」`).toContain(phase.code);
+      }
+    }
+  });
+
+  it('workflow-template.yaml 不再自持 phase 枚举（改指阶段表）', async () => {
+    const { getWorkflowTemplateYamlSrc } = await import('../../src/core/assets/manifest.js');
+    const text = await readFile(getWorkflowTemplateYamlSrc(), 'utf-8');
+    // 旧版这里写死了两行枚举，且都是错的（coding 缺 tasks 用 delivery、debug 还是六段）
+    expect(text).not.toMatch(/phase:.*#.*triage/);
+    expect(text).not.toMatch(/phase:.*#.*prescribe/);
+    expect(text).not.toMatch(/phase:.*#.*delivery/);
   });
 });
 

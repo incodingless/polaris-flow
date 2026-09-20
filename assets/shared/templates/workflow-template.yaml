@@ -13,7 +13,7 @@
 coding_tasks: []
 # 每项结构（共 4 个字段）：
 #   - task_id: refactor-sdk-api-0701c0
-#     phase: design                      # specify | plan | design | build | verify | delivery
+#     phase: design                      # 各 kind 的合法阶段见插件阶段表（写入时原语会校验，非法值被拒并打印合法集合）
 #     worktree_path: ""                  # 空表示该任务仍在主仓；plan 后填 worktree 绝对路径
 #     started_at: 2026-05-25T14:30:00Z   # task 创建时间（specify Step 1）
 
@@ -65,7 +65,7 @@ prototype_tasks: []
 debug_tasks: []
 # 每项结构（共 5 个字段）：
 #   - task_id: 2026-09-16-fix-page-500
-#     phase: triage                     # triage | diagnose | prescribe | patch | prove | closeout
+#     phase: diagnose                    # 各 kind 的合法阶段见插件阶段表（写入时原语会校验，非法值被拒并打印合法集合）
 #     channel: bugfix                   # bugfix-测试缺陷 | hotfix-生产故障（仅 debug 族有）
 #     worktree_path: ""                  # 空表示该任务仍在主仓
 #     started_at: 2026-05-25T14:30:00Z   # task 创建时间

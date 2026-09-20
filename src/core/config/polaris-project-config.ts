@@ -28,9 +28,18 @@ export type AutoTransition = 'auto' | 'off';
 export type BuildMode = 'tdd' | 'none';
 /** 工作流类型，可选值: sdd | tweak | bugfix | full */
 export type WorkflowType = 'sdd' | 'tweak' | 'bugfix' | 'full';
-/** 任务阶段；`delivery`/`archive` 为历史别名，仅用于读取兼容，写盘一律 `ship` */
-export type TaskPhase =
-  'idle' | 'specify' | 'plan' | 'design' | 'tasks' | 'build' | 'verify' | 'ship' | string;
+/**
+ * 任务阶段。
+ *
+ * **刻意退化为 `string`，不再手写联合**（D16）：这里曾列 `idle | specify | ... | string`，
+ * 末尾的 `| string` 让它形同虚设；更要紧的是它是**第二处枚举** —— 5 类 kind 的阶段序列
+ * 各不相同，一个联合类型表达不了，而写在这里就必然与阶段表漂移。
+ *
+ * 合法值的唯一真相是 `src/core/config/task-kind-layout.ts` 的 `TASK_KIND_LAYOUTS[*].phases`
+ * （TS 无法从常量派生字面量联合，所以枚举正确性由守卫测试承担：
+ * `test/ts/task-kind-phases.test.ts`），写入时另由 `src/core/hooks/phase-validation.ts` 拦截。
+ */
+export type TaskPhase = string;
 
 /** 语言, 可选值: en-英文 | zh-中文 */
 
