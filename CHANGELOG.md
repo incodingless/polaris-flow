@@ -42,6 +42,8 @@
 - **`GET /api/tasks/:id/plan-lint`**: 只读校验任务计划文件，转调本仓 `tasks-lint`；`pass: null` 表示「没有可校验的计划文件」而非失败
 - **`planDeliveryCleanup` 预演**: 交付清理前先算出将删除的路径与将移除的游标条目
 - **`ProjectView`（含 `stale` / `reason`）**: 项目注册表条目叠加运行期判定，每次读时算、不落盘
+- **phase 写入校验**: 新增 `src/core/hooks/phase-validation.ts`。`workflow-entry`（`update-active --set phase=`、`append-active --phase=`）与 `task-state-entry`（`enter-phase` / `complete-phase` 的 `--phase` / `--next-phase`）写入前校验合法性，非法值以退出码 3 中止并打印合法集合；校验发生在**取锁之前**。`--force-phase` 是唯一绕过口，且**不静默** —— 记入 `.polaris/overrides.log`（时间/op/kind/task/skill/写入值/当时合法集合）
+- **`skillForPhase` 与写入白名单**: `src/core/config/task-kind-layout.ts` 的阶段表新增 `skill` 字段（缺省 = 同名；显式 `null` = 无自动衔接，三处例外逐条登记），并导出 `skillForPhase` / `normalizePhase` / `isWritablePhase` / `writablePhaseList`。「阶段 → 技能」自此只有一份真相
 
 ### Tests
 
@@ -126,6 +128,9 @@
 - **前端适配**: 看板复选框可点（仅当文件路径 === `task.plan_file`，按路径精确比对）；步骤卡下方加「推进阶段 → <名称>」两段式内联确认；完成卡片的「Archive Plan」改为接成交付清理（预演 → 列出将删路径 → 确认删除）；项目选择器对失效项显示徽标与原因。所有写操作成功后**重取详情**而不是本地改状态
 - **契约定稿 M3**: `docs/specs/2026-09-18-dashboard-api-contract.md` 新增 §五「写操作」（不变量、三个端点与原语映射、拒绝面、预演口径、与自动衔接的已知依赖）；§二 路由表补 4 条并重标只读性；§八 守卫测试清单补 6 个测试文件
 - **设计文档订正**: §7 D4 由「倾向并入 `polaris.yaml`」改为「已决：继续用 `~/.polaris/projects.json`」并写明语义；§5.2 表后补 M3 落地口径（只做推进、不做通用操作通道、先修 `ship-cleanup` 缺陷）
+- **phase 真相归一 A 案落地（枚举与转移各收成一处）**: `state-next` 的 `PHASE_TO_SKILL` / `DEBUG_PHASE_TO_SKILL` / `resolveNextSkillName` 删除，改调 `skillForPhase`；约定固定为「游标 = 接下来要执行的阶段 ⇒ 同名映射」，例外（入口阶段 / 旁路阶段 / 技能名与阶段码未对齐的族）登记在阶段表的 `skill` 字段上。**刻意不维护第二张转移图** —— 下一阶段由技能自己决定，集中式转移表注定与技能分支冲突
+- **文档不再自持 phase 枚举**: `workflow-template.yaml` 的 5 处枚举注释（coding / requirement ×2 / prototype / debug）改指阶段表；`auto-transition.md` 订正「guard `--apply`」的不存在描述并新增「阶段名的合法值」一节。各 `*.example.yaml` 的镜像注释**保留**，但加守卫测试（不含表外值、主序列一个不漏）
+- **`TaskPhase` 退化为 `string`**: 原定义尾部有 `| string` 使其形同虚设，且它是第二处枚举 —— 5 类 kind 阶段序列各不相同，一个联合表达不了。合法值的唯一真相是阶段表
 
 ### Fixed
 
@@ -162,6 +167,10 @@
 - **`ship-cleanup` 成功路径漏带 `plan`**: 执行后回报的 `will_delete` 为空，面板的「删了什么」成了空话
 - **前端两个悬空引用（M2 遗留）**: `dashboard/src/views/TasksPage.vue` 的 `handleTaskAction` 仍调用 `executeStepOperation` / `actionToast`，而这两个函数已随 M2 的 `useTasks` 一并删除。`vite build` 不校验未定义全局名，所以逃过了构建；任一 `@action` 都会 `ReferenceError`。一并清掉随之失效的步骤操作 UI（`stage-card-actions` / `stepOperations` / `onStepAction` / `executingOperationCode` prop / `shouldShowStepOperations`）
 - **`state.yaml.phase` 的权威性误判（M2 契约遗留）**: 契约原写「以 `state.yaml.phase` 为单一真相」，实际权威是 `workflow.yaml` 游标（`state.yaml.phase` 在 `src/` 内零读取方，且 coding 族从不调用 `enter/complete-phase`，其值长期停在建任务时写的 `specify`）
+
+- **`state-next` 的 prototype / debug 两张转移表偏移一位（自动衔接跳阶段）**: 按「游标 = 待执行阶段」的约定应为同名映射，而旧表是 `blueprint→build`、`build→ship`、`review→ship` 与 `diagnose→patch`、`patch→closeout`。净效果是**逐段跳阶段且不报错**：prototype 游标为 `build` 时派发 `ship`（跳过 `prototype:build`）、debug 三段全跳（诊断→修复→关单），`closeout` 更返回 null（`NEXT: done`，跳过关单）。实测对照见 `docs/specs/2026-09-19-phase-truth-unification-design.md` §八；这四处偏移此前被 `state-next.test.ts` 当作期望断言固化，故修它同时改了断言（单独提交 `b7799f1` 便于回退）
+- **`auto-transition.md` 声称的 `guard --apply` 在代码里不存在**: 该文原写「由 guard `--apply` 完成，同时更新 `workflow.yaml` 与 `.polaris/<change_id>/state.yaml` 的 phase」——全仓 grep 只命中这份文档自身，且 `<change_id>` 路径早已失实（实际是 `.polaris/tasks/<task_id>/`）。改述真实机制（技能内联 `workflow-entry update-active`），并澄清 `state.yaml.phase` 是只写不读的镜像、权威始终是 `workflow.yaml` 的游标
+- **`docs/specs/2026-09-16-debug-workflow-design.md` 自称「已定稿（已实现）· 无待决」却描述六阶段**: 该文 §2 的 `triage` / `prescribe` / `prove` 在 2026-09-17 就已合并为三阶段，但文档头部没有任何作废标记，先读它的人必然被误导（M2 期间据此做过错误判断）。加显著作废标注，指向 `assets/zh/skills/debug/README.md` 与阶段表；正文保留（它是那些设计取舍的唯一记录）
 
 ### Removed
 

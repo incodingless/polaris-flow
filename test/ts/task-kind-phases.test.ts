@@ -352,13 +352,16 @@ describe('state 模板的阶段注释是单一表的镜像（A 案 G4）', () =>
     }
   });
 
-  it('workflow-template.yaml 不再自持 phase 枚举（改指阶段表）', async () => {
+  it('workflow-template.yaml 不自持任何 phase 枚举（改指阶段表）', async () => {
     const { getWorkflowTemplateYamlSrc } = await import('../../src/core/assets/manifest.js');
     const text = await readFile(getWorkflowTemplateYamlSrc(), 'utf-8');
-    // 旧版这里写死了两行枚举，且都是错的（coding 缺 tasks 用 delivery、debug 还是六段）
-    expect(text).not.toMatch(/phase:.*#.*triage/);
-    expect(text).not.toMatch(/phase:.*#.*prescribe/);
-    expect(text).not.toMatch(/phase:.*#.*delivery/);
+    // 旧版这里写死了 5 处枚举（coding / requirement ×2 / prototype / debug），
+    // 其中 coding 与 debug 两处**是错的**（coding 缺 tasks 用 delivery、debug 还是六段）。
+    // 断言「`phase:` 行的注释里不许出现 `|` 分隔的枚举」——只查具体几个错值会漏掉
+    // 另一族正确的枚举，而正确的枚举同样是第二份真相（会与表漂移）。
+    // 本条曾漏掉 requirement ×2 与 prototype ×1：设计文档的清单只列了 coding 与 debug 两处。
+    const offending = text.split('\n').filter((line) => /phase:.*#.*\|/.test(line));
+    expect(offending, `仍有枚举注释：\n${offending.join('\n')}`).toEqual([]);
   });
 });
 
