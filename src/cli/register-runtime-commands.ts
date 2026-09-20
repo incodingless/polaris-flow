@@ -88,6 +88,7 @@ export function registerRuntimeCommands(program: Command): void {
     .option('--where-task-id <id>')
     .option('--from <id>')
     .option('--to <id>')
+    .option('--force-phase', 'skip phase whitelist check (logged to .polaris/overrides.log)')
     .option(...PLATFORM_OPTION)
     .option(
       '--set <kv...>',
@@ -112,6 +113,7 @@ export function registerRuntimeCommands(program: Command): void {
         to: options.to,
         set: options.set,
         channel: options.channel,
+        forcePhase: options.forcePhase,
       });
     });
 
@@ -161,6 +163,7 @@ export function registerRuntimeCommands(program: Command): void {
     .option('--file <relpath>', 'set-checkbox: tasks.md 的项目根相对路径')
     .option('--index <n>', 'set-checkbox: 复选框序号（0-based，按出现顺序）')
     .option('--checked <bool>', 'set-checkbox: true|false')
+    .option('--force-phase', 'skip phase whitelist check (logged to .polaris/overrides.log)')
     .option(...PLATFORM_OPTION)
     .action(async (op: string, options) => {
       await taskStateEntryCommand(op, {
@@ -185,6 +188,7 @@ export function registerRuntimeCommands(program: Command): void {
         file: options.file,
         index: options.index,
         checked: options.checked,
+        forcePhase: options.forcePhase,
       });
     });
 

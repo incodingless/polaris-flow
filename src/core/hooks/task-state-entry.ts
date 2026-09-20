@@ -17,6 +17,7 @@ import { parseWorkflowTaskKind, type WorkflowTaskKind } from '../config/workflow
 import { resolveRepoRoot } from './workflow-entry.js';
 import { acquireExclusiveLock, WorkflowLockError } from './workflow-lock.js';
 import { applySetCheckbox, CheckboxError, countCheckboxes } from './tasks-checkbox.js';
+import { checkPhaseWrite } from './phase-validation.js';
 
 export type TaskStateEntryOp =
   | 'get'
@@ -62,6 +63,11 @@ export type TaskStateEntryArgs = {
   index?: number;
   /** set-checkbox：目标勾选态 */
   checked?: boolean;
+  /**
+   * 跳过 phase 写入校验（一次性修正存量脏数据用）。
+   * 绕过**不静默**：会往 `.polaris/overrides.log` 追加一行留痕。
+   */
+  forcePhase?: boolean;
   lockOptions?: {
     staleMs?: number;
     spinMs?: number;
@@ -394,6 +400,32 @@ export async function runTaskStateEntry(args: TaskStateEntryArgs): Promise<TaskS
   const lockRepo = repoRoot ?? (await findRepoRootFromState(statePath));
   if (!lockRepo) {
     return { exitCode: 3, message: '无法解析锁目录所属仓库根' };
+  }
+
+  // phase 写入校验（A 案 G3）：enter-phase / complete-phase 会写 state.yaml 的 phase，
+  // `--next-phase` 更会前移顶层 phase。合法集合来自阶段表，与 workflow-entry 共用一处判定。
+  // kind 未知时不校验（无法确定合法集合，不猜）；overrides.log 需要仓库根，故放在 lockRepo 之后。
+  if (args.op === 'enter-phase' || args.op === 'complete-phase') {
+    const pairs: Array<[string, string | undefined]> = [
+      ['--phase', args.phase],
+      ['--next-phase', args.nextPhase],
+    ];
+    for (const [label, value] of pairs) {
+      if (value === undefined) continue;
+      const check = await checkPhaseWrite({
+        repoRoot: lockRepo,
+        kind,
+        phase: value,
+        skill: args.skill || args.op,
+        taskId: lockId,
+        op: `${args.op} ${label}`,
+        force: args.forcePhase,
+      });
+      if (!check.ok) {
+        console.error(`[task-state-entry] 阻断：${check.message}`);
+        return { exitCode: 3, message: check.message };
+      }
+    }
   }
 
   let lock;

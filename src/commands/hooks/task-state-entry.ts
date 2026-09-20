@@ -29,6 +29,8 @@ export type TaskStateEntryCommandOptions = {
   file?: string;
   index?: string;
   checked?: string;
+  /** 跳过 phase 写入校验（一次性修正存量数据）；会写入 .polaris/overrides.log */
+  forcePhase?: boolean;
 };
 
 /**
@@ -70,6 +72,7 @@ export async function taskStateEntryCommand(
     // 非法值留给 core 层报「必须是非负整数 / true|false」，不在此处静默兜底成 0。
     index: options.index === undefined ? undefined : Number(options.index),
     checked: options.checked === 'true' ? true : options.checked === 'false' ? false : undefined,
+    forcePhase: options.forcePhase,
   });
 
   if (result.exitCode !== 0) {

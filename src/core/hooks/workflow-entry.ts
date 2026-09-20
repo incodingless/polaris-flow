@@ -21,13 +21,10 @@ import {
   type WorkflowTaskKind,
 } from '../config/workflow-state.js';
 import { acquireWorkflowLock, WorkflowLockError } from './workflow-lock.js';
+import { checkPhaseWrite } from './phase-validation.js';
 
 export type WorkflowEntryOp =
-  | 'get-active-changes'
-  | 'append-active'
-  | 'update-active'
-  | 'rename-active'
-  | 'delete-active';
+  'get-active-changes' | 'append-active' | 'update-active' | 'rename-active' | 'delete-active';
 
 export type WorkflowEntryArgs = {
   op: WorkflowEntryOp;
@@ -46,6 +43,11 @@ export type WorkflowEntryArgs = {
   setWorktreePath?: string;
   /** debug 族通道：bugfix | hotfix（append-active 时写入 entry） */
   channel?: string;
+  /**
+   * 跳过 phase 写入校验（一次性修正存量脏数据用）。
+   * 绕过**不静默**：会往 `.polaris/overrides.log` 追加一行留痕。
+   */
+  forcePhase?: boolean;
   /** 测试用：覆盖锁超时 */
   lockOptions?: {
     staleMs?: number;
@@ -275,6 +277,31 @@ export async function runWorkflowEntry(args: WorkflowEntryArgs): Promise<Workflo
   const repoRoot = resolveRepoRoot(args.repoRoot);
   if (!repoRoot) {
     return { exitCode: 3, message: '无法解析主仓根' };
+  }
+
+  // phase 写入校验（A 案 G3）：合法集合来自 `task-kind-layout` 的阶段表，不是本地清单。
+  // 放在取锁之前 —— 参数错了就不该去抢锁，也不必等锁。
+  // 覆盖两个会写 phase 的 op：`update-active`（改游标）与 `append-active`（建 entry 的初始 phase）。
+  const phaseToWrite =
+    args.op === 'update-active'
+      ? args.setPhase
+      : args.op === 'append-active'
+        ? args.phase
+        : undefined;
+  if (phaseToWrite !== undefined) {
+    const check = await checkPhaseWrite({
+      repoRoot,
+      kind: parseWorkflowTaskKind(args.kind),
+      phase: phaseToWrite,
+      skill: args.skill,
+      taskId: args.whereTaskId ?? args.taskId ?? '',
+      op: args.op,
+      force: args.forcePhase,
+    });
+    if (!check.ok) {
+      console.error(`[workflow-entry] 阻断：${check.message}`);
+      return { exitCode: 3, message: check.message };
+    }
   }
 
   let lock;

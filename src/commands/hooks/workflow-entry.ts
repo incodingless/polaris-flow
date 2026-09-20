@@ -16,6 +16,8 @@ export type WorkflowEntryCommandOptions = {
   to?: string;
   set?: string[];
   channel?: string;
+  /** 跳过 phase 写入校验（一次性修正存量数据）；会写入 .polaris/overrides.log */
+  forcePhase?: boolean;
 };
 
 /**
@@ -66,6 +68,7 @@ export async function workflowEntryCommand(
     setPhase: sets.setPhase,
     setWorktreePath: sets.setWorktreePath,
     channel: options.channel,
+    forcePhase: options.forcePhase,
   });
 
   if (result.exitCode !== 0) {
