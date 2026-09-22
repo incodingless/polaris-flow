@@ -38,7 +38,7 @@ testcase_tasks: []
 #     phase: discovery                  # 各 kind 的合法阶段见插件阶段表（写入时原语会校验，非法值被拒并打印合法集合）
 #     worktree_path: ""                  # 空表示该测试任务仍在主仓
 #     started_at: 2026-05-25T14:30:00Z   # task 创建时间
-# 单测试任务业务档案：.polaris/testcases/<task_id>/state.yaml
+
 
 # 职责：
 #   - 列出所有未完结的「原型」任务（prototype_tasks）
@@ -69,4 +69,3 @@ debug_tasks: []
 #     channel: bugfix                   # bugfix-测试缺陷 | hotfix-生产故障（仅 debug 族有）
 #     worktree_path: ""                  # 空表示该任务仍在主仓
 #     started_at: 2026-05-25T14:30:00Z   # task 创建时间
-

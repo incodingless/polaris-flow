@@ -1,7 +1,7 @@
 /**
  * workflow-entry / workflow-lock / workflow-state 单元测试。
  */
-import { mkdir, readFile, writeFile } from 'fs/promises';
+import { mkdir, readFile, utimes, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
@@ -10,6 +10,7 @@ import {
   emptyWorkflowState,
   loadWorkflowState,
   parseWorkflowTaskKind,
+  type WorkflowTaskKind,
 } from '../../src/core/config/workflow-state.js';
 import {
   applyWorkflowOp,
@@ -24,6 +25,46 @@ async function tmpRepo(): Promise<string> {
   );
   await mkdir(path.join(dir, '.polaris'), { recursive: true });
   return dir;
+}
+
+/** 向指定 kind 列表追加一条游标 */
+async function appendTask(
+  repo: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+  phase: string,
+): Promise<void> {
+  const result = await runWorkflowEntry({
+    op: 'append-active',
+    skill: 'test',
+    kind,
+    repoRoot: repo,
+    taskId,
+    phase,
+    startedAt: '2026-07-21T00:00:00Z',
+  });
+  expect(result.exitCode).toBe(0);
+}
+
+/**
+ * 在任务目录写入文件并钉死 mtime（秒级），避免依赖写盘先后的真实时钟。
+ */
+async function seedTaskFiles(
+  repo: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+  files: Record<string, string>,
+  mtimeMs: number,
+): Promise<void> {
+  const segment = kind === 'testcase' ? 'testcases' : 'tasks';
+  const dir = path.join(repo, '.polaris', segment, taskId);
+  await mkdir(dir, { recursive: true });
+  const stamp = new Date(mtimeMs);
+  for (const [name, content] of Object.entries(files)) {
+    const filePath = path.join(dir, name);
+    await writeFile(filePath, content, 'utf-8');
+    await utimes(filePath, stamp, stamp);
+  }
 }
 
 describe('applyWorkflowOp', () => {
@@ -72,9 +113,9 @@ describe('applyWorkflowOp', () => {
 
   it('缺 kind 抛错；异种列表互不干扰', () => {
     const c = emptyWorkflowState();
-    expect(() =>
-      applyWorkflowOp(c, { op: 'append-active', skill: 't', taskId: 'x' }),
-    ).toThrow(/--kind/);
+    expect(() => applyWorkflowOp(c, { op: 'append-active', skill: 't', taskId: 'x' })).toThrow(
+      /--kind/,
+    );
 
     let r = applyWorkflowOp(c, {
       op: 'append-active',
@@ -333,6 +374,153 @@ describe('runWorkflowEntry', () => {
       phase: 'build',
     });
     expect(buildOnly.taskIds).toEqual(['p-build']);
+  });
+
+  it('按任务目录文件 mtime 升序，最近工作的排最后一项', async () => {
+    const repo = await tmpRepo();
+    const older = Date.parse('2026-09-01T00:00:00Z');
+    const newer = Date.parse('2026-09-20T00:00:00Z');
+    // YAML 追加序与 recency 故意相反：先登记最近工作的任务
+    await appendTask(repo, 'requirement', 'workorder-dispatch', 'discovery');
+    await appendTask(repo, 'requirement', 'traffic-file-restore', 'discovery');
+    await seedTaskFiles(
+      repo,
+      'requirement',
+      'workorder-dispatch',
+      { 'state.yaml': 'phase: discovery\n', 'req_baseline.md': '# 近\n' },
+      newer,
+    );
+    await seedTaskFiles(
+      repo,
+      'requirement',
+      'traffic-file-restore',
+      { 'state.yaml': 'phase: discovery\n' },
+      older,
+    );
+
+    const listed = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'discovery',
+      kind: 'requirement',
+      repoRoot: repo,
+    });
+    expect(listed.exitCode).toBe(0);
+    expect(listed.taskIds).toEqual(['traffic-file-restore', 'workorder-dispatch']);
+  });
+
+  it('--phase 先过滤再按 mtime 排序', async () => {
+    const repo = await tmpRepo();
+    const older = Date.parse('2026-09-01T00:00:00Z');
+    const newer = Date.parse('2026-09-20T00:00:00Z');
+    await appendTask(repo, 'requirement', 'still-discovering-recent', 'discovery');
+    await appendTask(repo, 'requirement', 'already-draft', 'draft');
+    await appendTask(repo, 'requirement', 'still-discovering-old', 'discovery');
+    await seedTaskFiles(
+      repo,
+      'requirement',
+      'still-discovering-recent',
+      { 'state.yaml': 'phase: discovery\n' },
+      newer,
+    );
+    await seedTaskFiles(
+      repo,
+      'requirement',
+      'already-draft',
+      { 'state.yaml': 'phase: draft\n' },
+      Date.parse('2026-09-30T00:00:00Z'),
+    );
+    await seedTaskFiles(
+      repo,
+      'requirement',
+      'still-discovering-old',
+      { 'state.yaml': 'phase: discovery\n' },
+      older,
+    );
+
+    const listed = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'discovery',
+      kind: 'requirement',
+      repoRoot: repo,
+      phase: 'discovery',
+    });
+    expect(listed.taskIds).toEqual(['still-discovering-old', 'still-discovering-recent']);
+  });
+
+  it('缺 state.yaml 回落目录内其它文件；全无文件排最前', async () => {
+    const repo = await tmpRepo();
+    const older = Date.parse('2026-09-01T00:00:00Z');
+    const newer = Date.parse('2026-09-20T00:00:00Z');
+    await appendTask(repo, 'requirement', 'ghost', 'discovery');
+    await appendTask(repo, 'requirement', 'docs-only', 'discovery');
+    await appendTask(repo, 'requirement', 'has-state', 'discovery');
+    await seedTaskFiles(
+      repo,
+      'requirement',
+      'docs-only',
+      { 'req_baseline.md': '# 仅文档\n' },
+      newer,
+    );
+    await seedTaskFiles(
+      repo,
+      'requirement',
+      'has-state',
+      { 'state.yaml': 'phase: discovery\n' },
+      older,
+    );
+
+    const listed = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'discovery',
+      kind: 'requirement',
+      repoRoot: repo,
+    });
+    expect(listed.taskIds).toEqual(['ghost', 'has-state', 'docs-only']);
+  });
+
+  it('mtime 全相等时稳定回落 workflow.yaml 顺序', async () => {
+    const repo = await tmpRepo();
+    const same = Date.parse('2026-09-10T00:00:00Z');
+    await appendTask(repo, 'requirement', 'first', 'discovery');
+    await appendTask(repo, 'requirement', 'second', 'discovery');
+    await appendTask(repo, 'requirement', 'third', 'discovery');
+    await seedTaskFiles(repo, 'requirement', 'first', { 'state.yaml': 'a\n' }, same);
+    await seedTaskFiles(repo, 'requirement', 'second', { 'state.yaml': 'b\n' }, same);
+    await seedTaskFiles(repo, 'requirement', 'third', { 'state.yaml': 'c\n' }, same);
+
+    const listed = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'discovery',
+      kind: 'requirement',
+      repoRoot: repo,
+    });
+    expect(listed.taskIds).toEqual(['first', 'second', 'third']);
+  });
+
+  it('testcase 族读 .polaris/testcases/ 下的 mtime', async () => {
+    const repo = await tmpRepo();
+    const older = Date.parse('2026-09-01T00:00:00Z');
+    const newer = Date.parse('2026-09-20T00:00:00Z');
+    await appendTask(repo, 'testcase', 'recent-case', 'draft');
+    await appendTask(repo, 'testcase', 'stale-case', 'draft');
+    await seedTaskFiles(repo, 'testcase', 'recent-case', { 'testcase_plan.md': '# 近\n' }, newer);
+    await seedTaskFiles(repo, 'testcase', 'stale-case', { 'state.yaml': 'phase: draft\n' }, older);
+    // 若误读 .polaris/tasks/，recent-case 会变成最旧（无文件）
+    await seedTaskFiles(
+      repo,
+      'requirement',
+      'recent-case',
+      { 'state.yaml': 'wrong-segment\n' },
+      Date.parse('2020-01-01T00:00:00Z'),
+    );
+
+    const listed = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'case',
+      kind: 'testcase',
+      repoRoot: repo,
+    });
+    expect(listed.taskIds).toEqual(['stale-case', 'recent-case']);
   });
 });
 

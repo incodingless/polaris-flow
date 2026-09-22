@@ -52,6 +52,7 @@
 - **git-branch**: 覆盖 hotfix 创建（干净/脏/已存在/缺参）与合并进主干（成功保留源分支、脏阻断、分支不存在、源=主干）
 - **worktree-commit-remove**: 覆盖有改动提交并 remove、已干净跳过提交仍 remove、缺 message
 - **Superpowers 安装**: 覆盖 `trae-cn` agent id、GitHub 镜像 URL 改写、git HTTP/1.1 默认、init 摘要「Polaris 成功 + Superpowers 失败」
+- **workflow-entry 排序**: `get-active-changes` 按任务目录下一层文件 mtime 升序（最近工作的在最后一项）；覆盖产物 mtime、`--phase` 先过滤再排序、缺 `state.yaml` 回落其它文件 / 全无文件排最前、mtime 全相等回落 YAML 顺序、testcase 族读 `.polaris/testcases/`
 
 ### Changed
 
@@ -131,6 +132,8 @@
 - **phase 真相归一 A 案落地（枚举与转移各收成一处）**: `state-next` 的 `PHASE_TO_SKILL` / `DEBUG_PHASE_TO_SKILL` / `resolveNextSkillName` 删除，改调 `skillForPhase`；约定固定为「游标 = 接下来要执行的阶段 ⇒ 同名映射」，例外（入口阶段 / 旁路阶段 / 技能名与阶段码未对齐的族）登记在阶段表的 `skill` 字段上。**刻意不维护第二张转移图** —— 下一阶段由技能自己决定，集中式转移表注定与技能分支冲突
 - **文档不再自持 phase 枚举**: `workflow-template.yaml` 的 5 处枚举注释（coding / requirement ×2 / prototype / debug）改指阶段表；`auto-transition.md` 订正「guard `--apply`」的不存在描述并新增「阶段名的合法值」一节。各 `*.example.yaml` 的镜像注释**保留**，但加守卫测试（不含表外值、主序列一个不漏）
 - **`TaskPhase` 退化为 `string`**: 原定义尾部有 `| string` 使其形同虚设，且它是第二处枚举 —— 5 类 kind 阶段序列各不相同，一个联合表达不了。合法值的唯一真相是阶段表
+- **`get-active-changes` 改为按最近工作时间排序（顺序成为契约）**: 原实现按 `workflow.yaml` 的追加序返回，而各族决策点都写作「A. 续写最新一个 = 列表最后一项」—— 追加序 ≠ 最近工作，会续到错误任务。现按 `.polaris/<segment>/<task_id>/` 下一层文件 mtime 的最大值升序（写 `state.yaml` 或产物文档都算；不扫 `docs/prd` 等共享目录），目录缺失视为最旧，时间戳全相等/全缺失时稳定回落 workflow.yaml 顺序（`git clone` 后 mtime 被统一重写的场景下仍可预期）。排序收在 `src/core/hooks/workflow-entry.ts` 的 `sortByUpdatedAt` / `taskUpdatedMs`
+- **`docs/workflow-hooks-call-order.md` 第 4 节**: 补 `get-active-changes` 的顺序契约与「需要本阶段候选时同时传 `--phase`」说明；修正同段落两处过期枚举（列表数 4 → 5、`--kind` 缺 `debug`）
 
 ### Fixed
 

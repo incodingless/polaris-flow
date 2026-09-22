@@ -62,7 +62,7 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 
 存在活跃任务时，**必须**按 `./policies/decision-point.md` 暂停询问：
 
-- **A. 续写最新一个**：`task_id` = 列表最后一项 → 进入 Step 1.5
+- **A. 继续最近任务**：`task_id` = 列表最后一项 → 进入 Step 1.5
 - **B. 选择一个**：列出所有 `task_id` 候选让用户选择之后，再发出以下询问：
 
   > 当前选择任务 <task_id>，请确认以下操作：

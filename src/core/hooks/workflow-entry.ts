@@ -2,11 +2,14 @@
  * workflow.yaml RMW 入口（对齐 assets/shared/scripts/workflow-entry.sh）。
  * 持锁 → 解析 → 修改 → 写回 → 写后校验；由 `polaris workflow-entry` 调用。
  * `get-active-changes` 为只读：不持锁、不写盘，stdout 输出 task_id JSON 数组。
- * 任务列表由必填 `--kind`（coding|requirement|testcase|prototype|debug）选定。
+ * 任务列表由必填 `--kind`（coding|requirement|testcase|prototype|debug）选定；
+ * 返回顺序按任务目录下一层文件 mtime 升序（最后一项 = 最近工作）。
  */
 import { execFileSync } from 'child_process';
+import { readdir, stat } from 'fs/promises';
 import path from 'path';
 
+import { getTaskKindDir } from '../assets/polaris-paths.js';
 import {
   ensureWorkflowStateFile,
   getTaskList,
@@ -226,8 +229,58 @@ export async function verifyWorkflowFile(repoRoot: string, spec: VerifySpec): Pr
 }
 
 /**
- * 只读：加载指定 kind 的任务列表，可选 `--phase` 过滤。
- * stdout 输出 task_id 的 JSON 数组，例如 `["foo","bar"]`。
+ * 任务目录下一层文件 mtime 的最大值（毫秒）。
+ * 目录缺失、空目录或只有子目录时视为最旧（0）；单项 stat 失败不影响其余文件。
+ */
+export async function taskUpdatedMs(
+  repoRoot: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+): Promise<number> {
+  const dir = getTaskKindDir(repoRoot, kind, taskId);
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return 0;
+  }
+
+  let maxMs = 0;
+  for (const name of names) {
+    try {
+      const fileStat = await stat(path.join(dir, name));
+      if (fileStat.isFile() && fileStat.mtimeMs > maxMs) {
+        maxMs = fileStat.mtimeMs;
+      }
+    } catch {
+      // 单项失败不影响其余文件
+    }
+  }
+  return maxMs;
+}
+
+/**
+ * 按任务目录文件 mtime 升序；时间相等时保留原相对顺序（回落 workflow.yaml 顺序）。
+ */
+export async function sortByUpdatedAt(
+  tasks: WorkflowTaskEntry[],
+  repoRoot: string,
+  kind: WorkflowTaskKind,
+): Promise<WorkflowTaskEntry[]> {
+  const keyed = await Promise.all(
+    tasks.map(async (task, index) => ({
+      task,
+      index,
+      ms: await taskUpdatedMs(repoRoot, kind, task.task_id),
+    })),
+  );
+  keyed.sort((a, b) => a.ms - b.ms || a.index - b.index);
+  return keyed.map((row) => row.task);
+}
+
+/**
+ * 只读：加载指定 kind 的任务列表，可选 `--phase` 过滤后再按最近工作排序。
+ * stdout 输出 task_id 的 JSON 数组，例如 `["foo","bar"]`（最后一项 = 最近工作）。
  */
 async function runGetActiveChanges(args: WorkflowEntryArgs): Promise<WorkflowEntryResult> {
   let taskKind: WorkflowTaskKind;
@@ -247,8 +300,9 @@ async function runGetActiveChanges(args: WorkflowEntryArgs): Promise<WorkflowEnt
   }
 
   const loaded = await loadWorkflowState(repoRoot);
-  const tasks = listTasks(loaded, taskKind, args.phase);
-  const taskIds = tasks.map((e) => e.task_id).filter((id) => id.length > 0);
+  const filtered = listTasks(loaded, taskKind, args.phase).filter((e) => e.task_id.length > 0);
+  const tasks = await sortByUpdatedAt(filtered, repoRoot, taskKind);
+  const taskIds = tasks.map((e) => e.task_id);
   console.log(JSON.stringify(taskIds));
   return { exitCode: 0, tasks, taskIds };
 }

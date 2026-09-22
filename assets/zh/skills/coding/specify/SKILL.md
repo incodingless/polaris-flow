@@ -62,7 +62,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 
 `status="existing"` 时且 `existing` 含已有 draft 目录列表，**必须**按 `./policies/decision-point.md` 暂停询问：
 
-- **A. 续写最新一个**：`draft_name` = 列表最后一项 → 进入 Step 2
+- **A. 继续最近任务**：`draft_name` = 列表最后一项 → 进入 Step 2
 - **B. 选择一个**：列出所有的 `draft_name` 候选让用户选择之后，再进入 Step 2
 - **C. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `task-init.sh`，再进入 Step 1.5：
 

@@ -153,8 +153,11 @@ LANG_EXIT=$?
 - 按 `./policies/decision-point.md` 暂停询问确认补全范围：
   > 以上补全范围与验证级别是否确认？
   > A. 确认，进入逐章生成
-  > B. 调整（说明需调整的章节或验证级别）
-- 仅 A 进入 Step 2；B 按反馈修订补全清单后重新确认
+  > B. 确认，进入全量生成
+  > C. 调整（说明需调整的章节或验证级别）
+- A 进入 Step 2.A
+- B 进入 Step 2.B
+- C 按反馈修订补全清单后重新确认
 
 ## Step 2：逐章补全生成（严格按模板章节顺序）
 
@@ -163,13 +166,15 @@ LANG_EXIT=$?
 
 **执行铁则**
 - 严格按模板 文档头 → 第一章 → 第十一章 → 附录 的顺序生成
-- 每章：生成 → L2 验证（如适用）→ 章节自检 → **写入磁盘**（状态置「已生成待确认」）→ **人工确认**（按 `./policies/decision-point.md` 暂停确认，确认后状态置「已确认」）→ 进入下一章
+- 生成方式：
+  - 逐章生成时：每个章节按 生成 → L2 验证（如适用）→ 章节自检 → **写入磁盘**（状态置「已生成待确认」）→ **人工确认**（按 `./policies/decision-point.md` 暂停确认，确认后状态置「已确认」）→ 进入下一章
+  - 全量生成：按顺序生成所有章节 → **写入磁盘**（状态置「已生成待确认」）→  L2 验证（如适用）→ **人工确认**（按 `./policies/decision-point.md` 暂停确认，确认后状态置「已确认」)
 - 先落盘后确认：草稿落盘是为了中断后能恢复上下文，确认前该文件**不作为**合并输入（Step 2.5 只收「已确认」章节）
 - **全文单次落盘（省 Token）**：章节全文仅在「写入 sessions 文件」时输出一次；会话中只展示【本章要点摘要 + 重点校验表 + 文件路径（引导预览）】，**不再粘贴全文**——避免全文二次输出，也避免全文长期驻留上下文重复计费
 - 确认一章，再进入下一章；禁止批量生成多章节
 - 继承章节先优化确认，再开始新增章节生成
 
-**输出落盘**：每章一个文件落 `final/`，文件名按固定枚举（Step 2.5 与 4.2 均按此顺序拼接）：
+**输出落盘**：每章一个文件落 `final/sessions`，文件名按固定枚举（Step 2.5 与 4.2 均按此顺序拼接）：
 
 | 文件名 | 对应模板章节 |
 |---|---|
@@ -189,7 +194,7 @@ LANG_EXIT=$?
 | `_appendix-c.md` | 附录 C 参考资料 |
 | `_appendix-d.md` | 附录 D 评审签署 |
 
-**章节状态文件**：`final/chapter_state.md`，每章落盘或确认后立即更新：
+**章节状态文件**：`final/sessions/chapter_state.md`，每章落盘或确认后立即更新：
 
 | 章节文件 | 状态 | 确认时间 | L2验证结论 |
 |---|---|---|---|
@@ -512,9 +517,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind requirement -
 2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
-  --phase refine --next-phase ship
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine --next-phase ship
 ```
 
 3. 输出：

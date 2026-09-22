@@ -228,17 +228,21 @@ Step 6.1  ship-cleanup.sh
 
 ## 4. 横切：`workflow-entry.sh` 操作一览
 
-所有对主仓 `.polaris/workflow.yaml` 的读写应经本脚本。YAML 含四列表：`coding_tasks` / `requirement_tasks` / `testcase_tasks` / `prototype_tasks`；条目字段为 `task_id` / `phase` / `worktree_path` / `started_at`。
+所有对主仓 `.polaris/workflow.yaml` 的读写应经本脚本。YAML 含五列表：`coding_tasks` / `requirement_tasks` / `testcase_tasks` / `prototype_tasks` / `debug_tasks`；条目字段为 `task_id` / `phase` / `worktree_path` / `started_at`（debug 族另有 `channel`）。
 
 | op | 典型调用阶段 | 语义 |
 |----|--------------|------|
-| `get-active-changes` | 各 skill Step 0 | 只读；stdout 输出选定列表的 `task_id` JSON 数组；可 `--phase` 过滤 |
+| `get-active-changes` | 各 skill Step 0 | 只读；stdout 输出选定列表的 `task_id` JSON 数组，**按最后工作时间升序（最后一项 = 最近工作）**；可 `--phase` 过滤 |
 | `append-active` | 任务初始化（若启用） | 向选定列表追加 entry |
 | `update-active` | plan / design / tasks / build / verify 等 | 改 `phase` / `worktree_path` |
 | `rename-active` | task-finalize | `draft-*` → 正式 `task_id` |
 | `delete-active` | 丢弃 draft；ship-cleanup | 移除 entry |
 
-通用参数：`--skill <name>`、`--kind coding|requirement|testcase|prototype`（**必填**）、`--repo-root <path>`。  
+**`get-active-changes` 的顺序契约**：数组按「任务最后工作时间」升序（最后一项 = 最近工作），取值为 `.polaris/<segment>/<task_id>/` 下一层文件 mtime 的最大值（含 `state.yaml` 与产物文档；不扫 `docs/prd` 等共享目录）。目录缺失、空目录或只有子目录视为最旧（0）。时间戳全相等或全缺失（例：`git clone` 后 mtime 被统一重写）时**稳定回落到 workflow.yaml 的顺序**。
+
+各 skill 的决策点写作「A. 续写最新一个 = 列表最后一项」，**依赖的正是这个顺序** —— 不得再把它当成"纯追加序"。需要"最近编辑且属于本阶段"的任务时，同时传 `--phase <本阶段>`（过滤在排序之前）。
+
+通用参数：`--skill <name>`、`--kind coding|requirement|testcase|prototype|debug`（**必填**）、`--repo-root <path>`。  
 身份参数：`--task-id` / `--where-task-id`（已取代 `--change-id` / `--where-change-id`）。
 
 ---
