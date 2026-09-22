@@ -24,7 +24,7 @@ version: 0.3
 - **本技能输出的终稿必须严格遵循 `./templates/prd_template.md`的标准结构，禁止偏离。**
 - ❌ 禁止使用「通用能力层+业务场景层」替代模板的「模块→功能点」结构（第5章必须按模板重构）
 - ❌ 禁止省略模板强制章节：角色与权限（第2章）、数据模型（第4章）、功能需求（第5章）、业务规则汇总（第6章）、状态流转规范（第7章）、非功能需求（第8章）、依赖与约束（第9章）、验收与度量（第10章）
-- ❌ 禁止省略术语定义（1.4）、权限矩阵（2.2）、异常与边界场景清单（3.4）、需求来源追溯（1.6）等模板强制子节
+- ❌ 禁止省略术语定义（1.4）、权限矩阵（2.2）、异常与边界场景清单（4.4）、需求来源追溯（1.6）等模板强制子节
 - ❌ 禁止数据模型章节（第4章）不使用模板标准字段表格（字段名/中文名/数据类型/必填/默认值/业务规则说明）
 - ❌ 禁止功能点缺少模板规定的任一要素（前置条件/后置条件/主流程/分支与异常流程/业务规则/数据输入输出/UI交互说明/验收标准）
 - ❌ 禁止状态枚举（4.3、第7章）不标注中间态/终态属性
@@ -69,16 +69,16 @@ EXIT_CODE=$?
 | refine 已完成 | `state.yaml` 中 `refine.status=completed` |
 
 通过后执行：
-1. 更新 `state.yaml`：`phase: refine`，`refine.status: in_progress`。
+1. 更新 `state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine
 ```
 
 2. 设置语言
 
 执行脚本：
+
 ```bash
 LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
 LANG_EXIT=$?
@@ -155,24 +155,22 @@ LANG_EXIT=$?
   > A. 确认，进入逐章生成
   > B. 确认，进入全量生成
   > C. 调整（说明需调整的章节或验证级别）
-- A 进入 Step 2.A
-- B 进入 Step 2.B
-- C 按反馈修订补全清单后重新确认
+  - A、B 进入 Step 2
+  - C 按反馈修订补全清单后重新确认
 
-## Step 2：逐章补全生成（严格按模板章节顺序）
+## Step 2：补全生成（严格按模板章节顺序）
 
 **唯一结构真源**：`./templates/prd_template.md`。各章的章节标题、子结构、表格列名与填写要求
 一律以模板为准，本技能不重复描述；生成时**逐章对照模板**执行。
 
 **执行铁则**
-- 严格按模板 文档头 → 第一章 → 第十一章 → 附录 的顺序生成
-- 生成方式：
-  - 逐章生成时：每个章节按 生成 → L2 验证（如适用）→ 章节自检 → **写入磁盘**（状态置「已生成待确认」）→ **人工确认**（按 `./policies/decision-point.md` 暂停确认，确认后状态置「已确认」）→ 进入下一章
-  - 全量生成：按顺序生成所有章节 → **写入磁盘**（状态置「已生成待确认」）→  L2 验证（如适用）→ **人工确认**（按 `./policies/decision-point.md` 暂停确认，确认后状态置「已确认」)
-- 先落盘后确认：草稿落盘是为了中断后能恢复上下文，确认前该文件**不作为**合并输入（Step 2.5 只收「已确认」章节）
-- **全文单次落盘（省 Token）**：章节全文仅在「写入 sessions 文件」时输出一次；会话中只展示【本章要点摘要 + 重点校验表 + 文件路径（引导预览）】，**不再粘贴全文**——避免全文二次输出，也避免全文长期驻留上下文重复计费
-- 确认一章，再进入下一章；禁止批量生成多章节
-- 继承章节先优化确认，再开始新增章节生成
+- 严格按模板顺序生成：文档头 → 第一章 → 第十一章 → 附录
+- **生成方式取 Step 1.5 的用户选择，二选一执行，不得自行切换或中途改道**：
+  - **逐章生成**（Step 1.5 选 A）：每章走完「生成 → L2 验证（如适用）→ 章节自检 → 写入磁盘（状态置「已生成待确认」）→ 按 `./policies/decision-point.md` 暂停人工确认（确认后状态置「已确认」）」后，再进入下一章
+  - **全量生成**（Step 1.5 选 B）：按上述顺序生成全部章节 → 写入磁盘（各章状态置「已生成待确认」）→ L2 验证（如适用）→ 按 `./policies/decision-point.md` 一次性暂停人工确认（确认后状态置「已确认」）
+- **先落盘后确认**：草稿落盘用于中断后恢复上下文；确认前的文件不作为合并输入（Step 2.5 只收「已确认」章节）
+- **全文只落盘一次**：章节全文仅在写入 sessions 文件时输出一次。会话中只展示【要点摘要 + 重点校验表 + 文件路径（引导预览）】，不再粘贴全文，避免二次输出和上下文重复计费
+- **继承优先**：继承章节先优化并确认，再生成新增章节
 
 **输出落盘**：每章一个文件落 `final/sessions`，文件名按固定枚举（Step 2.5 与 4.2 均按此顺序拼接）：
 
@@ -252,7 +250,7 @@ LANG_EXIT=$?
 
 ---
 
-## Step 2.5：合并终稿全文（Step 3 评审输入）
+## Step 3：合并终稿全文
 
 **输入**：`final/` 下全部状态为「已确认」的章节文件
 **输出落盘**：`final/prd_final_draft.md`
@@ -266,24 +264,24 @@ LANG_EXIT=$?
 
 ---
 
-## Step 3：完整评审与人工评审支撑
+## Step 4：完整评审与人工评审支撑
 
 **输出落盘**：
 - `full_review_report.md`（业务评审 + 可测性检查汇总）
 - `review-package/`（人工评审支撑包）
 
-**执行顺序约束**：3.1 与 3.2 可并行；3.3 的 P0/T0 修复闭环完成后进入 3.4。
+**执行顺序约束**：4.1 与 4.2 可并行；4.3 的 P0/T0 修复闭环完成后进入 4.4。
 
 > 本阶段只保证**文档质量达标**（P0/T0 清零）。**能否交付研发进入技术设计**由 `polaris{{SKN_SPR}}prd{{SKN_SPR}}ship` 的研发就绪度评估独立判定——判定者与执行者分离，且评估对象为定稿后的最终版本，避免「评估 A 版本、交付 A' 版本」。
 
-### 3.0 探测可用 subagent（Step 3 入口，一次探测全程复用）
+### 4.0 探测可用 subagent（Step 4 入口，一次探测全程复用）
 
-**能力结论优先**：若 SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → **可跳过 probe**，3.1 与 3.2 直接按下方表降级 inline。若注入为支持（`SUPPORTS_SUBAGENT=true` 且 degradation 空）或**缺注入**，因本入口需要 `task_type: doc_review` 预筛 → **必须**调用 probe（不可因「只要通用 Agent」而跳过）。probe 应优先读 `$SUBAGENT_PROBE_CACHE`（勿假定 additionalContext 含全量 agents）。
+**能力结论优先**：若 SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → **可跳过 probe**，4.1 与 4.2 直接按下方表降级 inline。若注入为支持（`SUPPORTS_SUBAGENT=true` 且 degradation 空）或**缺注入**，因本入口需要 `task_type: doc_review` 预筛 → **必须**调用 probe（不可因「只要通用 Agent」而跳过）。probe 应优先读 `$SUBAGENT_PROBE_CACHE`（勿假定 additionalContext 含全量 agents）。
 
 **探测方式**：调用 `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入：
 
 - `platform`：SessionStart 注入的 `PLATFORM_ID`，或从项目配置读取
-- `task_type`：`doc_review`（3.1 与 3.2 同类型，共用 `matched_agents` 预筛结果）
+- `task_type`：`doc_review`（4.1 与 4.2 同类型，共用 `matched_agents` 预筛结果）
 
 > 本步骤的两个评审任务均为**通用型**（general）——不要求专用 agent，只要在独立上下文中执行即可。因此**不传 `subagent_id`**；若项目 `.agents/` 下恰好存在声明 `task_types: doc_review` 的专精 agent，`matched_agents` 预筛会将其排在前面，属能力匹配的正常结果，同样直接使用。
 
@@ -291,14 +289,14 @@ LANG_EXIT=$?
 
 | `platform_degradation` | 处理动作 |
 |---|---|
-| `null` | 继续后续编排；3.1 与 3.2 各自从 `matched_agents`（空则 `agents`）中取通用 agent 进入派发 |
-| `inline` / `unsupported` | 平台不支持 subagent：3.1 与 3.2 均降级为主代理 inline 执行（通用型任务自动降级，无需询问用户）；在评审报告中标注「宿主平台不支持 subagent，由主代理内联评审」 |
+| `null` | 继续后续编排；4.1 与 4.2 各自从 `matched_agents`（空则 `agents`）中取通用 agent 进入派发 |
+| `inline` / `unsupported` | 平台不支持 subagent：4.1 与 4.2 均降级为主代理 inline 执行（通用型任务自动降级，无需询问用户）；在评审报告中标注「宿主平台不支持 subagent，由主代理内联评审」 |
 
-> 探测只做一次；3.1 与 3.2 共享同一次 probe 结果，不重复扫描。
+> 探测只做一次；4.1 与 4.2 共享同一次 probe 结果，不重复扫描。
 
-### 3.1 7维度业务评审（subagent-probe + subagent-dispatch 编排）
+### 4.1 7维度业务评审（subagent-probe + subagent-dispatch 编排）
 
-**编排方式**（能力结论 → 决策 → dispatch）：本技能为编排方。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose` 启动。须遵守 `subagent-probe` 跳过规则：本步依赖 3.0 的 `task_type` 预筛结果 → 不得自行跳过 probe；选定 agent 后调用 `subagent-dispatch` 派发。
+**编排方式**（能力结论 → 决策 → dispatch）：本技能为编排方。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose` 启动。须遵守 `subagent-probe` 跳过规则：本步依赖 4.0 的 `task_type` 预筛结果 → 不得自行跳过 probe；选定 agent 后调用 `subagent-dispatch` 派发。
 
 **general 决策**（本步骤无专用 agent 要求，按能力匹配取通用型）：
 
@@ -314,7 +312,7 @@ LANG_EXIT=$?
   - `task_description`：对 PRD 终稿执行 7 维度业务评审。加载并遵循 `polaris{{SKN_SPR}}prd{{SKN_SPR}}review` 技能的评审方法与 Phase 4 报告格式，产出含分级问题清单、基线追溯矩阵、问题ID锚点链接的完整评审报告。
   - `task_type`：`doc_review`
   - `materials`：
-    - `final/prd_final_draft.md`（Step 2.5 合并出的终稿全文，3.1 与 3.2 共用同一文件）
+    - `final/prd_final_draft.md`（Step 3 合并出的终稿全文，4.1 与 4.2 共用同一文件）
     - Baseline 路径
     - `polaris{{SKN_SPR}}prd{{SKN_SPR}}review` 技能 SKILL.md 路径（供 subagent 加载评审方法）
   - `constraints`：
@@ -357,25 +355,25 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 - `NEEDS_CONTEXT`：按 `result.concerns` 补充上下文后重新派发（同一 agent）
 - `FAILED`：降级为主代理 inline 执行（自动，见上方「inline 降级」）
 
-### 3.2 可测性专项检查（subagent-probe + subagent-dispatch 编排）
+### 4.2 可测性专项检查（subagent-probe + subagent-dispatch 编排）
 
-**编排方式**：与 3.1 相同的 probe → 决策 → dispatch 三段式。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose`。
+**编排方式**：与 4.1 相同的 probe → 决策 → dispatch 三段式。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose`。
 
 **general 决策**（本步骤同样无专用 agent 要求）：
 
-- 从 Step 3.0 共享的 probe 结果中取 agent：`matched_agents[0]`（与 3.1 同一 task_type，可用**同一个**通用 agent；dispatch 无状态，同一 agent 并行派发两次互不干扰）
-- `matched_agents` 与 `agents` 均为空 → 同 3.1：`agent=null` + `"dispatch_mode_hint: default_subagent"`
+- 从 Step 4.0 共享的 probe 结果中取 agent：`matched_agents[0]`（与 4.1 同一 task_type，可用**同一个**通用 agent；dispatch 无状态，同一 agent 并行派发两次互不干扰）
+- `matched_agents` 与 `agents` 均为空 → 同 4.1：`agent=null` + `"dispatch_mode_hint: default_subagent"`
 - `platform_degradation=inline/unsupported` → 主代理 inline 执行
 
 **派发入参构造**：
 
-- `platform`：与 3.1 相同（与 probe 同源）
-- `agent`：与 3.1 相同的 `matched_agents[0]`；或 `null`（agents 为空时）
+- `platform`：与 4.1 相同（与 probe 同源）
+- `agent`：与 4.1 相同的 `matched_agents[0]`；或 `null`（agents 为空时）
 - `task_spec`：
   - `task_description`：对 PRD 终稿执行可测性专项检查。加载并遵循 `polaris{{SKN_SPR}}prd{{SKN_SPR}}testability` 技能的检查方法与 Phase 4 报告格式，产出含四维度检查记录、分级问题清单（T0~T3）、验收标准补全建议、问题ID锚点链接的完整可测性报告。
   - `task_type`：`doc_review`
   - `materials`：
-    - `final/prd_final_draft.md`（与 3.1 共用同一文件，禁止各自指向不同版本）
+    - `final/prd_final_draft.md`（与 4.1 共用同一文件，禁止各自指向不同版本）
     - `polaris{{SKN_SPR}}prd{{SKN_SPR}}testability` 技能 SKILL.md 路径（供 subagent 加载检查方法）
   - `constraints`：
     - 只评审，**禁止**修改任何文档文件
@@ -385,23 +383,23 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
     - agents 为空时追加：`"dispatch_mode_hint: default_subagent"`
   - `language`：跟随主会话语言
 
-**subagent-dispatch 返回消费**：与 3.1 相同的 `dispatch.status` 分支策略、`result.status` 处理逻辑与「inline 降级」规则，此处不再重复。
+**subagent-dispatch 返回消费**：与 4.1 相同的 `dispatch.status` 分支策略、`result.status` 处理逻辑与「inline 降级」规则，此处不再重复。
 
 **检查维度**（维度构成与各维度检查方法以 `polaris{{SKN_SPR}}prd{{SKN_SPR}}testability` 技能定义为准，此处不重复）：
 
 验收标准完整性、业务规则可判定性、场景覆盖充分性、数据指标可验证性。四维度必须全部检查。
 
-**返回结果处理**：与 3.1 相同的 `result.status` 处理逻辑；接收后落盘到 `full_review_report.md` 的可测性检查部分。
+**返回结果处理**：与 4.1 相同的 `result.status` 处理逻辑；接收后落盘到 `full_review_report.md` 的可测性检查部分。
 
-### 3.2.1 并行执行与结果汇总
+### 4.2.1 并行执行与结果汇总
 
-**探测共享**：3.1 与 3.2 共用 Step 3.0 的**一次** probe 结果，不重复扫描。
+**探测共享**：4.1 与 4.2 共用 Step 4.0 的**一次** probe 结果，不重复扫描。
 
-**并行派发**：3.1 与 3.2 的两次 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 调用可在同一轮并行发起——即使两者使用同一个通用 agent（dispatch 无状态，同一 agent 派发两次互不干扰）；agents 为空时两者均传 `agent=null` + hint=default_subagent，同样可并行。互不依赖。
+**并行派发**：4.1 与 4.2 的两次 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 调用可在同一轮并行发起——即使两者使用同一个通用 agent（dispatch 无状态，同一 agent 派发两次互不干扰）；agents 为空时两者均传 `agent=null` + hint=default_subagent，同样可并行。互不依赖。
 
 **并行约束**：
 - 两次派发的 `platform` 必须相同（同一宿主，与 probe 同源）
-- 两次派发的 `materials` 中 PRD 终稿路径必须指向同一文件（`prd_final_draft.md`）；若评审期间全文被修订（Step 3.3 直接改全文并递增版本号），必须先完成修订再重新派发，禁止让两个 subagent 评审不同版本
+- 两次派发的 `materials` 中 PRD 终稿路径必须指向同一文件（`prd_final_draft.md`）；若评审期间全文被修订（Step 4.3 直接改全文并递增版本号），必须先完成修订再重新派发，禁止让两个 subagent 评审不同版本
 - subagent-dispatch 内部不感知并行——它是无状态的单次派发；并行编排由本技能（调用方）负责
 - 一方 inline 降级不阻塞另一方——各自独立处理、独立落盘
 
@@ -410,7 +408,7 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 - 汇总时保留两份报告的完整内容，按「业务评审」+「可测性检查」两节组织
 - 若其中一方 inline 降级也失败（如 materials 不可读），标注该维度「未能执行」，不阻塞另一维度的结果汇总
 
-### 3.3 问题分级与修复机制
+### 4.3 问题分级与修复机制
 
 分级标准以两个评审技能的定义为准：业务评审 **P0~P3**（review 技能）、可测性检查 **T0~T3**（testability 技能）。
 
@@ -425,10 +423,10 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 1. 按问题定位，**直接在 `prd_final_draft.md` 全文上修改**——评审报告的问题锚点即指向全文，零映射成本；跨章问题（如 1.6 ↔ 附录 A 编号不一致、第 5 章功能点规则引用 ↔ 第 6 章）在全文内一次性连贯修改，避免分章文件跨文件漏改
 2. 同步更新文档头「当前版本」为下一小版本（V1.0 → V1.1 → …），并在「修订记录」表登记一行（版本号 / 修订日期 / 修订人 / 修订类型=修改 / 修订内容=本轮 P0/T0 修复摘要 / 影响章节）
 3. 修改后按 `./policies/decision-point.md` 重新提交用户确认
-4. 重新派发 3.1 / 3.2 评审同一文件
+4. 重新派发 4.1 / 4.2 评审同一文件
 5. 回到本步骤按分级处理新问题，直到 P0 / T0 清零
 
-### 3.4 生成人工评审支撑包
+### 4.4 生成人工评审支撑包
 
 为集中办公团队的线下评审会议提供标准化材料，降低参会人员信息负荷：
 
@@ -438,7 +436,7 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 - **争议停车场模板**：预设争议记录表格（争议内容/提出人/决策人/约定处理时间）
 - **行动项模板**：预设任务/责任人/截止时间/完成标准的标准表格
 
-### 3.5 输出完整评审报告
+### 4.5 输出完整评审报告
 
 包含：评审维度得分、问题清单（分级）、修复记录、评审结论（通过/不通过）、评审支撑包使用说明
 
@@ -446,23 +444,23 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
 ---
 
-## Step 4：定稿输出、模板一致性终检与基线映射更新
+## Step 5：定稿输出、模板一致性终检与基线映射更新
 
-### 4.1 终稿定稿（复用 Step 2.5 产物，不重复拼接）
+### 5.1 终稿定稿（复用 Step 3 产物，不重复拼接）
 
-**输入**：`prd_final_draft.md`——Step 2.5 已按文件名表顺序拼接、完成定稿前清理、生成目录与跨章锚点的完整全文；Step 3.3 评审修复已**直接落在全文并递增版本号**，内容为最新。
+**输入**：`prd_final_draft.md`——Step 3 已按文件名表顺序拼接、完成定稿前清理、生成目录与跨章锚点的完整全文；Step 3.3 评审修复已**直接落在全文并递增版本号**，内容为最新。
 
-**处理**：不再重新拼接 15 章（避免与 Step 2.5 重复生成同一份全文），直接以该文件为终稿正文：
-- 若 Step 3 评审未触发任何修复（版本号仍为 V1.0），先校验 Step 2.5 清理是否到位（无模板「模板使用约定」、无 `【填写指引】`、无 `{{...}}` 残留），不到位则补清理
+**处理**：不再重新拼接 15 章（避免与 Step 3 重复生成同一份全文），直接以该文件为终稿正文：
+- 若 Step 3 评审未触发任何修复（版本号仍为 V1.0），先校验 Step 3 清理是否到位（无模板「模板使用约定」、无 `【填写指引】`、无 `{{...}}` 残留），不到位则补清理
 - 落盘为**任务内固定名** `prd-final-v1.0.md`，路径 `$REPO_ROOT/.polaris/tasks/<task_id>/prd-final-v1.0.md`
 
 > 任务内一律用固定名 `prd-final-v1.0.md`（脚本可稳定定位，不随需求改名而漂移）。**文件名中的 `v1.0` 仅为脚本定位的固定标识，与文档内部版本号解耦**——文档实际版本以正文「当前版本」字段与「修订记录」为准（评审迭代后可能是 V1.1 / V1.2…）。含中文名、编号前缀与**最终版本号**的交付名在 ship 迁移时生成，本阶段不改名。
 
-**约束**：评审-修复阶段以 `prd_final_draft.md` 为**唯一真源**，修复一律直接落在全文并更新版本号；分章文件自 Step 2.5 合并后已冻结，不再回写，故不存在「分章文件与终稿漂移」问题
+**约束**：评审-修复阶段以 `prd_final_draft.md` 为**唯一真源**，修复一律直接落在全文并更新版本号；分章文件自 Step 3 合并后已冻结，不再回写，故不存在「分章文件与终稿漂移」问题
 
-**输出**：`$REPO_ROOT/.polaris/tasks/<task_id>/prd-final-v1.0.md`，作为 4.2 ~ 4.6 的唯一作用对象
+**输出**：`$REPO_ROOT/.polaris/tasks/<task_id>/prd-final-v1.0.md`，作为 5.2 ~ 5.6 的唯一作用对象
 
-### 4.2 模板一致性终检（强制门禁）
+### 5.2 模板一致性终检（强制门禁）
 
 - 逐项核对终稿章节与模板章节清单：章节数量、标题、顺序、子结构、表格格式完全一致
 - 核对章节裁剪合规性：`[必填]` 与命中的 `[条件必填]` 章节无遗漏，未命中的保留标题并注明「本次不适用」
@@ -470,21 +468,21 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 - 任何偏差必须修正后才能输出
 - 输出模板一致性检查报告，确认全部通过
 
-### 4.3 格式与一致性校验
+### 5.3 格式与一致性校验
 
-- 复核全文目录、标题层级与锚点（Step 2.5 已生成，此处核对一致性，不重复生成）
+- 复核全文目录、标题层级与锚点（Step 3 已生成，此处核对一致性，不重复生成）
 - 检查所有引用链接、锚点跳转有效性
 - 统一术语表述，消除前后不一致
 - 对本次新增与修订内容进行差异高亮标记，便于快速定位变更
 
-### 4.4 更新需求追溯矩阵
+### 5.4 更新需求追溯矩阵
 
 - 列出 Baseline / 用户故事中每项需求对应的终稿章节、功能点、验收标准与段落锚点
 - 支持双向追溯
 - 与 1.6 节、独立追溯矩阵文件 `baseline_trace_matrix.csv` 三处保持一致
-- 若本步骤对矩阵做了修订，**直接在 `prd_final_draft.md` 的附录 A 上修订**，并同步更新版本号与「修订记录」；分章文件已冻结，不再回写，也无需重跑 Step 2.5
+- 若本步骤对矩阵做了修订，**直接在 `prd_final_draft.md` 的附录 A 上修订**，并同步更新版本号与「修订记录」；分章文件已冻结，不再回写，也无需重跑 Step 3
 
-### 4.5 终稿正式声明
+### 5.5 终稿正式声明
 
 文档头部添加标准化声明：
 > 文档类型：正式需求终稿
@@ -496,17 +494,17 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 > 代码验证级别：L2（已代码验证）/ L1（设计级）
 > 生效范围：本文件为研发、测试、验收的唯一正式依据
 
-### 4.6 落盘与归档
+### 5.6 落盘与归档
 
 - 终稿已落盘为 `$REPO_ROOT/.polaris/tasks/<task_id>/prd-final-v1.0.md`；会话中只输出【终稿文件路径 + 交付摘要 + 评审结论】，**不粘贴终稿全文**（全文已落盘，引导用户预览）
 - 同步输出本需求的标识定稿信息：任务名 `<task_id>`｜中文名 `req_name_cn`｜编号前缀 `req_prefix`｜**交付文档名 `{前缀}-{中文名}-需求终稿-{最终版本号}.md`**（ship 迁移时使用；最终版本号取正文「当前版本」字段值）
 - 落盘完整的人工评审支撑包（`review-package/`）
 - 完整保留过程目录所有过程文件，支持追溯与迭代
 - 同步更新版本记录与更新记录，关联评审报告链接
-- 编号一致性终检（并入 4.2 模板一致性终检执行）：全文模块 `F{dd}`、功能点 `F{dd}-{dd}`、规则 `BR-{ddd}`、继承锚点 `cap/scene-xxx` **必须全部带同一前缀**；出现裸编号或异前缀一律判定不通过
+- 编号一致性终检（并入 5.2 模板一致性终检执行）：全文模块 `F{dd}`、功能点 `F{dd}-{dd}`、规则 `BR-{ddd}`、继承锚点 `cap/scene-xxx` **必须全部带同一前缀**；出现裸编号或异前缀一律判定不通过
 
 
-### Step 5：完成 refine 阶段
+## Step 6：完成 refine 阶段
 
 1. 推进 workflow 阶段至 ship
 

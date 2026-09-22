@@ -114,7 +114,7 @@ test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}
 
 **输出落盘**：`final/readiness_report.md`；写 `state.yaml` 的 `ship.readiness: done` / `failed` 与 `ship.readiness_verdict: PASS|CONDITIONAL|FAIL`。
 
-### 1.5 FAIL 时的处理
+### 1.5 失败（FAIL）处理
 
 按 `./policies/decision-point.md` 输出结论与**重点阅读指引**（取自就绪度报告第四章：得分最低的 2 个维度及其必读章节锚点），然后询问：
 
