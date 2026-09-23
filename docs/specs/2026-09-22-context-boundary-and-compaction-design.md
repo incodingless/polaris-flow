@@ -1,7 +1,7 @@
 # 上下文边界与压缩时机规范（设计提案）
 
 日期：2026-09-22
-状态：**批 1–4 已落地（2026-09-22）** —— 三条原则已由用户给定；D1、D6 已决（落法见 §5.6 / §5.6.3）；D2、D3、D5 未决
+状态：**批 1–5 已落地（2026-09-23）** —— 三条原则已由用户给定；D1、D2、D4、D6 已决（落法见 §5.3 / §5.6 / §5.6.3）；D3、D5 未决
 触发：用户提出「技能边界应支持新开会话接续」「技能内压缩时机应有统一门槛」「委派材料与回报只走路径」三条原则，要求据此重整四条工作流（prd / coding / prototype / debug）的上下文策略
 上游：`docs/specs/2026-09-19-phase-truth-unification-design.md`（游标权威结论）、`docs/specs/2026-09-16-debug-workflow-design.md`（已作废）
 范围：只定**边界契约**与**压缩时机**；不含技能内部业务分支逻辑，不改 Dashboard
@@ -196,7 +196,8 @@ Include in your report: output (your deliverable or path to it), concerns (list 
 **材料侧**：
 
 - `task_spec.materials` **只放路径**；父会话**禁止**预先 `Read`。
-- D-1（路径引用型）为**默认**；D-2 按 D2 决策处理。
+- D-1（路径引用型）为**默认**；**不确定宿主是否真授予 `tools` 时也走 D-1**（旧「保守策略」已于 2026-09-23 反转，落点见 `subagent-dispatch/references/dispatch-execute.md` 的 D-0.2）。
+- D-2（内容注入型）**只允许用于小材料**：`materials` 合计 ≤ 300 行。超限 → 不注入，改换有读文件能力的 agent 或降级 `inline`。默认 subagent 分支（`agent=null`，最常用）同样受此闸门约束。
 - 派发后父会话**只读产出路径**，不读被委派的原始材料。
 
 **回报契约（收紧为三件）**：
@@ -372,7 +373,7 @@ compressionAction?: { ide?: string; cli?: string };
 | **批 2｜出厂默认值** | `auto_transition: false` + `context_compression: beta`（值域维持 `off\|beta`）；`state-next` 判定重排；`design:170` 的 `on` → `beta`；测试断言同步 + 新增 auto 集成用例 | ✅ 2026-09-22 |
 | **批 3｜平台维度骨架** | `Platform.compressionAction`（五平台）+ `normalizeHostForm` / `resolveCompressionAction` + `config.host_form` + 注入 `HOST_FORM` / `CONTEXT_COMPRESSION_ACTION` | ✅ 2026-09-22 |
 | **批 4｜协议文本** | `auto-transition.md` 写入 manual / auto 双模式与 auto 六步执行序；4 个技能的内联三分支改指针（消双源）；manual HINT 改为「请新开会话并执行 /X」 | ✅ 2026-09-22 |
-| **批 5｜委派契约收紧** | 层级 B：`dispatch-execute.md` 的 D-2 去留（D2）+ 回报契约改「只回状态 / 产物路径 / 短列表」；`prd/refine` 返回处理只收 `artifact_path` | ⏳ 待决 |
+| **批 5｜委派契约收紧** | D2 取 **B 案**：D-0.1 体积闸门（`materials` 合计 ≤300 行，超限改换 agent 或降级 inline）、D-0.2 保守策略反转（不确定走 D-1）；默认 subagent 分支纳入闸门；回报契约收紧为 `status` / `artifact_path` / `concerns` 三件，全部 task_type 增强改为「先落盘、只报路径」；`prd/refine` 返回消费与 `output_path` 落点同步；另实现 `auto ⟹ compression ≠ off` 联动校验 | ✅ 2026-09-23 |
 | **批 6｜落盘补齐** | H1（待定名落盘，D5）、S2（`prototype/review` 补恢复章节） | ⏳ 待决 |
 | **批 7｜措辞与提示语归一** | 层级 A/C 提示语模板统一；5 类压缩点措辞归一；各技能尾部补「恢复清单」四件套 | ⏳ 待决 |
 | **批 8｜形态探测增强** | §5.6.3 ②：PPID 进程名 / 平台 env 探测，逐平台实测后进规范 | ⏳ 待决（依批 3 结论） |
@@ -389,13 +390,13 @@ compressionAction?: { ide?: string; cli?: string };
 | # | 问题 | 选项 | 影响面 |
 |---|---|---|---|
 | **D1** | `auto_transition` 行为 | ✅ **已决并落地（2026-09-22）**：manual（**出厂默认**）⇒ 提示用户新开会话 + 输入技能名；auto ⇒ 按平台动作压缩后自动执行。落法见 §5.6；出厂值 `false` + `context_compression: beta` | 4 个技能 + 配置 + policy |
-| **D2** | D-2 内容注入型 | A 删除改 inline / B 收窄 + 反转保守策略 | `dispatch-execute.md` + 全部调用方 |
+| **D2** | D-2 内容注入型 | ✅ **已决并落地（2026-09-23）：B 案** —— 新增 D-0.1 体积闸门（`materials` 合计 ≤300 行）+ D-0.2 保守策略反转（不确定走 D-1）。默认 subagent 分支（最常用）一并纳入闸门 | `dispatch-execute.md` + 调用方 |
 | **D3** | 单入口技能分段点 | 加可选提示 / 维持现状 | `tweak` / `normal` |
 | **D4** | `context-recovery.md` | ✅ **已决并落地（2026-09-22）：删除**（零引用 + 内容为 comet 时代遗留） | 1 个 policy |
 | **D5** | 待定名落盘载体 | draft 目录内文件 / workflow pending 字段 | `specify-finalize.sh` + 3 个技能 |
 | **D6** | **宿主形态维度** | ✅ **已决（2026-09-22）：A 案** —— `Platform.compressionAction` 按形态分列 + `config.host-form` 显式声明 + `resolveHostForm` 三级链（显式 → 宿主信号 → `unknown` 不猜）+ 注入 `HOST_FORM` / `CONTEXT_COMPRESSION_ACTION`。落法见 §5.6.3；探测手段留批 8 | `platforms.ts` + SessionStart + config + 全部衔接提示语 |
 
-> **D1 / D4 / D6 已决并落地**（批次进度见 §六）。仍待决：**D2**（委派契约收紧）、**D3**（单入口技能分段点）、**D5**（待定名落盘载体）。
+> **D1 / D2 / D4 / D6 已决并落地**（批次进度见 §六）。仍待决：**D3**（单入口技能分段点）、**D5**（待定名落盘载体）。
 >
 > 出厂默认已定为 `auto_transition: false`（manual）+ `context_compression: beta`。需要连续执行的用户显式设
 > `auto_transition: 'auto'`；**配置校验应保证它与 `context_compression: beta` 联动**（不能压缩就不许自动跑）。
