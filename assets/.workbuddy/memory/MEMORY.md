@@ -60,7 +60,7 @@
 - G7 评审侧无 `example/`；G8 评审 evals 缺 3 条断言；G9 同会话自评是否强制换会话待产品定。
 - D3：coding / prd / prototype 族未迁移「停顿点三类」写法。
 - 拼错的 `./policy/decision-point.md`（`coding/build/SKILL.md:61,85`，少 `ies`）。
-- **2026-09-22/23 上下文边界与压缩时机方案**（`docs/specs/2026-09-22-context-boundary-and-compaction-design.md`）：**批 1–5 已落地**；D1/D2/D4/D6 已决，D3/D5 待决。
+- **2026-09-22/23 上下文边界与压缩时机方案**（`docs/specs/2026-09-22-context-boundary-and-compaction-design.md`）：**批 1–6 已落地**；D1/D2/D4/D5/D6 已决，仅 D3 未决。
   - **衔接两模式**：`manual`（**出厂默认**）⇒ 提示用户新开会话 + 输入技能名；`auto` ⇒ 按平台压缩动作提示用户、其完成后再执行下一技能（六步执行序，agent **无压缩原语**）。**「清空」统一 = 用户新开会话**。配置约束：`auto_transition: 'auto'` ⟹ `context_compression ≠ off`（已在 `isAutoTransitionEnabled` 落码，非法组合降级 manual）。
   - **委派契约（D2 = B 案）**：D-2 内容注入型**只限 `materials` 合计 ≤300 行**，超限改换 agent 或降级 inline；**不确定宿主是否真授予 `tools` 时走 D-1**（旧「保守策略」已反转）；默认 subagent 分支同受闸门约束。回报**只许三件** `status` / `artifact_path` / `concerns`，禁止贴原文/代码/diff/未命中检索，产出先落盘再报路径。
   - **出厂默认**：`auto_transition: false`、`context_compression: beta`（值域维持 `off|beta`）。

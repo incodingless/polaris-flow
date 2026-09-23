@@ -1,7 +1,7 @@
 # 上下文边界与压缩时机规范（设计提案）
 
 日期：2026-09-22
-状态：**批 1–5 已落地（2026-09-23）** —— 三条原则已由用户给定；D1、D2、D4、D6 已决（落法见 §5.3 / §5.6 / §5.6.3）；D3、D5 未决
+状态：**批 1–6 已落地（2026-09-23）** —— 三条原则已由用户给定；D1、D2、D4、D5、D6 已决（落法见 §4.3 / §5.3 / §5.6 / §5.6.3）；仅 **D3** 未决
 触发：用户提出「技能边界应支持新开会话接续」「技能内压缩时机应有统一门槛」「委派材料与回报只走路径」三条原则，要求据此重整四条工作流（prd / coding / prototype / debug）的上下文策略
 上游：`docs/specs/2026-09-19-phase-truth-unification-design.md`（游标权威结论）、`docs/specs/2026-09-16-debug-workflow-design.md`（已作废）
 范围：只定**边界契约**与**压缩时机**；不含技能内部业务分支逻辑，不改 Dashboard
@@ -130,13 +130,13 @@ Include in your report: output (your deliverable or path to it), concerns (list 
 
 | # | 整改动作 | 触及文件 |
 |---|---|---|
-| H1 | 名称确认后**立即落盘**待定名（建议：draft 目录内 `.pending-name`，或 workflow 游标的 pending 字段）；finalize 从盘读取，不再从会话传参 | `coding/{specify, normal, tweak}` |
+| H1 | ✅ 2026-09-23 —— **复用既有载体、不新增文件**（D5 取此案）：`specify` 的 4.2 首行直接写真实 `task_id`（弃 `<TBD>` 占位）；`normal` / `tweak` 在名称确认后**立即回填**产物文件首行。finalize 恢复路径改为「`task_id` 从首行读、`draft_name` 从 `draft-*` 目录推断」。顺带修 5.2 lint 路径（`$task_id` → `$draft_name`，`mv` 在 5.4）与 5.3 的编号笔误 | `coding/{specify, normal, tweak}` |
 | H2 | **删除** `zh/policies/context-recovery.md`；如需总览，改写为**索引**（指向各技能的恢复章节），不承载第二份协议 | `zh/policies/context-recovery.md` |
 | H3 | `./reference/` → `./policies/`（4 处） | `zh/policies/outside-voice.md`、`coding/tasks/SKILL.md` |
 | H4 | 删除 `coding/ship/SKILL.md:60-62` 重复段 | `coding/ship/SKILL.md` |
 | H5 | `refine.build_mode` 由**调用方**（`refine`）写；`review` 只读不写 | `prd/review/SKILL.md` |
 | H6 | 4 处「更新 `state.yaml`：`phase: X`」补一句「非权威镜像，权威见 `workflow.yaml` 游标」 | `coding/{build, design, tasks, verify}` |
-| S2 | 补「上下文压缩恢复」一节（或声明「评审为原子操作，中断即整段重跑」） | `prototype/review/SKILL.md` |
+| S2 | ✅ 2026-09-23 —— 补「八、上下文压缩恢复」：声明 Step 1–6 为原子流程（中断即重跑）+ 两条 `sha256` 指纹一致性规则 | `prototype/review/SKILL.md` |
 
 ### 4.4 需决策的三项边界问题
 
@@ -374,7 +374,7 @@ compressionAction?: { ide?: string; cli?: string };
 | **批 3｜平台维度骨架** | `Platform.compressionAction`（五平台）+ `normalizeHostForm` / `resolveCompressionAction` + `config.host_form` + 注入 `HOST_FORM` / `CONTEXT_COMPRESSION_ACTION` | ✅ 2026-09-22 |
 | **批 4｜协议文本** | `auto-transition.md` 写入 manual / auto 双模式与 auto 六步执行序；4 个技能的内联三分支改指针（消双源）；manual HINT 改为「请新开会话并执行 /X」 | ✅ 2026-09-22 |
 | **批 5｜委派契约收紧** | D2 取 **B 案**：D-0.1 体积闸门（`materials` 合计 ≤300 行，超限改换 agent 或降级 inline）、D-0.2 保守策略反转（不确定走 D-1）；默认 subagent 分支纳入闸门；回报契约收紧为 `status` / `artifact_path` / `concerns` 三件，全部 task_type 增强改为「先落盘、只报路径」；`prd/refine` 返回消费与 `output_path` 落点同步；另实现 `auto ⟹ compression ≠ off` 联动校验 | ✅ 2026-09-23 |
-| **批 6｜落盘补齐** | H1（待定名落盘，D5）、S2（`prototype/review` 补恢复章节） | ⏳ 待决 |
+| **批 6｜落盘补齐** | D5 取「复用产物文件首行」案：`specify` 首行写真实 `task_id`、`normal`/`tweak` 确认后回填；finalize 恢复路径不再依赖会话。另修 5.2 lint 路径与 5.3 编号笔误；`prototype/review` 补「上下文压缩恢复」 | ✅ 2026-09-23 |
 | **批 7｜措辞与提示语归一** | 层级 A/C 提示语模板统一；5 类压缩点措辞归一；各技能尾部补「恢复清单」四件套 | ⏳ 待决 |
 | **批 8｜形态探测增强** | §5.6.3 ②：PPID 进程名 / 平台 env 探测，逐平台实测后进规范 | ⏳ 待决（依批 3 结论） |
 
@@ -393,10 +393,10 @@ compressionAction?: { ide?: string; cli?: string };
 | **D2** | D-2 内容注入型 | ✅ **已决并落地（2026-09-23）：B 案** —— 新增 D-0.1 体积闸门（`materials` 合计 ≤300 行）+ D-0.2 保守策略反转（不确定走 D-1）。默认 subagent 分支（最常用）一并纳入闸门 | `dispatch-execute.md` + 调用方 |
 | **D3** | 单入口技能分段点 | 加可选提示 / 维持现状 | `tweak` / `normal` |
 | **D4** | `context-recovery.md` | ✅ **已决并落地（2026-09-22）：删除**（零引用 + 内容为 comet 时代遗留） | 1 个 policy |
-| **D5** | 待定名落盘载体 | draft 目录内文件 / workflow pending 字段 | `specify-finalize.sh` + 3 个技能 |
+| **D5** | 待定名落盘载体 | ✅ **已决并落地（2026-09-23）：复用产物文件首行**（`intention.md` / `change-brief.md`），不新增文件、不改 `specify-finalize.sh` 签名 | `coding/{specify, normal, tweak}` |
 | **D6** | **宿主形态维度** | ✅ **已决（2026-09-22）：A 案** —— `Platform.compressionAction` 按形态分列 + `config.host-form` 显式声明 + `resolveHostForm` 三级链（显式 → 宿主信号 → `unknown` 不猜）+ 注入 `HOST_FORM` / `CONTEXT_COMPRESSION_ACTION`。落法见 §5.6.3；探测手段留批 8 | `platforms.ts` + SessionStart + config + 全部衔接提示语 |
 
-> **D1 / D2 / D4 / D6 已决并落地**（批次进度见 §六）。仍待决：**D3**（单入口技能分段点）、**D5**（待定名落盘载体）。
+> **D1 / D2 / D4 / D5 / D6 已决并落地**（批次进度见 §六）。仅 **D3**（单入口技能分段点）未决。
 >
 > 出厂默认已定为 `auto_transition: false`（manual）+ `context_compression: beta`。需要连续执行的用户显式设
 > `auto_transition: 'auto'`；**配置校验应保证它与 `context_compression: beta` 联动**（不能压缩就不许自动跑）。
