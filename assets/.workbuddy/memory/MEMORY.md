@@ -43,7 +43,12 @@
 
 ## 五、通用教训
 
-- 核验中文用 Grep 工具（ripgrep）；macOS grep 在双引号里不吃 `\|`。
+- **核验中文用 Grep 工具（ripgrep）**；macOS grep 在双引号里不吃 `\|`。
+- **沙箱内 git 写操作不可用**（2026-09-23）：`.git/index.lock` 能创建但 **unlink 被拦截**（`Operation not permitted`），
+  `git add/commit` 报 `index.lock: File exists`；连只读的 `git status` 也会留下 0 字节 stale lock。
+  → git 写操作必须用 `dangerouslyDisableSandbox: true`，且前置 `rm -f .git/index.lock`。
+  另：`git commit -F - <<'EOF' … EOF` 在本 shell 下**静默失败**（无输出、提交未发生）→ 用多个 `-m` 参数。
+  **提交后必查 `git log --oneline -3`**，不要以「命令无报错」当成功。
 - fs 批量删除被守卫（>50 抛 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`），脚本清理写 try/catch。
 - 技能 md 里**禁止出现以 `..` 开头的路径字面量**（硬阻断安装测试）；讲反模式只能写描述性说法。
 - 长会话中用户可能用编辑器改同一文件 → 每轮 Edit 前重新 Read 目标行。
