@@ -15,7 +15,7 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 - **禁止**另写 `docs/superpowers/plans/*.md` 或 `.polaris/tasks/*/implementation-plan.md` 作为主产物——**唯一**实施计划是 `openspec/changes/<task_id>/tasks.md`（覆写，不是并列第二份）
 - **禁止**跳过 `tasks-lint.sh` 或脑补核对
 - **禁止**跳过 Step 6 主审：必须派发 `tasks-review-agent`，并注入本 skill 的 `StandardsRoot`（agent 须读完 `policies/` + `references/` 标准文档；禁止主代理自审冒充；**主审不可跳过**）
-- **禁止**跳过 Step 6 Outside Voice **询问**（按 `./reference/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
+- **禁止**跳过 Step 6 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
 - **禁止**在本阶段编写业务实现代码 / 调用 `/opsx:apply`（那是 build）
 - **禁止**借机重写 `proposal.md` / 高层 `design.md` 的范围与架构结论；缺口只进 review 消化或回 design，不在 plan 静默改 Scope
 - **禁止**写出规划依据中不存在的需求 / 模块 / 验收场景（YAGNI；多出来的任务 = 失败）
@@ -315,7 +315,7 @@ LINT_EXIT=$?
 
 #### 6.2 Outside Voice（询问后可选）
 
-1. `read_file` `./reference/outside-voice.md` 并按其执行。
+1. `read_file` `./policies/outside-voice.md` 并按其执行。
 2. 按复杂度给出建议，decision-point：**A 启动** / **B 跳过**（AI 不得代决）。
 3. 用户选 A → 填充本 skill 的 `prompts/main-review-summary.tmpl.md`，派发 `openspec-review-agent`。
 

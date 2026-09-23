@@ -18,7 +18,7 @@
 | design  | `design-review-agent`  | `openspec/changes/<change_id>/reviews/design-review-report.md` |
 | tasks   | `tasks-review-agent`    | `openspec/changes/<change_id>/reviews/tasks-review-report.md` |
 
-然后：`read_file` 本文件（或已安装的 `./reference/outside-voice.md`），按下列步骤。
+然后：`read_file` 本文件（或已安装的 `./policies/outside-voice.md`），按下列步骤。
 
 ## Step OV-1：复杂度建议（仅建议）
 
@@ -32,7 +32,7 @@
 
 ## Step OV-2：用户决策点
 
-按 `./reference/decision-point.md` 暂停：
+按 `./policies/decision-point.md` 暂停：
 
 ```text
 主审已完成。是否启动 Outside Voice（openspec-review-agent）独立交叉评审？

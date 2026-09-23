@@ -57,10 +57,6 @@ RTID_EXIT=$?
 
 按 `$TASK_IDS` 数组长度解读：
 
-- **唯一匹配**：直接读取 `task_id`
-- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 ship 阶段的 active change，请先执行 /polaris-flow-design」
-
 - **唯一匹配**：取其 `task_id`（及 `worktree_path`，若非空）
 - **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到 phase=ship 的 active change，请先执行 /polaris-flow-verify」
