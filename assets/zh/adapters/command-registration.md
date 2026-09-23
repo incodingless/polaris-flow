@@ -69,8 +69,7 @@ frontmatter   triggers: ["/polaris{{CMD_SPR}}coding{{CMD_SPR}}normal"]
 - **Trae / Trae-CN**：技能名 → `polaris-prd-discovery`（skillsLayout=flat）；命令名 → `/polaris:coding:normal`（commandLayout=nested）
 - **Cursor**：技能名 → `polaris:prd:discovery`（skillsLayout=nested）；命令名 → `/polaris-coding-normal`（commandLayout=flat）
 
-**未展开的占位符落到用户项目里就是坏引用**。新增命令时：技能名前缀一律用 `{{SKN_SPR}}`，命令名前缀一律用 `{{CMD_SPR}}`，两者都不要写死。
-（历史坑：正文里写死 `/polaris:*` 与 `{{SKN_SPR}}` 混用，导致脚本批量改名时容易漏改。）
+**未展开的占位符落到用户项目里就是坏引用**。新增命令时：技能名前缀一律用 `{{SKN_SPR}}`，命令名前缀一律用 `{{CMD_SPR}}`，两者都不要写死——写成字面量 `/polaris:*` 会与占位符混用，脚本批量改名时漏改即留坏引用。
 
 ## 已注册命令
 

@@ -140,12 +140,6 @@ Windows 下无需安装 Playwright，直接用系统 Edge：`msedge.exe --headle
 > 字体图标库（Font Awesome 之类）若出现在目标系统里，那是研发期实现细节，**不得进入原型**——
 > 否则同时违反一票否决第 27 条（混用图片 / 字符图标），并让 `verify L1-7` 的 symbol 引用完整性失去意义。
 
-### 历史备注（不是默认值）
-
-本技能的前身把某个具体客户项目的栈写成了「默认敏捷 Web Demo / 快速原型实现参考栈」：
-Vue 2.x / Element UI 2.15 / Vuex 3 / Vue Router 3 / SCSS / Font Awesome 4.7 / ECharts 5 / vxe-table 3。
-那来自那一份需求的上下文，**不是通用结论**，现已降级为本条备注：有具体项目时按项目来，没有时不必提。
-
 # 29. 研发交付说明
 
 每个 P0 页面完成后，必须输出研发可理解的信息。

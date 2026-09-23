@@ -34,7 +34,7 @@
 2. 若数组含 `read_file` 或 `Read`（任一即可）→ **路径引用型** → 走 Step D-1
 3. 若数组**不含**上述任一 → 候选「内容注入型」，**但必须先过 D-0.1 体积闸门**
 
-#### D-0.1 体积闸门（2026-09-23 新增）
+#### D-0.1 体积闸门
 
 D-2 会让**主代理先 Read 全文**，这是对父会话上下文最贵的操作。因此它只允许用于小材料：
 
@@ -46,14 +46,13 @@ D-2 会让**主代理先 Read 全文**，这是对父会话上下文最贵的操
 > **闸门的意义**：把「父代理先读全文」限制在可接受的成本内。超限材料走 inline 至少产出会落盘、
 > 回报也不把原文贴回；走 D-2 则是纯消耗且无落盘产出。
 
-#### D-0.2 保守策略（2026-09-23 反转）
+#### D-0.2 保守策略
 
 `tools` 字段**仅反映 frontmatter 声明，不保证宿主实际授予**（已知部分宿主忽略它，按默认工具集挂载 subagent）。
 
-- **旧策略**（已废止）：「不确定时应直接走内容注入型」——这让「父代理先读全文」成为**默认行为**，
-  与「`materials` 只给路径、父会话禁止先读」的原则直接冲突。
-- **现策略**：**不确定时走 D-1（路径引用型）**。若派发后 subagent 报 `NEEDS_CONTEXT`（无法读文件），
-  再按降级链处理：换 agent → 体积闸门内的 D-2 → inline。
+- **不确定时走 D-1（路径引用型）**。理由：把「父代理先读全文」当作默认行为，与「`materials` 只给路径、
+  父会话禁止先读」的原则直接冲突。
+- 若派发后 subagent 报 `NEEDS_CONTEXT`（无法读文件），再按降级链处理：换 agent → 体积闸门内的 D-2 → inline。
 
 **agent=null 时**：跳过 D-0，按 `task_spec.constraints.dispatch_mode_hint` 走对应分支（见下方"默认 subagent"和"inline 执行"小节）；默认 subagent 分支同样受 **D-0.1 体积闸门**约束。
 
@@ -202,7 +201,7 @@ You are executing commands. Run the specified commands. Write the exact command 
 5. **材料顺序**：注入型下 Materials 按 `materials` 数组顺序拼接，不得自调。
 6. **约束遵守**：subagent 必须遵守 `task_spec.constraints`（允许修改范围、禁止操作、输出格式等）。
 7. **语言**：subagent 输出语言遵循 `task_spec.language`。
-8. **产出落盘（2026-09-23 起）**：subagent 的产出**必须写入文件**，回报只给路径。产出路径取
+8. **产出落盘**：subagent 的产出**必须写入文件**，回报只给路径。产出路径取
    `task_spec.constraints.output_path`；未指定时写入 `<任务目录>/<task_type>-<YYYYMMDD-HHmmss>.md`，
    并在 `artifact_path` 回报**实际使用的**路径。**下文各 task_type 增强里凡出现 "Report …" 字样，
    一律按本条执行**：写入产出路径后只报路径，不把内容贴回。

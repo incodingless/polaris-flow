@@ -20,7 +20,8 @@
 | H13 | **禁止**任何 skill / 主代理 / subagent 调用 `superpowers:subagent-driven-development` 或 `superpowers:executing-plans` 这两个派发驱动器。所有 subagent 派发统一由主代理使用宿主原生 Task / AgentTool 完成;可用 agent 由 `polaris-flow:subagent-probe` 按 platform 探测;当 probe 返回 `degradation=inline`/`unsupported` 时主代理在自己会话内 inline 执行,绝不回退到 superpowers 派发。**不在禁令范围**:`superpowers:brainstorming`、`superpowers:test-driven-development`、`superpowers:verification-before-completion`、`superpowers:finishing-a-development-branch`、`superpowers:using-git-worktrees` 等被动方法论 / 工具 skill 仍可使用——它们不派发 subagent | 所有 polaris-flow skill;所有由 polaris-flow 派发的 subagent | 立即停止 |
 | H14 | **禁止**开发类路径（M01 / M04 / P01–P03 / M03）在 `需求内容` 为 `待预检` 或 `无` 时加载任何技能——必须先走完 `polaris:flow` 的零步（前置需求预检：0.1 识别 → 0.2 强制附需求 → 0.3 询问自动评估 → 0.4 自动路由），把 `需求内容` 填到非 `待预检` 且非 `无`，才能进入第四步。空需求 / 仅"实现 XX"无细节的需求**禁止**靠 Step 0.4 自动评估蒙混过关（自动评估的输入必须含完整三要素）。**M01**（生产故障修复）的 `需求内容` 即故障现象描述，时间线 / 影响面 / 变更清单三对齐由 `polaris:debug:diagnose` 校验并一次性补全；**M04**（测试缺陷修复）的 `需求内容` 即缺陷现象描述，四要素（复现步骤 / 实际结果 / 预期结果 / 环境版本）由 `polaris:debug:diagnose` 校验并一次性补全 | `polaris:flow`（零步） | 立即停止 |
 
-> 注：原 H3（强制 worktree 决策）已删除。worktree 创建改为非阻断式提示——由 `plan` skill 的 Step 1 在 `/polaris:plan` 入口询问用户即可，无需全局硬约束，无需独立的 worktree skill。
+> **编号约定**：Hard Stop 的 ID 一经退役即不复用，新条款另取新号（故本文自 H8 起编号）。
+> worktree 决策**不是**全局硬约束——由 `plan` skill 的 Step 1 在 `/polaris:plan` 入口以**非阻断式提示**询问用户，不设独立的 worktree skill。
 
 ## 自检话术（即将违规时必须先输出后停止）
 

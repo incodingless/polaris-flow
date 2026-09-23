@@ -8,5 +8,5 @@
   "langContentDirs": ["skills", "commands", "templates", "adapters", "policies", "agents"],
   "langFiles": [".gitignore", "hooks.json"],
   "sharedDirs": ["hooks", "scorers", "templates", "scripts"],
-  "ignoredFiles": ["README.md", ".DS_Store"]
+  "ignoredFiles": ["README.md", "PROVENANCE.md", ".DS_Store"]
 }

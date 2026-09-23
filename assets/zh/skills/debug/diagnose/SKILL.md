@@ -217,7 +217,7 @@ HF_RESULT=$(bash "$PLUGIN_ROOT/scripts/hotfix-branch-create.sh" "$issue_id" "$RE
 HF_EXIT=$?
 ```
 
-- `HF_EXIT != 0` → **阻断**，stderr 含失败原因（常见：当前分支有未提交变动）。**报告阻塞原因与恢复条件**：请用户提交或放弃变动后告知，收到回复再重新执行本段。此处**不得伪造选项**——这不是决策点（原先那组 A/B 都导向同一动作）。
+- `HF_EXIT != 0` → **阻断**，stderr 含失败原因（常见：当前分支有未提交变动）。**报告阻塞原因与恢复条件**：请用户提交或放弃变动后告知，收到回复再重新执行本段。此处**不得伪造选项**——这不是决策点。
 
 - `HF_EXIT == 0` → `$HF_RESULT` 含 JSON（`main_branch` / `hotfix_branch`）；输出 `[polaris-flow 调试]缺陷修复 - 已基于主干（<main_branch>）创建修复分支，分支名：<hotfix_branch>`
 

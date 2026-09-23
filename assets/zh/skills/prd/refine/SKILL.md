@@ -592,12 +592,3 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase --repo-root "$REP
 ```bash
 polaris-flow state next <change-name>
 ```
-
----
-
-## 集中办公场景适配说明
-
-- 评审支撑包可直接打印或共享用于线下评审会议，配合白板流程梳理使用
-- 追溯矩阵与差异高亮可支撑面对面快速对齐变更内容，减少信息不对称
-- 待确认项与行动项清单可直接作为会后跟进依据，同步效率更高
-- 模板标准化结构确保产研测三方在同一文档框架下讨论，减少因结构差异导致的理解偏差

@@ -66,10 +66,6 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-```
-TODO 待补充内部流程过程
-```
-
 每个阶段的"做什么"在对应 policy 文件，本 SKILL.md 仅承载入口、HARD-GATE 锚点与跨阶段衔接。
 
 ### Step 0：定位 任务标识 + 入口校验

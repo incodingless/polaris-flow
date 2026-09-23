@@ -11,8 +11,24 @@
 - frontmatter 只用标准 `description`（≤1024）；路由信息只进 description，执行信息只进正文。
 - 跨技能相对路径必然断链，只能按技能名引用；`./policies/…`、`./templates/…` 由顶层 `zh/policies/*` 注入，可用。
 - `README.md` 不入仓（gitignore + manifest ignoredFiles），改它不随提交/安装走。
+  **`assets/` 下所有 README 都是如此**（`debug` 145 / `prd` 312 / `prototype` 70 行）→ 改族 README 属**不可 diff、不可评审**的本地补丁。
+- **`manifest.ignoredFiles` 的匹配语义**：不含 `/` 的模式按 **basename 任意层级**匹配（`README.md` 一条即覆盖全部）。
+  2026-09-23 加入 `PROVENANCE.md`（4 份原型溯源档保留原位、内容不动，只是不再随安装进用户项目）。
+  **无需同步改 `src/core/install/skills.ts:49`** 的硬编码兜底（只认 README/.DS_Store）——`collectSkillLeafRoots`
+  吃的是 `readAssets` 已过滤的集合（`install.ts:98` → `manifest.ts:193`），manifest 是唯一上游；测试也不断言该字段。
 - **单源判据**：*改一处是否需要记得改另一处*。反例：给停顿点发短 ID + 索引表被否决（ID 是编码不是语义，且表↔正文构成新双源）→ 只在站点写自解释中文，不加编号/表/章节。
 - **规范文档只写规则，不写修订史**：改动理由进 commit message / `docs/specs/`，散在规则中间会稀释规则。负向知识（「不存在 X」）保留，但写正面表述（「由 A 完成」而非「曾误写为 B」）。
+- **「注释 / 说明 / 铺垫」盘点是另一条轴**（口径出自 2026-09-13 第十轮，**别另立**）：
+  **只找不承担判据与指令职能的文字——读完不改变任何动作的那部分**。2026-09-23 全量复扫（144 个入仓 `assets/**/*.md`）结论：
+  - 自述类 + 修辞式命中 **≈0**（全是「其实」落在规则句、模板占位等假阳性）；
+  - **HTML 注释 ≈120 处里约 90 处是契约型**（`<!-- TDD 任务 -->` / `<!-- external-openspec-skill-override -->`，
+    tasks-lint 与 review agent 机器读取）→ **不可清**；其余是模板**节来源标注**（`<!-- 来自 specify Step 3.2，一行 -->`）= 填写职能；
+  - **引用块 `> ` 多数本身就是判据** → 有意不动（与 09-13 结论一致）；
+  - **模板重名副本是结构必然，不是双源**：`intention-template` ×4 / `tasks-template` ×4 / `design-template` ×3 ——
+    跨技能不能共享文件（安装只拷叶技能），4 份「使用约定」各自写明归属，**有意不同**；
+  - 真问题出现在 **「尾部死内容」**形态（章节在文件尾部 + 无 Step 指过去 + 无指令职能），
+    如 `prd/refine` 的「## 集中办公场景适配说明」、`prototype/build/references/07` 的「### 历史备注」。
+  **判据复用**：查「死内容」= 对每份文件单独 grep 待查章节名，看命中是否只落在它自己。
 - **停顿点三类**：真决策点写「暂停等用户选」；信息索要写「一次问全」；停止条件写「报告阻塞原因与恢复条件，不得伪造选项」。
 - 评测器：每用例须有参照物(应 PASS)+反例(应 FAIL)，`--selftest` 两边跑；参照物不过先修断言。
 - **「全局协议 ↔ 阶段技能」对接检查法（5 个位点，缺一即未对接）**：
@@ -49,9 +65,15 @@
   顶层、不递归** → 写进 `tasks/<id>/metrics/` 的文件 ship 搬不走，随 worktree 移除**永久丢失**
   （`polaris-sync.md` 明说不可恢复）。2026-09-23 修掉 `verify/SKILL.md` 里 3 处错路径（资产表 / `mkdir` / 退出条件）。
   **八处独立来源都是顶层**：README 阶段表、verify 自身 4 处、retro、`ship/polaris-sync.md`、normal+tweak 的 `exit-check.md`。
-- **风险（未处理）**：`assets/zh/skills/README.md` 被 `task-kind-layout.ts` 声明为**阶段表真相来源**，
-  但它**不入仓**（`.gitignore` 全局忽略 README + `manifest.ignoredFiles`）且**不随安装走**。
-  即：阶段链的权威口径存在一个**不可 diff、不可评审、已安装 agent 读不到**的文件里。待决：反向放行入仓，或把口径搬到 shipped 文件。
+- **`PROVENANCE.md` 会随安装拷进用户项目**（2026-09-23 查实）：`manifest.ignoredFiles` 只有 `README.md`/`.DS_Store`，
+  `src/` 无任何针对它的逻辑 → **只能靠把它移出技能目录来解决**，加 ignore 规则也行但要改 manifest + 安装器。
+  现状：`prototype/{blueprint,build,review,ship}/PROVENANCE.md` 共 **787 行**（build 独占 623 行，是逐轮修改记录 + 「## 待办」+ tmp 死指针）。
+- **规范正文里的「残留物」三类**（2026-09-23 扫）：
+  ① **字面 TODO 占位** —— `coding/tasks/SKILL.md` 的「## 流程」正文就是 `TODO 待补充内部流程过程`；
+  ② **设计提案躺在技能目录**（会随安装走）—— `coding/verify/verify-redesign-proposal.md` 288+ 行，含「## 10. 待决问题」；
+  ③ **迁移/来源记录** —— `prototype/review/SKILL.md:39` 与 `references/01-quality-criteria.md:3`（还带 `prototype/references/07` 死指针）、
+  `debug/README.md:8–11` 四段日期史、`prd/README.md:290`「11 项已全部修复」、`debug/diagnose/SKILL.md:220` 的「（原先那组 A/B…）」。
+  **判据**：规范只写规则；修订史进 commit message / `docs/specs/`。
 
 ## 二、prototype 族
 
@@ -122,6 +144,19 @@
   不逐行融合（融合会丢行间上下文）。清完加 `.gitignore` 防复发。
 - 「尾部章节没有 Step 指过去 = 死内容」；查法：对每份 references 单独 grep，看命中是否只落在尾部索引表。
 - 执行体（脚本命令）必须就近放进调用它的 Step，尾部只留索引类内容。
+- **范围约定（2026-09-23 用户明确）**：技能文档的检查/清理范围 = **`assets/` 下的 `.md`**。
+  `docs/specs/`、`src/`、`.gitignore` 属别的层，要动**先问**——我曾擅自把 5 份文件移出 assets 并改到 docs/src，被判超界。
+- **跨目录 `mv` 在文件策略里等价于 delete+create** → 会弹删除确认（用户可能拒）。
+  **还原用 `git restore <path>`**（assets 侧逐字节回 HEAD，无需删除），别用 `mv` 反着搬。
+- **`assets/**/*.md` 的自言语/修订史清扫（2026-09-23 已完成一轮，仅 assets 内）**：
+  改掉 9 处——`prototype/review/SKILL.md:39` 与 `references/01`（迁入史 + 死指针 `prototype/references/07`）、
+  `coding/tasks` 的字面 `TODO` 占位、`debug/diagnose:220`「原先那组 A/B」、
+  `subagent-dispatch/dispatch-execute.md` 三处日期戳（含删「旧策略（已废止）」整条）、
+  `policies/hard-stops.md:23`「原 H3 已删除」（**会注入每个技能**）、`adapters/command-registration.md:73`「历史坑」。
+  **待决（未动）**：`prototype/build/references/07` 的指针壳用「已上移」语态（8 处，含 `build/SKILL.md:320`）——
+  它是设计好的编号壳，改不改属语态取舍。
+- **大量「修订史」词表命中是假阳性**：`数据订正`=debug 业务名词、`旧表`=迁移语义、`本轮/上一轮`=运行时评审轮次、
+  `已迁入`=运行态事实（`intent/change-brief` 落 openspec 后的正常状态）。逐个看语境，别批量替换。
 
 ## 六、进行中与已知问题（只留指针）
 
