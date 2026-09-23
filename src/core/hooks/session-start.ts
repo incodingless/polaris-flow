@@ -26,7 +26,7 @@ import {
   getInstallHints,
   type PluginPresenceOptions,
 } from '../integrations/detect.js';
-import { PLATFORMS, Platform } from '../domain/platforms.js';
+import { PLATFORMS, Platform, normalizeHostForm, type HostForm } from '../domain/platforms.js';
 import { getPolarisPluginRootPath } from '../assets/layout.js';
 
 export { resolveReviewAgentModel } from '../config/polaris-project-config.js';
@@ -56,6 +56,12 @@ export type SessionStartPaths = {
   platformId: string;
   contextDir: string;
   pluginRoot: string;
+  /**
+   * 宿主形态（`ide` | `cli`）。来源于 `.polaris/config.yaml` 的 `host_form`；
+   * 未声明或无法解析 → `null`（消费方降级为双形式压缩提示）。
+   * 语义见 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §5.6.3。
+   */
+  hostForm: HostForm | null;
 };
 
 export type SessionStartResult = {
@@ -327,6 +333,7 @@ export async function runSessionStart(
     platformId,
     contextDir: platform.contextDir,
     pluginRoot,
+    hostForm: null,
   };
 
   const runWarn = async (fn: () => Promise<boolean>) => {
@@ -348,6 +355,8 @@ export async function runSessionStart(
     io.fail(`polaris config not found for platform '${platformId}'`);
     return { warnCount: 1, failCount: 1, exitCode: 1, paths };
   }
+  // 宿主形态：显式声明优先；未声明 → null，消费方降级为双形式提示（探测增强见批 6）
+  paths.hostForm = normalizeHostForm(config.host_form);
   const model = resolveReviewAgentModel(config);
   await runWarn(() => syncReviewAgents(io, projectPath, platform, model));
 

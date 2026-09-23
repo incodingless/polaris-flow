@@ -8,7 +8,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists, ensureDir } from '../../utils/file-system.js';
 import { getPolarisConfigPath, getPolarisDir, type InstallScope } from '../assets/polaris-paths.js';
-import { HarnessType, Platform } from '../domain/platforms.js';
+import { HarnessType, Platform, HostForm } from '../domain/platforms.js';
 import os from 'os';
 
 export { getPolarisConfigPath } from '../assets/polaris-paths.js';
@@ -71,6 +71,11 @@ export type ProjectPolarisConfig = {
   phase?: TaskPhase;
   auto_transition?: AutoTransition;
   context_compression?: ContextCompression;
+  /**
+   * 宿主形态（`ide` | `cli`）。缺省 = 未声明 → 压缩提示降级为双形式。
+   * 语义与消费见 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §5.6.3。
+   */
+  host_form?: HostForm;
   review_mode?: ReviewMode;
   build_mode?: BuildMode;
   models?: PolarisModelSlots;
@@ -183,13 +188,15 @@ function formatPolarisConfigYaml(config: ProjectPolarisConfig): string {
     '# 工作流状态',
     `workflow: '${config.workflow ?? ''}'`,
     `phase: '${config.phase ?? ''}'`,
-    `auto_transition: ${config.auto_transition ?? true}`,
+    `auto_transition: ${config.auto_transition ?? 'off'}`,
     '',
     '# 功能开关',
     '# context_compression: off | beta',
-    `context_compression: ${config.context_compression ?? 'off'}`,
+    `context_compression: ${config.context_compression ?? 'beta'}`,
     '# review_mode: off | standard | thorough',
     `review_mode: ${config.review_mode ?? 'off'}`,
+    '# host_form: ide | cli（留空 = 未声明，压缩提示降级为双形式）',
+    `host_form: '${config.host_form ?? ''}'`,
     '',
   );
 

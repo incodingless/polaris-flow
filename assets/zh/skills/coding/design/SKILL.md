@@ -167,7 +167,7 @@ canonical_spec: openspec
 **禁止**：文件名 `design.md`（与四件套冲突）；写入 `design/` 或任何子目录；在 3.1 完成前跑本预检；确认后再发明另一套专项菜单。
 
 #### 3.3 主动式上下文压缩
-若配置 `context-compression: on`，且在 **`detailed-design.md`、专项设计（若有）、状态证据均已成功持久化落盘后** 考虑主动式压缩。这样压缩后可从文件恢复，不会丢失尚未写入的设计判断。
+若配置 `context-compression: beta`，且在 **`detailed-design.md`、专项设计（若有）、状态证据均已成功持久化落盘后** 考虑主动式压缩。这样压缩后可从文件恢复，不会丢失尚未写入的设计判断。
 
 - 上下文窗口确有压力且存在可调用的原生压缩机制时触发一次，并在恢复提示含 `task_id`、Step 3 完成、以及 `detailed-design.md` / `*-design.md`（若有）/ `brainstorm-summary.md` / OpenSpec 四件套。然后进入 Step 4。
 - 压缩只能由用户手动触发时，给出一次非阻塞建议并继续；**不得阻塞**、不得额外制造确认点

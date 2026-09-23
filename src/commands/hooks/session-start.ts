@@ -15,11 +15,11 @@
 import { appendFile, mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 
+import { getPolarisCacheDir, getSubagentProbeCachePath } from '../../core/assets/polaris-paths.js';
 import {
-  getPolarisCacheDir,
-  getSubagentProbeCachePath,
-} from '../../core/assets/polaris-paths.js';
-import { resolveSubagentCapability } from '../../core/domain/platforms.js';
+  resolveSubagentCapability,
+  resolveCompressionAction,
+} from '../../core/domain/platforms.js';
 import { createHookIo, writeTtyLine } from '../../core/hooks/hook-io.js';
 import { runSessionStart, type SessionStartPaths } from '../../core/hooks/session-start.js';
 import {
@@ -40,6 +40,14 @@ export type SessionRuntimePaths = {
   SUPPORTS_SUBAGENT: 'true' | 'false';
   /** 空串 = probe 语义 null；否则 inline | unsupported */
   PLATFORM_DEGRADATION: '' | 'inline' | 'unsupported';
+  /** 宿主形态：'ide' | 'cli' | ''（空串 = 未声明） */
+  HOST_FORM: 'ide' | 'cli' | '';
+  /**
+   * 本平台本形态的上下文压缩操作描述（给用户看的提示语片段）。
+   * 形态未知时返回两种形态的合并描述；平台未登记时为空串。
+   * **agent 无法自己触发压缩** —— 只能把它作为提示语输出给用户。
+   */
+  CONTEXT_COMPRESSION_ACTION: string;
   /** SessionStart 写入的 probe 快照绝对路径 */
   SUBAGENT_PROBE_CACHE: string;
 };
@@ -62,6 +70,8 @@ export function toSessionRuntimeEnv(paths: SessionStartPaths): SessionRuntimePat
     PLUGIN_ROOT: paths.pluginRoot,
     SUPPORTS_SUBAGENT: cap.supportsSubagent ? 'true' : 'false',
     PLATFORM_DEGRADATION: cap.platformDegradation ?? '',
+    HOST_FORM: paths.hostForm ?? '',
+    CONTEXT_COMPRESSION_ACTION: resolveCompressionAction(paths.platformId, paths.hostForm),
     SUBAGENT_PROBE_CACHE: getSubagentProbeCachePath(paths.repoRoot),
   };
 }
@@ -84,9 +94,12 @@ export function formatSessionPathContext(
     `PLUGIN_ROOT=${paths.PLUGIN_ROOT}`,
     `SUPPORTS_SUBAGENT=${paths.SUPPORTS_SUBAGENT}`,
     `PLATFORM_DEGRADATION=${paths.PLATFORM_DEGRADATION}`,
+    `HOST_FORM=${paths.HOST_FORM}`,
+    `CONTEXT_COMPRESSION_ACTION=${paths.CONTEXT_COMPRESSION_ACTION}`,
     `SUBAGENT_PROBE_CACHE=${paths.SUBAGENT_PROBE_CACHE}`,
     `subagent_agents_summary=count=${count}; ids=${ids}`,
     'Do not expand <repo_root> / <platform> placeholders; prefer $PLUGIN_ROOT / $REPO_ROOT.',
+    'Context compaction: HOST_FORM + CONTEXT_COMPRESSION_ACTION describe how the user compacts context on this platform. Agents cannot trigger compaction themselves — always surface the action as a user-facing hint.',
     'Subagent: full agents list is in SUBAGENT_PROBE_CACHE (JSON). subagent-probe should prefer that cache when PLATFORM_ID matches, then apply task_type/subagent_id filters. If SUPPORTS_SUBAGENT=true and PLATFORM_DEGRADATION is empty and this step needs only the default general agent (no subagent_id / no task_type prefilter), orchestrators may skip subagent-probe and dispatch with agent=null. inline/unsupported → degrade without probe.',
   ].join('\n');
 }

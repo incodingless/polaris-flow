@@ -92,7 +92,10 @@ export function buildSkillName(separator: string, family: string, skill: string)
 /**
  * 判定是否自动衔接。
  * 优先级：项目 config 的 `auto_transition`（`'auto'|'off'`，文档约定控制点）
- * → 任务 state 的 `auto_transition`（boolean）→ 默认自动。
+ * → 任务 state 的 `auto_transition`（boolean）→ **默认 manual**。
+ *
+ * 2026-09-22 起出厂默认改为 manual（`false`）：每完成一个技能停下并提示用户新开会话，
+ * 而不是在同一会话连跑。需要连续执行的用户显式设 `auto_transition: auto`。
  */
 export function isAutoTransitionEnabled(
   config: ProjectPolarisConfig | null,
@@ -100,13 +103,16 @@ export function isAutoTransitionEnabled(
 ): boolean {
   // 类型声明为 'auto'|'off'，但历史落盘值可能为 boolean true/false（见 formatPolarisConfigYaml）。
   const cfg = config?.auto_transition as unknown;
+  if (cfg === 'auto') {
+    return true;
+  }
   if (cfg === 'off' || cfg === false) {
     return false;
   }
-  if (taskState?.auto_transition === false) {
-    return false;
+  if (taskState?.auto_transition === true) {
+    return true;
   }
-  return true;
+  return false;
 }
 
 /**
@@ -185,7 +191,7 @@ export async function runStateNext(args: StateNextArgs): Promise<StateNextResult
     exitCode: 0,
     next: 'manual',
     skill: fullName,
-    hint: `自动衔接已关闭，请手动运行 /${fullName}`,
+    hint: `请新开会话并执行 /${fullName}（当前为手动衔接模式）`,
     phase: hit.entry.phase,
     kind: hit.kind,
   };

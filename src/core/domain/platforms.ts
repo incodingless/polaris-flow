@@ -35,6 +35,24 @@ export type SkillsLayout = 'nested' | 'flat';
  */
 export type CommandLayout = 'nested' | 'flat';
 
+/**
+ * 宿主形态。同一平台在 IDE 与 CLI 下的**上下文压缩入口不同**（如 Trae：IDE 点面板按钮、CLI 输入 `/compact`），
+ * 故压缩提示须按形态分派。缺省（未声明）= 未知，消费方降级为双形式提示。
+ */
+export type HostForm = 'ide' | 'cli';
+
+/**
+ * 上下文压缩动作，按宿主形态分列。
+ *
+ * 取值是**给用户看的操作描述**（如「点击上下文面板上的『压缩』按钮」「输入 `/compact`」），
+ * 不是可执行命令 —— 现有五个平台都没有把压缩暴露给 agent 程序化调用。
+ * 依据见 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §5.6.1。
+ */
+export type CompressionAction = {
+  ide?: string;
+  cli?: string;
+};
+
 /** 平台元数据：探测路径、skills/rules/hooks 能力与布局 */
 export interface Platform {
   id: string;
@@ -60,6 +78,11 @@ export interface Platform {
    * false → SessionStart / probe 记 platform_degradation=inline。
    */
   supportsSubagent: boolean;
+  /**
+   * 上下文压缩动作（按宿主形态）。用于技能衔接提示语。
+   * 改本表须同步 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §5.6.1。
+   */
+  compressionAction: CompressionAction;
   hooksConfigFile: string;
   /** Hook 配置写入格式 */
   hookFormat?: 'claude-code' | 'trae' | 'trae-cn';
@@ -286,6 +309,11 @@ export const PLATFORMS: Platform[] = [
     skillsLayout: 'nested',
     supportsHooks: true,
     supportsSubagent: true,
+    /** Claude Code 的 IDE 与 CLI 是同一套宿主，压缩入口一致 */
+    compressionAction: {
+      ide: '输入 /compact（可带焦点，如 /compact focus on X）',
+      cli: '输入 /compact（可带焦点，如 /compact focus on X）',
+    },
     /** project/global 实际文件由 hooks.ts 按 scope 选择 settings.local.json / settings.json */
     hooksConfigFile: 'settings.local.json',
     hookFormat: 'claude-code',
@@ -309,6 +337,11 @@ export const PLATFORMS: Platform[] = [
     commandLayout: 'flat',
     supportsHooks: true,
     supportsSubagent: true,
+    /** Cursor 的 IDE 与 CLI 压缩入口一致 */
+    compressionAction: {
+      ide: '输入 /summarize',
+      cli: '输入 /summarize',
+    },
     /** project/global 实际文件由 hooks.ts 按 scope 选择 settings.local.json / settings.json */
     hooksConfigFile: 'settings.local.json',
     hookFormat: 'claude-code',
@@ -329,6 +362,11 @@ export const PLATFORMS: Platform[] = [
     skillsLayout: 'flat',
     supportsHooks: true,
     supportsSubagent: true,
+    /** Trae IDE 的面板压缩按钮仅 SOLO Agent 可用；CLI 走斜杠命令 */
+    compressionAction: {
+      ide: '点击上下文使用率面板上的「压缩」按钮',
+      cli: '输入 /compact',
+    },
     hooksConfigFile: 'hooks.json',
     hookFormat: 'claude-code',
     detectionPaths: ['.trae'],
@@ -348,6 +386,11 @@ export const PLATFORMS: Platform[] = [
     skillsLayout: 'flat',
     supportsHooks: true,
     supportsSubagent: true,
+    /** 与 trae 同源（国内版） */
+    compressionAction: {
+      ide: '点击上下文使用率面板上的「压缩」按钮',
+      cli: '输入 /compact',
+    },
     hooksConfigFile: 'hooks.json',
     hookFormat: 'trae',
     detectionPaths: ['.trae-cn'],
@@ -368,6 +411,11 @@ export const PLATFORMS: Platform[] = [
     supportsHooks: false,
     /** 宿主强制无独立 subagent，probe / SessionStart 记 inline */
     supportsSubagent: false,
+    /** 压缩按钮在用量超过 40% 时才可用；对话早期与生成中禁用 */
+    compressionAction: {
+      ide: '点击 Smart Context Control 的「压缩当前会话」按钮',
+      cli: '输入 /compact',
+    },
     hooksConfigFile: 'settings.json',
     hookFormat: 'claude-code',
     detectionPaths: ['.qoder'],
@@ -402,4 +450,36 @@ export function resolveSubagentCapability(platformId: string): SubagentCapabilit
     return { supportsSubagent: false, platformDegradation: 'inline' };
   }
   return { supportsSubagent: true, platformDegradation: null };
+}
+
+/**
+ * 归一宿主形态原始值。只认 'ide' / 'cli'；其余（含空串、undefined、未知字符串）→ null。
+ * 由 config 的 `host-form` 或未来的运行时探测提供。
+ */
+export function normalizeHostForm(raw: unknown): HostForm | null {
+  return raw === 'ide' || raw === 'cli' ? raw : null;
+}
+
+/**
+ * 解析某平台在某宿主形态下的**压缩操作描述**（给用户看的提示语片段）。
+ *
+ * - 形态已知 → 取该形态的动作；
+ * - 形态未知（null）→ 返回两种形态描述的**合并**（「或」连接），即降级为双形式提示；
+ *   两侧描述相同（如 Claude Code / Cursor）时去重，只留一条；
+ * - 平台未登记或未声明动作 → 空串（消费方按「无提示」处理）。
+ */
+export function resolveCompressionAction(platformId: string, hostForm?: HostForm | null): string {
+  const platform = PLATFORMS.find((p) => p.id === platformId.trim());
+  const action = platform?.compressionAction;
+  if (!action) {
+    return '';
+  }
+  if (hostForm === 'ide') {
+    return action.ide ?? action.cli ?? '';
+  }
+  if (hostForm === 'cli') {
+    return action.cli ?? action.ide ?? '';
+  }
+  const parts = Array.from(new Set([action.ide, action.cli].filter((x): x is string => !!x)));
+  return parts.join('；或 ');
 }

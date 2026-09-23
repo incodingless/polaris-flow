@@ -437,9 +437,9 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
     artifact_review_mode: 'per_batch',
     artifact_max_round: 5,
     verify_mode: 'light',
-    auto_transition: true,
+    auto_transition: false,
     isolation: 'worktree',
-    context_compression: 'off',
+    context_compression: 'beta',
     triage: {
       tier: '',
       t1_result: '',

@@ -86,10 +86,10 @@ describe('buildSkillName', () => {
 });
 
 describe('isAutoTransitionEnabled', () => {
-  it('config off → false；task false → false；缺省 → true', () => {
+  it('config off → false；task false → false；缺省 → false（出厂 manual）', () => {
     expect(isAutoTransitionEnabled({ auto_transition: 'off' } as never, null)).toBe(false);
     expect(isAutoTransitionEnabled(null, { auto_transition: false } as never)).toBe(false);
-    expect(isAutoTransitionEnabled(null, null)).toBe(true);
+    expect(isAutoTransitionEnabled(null, null)).toBe(false);
     expect(isAutoTransitionEnabled({ auto_transition: 'auto' } as never, null)).toBe(true);
   });
 });
@@ -129,7 +129,7 @@ describe('runStateNext', () => {
     expect(result.exitCode).toBe(3);
   });
 
-  it('phase=plan 且缺省 auto → NEXT auto + SKILL', async () => {
+  it('phase=plan 且缺省 → NEXT manual + HINT（出厂 manual）', async () => {
     const repo = await tmpRepo();
     const state = emptyWorkflowState();
     state.coding_tasks = [{ task_id: 'feat-1', phase: 'plan', worktree_path: '', started_at: '' }];
@@ -137,8 +137,9 @@ describe('runStateNext', () => {
 
     const result = await runStateNext({ changeName: 'feat-1', repoRoot: repo });
     expect(result.exitCode).toBe(0);
-    expect(result.next).toBe('auto');
+    expect(result.next).toBe('manual');
     expect(result.skill).toBe('polaris:coding:plan');
+    expect(result.hint).toContain('/polaris:coding:plan');
   });
 
   it('config auto_transition=off → manual + HINT', async () => {
@@ -158,6 +159,24 @@ describe('runStateNext', () => {
     expect(result.hint).toContain('/polaris:coding:plan');
   });
 
+  it('config auto_transition=auto → NEXT auto + SKILL（显式开启连续执行）', async () => {
+    const repo = await tmpRepo();
+    const state = emptyWorkflowState();
+    state.coding_tasks = [
+      { task_id: 'feat-2', phase: 'plan', worktree_path: '', started_at: '' },
+    ];
+    await saveWorkflowState(repo, state);
+    await writeFile(
+      path.join(repo, '.polaris', 'config.yaml'),
+      "auto_transition: 'auto'\n",
+      'utf-8',
+    );
+
+    const result = await runStateNext({ changeName: 'feat-2', repoRoot: repo });
+    expect(result.next).toBe('auto');
+    expect(result.skill).toBe('polaris:coding:plan');
+  });
+
   it('入口阶段 → done（由入口命令显式进入，不走 state next）', async () => {
     const repo = await tmpRepo();
     const state = emptyWorkflowState();
@@ -170,7 +189,7 @@ describe('runStateNext', () => {
     expect(result.next).toBe('done');
   });
 
-  it('requirement phase=refine → auto + polaris:prd:refine（族名是 prd，不是 kind）', async () => {
+  it('requirement phase=refine → manual + polaris:prd:refine（族名是 prd，不是 kind）', async () => {
     const repo = await tmpRepo();
     const state = emptyWorkflowState();
     state.requirement_tasks = [
@@ -179,7 +198,7 @@ describe('runStateNext', () => {
     await saveWorkflowState(repo, state);
 
     const result = await runStateNext({ changeName: 'req-1', repoRoot: repo });
-    expect(result.next).toBe('auto');
+    expect(result.next).toBe('manual');
     expect(result.skill).toBe('polaris:prd:refine');
   });
 
@@ -216,7 +235,7 @@ describe('runStateNext', () => {
 
     it('prototype：游标 build → 必须跑 build（旧表返回 ship，跳过 prototype:build）', async () => {
       const result = await nextFor('prototype', 'build');
-      expect(result.next).toBe('auto');
+      expect(result.next).toBe('manual');
       expect(result.skill).toBe('polaris:prototype:build');
     });
 
@@ -232,13 +251,13 @@ describe('runStateNext', () => {
 
     it('debug：游标 patch → 必须跑 patch（旧表返回 closeout，跳过修复）', async () => {
       const result = await nextFor('debug', 'patch', 'hotfix');
-      expect(result.next).toBe('auto');
+      expect(result.next).toBe('manual');
       expect(result.skill).toBe('polaris:debug:patch');
     });
 
     it('debug：游标 closeout → 必须跑 closeout（旧表返回 done，跳过关单）', async () => {
       const result = await nextFor('debug', 'closeout', 'bugfix');
-      expect(result.next).toBe('auto');
+      expect(result.next).toBe('manual');
       expect(result.skill).toBe('polaris:debug:closeout');
     });
 

@@ -119,7 +119,7 @@ artifact_max_round: 5
 verify_mode: "light"
 
 # 自动过渡
-auto_transition: true
+auto_transition: false
 
 # 隔离模式
 # 可选值: worktree-工作树 | branch-分支

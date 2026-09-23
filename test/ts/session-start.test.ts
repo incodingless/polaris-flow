@@ -215,6 +215,7 @@ describe('runSessionStart', () => {
       platformId: 'claude',
       pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris'),
       contextDir: '.claude',
+      hostForm: null,
     });
   });
 
@@ -262,6 +263,7 @@ describe('runSessionStart', () => {
       platformId: 'claude',
       pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris'),
       contextDir: '.claude',
+      hostForm: null,
     });
   });
 });

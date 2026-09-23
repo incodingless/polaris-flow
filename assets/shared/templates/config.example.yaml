@@ -59,7 +59,7 @@ model:
 
 # 上下文压缩
 # 可选值: off-关闭 | beta-开启
-context-compression: off
+context-compression: beta
 
 ####################
 # 运行配置 
