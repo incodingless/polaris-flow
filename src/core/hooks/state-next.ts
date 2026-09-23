@@ -96,6 +96,9 @@ export function buildSkillName(separator: string, family: string, skill: string)
  *
  * 2026-09-22 起出厂默认改为 manual（`false`）：每完成一个技能停下并提示用户新开会话，
  * 而不是在同一会话连跑。需要连续执行的用户显式设 `auto_transition: auto`。
+ *
+ * 配置联动（2026-09-23）：`auto_transition: 'auto'` 蕴含 `context_compression ≠ off`
+ * —— 「不能压缩却要自动跑」是非法组合，此处直接降级为 manual。
  */
 export function isAutoTransitionEnabled(
   config: ProjectPolarisConfig | null,
@@ -103,16 +106,28 @@ export function isAutoTransitionEnabled(
 ): boolean {
   // 类型声明为 'auto'|'off'，但历史落盘值可能为 boolean true/false（见 formatPolarisConfigYaml）。
   const cfg = config?.auto_transition as unknown;
-  if (cfg === 'auto') {
-    return true;
-  }
+
+  // 显式关闭优先：config 或任务级任一为 false/off 即 manual
   if (cfg === 'off' || cfg === false) {
     return false;
   }
-  if (taskState?.auto_transition === true) {
-    return true;
+  if (taskState?.auto_transition === false) {
+    return false;
   }
-  return false;
+
+  // 开启来源：config 'auto' 或任务级 true；两者都未声明 → 出厂 manual
+  const wantsAuto = cfg === 'auto' || taskState?.auto_transition === true;
+  if (!wantsAuto) {
+    return false;
+  }
+
+  // 配置联动（2026-09-23）：auto 蕴含 context_compression ≠ off。
+  // 「不能压缩却要自动跑」是非法组合（违背「每技能新开会话」原则），降级为 manual。
+  if (config?.context_compression === 'off') {
+    return false;
+  }
+
+  return true;
 }
 
 /**

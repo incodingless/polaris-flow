@@ -92,6 +92,29 @@ describe('isAutoTransitionEnabled', () => {
     expect(isAutoTransitionEnabled(null, null)).toBe(false);
     expect(isAutoTransitionEnabled({ auto_transition: 'auto' } as never, null)).toBe(true);
   });
+
+  it('配置联动：auto 蕴含 context_compression ≠ off', () => {
+    // 合法组合
+    expect(
+      isAutoTransitionEnabled(
+        { auto_transition: 'auto', context_compression: 'beta' } as never,
+        null,
+      ),
+    ).toBe(true);
+    // 非法组合 → 降级 manual
+    expect(
+      isAutoTransitionEnabled(
+        { auto_transition: 'auto', context_compression: 'off' } as never,
+        null,
+      ),
+    ).toBe(false);
+    // 任务级 auto 同样受联动约束
+    expect(
+      isAutoTransitionEnabled({ context_compression: 'off' } as never, {
+        auto_transition: true,
+      } as never),
+    ).toBe(false);
+  });
 });
 
 describe('formatStateNextOutput', () => {
