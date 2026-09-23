@@ -144,7 +144,7 @@ done
 
 名称与已有 `$REPO_ROOT/.polaris/tasks/` 目录冲突时，报告冲突并请用户另选。
 
-用户确认后，将 `task_id` 记入会话上下文（此时 **尚未** `mv` 目录）。进入 4.2。
+用户确认后，**`task_id` 随 4.2 写入的 `intention.md` 首行一并落盘** —— 那是本阶段名称的**唯一落盘载体**。**禁止**只把它留在会话上下文里（会话丢失后无从恢复）。此时 **尚未** `mv` 目录。进入 4.2。
 
 #### 4.2 写入 `intention.md`（仍在 draft 目录）：
 
@@ -167,7 +167,7 @@ done
 | 待决问题 | 探索中未关闭项 |
 | 下游约束 | 按模板固定条目 |
 
-首行任务标识暂用占位（与 finalize 脚本约定一致，如 `# intention: <TBD>`）；Step 5.4 回填为真实 `task_id`。
+首行任务标识**直接写 4.1 已确认的真实 `task_id`**（如 `# intention: refine-user-privilege`）——它是本阶段唯一的落盘任务身份，也是会话丢失后恢复 `task_id` 的依据。**不使用 `<TBD>` 占位**。
 
 写完进入 Step 5。
 
@@ -180,9 +180,10 @@ done
 #### 5.2 意图Lint评审
 
 ```bash
-LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/intention-validate.sh" "$REPO_ROOT/.polaris/tasks/$task_id/intention.md")
+LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/intention-validate.sh" "$REPO_ROOT/.polaris/tasks/$draft_name/intention.md")
 LINT_EXIT=$?
 ```
+> 注意路径用 `$draft_name`：`mv` 发生在 5.4，此处目录**仍是 draft 名**。
 - exit 0 → 通过  
 - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑
 
@@ -196,7 +197,7 @@ LINT_EXIT=$?
 
 | 用户回复 | 判定 | 后续动作 |
 | -------- | ---- | -------- |
-| 明确整体确认 | 完成 | 进入 5.3 |
+| 明确整体确认 | 完成 | 进入 5.4 |
 | 仅对某条/某节反馈 | **不算确认** | 修改后 **重新执行 5.2** |
 | 模糊回复（「差不多」「可以吧」） | **不算确认** | 必须再问一次明确确认 |
 | 沉默 / 无回复 | **不算确认** | 同上 |
@@ -205,7 +206,11 @@ LINT_EXIT=$?
 
 #### 5.4 敲定目录名并更新 state（finalize）
 
-将 draft 目录 `mv` 为正式 `task_id`，回填 intention 首行，更新 state / workflow：
+将 draft 目录 `mv` 为正式 `task_id`，更新 state / workflow（首行已是真值，**无需回填**）：
+
+> **会话丢失后的恢复**：`task_id` 从 `intention.md` 首行读（4.2 已写入真值）；`draft_name` 从
+> `.polaris/tasks/` 下的 `draft-*` 目录推断（多个则按 `./policies/decision-point.md` 让用户选）。
+> **两者都不依赖会话记忆** —— 这是本步可在新会话中执行的前提。
 
 ```bash
 FINAL_RESULT=$(bash "$PLUGIN_ROOT/scripts/specify-finalize.sh" "$REPO_ROOT" "<draft_name>" "<task_id>")

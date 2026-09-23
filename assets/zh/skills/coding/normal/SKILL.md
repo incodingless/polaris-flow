@@ -198,9 +198,11 @@ C. 超出常规需求 — 升到复杂链路（P03）
 - 「自行输入名称」选项
 - 提示：非合规输入（含中文）会转换为 kebab-case，**转换结果须回显并再次确认**
 
-名称与已有 `$REPO_ROOT/.polaris/tasks/` 目录冲突时（续写场景除外），报告冲突并请用户另选。确认后记入会话上下文（此时**尚未** `mv` 目录）。
+名称与已有 `$REPO_ROOT/.polaris/tasks/` 目录冲突时（续写场景除外），报告冲突并请用户另选。确认后**立即把 `task_id` 回填进 `intention.md` 首行** —— 该文件是名称的**唯一落盘载体**，**禁止**只留在会话上下文（会话丢失后无从恢复）。此时**尚未** `mv` 目录。
 
 #### 2.2 敲定目录名并更新 state（finalize）
+
+> **会话丢失后的恢复**：`task_id` 从 `intention.md` 首行读（2.1 已回填真值）；`draft_name` 从 `.polaris/tasks/` 下的 `draft-*` 目录推断 —— **两者都不依赖会话记忆**，本步因此可在新会话中执行。
 
 ```bash
 FINAL_RESULT=$(bash "$PLUGIN_ROOT/scripts/specify-finalize.sh" "$REPO_ROOT" "<draft_name>" "<task_id>")
