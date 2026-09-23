@@ -9,25 +9,28 @@
 这一步**始终发生**，与 `auto_transition` 无关。本协议的「自动衔接」决定**衔接方式**：
 manual 停下并请用户新开会话，auto 则先压缩上下文再执行下一个 skill（见下方两节）。
 
-> **2026-09-20 订正**：本节原写「由 guard `--apply` 完成，更新 `.polaris/workflow.yaml`
-> 和 `.polaris/<change_id>/state.yaml` 的 `phase` 字段」。那个 guard **在代码里不存在**
-> （全仓 grep 只命中本文件），且 `<change_id>` 路径早已失实（实际是
-> `.polaris/tasks/<task_id>/`）。真实机制就是上面那句内联命令。
->
-> 另需澄清：`state.yaml` 的 `phase` **不是**与游标同步维护的第二份真相，而是**只写不读的
-> 镜像**（`src/` 内零读取方；coding 族从不调用 `enter-phase/complete-phase`，其值长期停在
-> 建任务时写的入口阶段）。**权威始终是 `workflow.yaml` 的游标**，语义是「接下来要执行的
-> 阶段」。完整调研见开发仓的 `docs/specs/2026-09-19-phase-truth-unification-design.md`。
+> 推进机制只有这一条路径，**不存在** guard 之类的中间层。
+
+**进度判据：`workflow.yaml` 的游标是唯一权威** —— 语义是「接下来要执行的阶段」。
+`state.yaml` 的 `phase` 是**只写不读的镜像**（`src/` 内零读取方；coding 族从不调用`enter-phase/complete-phase`，其值长期停在建任务时写的入口阶段），**不得**用它判断进度。
 
 ## 执行方式
 
 退出条件满足、阶段产物落盘且阶段推进后，运行：
 
 ```bash
-node polaris-flow state next <change-name>
+polaris-flow state next <change-name>
 ```
 
-脚本根据 `phase`、`workflow`、`auto_transition` 输出确定性的下一步：
+它**只接收 `change-name`**（用于定位任务），三个判定值都由脚本自己读盘：
+
+| 判定值 | 来源 |
+|---|---|
+| `phase` | `.polaris/workflow.yaml` 中该任务条目的 `phase` —— 即上文所说的**游标**（唯一权威） |
+| `kind` | 同一条目的 `kind`，决定映射到哪个族的技能（coding / prd / prototype / debug） |
+| `auto_transition` | `.polaris/config.yaml` **与** `.polaris/tasks/<task_id>/state.yaml`；任一为 `off` / `false` 即 manual |
+
+输出确定性的下一步：
 
 - `NEXT: auto` → **先压缩上下文，再执行 `SKILL`**（见下「auto 模式」）
 - `NEXT: manual` → **不要**调用下一 skill；输出提示语，要求用户**新开会话并输入该技能名**（见下「manual 模式」）
@@ -37,19 +40,13 @@ node polaris-flow state next <change-name>
 `build` 技能）。例外（入口阶段、旁路阶段、技能名与阶段码未对齐的族）登记在阶段表的
 `skill` 字段上，不在本文件里另立清单。
 
-### manual 模式（出厂默认）
+### manual 模式
 
 命中条件：`auto_transition` 为 `false` / `'off'`，或任务 state 的 `auto_transition: false`。
 
-**输出提示语后停下**，不调用任何技能：
-
-```text
-[<族> <技能>] <阶段>完成，状态已落盘。
-请新开会话，执行 /<下一技能>。
-恢复：先读 <文件1>、<文件2> 的 <字段>，再从 <步骤> 继续。
-```
-
-> 「清空上下文」在本协议中**统一等于「用户新开会话」**，不存在第二种清空动作。
+**输出提示语后停下**，不调用任何技能。提示语**不在本节另立模板** —— 唯一来源是下方
+「压缩时机与恢复清单」的**层级 C 提示语模板**；manual 下下一技能必为跨技能，故固定取
+「**建议新开会话**」那一支（模板第 2 行的左支）。
 
 ### auto 模式
 
@@ -64,7 +61,7 @@ node polaris-flow state next <change-name>
 4. 按**本平台本形态的压缩动作**输出提示，**停下等用户完成压缩**：
    - 动作直接取自 SessionStart 注入的 `CONTEXT_COMPRESSION_ACTION`；
    - 宿主形态未知时该值为两种形态的合并描述（自动降级为双形式提示），无需技能侧写条件分支；
-   - 动作表与平台依据见 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §5.6.1。
+   - 动作表与平台依据见开发仓的 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §5.6.1。
 5. 用户确认完成后，执行 `SKILL`；
 6. 执行前重读恢复清单，校验落盘产物仍在（压缩后的防线）。
 
@@ -78,8 +75,7 @@ node polaris-flow state next <change-name>
 
 ## 压缩时机与恢复清单
 
-> **2026-09-23 起，本节的用词与两个模板是唯一来源**。技能正文只填自己的「读什么 / 从哪继续」，
-> 不再另立说法（原先「清空上下文」「清理上下文」「上下文整理」三种说法一并废止）。
+> **本节的用词与两个模板是唯一来源**。技能正文只填自己的「读什么 / 从哪继续」，不另立说法。
 
 ### 用词
 
@@ -107,6 +103,8 @@ node polaris-flow state next <change-name>
 
 ### 层级 C 提示语模板
 
+**本模板是 manual / auto 两种衔接模式的共同来源**，两者差异只在第 2 行取值与后续动作：
+
 ```text
 [<族> <技能>] <阶段名>完成，状态已落盘。
 下一步：/<下一技能>（<建议新开会话 | 可同会话继续>）。
@@ -116,9 +114,6 @@ node polaris-flow state next <change-name>
 - **跨技能**（下一技能 ≠ 本技能）→ 写「建议新开会话」；
 - **同技能内跨步骤** → 不必新开会话，按层级 A 处理；
 - **存在未过的人工门禁** → **不得**提压缩，先等确认。
-
-> 两种衔接模式下的差异见上文「执行方式」的两节：manual 直接停下并请用户新开会话并输入技能名；
-> auto 先按 `CONTEXT_COMPRESSION_ACTION` 提示用户压缩、其完成后再执行下一技能。
 
 ### 恢复清单四件
 
@@ -133,18 +128,10 @@ node polaris-flow state next <change-name>
 
 ## 阶段名的合法值
 
-**写入前请确认取值合法 —— 原语会校验**（2026-09-20 起）：`workflow-entry update-active
---set phase=X`、`append-active --phase=X`、`task-state-entry enter-phase/complete-phase
---phase|--next-phase` 都会拒绝未知阶段、打印合法集合并以退出码 3 中止。
+**写入前请确认取值合法 —— 原语会校验**：
+`workflow-entry update-active --set phase=X`、`append-active --phase=X`、`task-state-entry enter-phase/complete-phase --phase|--next-phase` 都会拒绝未知阶段、打印合法集合并以退出码 3 中止。
 
 - 合法值 = 该 kind 阶段表已登记阶段 ∪ `idle` ∪ 历史别名 `delivery`/`archive`
 - `idle` 不是阶段（「无阶段」空值），不占进度分母，但**允许写入**（存量数据与 initPatches 都写它）
 - 确需写入表外值（一次性修正存量数据）时加 `--force-phase`；**绕过不静默**，会记入
   `.polaris/overrides.log`（含当时合法集合，便于事后判断该不该放行）
-
-## 预设路由
-
-> ⚠️ **当前未实现**（2026-09-20 标注）。下面这段描述的是设想行为：`resolveNextSkillName`
-> 曾有 `_channel` 参数但从未使用，非 debug 族不做任何 mode/channel 分派。实现与否另案。
-
-`polaris-flow:hotfix` 时，`phase: build` 返回 `polaris{{SKN_SPR}}maintance{{SKN_SPR}}hotfix`；`polaris-flow:tweak` 时返回 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak`。其余 phase（`verify`、`archive`）按标准 Skill 名称返回（`polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`、`polaris{{SKN_SPR}}coding{{SKN_SPR}}ship`），不受 workflow 类型影响。预设 Skill 内部的"连续执行模式"可能覆盖 `auto_transition` 行为——详见对应预设的 `<IMPORTANT>` 块。
