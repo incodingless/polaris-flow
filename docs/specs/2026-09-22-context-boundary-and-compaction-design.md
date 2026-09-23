@@ -1,7 +1,7 @@
 # 上下文边界与压缩时机规范（设计提案）
 
 日期：2026-09-22
-状态：**批 1–7 已落地（2026-09-23）** —— 三条原则已由用户给定；D1、D2、D4、D5、D6 已决且落地，**D3 已决为「不做」**（单入口技能本就是组装形态，不加内部会话分段）；仅批 8（形态探测，需五平台真机实测）待做
+状态：**批 1–7 已落地（2026-09-23）** —— 三条原则已由用户给定；D1、D2、D4、D5、D6 已决且落地，**D3 已决为「不做」**（单入口技能本就是组装形态，不加内部会话分段）；**批 8 的实测方案与采集脚本已就绪（§5.6.4），待五平台真机执行后回填判据**
 触发：用户提出「技能边界应支持新开会话接续」「技能内压缩时机应有统一门槛」「委派材料与回报只走路径」三条原则，要求据此重整四条工作流（prd / coding / prototype / debug）的上下文策略
 上游：`docs/specs/2026-09-19-phase-truth-unification-design.md`（游标权威结论）、`docs/specs/2026-09-16-debug-workflow-design.md`（已作废）
 范围：只定**边界契约**与**压缩时机**；不含技能内部业务分支逻辑，不改 Dashboard
@@ -337,7 +337,7 @@ compressionAction?: { ide?: string; cli?: string };
 | 优先级 | 判据 | 状态 |
 |---|---|---|
 | ① | `config.yaml` 的 `host-form: ide \| cli`（显式声明） | ✅ 确定可用（新增字段） |
-| ② | 宿主信号（平台特有 env / PPID 进程名） | ⚠️ **未实测**，需五平台逐一验证 |
+| ② | 宿主信号（平台特有 env / PPID 进程名） | 🔶 **方案已就绪，待实测** → 见 **§5.6.4** |
 | ③ | `'unknown'` | ✅ **不猜**，交给消费方降级 |
 
 > **已排除的判据**：Claude Code SessionStart 的 `source` 取值是 `startup / resume / clear / compact`，
@@ -366,6 +366,129 @@ compressionAction?: { ide?: string; cli?: string };
 **⑤ 落地顺序** —— 先打通 ① + ③（config 显式 + unknown 兜底），让提示语先有确定载体；
 ②（PPID / env 探测）作为后续增强：**探测每一步都要在真机实测，不实测不进规范**。
 
+#### 5.6.4 ② 级探测：实测方案与证据（⏳ 待五平台实测，2026-09-23 起）
+
+**已确认的前提（本地实测，2026-09-23）** —— 上一轮 §5.6.3 写「② 没查到可靠判据」，这一轮实测推翻了
+「无判据可用」的悲观结论：**宿主暴露自身形态，这个模式确实存在**。在编写本方案所用的宿主上，
+`scripts/host-probe.sh` 直接采到：
+
+```text
+CLIENT_INFO_IDE_TYPE=WorkBuddy
+CLIENT_INFO_PLATFORM=WorkBuddy
+CODEBUDDY_HOST=workbuddy-desktop              ← `-desktop` 后缀 = IDE 形态（而非 cli）
+CLIENT_INFO_USER_AGENT_EXTENSION=CLI/2.137.1  ← `CLI/` 前缀
+WORKBUDDY_APP_NAME=WorkBuddy
+```
+
+⇒ 准确的说法不再是「没有判据」，而是：**判据存在，但键名与取值按宿主而异，必须逐台确认**。
+② 级的可行性问题因此转为**工作量问题**——这也是本方案要收敛的东西。
+
+**⓪ 先做减法：形态维度只对「两种形态动作不同」的平台有意义**
+
+| 平台 | `compressionAction.ide` vs `.cli` | 是否需要形态探测 |
+|---|---|---|
+| Claude Code | 相同（都是 `/compact`） | ❌ **不需要** |
+| Cursor | 相同（都是 `/summarize`） | ❌ **不需要** |
+| Trae | 不同（按钮 / `/compact`） | ✅ 需要 |
+| Trae-CN | 不同（按钮 / `/compact`） | ✅ 需要 |
+| Qoder | 不同（按钮 / `/compact`） | ✅ 需要 |
+
+⇒ **实测范围缩减到 3 个平台**。`resolveHostForm` 的调用方（`resolveCompressionAction`）本就会
+在两侧描述相同时去重，所以这条减法**不改变任何对外行为**，只是把 10 次采集（5 平台 × 2 形态）
+压到 6 次。建议把它写成 `resolveHostForm` 的**短路条件**：平台两侧动作相同 → 直接不探测。
+
+**① 形态存在性核查**（先做，成本最低；`host-probe.sh` 的 `[5]` 段直接回答）
+
+| 平台 | IDE 形态 | CLI 形态 | 待核问题 |
+|---|---|---|---|
+| Claude Code | ？（VS Code / JetBrains 扩展算不算独立形态） | ✅ 终端 CLI | 扩展内的压缩入口是否与终端一致 |
+| Cursor | ✅ 侧边栏面板 | ？（`cursor-agent` CLI 是否存在） | CLI 是否存在；若存在，入口是否同 `/summarize` |
+| Trae | ✅ SOLO Agent 面板 | ？ | CLI 是否存在 |
+| Trae-CN | ✅ 同 Trae | ？ | 同上 |
+| Qoder | ✅ 面板（Smart Context Control） | ？ | 同上 |
+
+> **若某平台不存在 CLI 形态** → 形态维度对它退化为常量，`compressionAction` 的 `cli` 格应删，
+> 该平台永久走 `ide` 描述。**「猜一个 cli 值」比「没有 cli 值」更糟**——后者是数据问题，
+> 前者会给出一个用户永远无法执行的动作。
+
+**② 信号采集协议**
+
+采集工具：`scripts/host-probe.sh`（只读，不写 `.polaris/`、不联网、不输出含密钥的变量值）。
+
+```bash
+# 在每个平台、每种形态**各自的对话窗口内**，让 agent 执行：
+bash scripts/host-probe.sh --label "<平台>/<形态>" --out /tmp/host-probe.md
+```
+
+- **采集点必须是「该形态的对话窗口内、由 agent 执行」** —— 我们要的是 **agent 进程的父链**。
+  在普通终端手工执行采到的是终端自己的父链，性质不同，**不能混用**。
+- 同一平台两种形态各一次，`--label` 区分；追加到同一文件，便于并排对比。
+- **受限环境（agent 沙箱禁 `ps`）下 `[2][3]` 段必为空**，脚本会打印醒目警告。
+  这种采集**无效**，需在不受限环境重跑。本方案编写时即在受限环境，故上述 `[2]` 段未采到
+  ——**这也是必须由你在真机上执行的原因**。
+
+**③ 判据优先级与假设（待验证，勿当结论用）**
+
+| 序 | 信号 | 假设 | 失效场景（必须一并记录） |
+|---|---|---|---|
+| a | 客户端元信息 env（`*_HOST` / `CLIENT_INFO_*` / 平台前缀） | 形如 `*-desktop` / `*-cli` 的取值可直接判定 | 该宿主不暴露；或值只标平台不标形态 |
+| b | agent 进程的**直接父进程是否 shell** | IDE 面板发起 → 父为 IDE 主进程；CLI 发起 → 父为 shell | **IDE 内置终端**里跑 CLI：链上同时有 IDE 与 shell |
+| c | 父链上是否出现终端程序（`iTerm` / `Terminal` / `Warp`） | 出现 → CLI | 用户从 IDE 内置终端启动，仍是 IDE 界面 |
+| d | tty 状态 | — | **不可用**：agent 执行命令时自己捕获 stdout，恒为非 tty |
+
+> **b / c 的失效场景是同一个**：`Trae IDE 内置终端` 在进程链上与 `Trae CLI` 高度相似。
+> 这正是**必须实测而非推理**的原因——若实测确认二者不可分，② 级判据就只剩 a；
+> 而 a 若也不成立，则 ② 级作废，**退回「config 显式 + unknown 双形式提示」**（即 §七 D6 的 B 案）。
+> 这个退路是**可接受**的：它只是提示语啰嗦一点，不会给出错误动作。
+
+**④ 判定表（待填 —— 实测后回填本节）**
+
+| 平台 | 形态 | 关键判据（信号名 + 实测值） | 是否可分 | 备注 |
+|---|---|---|---|---|
+| Trae | ide | | | |
+| Trae | cli | | | |
+| Trae-CN | ide | | | |
+| Trae-CN | cli | | | |
+| Qoder | ide | | | |
+| Qoder | cli | | | |
+
+**⑤ `resolveHostForm` 的落地形态**（骨架先立，判据待 ④ 填完后替换 `TODO`）
+
+```ts
+/**
+ * 三级链：config 显式 → 宿主信号 → unknown（不猜）。
+ * 短路：平台两侧压缩动作相同时，形态对结果无影响 → 直接返回 null（不探测）。
+ * 实测依据见 docs/specs/2026-09-22-…§5.6.4；**未实测的信号不得进入本函数**。
+ */
+export function resolveHostForm(
+  platformId: string,
+  config: ProjectPolarisConfig | null,
+  env: Record<string, string | undefined>,
+): HostForm | null {
+  const fromConfig = normalizeHostForm(config?.host_form);
+  if (fromConfig) return fromConfig;                    // ① 显式优先
+  if (!needsHostForm(platformId)) return null;          // 短路：两侧动作相同
+  return detectHostFormFromEnv(platformId, env);        // ② 待实测填充；未命中 → null
+}
+```
+
+**⑥ 隐私红线**（写进脚本，也写进规范）
+
+- env **永不整体 dump**：只取白名单前缀 + 具名候选键。
+- 变量名含 `KEY` / `TOKEN` / `SECRET` / `PASSWORD` / `CREDENTIAL` / `AUTH` / `API` → **一律跳过**。
+- `[7b]` 段只输出**键名**，不含值。
+- 采集产物含机器路径与进程信息 → 属**本机诊断数据**，只用于回填本文档，不进仓库。
+
+**⑦ 阶段 2：hook 侧采集**（仅在阶段 1 的 ③a 不可判定时启用）
+
+阶段 1 采的是 **agent shell 的 env**，而注入 `HOST_FORM` 的是 **hook 进程**；两者都由宿主 spawn，
+env 大概率同源但**并非同一份**。若阶段 1 在某种形态下采不到判据，再走 hook 侧：
+
+- 在 `src/commands/hooks/session-start.ts` 加一个门控 dump（`POLARIS_HOST_PROBE=1` 时写出
+  `.polaris/.cache/host-probe.json`），复用 `persistSubagentProbeCache` 的现成写法；
+- 代价：改码 + 重建 + 五个平台重装 hook。**故不先做**。
+- **不要**用 `hookDebug` 做采集通道——它写 stderr，去向由宿主决定，不可靠。
+
 ---
 
 ## 六、落地方案（改动清单）
@@ -381,7 +504,7 @@ compressionAction?: { ide?: string; cli?: string };
 | **批 5｜委派契约收紧** | D2 取 **B 案**：D-0.1 体积闸门（`materials` 合计 ≤300 行，超限改换 agent 或降级 inline）、D-0.2 保守策略反转（不确定走 D-1）；默认 subagent 分支纳入闸门；回报契约收紧为 `status` / `artifact_path` / `concerns` 三件，全部 task_type 增强改为「先落盘、只报路径」；`prd/refine` 返回消费与 `output_path` 落点同步；另实现 `auto ⟹ compression ≠ off` 联动校验 | ✅ 2026-09-23 |
 | **批 6｜落盘补齐** | D5 取「复用产物文件首行」案：`specify` 首行写真实 `task_id`、`normal`/`tweak` 确认后回填；finalize 恢复路径不再依赖会话。另修 5.2 lint 路径与 5.3 编号笔误；`prototype/review` 补「上下文压缩恢复」 | ✅ 2026-09-23 |
 | **批 7｜措辞与提示语归一** | 协议层新增「压缩时机与恢复清单」一节（用词 + 层级 A/C 模板 + 恢复清单四件，作为**唯一来源**）；15 处技能措辞归一（清空 / 清理 / 整理上下文 → **压缩上下文**；2 处「清空并输出」改为「输出含恢复清单的阶段提示」）；6 个技能补恢复章节 | ✅ 2026-09-23 |
-| **批 8｜形态探测增强** | §5.6.3 ②：PPID 进程名 / 平台 env 探测，逐平台实测后进规范 | ⏳ 待决（依批 3 结论） |
+| **批 8｜形态探测增强** | §5.6.4：**实测方案 + 采集脚本 `scripts/host-probe.sh` 已就绪**。含：⓪ 范围先减到 Trae / Trae-CN / Qoder（Claude Code / Cursor 两侧动作相同，探测无意义）；① 形态存在性核查表；② 采集协议（含受限环境降级）；③ 判据优先级与**失效场景**；④ 判定表（待填）；⑤ `resolveHostForm` 骨架；⑥ 隐私红线；⑦ hook 侧阶段 2（不先做） | 🔶 方案就绪，**待真机实测回填** |
 
 > 批次编号已于 2026-09-22 按**实际执行顺序**重排（原表的「批 2 契约收紧 / 批 3 落盘补齐」顺延为批 5 / 批 6），
 > 以免与已落地的批次混淆。
@@ -399,7 +522,7 @@ compressionAction?: { ide?: string; cli?: string };
 | **D3** | 单入口技能分段点 | ✅ **已决（2026-09-23）：不做** —— `tweak` / `normal` 本就是「**组装**」形态（把多段流程组装进一个入口），不在内部加会话分段；需要分段能力的场景直接走底层多技能链（`specify → plan → … → verify`） | `tweak` / `normal` |
 | **D4** | `context-recovery.md` | ✅ **已决并落地（2026-09-22）：删除**（零引用 + 内容为 comet 时代遗留） | 1 个 policy |
 | **D5** | 待定名落盘载体 | ✅ **已决并落地（2026-09-23）：复用产物文件首行**（`intention.md` / `change-brief.md`），不新增文件、不改 `specify-finalize.sh` 签名 | `coding/{specify, normal, tweak}` |
-| **D6** | **宿主形态维度** | ✅ **已决（2026-09-22）：A 案** —— `Platform.compressionAction` 按形态分列 + `config.host-form` 显式声明 + `resolveHostForm` 三级链（显式 → 宿主信号 → `unknown` 不猜）+ 注入 `HOST_FORM` / `CONTEXT_COMPRESSION_ACTION`。落法见 §5.6.3；探测手段留批 8 | `platforms.ts` + SessionStart + config + 全部衔接提示语 |
+| **D6** | **宿主形态维度** | ✅ **已决（2026-09-22）：A 案** —— `Platform.compressionAction` 按形态分列 + `config.host-form` 显式声明 + `resolveHostForm` 三级链（显式 → 宿主信号 → `unknown` 不猜）+ 注入 `HOST_FORM` / `CONTEXT_COMPRESSION_ACTION`。落法见 §5.6.3；**② 级探测方案见 §5.6.4（待真机实测回填）** | `platforms.ts` + SessionStart + config + 全部衔接提示语 |
 
 > **D1–D6 全部已决**（D1/D2/D4/D5/D6 已落地；D3 决定不做）。批次进度见 §六 —— 仅**批 8（形态探测增强）**待做，且它需要五个平台的真机实测才能进规范。
 >

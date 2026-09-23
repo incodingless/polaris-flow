@@ -57,16 +57,26 @@ model:
   # 挑战模型
   challenger: DeepSeek-V4-Pro
 
-# 上下文压缩
-# 可选值: off-关闭 | beta-开启
-context-compression: beta
-
 ####################
 # 运行配置 
 ####################
 # 协作模式
 # 可选值: solo-单人协作 | team-多人协作
 kind: "solo"
+
+# 上下文压缩
+# 可选值: off-关闭 | beta-开启
+context-compression: beta
+
+# 自动衔接下一阶段
+# 可选值: auto-自动衔接（须 context-compression 非 off）| off-手动衔接
+# 出厂默认 off：每个技能完成后停下，提示新开会话并输入下一技能名
+auto-transition: off
+
+# 宿主形态（影响「压缩上下文」的提示语：IDE 点按钮 / CLI 输入斜杠命令）
+# 可选值: ide-IDE 面板 | cli-命令行
+# 留空（""）= 未声明 → 提示语同时给出两种形式（不猜，见设计文档 §5.6.3）
+host-form: ""
 
 ####################
 # 高级配置 
