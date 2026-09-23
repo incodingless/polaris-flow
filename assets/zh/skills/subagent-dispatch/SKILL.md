@@ -37,7 +37,7 @@ description: Subagent 派发执行技能。接收 platform、已选定的 agent�
   - `task_description`：任务的具体描述（做什么、产出什么）
   - `task_type`：任务类型（见 `subagent-probe` 的 `references/task-type-mapping.md`）
   - `materials`：材料路径清单（可选；subagent 需要读取的文件路径数组）
-  - `constraints`：约束条件（可选；如允许修改的文件范围、禁止执行的操作、输出格式要求等）
+  - `constraints`：约束条件（可选；如允许修改的文件范围、禁止执行的操作、输出格式要求等）。**建议包含 `output_path`**（subagent 产出文件的落盘路径）——回报契约要求产出先落盘、只报路径
   - `language`：输出语言（可选；默认跟随主会话语言）
 
 > **agent=null 的场景**：
@@ -68,8 +68,8 @@ dispatch:
   reason: <短说明>
 result:
   status: <subagent 回报状态：DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT | FAILED>
-  output: <subagent 产出内容或路径>
-  concerns: <顾虑清单，无则 []>
+  artifact_path: <产出文件路径；未产出文件则 null>
+  concerns: <短列表，无则 []>
 ```
 
 | `dispatch.status` | 含义 | 调用方应执行 |

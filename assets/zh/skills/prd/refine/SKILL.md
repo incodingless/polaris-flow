@@ -316,6 +316,7 @@ LANG_EXIT=$?
     - Baseline 路径
     - `polaris{{SKN_SPR}}prd{{SKN_SPR}}review` 技能 SKILL.md 路径（供 subagent 加载评审方法）
   - `constraints`：
+    - `output_path: $REPO_ROOT/.polaris/tasks/<task_id>/final/review-business-dispatch.md` —— **subagent 必须把评审报告写入该文件，回报只给路径；禁止把报告正文贴回**
     - 只评审，**禁止**修改任何文档文件
     - 问题必须分级（P0/P1/P2/P3），阻塞问题（P0）必须明确标注
     - 评审范围：全量章节（或按用户指定章节子集）
@@ -329,7 +330,7 @@ LANG_EXIT=$?
 
 | `dispatch.status` | 处理动作 |
 |---|---|
-| `dispatched` | 已按选定 agent 派发执行；消费 `result.status` 与 `result.output` |
+| `dispatched` | 已按选定 agent 派发执行；消费 `result.status` 与 `result.artifact_path` |
 | `degraded_default` | agents 为空时传 agent=null + hint=default_subagent 的正常结果；已派默认 subagent，消费 `result` |
 | `degraded_inline` | 已由主代理 inline 执行；消费 `result`；在评审报告中标注「由主代理内联评审」 |
 | `unsupported` | 派发失败（如平台无默认 subagent）；降级为主代理 inline 执行（见下方） |
@@ -350,7 +351,7 @@ LANG_EXIT=$?
 
 subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
-- `DONE` / `DONE_WITH_CONCERNS`：接收 `result.output`（评审报告内容或路径），落盘到 `final/full_review_report.md` 的业务评审部分
+- `DONE` / `DONE_WITH_CONCERNS`：**只读 `result.artifact_path`** —— 读该文件内容写入 `final/full_review_report.md` 的对应部分（不要求 subagent 把报告正文贴回）
 - `BLOCKED`：记录 `result.concerns`，向用户报告阻塞原因，暂停 Step 3 后续
 - `NEEDS_CONTEXT`：按 `result.concerns` 补充上下文后重新派发（同一 agent）
 - `FAILED`：降级为主代理 inline 执行（自动，见上方「inline 降级」）
@@ -376,6 +377,7 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
     - `final/prd_final_draft.md`（与 4.1 共用同一文件，禁止各自指向不同版本）
     - `polaris{{SKN_SPR}}prd{{SKN_SPR}}testability` 技能 SKILL.md 路径（供 subagent 加载检查方法）
   - `constraints`：
+    - `output_path: $REPO_ROOT/.polaris/tasks/<task_id>/final/review-testability-dispatch.md` —— **subagent 必须把报告写入该文件，回报只给路径；禁止把报告正文贴回**
     - 只评审，**禁止**修改任何文档文件
     - 每个不可测点必须给出具体的验收标准补全建议
     - 评审范围：全量章节（或按用户指定章节子集）
@@ -389,7 +391,7 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
 验收标准完整性、业务规则可判定性、场景覆盖充分性、数据指标可验证性。四维度必须全部检查。
 
-**返回结果处理**：与 4.1 相同的 `result.status` 处理逻辑；接收后落盘到 `full_review_report.md` 的可测性检查部分。
+**返回结果处理**：与 4.1 相同的 `result.status` 处理逻辑；**只读 `result.artifact_path`**，把该文件内容写入 `full_review_report.md` 的可测性检查部分。
 
 ### 4.2.1 并行执行与结果汇总
 
