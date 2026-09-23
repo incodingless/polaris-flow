@@ -241,16 +241,21 @@ coding 三模式（`tweak` / `normal` / `full`）不改变 phase 名，只决定
 
 ### 枚举的真相来源
 
-裁定依据是 **`assets/zh/skills/README.md` §阶段一览** 与各 kind 的 `state.yaml` 模板注释（两者互洽）。以下 in-repo 文本与本表**不一致，均属陈旧，不作为实现依据**：
+裁定依据是 **`src/core/config/task-kind-layout.ts`**（实现，权威）与各 kind 的 `state.yaml` 模板注释
+（`assets/shared/templates/*.yaml` —— 入仓，且随安装落盘；两者互洽）。本节的枚举表即由 `task-kind-phases.test.ts` 与前者对齐。
+
+`assets/zh/skills/README.md` §阶段一览 只是**人读概览** —— 该文件不入仓、也不随安装走，**不作裁定依据**。
+
+以下 in-repo 文本与本表**不一致，均属陈旧，不作为实现依据**：
 
 | 陈旧处 | 它写的 | 为什么不算数 |
 | --- | --- | --- |
 | `assets/shared/templates/workflow-template.yaml:16` 注释 | coding 为 `specify \| plan \| design \| build \| verify \| delivery`（缺 `tasks`、用 `delivery`） | 与技能 README 和 state 模板都矛盾 |
 | `assets/shared/templates/workflow-template.yaml:68` 注释 | debug 为 `triage \| diagnose \| prescribe \| patch \| prove \| closeout` | 六段时代遗留 |
-| `docs/specs/2026-09-16-debug-workflow-design.md` | debug 六阶段 | 该文档自身在 debug README 里被声明为「成文于六段时代，阶段名以 README 为准」；2026-09-17 已三阶段合并 |
+| `docs/specs/2026-09-16-debug-workflow-design.md` | debug 六阶段 | 2026-09-17 已三阶段合并为 `diagnose → patch → closeout`；该文档头部已加作废标注 |
 | `src/core/config/task-kind-layout.ts` 的 debug `initialPhase: 'triage'` | 起始阶段 `triage` | **已于 M2 修正为 `diagnose`**（debug 实际起始于 `diagnose`，见 `debug/diagnose/SKILL.md:133`） |
 
-debug 三阶段合并的原始记录：`assets/zh/skills/debug/README.md:7`。
+debug 三阶段合并的原始记录：`assets/zh/skills/debug/README.md:7`（该文件**不入仓、不随安装走**，仅作本地线索；阶段值仍以上表为裁定依据）。
 
 ## 七、契约变更流程
 

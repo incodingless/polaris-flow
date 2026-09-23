@@ -6,7 +6,6 @@
 > `diagnose`；`prove` 并入 `patch` 的 1.5 步（生产通道的独立验证节）。最终只剩
 > **`diagnose` → `patch` → `closeout`** 三个阶段。
 >
-> - 阶段名以 `assets/zh/skills/debug/README.md` 为准（该 README 亦声明本文档「成文于六段时代」）
 > - 合法阶段值的**唯一真相**是 `src/core/config/task-kind-layout.ts` 的阶段表；
 >   写入时由 `workflow-entry` / `task-state-entry` 校验（`triage` 等旧名会被拒）
 >

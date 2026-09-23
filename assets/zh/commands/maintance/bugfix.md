@@ -17,3 +17,6 @@ description: 修复测试缺陷
 ```
 diagnose（诊断与方案）→ patch（实现与自验）→ closeout（关闭Bug + 自有收尾归档）
 ```
+
+阶段之间的衔接由**各阶段技能在自己的出口**判定（`polaris-flow state next` 读 `auto_transition`，见 `policies/auto-transition.md`）；
+本命令**不代做判定**，也不得在同一会话硬续跑。

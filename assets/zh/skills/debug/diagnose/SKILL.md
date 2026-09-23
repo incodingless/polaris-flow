@@ -334,7 +334,36 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active \
   --where-task-id "$issue_id" --set phase=patch
 ```
 
-提示走 `polaris{{SKN_SPR}}debug{{SKN_SPR}}patch`。
+输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
+—— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
+
+```text
+[polaris-flow 调试]缺陷修复 - 阶段完成，状态已落盘。
+下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+恢复：先读 .polaris/tasks/<issue_id>/ 的 diagnose-brief.md 与 rca-report.md（有 tasks.md 一并读），再从下一步技能的 Step 0 开始。
+```
 
 - 复现不稳 / 三对齐缺项 → 原地补信息，**不**推进；无证据偶发 → 停止，不推进
 - 范围超界（跨 3+ 模块 / schema 变更 / 数据迁移 / 对外 API breaking）→ 停止，转 `coding/normal`（保留 rca-report 与 tasks.md 作输入）
+
+## 上下文压缩恢复
+
+重载：`issue_id`（= `task_id`）、`channel`（`bugfix` / `hotfix`）、`worktree_path`、任务目录下已落盘的产出
+（`diagnose-brief.md` / `rca-report.md` / `tasks.md` / 保全与止血回填）、`state.yaml` 的 `runtime.diagnose`、停在哪一步。
+
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
+- 停在 **Step 1–2（存量检查 / 收集问题单 + 初始化）** → 已建任务按 Step 1 的存量分支续跑，不重复建目录
+- 停在 **Step 3（工作区准备）** → 先确认 worktree / 分支是否已建，再续
+- 停在 **Step 4–5（档案落盘 / 根因分析）** → 读已落盘的 `diagnose-brief.md`，从未补齐的节续做
+- 停在 **Step 6（设计修复方案）** → 只补 `tasks.md` 与 `tasks-lint`，**不重做**根因分析
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
+
+```bash
+polaris-flow state next <change-name>
+```

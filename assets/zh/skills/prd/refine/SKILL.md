@@ -550,12 +550,14 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind requirement -
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine --next-phase ship
 ```
 
-3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**；跨技能 → 建议新开会话）：
+3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+   先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
+   —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 
 ```text
 [polaris-flow 需求工程] 完善终稿 - 阶段完成，状态已落盘。
-下一步：/polaris{{SKN_SPR}}prd{{SKN_SPR}}ship（建议新开会话）。
-恢复：先读 .polaris/tasks/<task_id>/final/prd-final-v1.0.md 与 final/sessions/chapter_state.md，再从 ship 的 Step 0 开始。
+下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+恢复：先读 .polaris/tasks/<task_id>/final/prd-final-v1.0.md 与 final/sessions/chapter_state.md，再从下一步技能的 Step 0 开始。
 ```
 
 ---
@@ -579,6 +581,17 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase --repo-root "$REP
 - 模板章节清单与追溯矩阵已落盘，无需重新构建
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」；
   **不要**用 `state.yaml.phase` 判断进度（它是非权威镜像）
+
+---
+
+## 自动衔接下一阶段
+
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
+
+```bash
+polaris-flow state next <change-name>
+```
 
 ---
 

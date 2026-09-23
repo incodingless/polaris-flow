@@ -42,7 +42,7 @@ RTID_EXIT=$?
 
 - **唯一匹配**：直接读取 `task_id`
 - **多个匹配**：**暂停等用户选**——列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 检测 阶段的 active change，请先执行 /polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose」
+- **零匹配**：阻断，提示「未找到 实现与自验 阶段的 active change，请先执行 /polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose」
 
 > 若选择的任务已是 `phase=patch`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
 > 若上次中断在 “修复” 中（`patch.status=in_progress`），从中断点续跑；不得因「已是 patch」而报零匹配。
@@ -66,8 +66,8 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_R
 
 执行脚本：
 ```bash
-LANG = $(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
-LANG_EXIT = $?
+LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
+LANG_EXIT=$?
 ```
 
 - `LANG_EXIT != 0` → 使用当前用户请求语言
@@ -120,19 +120,65 @@ mkdir -p "$REPO_ROOT/.polaris/tasks/<task_id>/reviews"
 
 - 用户选 A，检查回填内容：**五维通过（功能回归 / 数据兼容含脚本重复执行 / 性能无退化 / 边界异常 / **回滚演练有效**）。无法执行的项已在「未覆盖项」标注原因。
 
-#### 1.6 修复收尾 + 压缩上下文
+#### 1.6 修复收尾
 
 1. 输出 `[polaris-flow 调试]缺陷修复 - 问题完成修复及验证：问题单号=<task_id>`
 
-2. 更新任务状态
-
-3. 压缩上下文（用词与模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」）
-
-4. 引导进入下一阶段
+2. 推进阶段 —— 见「## 推进与回流」（`complete-phase` + `update-active --set phase=closeout`）
 
 
 ## 推进与回流
 
-- 过门禁 → `complete-phase --phase patch --next-phase closeout` + `update-active --set phase=closeout`，提示走 `polaris{{SKN_SPR}}debug{{SKN_SPR}}closeout`（两通道相同）
+**过门禁**（两通道相同）→ 推进到 `closeout`：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --kind debug --task-id "$task_id" \
+  --phase patch --next-phase closeout
+
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active \
+  --kind debug --skill patch --repo-root "$REPO_ROOT" \
+  --where-task-id "$task_id" --set phase=closeout
+```
+
+输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
+—— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
+
+```text
+[polaris-flow 调试]缺陷修复 - 阶段完成，状态已落盘。
+下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+恢复：先读 .polaris/tasks/<task_id>/reviews/verification.md 与 tasks.md 的勾选进度，再从下一步技能的 Step 0 开始。
+```
+
+**回流**（不是推进）：
+
 - 用例失败、止于代码实现 → 段内重改
-- 用例失败、方案本身不成立 → 回 `debug:diagnose`（`update-active --set phase=diagnose` + `regressions[]` 留痕）
+- 用例失败、方案本身不成立 → 回 `debug:diagnose`，并同步在 `regressions[]` 留痕：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active \
+  --kind debug --skill patch --repo-root "$REPO_ROOT" \
+  --where-task-id "$task_id" --set phase=diagnose
+```
+
+## 上下文压缩恢复
+
+重载：`task_id`、`channel`、`worktree_path`、`tasks.md` 的勾选进度、`reviews/verification.md`（自验节 + 独立验证回填）、
+`state.yaml` 的 `runtime.patch`、`regressions[]`、停在哪一步。
+
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
+- 停在 **1.1–1.3（修复 / 边界 / 回归）** → 读 `tasks.md` 勾选与当前 diff，从未完成的改动续做；不重写已通过的用例
+- 停在 **1.4（自验节）** → 只补 `reviews/verification.md` 的自验节
+- 停在 **1.5（独立验证，仅生产通道）** → 回填未齐则重新发起询问，**不得**自行判定通过
+- 停在 **1.6（修复收尾）** → 只补阶段推进，**不重做**修复
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
+
+```bash
+polaris-flow state next <change-name>
+```

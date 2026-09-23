@@ -263,15 +263,17 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
 
 未关闭的 `WEB-DESIGN-CHANGE-XXX` 与 Step 5 复核里的 ⚠️ 项随交接材料一并交给 `ship`，作为它派发评审时的取证输入
 
-2. 压缩上下文
+2. 输出阶段完成状态行：`[polaris-flow 原型] 交付原型 - 已完成构建，机器人工双自检评审，当前任务成功完成。`
 
-重载：原型路径、输出目录、已完成到哪个 Step、`page-structure.md` 是否落盘、`flow.json` 是否生成、`verify` 最近一次退出码、未关闭的 `WEB-DESIGN-CHANGE-XXX`。
+3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+   先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
+   —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 
-- **恢复依据就是落盘的产出物**——`state.yaml` 只存身份与指针，不存进度，产物即状态
-- 停在 Step 3.x → 按已落盘的最后一份文档续做
-- 停在 Step 4.1 → 从 `scaffold` / 页面主体续写；停在 Step 4.2 → 从 `verify` 重跑；停在 Step 5 → 补齐缺失交付物
-
-3. 输出：`[polaris-flow 原型] 交付原型 - 已完成构建，机器人工双自检评审，当前任务成功完成。`
+```text
+[polaris-flow 原型] 原型交付 - 环节完成，状态已落盘。
+下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+恢复：先读 .polaris/tasks/<task_id>/state.yaml 的 work_dir，再核对该目录下的交付物、page-structure.md、flow.json 与 verify 最近一次退出码，从下一步技能的 Step 0 开始。
+```
 
 **本技能到此结束**——评审、归档与任务收尾都属于 `ship`，不在本环节代做。
 
@@ -282,7 +284,28 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
 3. 骨架与增删页面走的是 `scaffold.mjs`，未手工编辑区域标记外的内容
 4. 蓝图缺口已全部标记 `WEB-DESIGN-CHANGE-XXX` 并写进 `handoff.md`，**未私自改写蓝图**
 5. 已在 Step 5 的交付阻塞点发起询问并**等待用户选择**——选择前不推进 `ship`，也不得结束流程（评审结论不属本技能的退出条件）
-6. 用户选择 A 后已执行 **Step 6.1**：`phase: ship` 与 `build.status: completed` 已落盘，交接材料已交出（选 B / C 时本条不适用）
+6. 用户选择 A 后已执行 **Step 6** 的推进与收尾（`phase: ship` 与 `build.status: completed` 已落盘、阶段完成提示已输出），交接材料已交出（选 B / C 时本条不适用）
+
+---
+
+## 上下文压缩恢复
+
+重载：原型路径、输出目录、已完成到哪个 Step、`page-structure.md` 是否落盘、`flow.json` 是否生成、
+`verify` 最近一次退出码、未关闭的 `WEB-DESIGN-CHANGE-XXX`。
+
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
+- 停在 **Step 3.x** → 按已落盘的最后一份文档续做
+- 停在 **Step 4.1** → 从 `scaffold` / 页面主体续写；停在 **Step 4.2** → 从 `verify` 重跑；停在 **Step 5** → 补齐缺失交付物
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
+
+```bash
+polaris-flow state next <change-name>
+```
 
 ---
 

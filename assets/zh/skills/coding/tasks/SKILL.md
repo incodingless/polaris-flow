@@ -387,8 +387,18 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
   review-report : openspec/changes/<task_id>/reviews/tasks-review-report.md
   outside-voice : <ran | skipped:...>
   STATUS        : <DONE | DONE_WITH_CONCERNS>
+```
 
-下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}build（按 tasks.md 由 implementer 执行 /opsx:apply）。
+执行方式：按 `tasks.md` 由 implementer 执行 `/opsx:apply`。
+
+输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
+—— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
+
+```text
+[polaris-flow 开发]任务规划 - 阶段完成，状态已落盘。
+下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+恢复：先读 openspec/changes/<task_id>/tasks.md、reviews/tasks-review-report.md 与 .polaris/tasks/<task_id>/state.yaml 的 runtime.tasks，再从下一步技能的 Step 0 开始。
 ```
 
 ## 退出条件

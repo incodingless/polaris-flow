@@ -225,3 +225,20 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement -
 输出：`[polaris-flow 需求工程] 交付PRD终稿 - 已经完成文档交付，当前任务成功完成。(⁎⚈᷀᷁ᴗ⚈᷀᷁⁎)`
 
 并附上交付信息：需求中文名、需求编号前缀、交付文件名、文档库目标路径、**研发就绪度判定结论**（若为 CONDITIONAL 附遗留缺陷数；若为 risk-accepted 明确标注「未通过就绪度评估，风险已接受」）。
+
+---
+
+## 上下文压缩恢复
+
+本技能的中断恢复规则**在 Step 0 的「中断恢复」**（由 `ship.readiness` 决定从 Step 1 还是 Step 2 续），本节不重复。
+
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+本技能是**链路终点**，因此**不调用** `polaris-flow state next`：Step 3.2 已 `delete-active` 移除本任务的
+workflow 游标条目，调用只会得到 `NEXT: done`。
+
+本族**没有**后续阶段技能；`readiness` / `review` / `testability` 是**服务型技能**（不登记为阶段、不推游标），
+由本技能内部调用或用户显式触发。交付完成即链路结束。

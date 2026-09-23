@@ -123,8 +123,14 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --set ship.review=<done|degraded> \
   --set ship.review_mode=<subagent|inline> \
   --set "ship.review_verdict=<可交付|修复后可交付|不得交付>" \
-  --set ship.review_p0_count=<N>
+  --set ship.review_p0_count=<N> \
+  --set review.status=completed \
+  --set "review.finished_at=<ISO>"
 ```
+
+> `review.status` 必须在此写入：`build` 出口直接置 `phase=ship`，评审**由本技能 Step 1 执行而非独立阶段**，
+> 若不记录，Dashboard 只能按「游标已越过它」把 `review` **推定**为完成 —— 那是猜的，不是记的。
+> `review.started_at` 刻意不写：评审与本步同段执行，写一个回推的开始时间不如不写。
 
 ### Step 2：人工确认评审结论
 
@@ -221,16 +227,25 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind prototype --s
 
 ## 退出条件
 
-1. 评审已实际执行（subagent 或降级 inline），`review_report.md` 已落盘且标注了执行方式；
+1. 评审已实际执行（subagent 或降级 inline），`review_report.md` 已落盘且标注了执行方式，且 `state.yaml` 已写 `review.status=completed`；
 2. 评审结论已经**用户明确确认**（Step 2 的 A；「不得交付」下的 B 须有风险接受理由）；
 3. 归档产物已写入目标目录，目标冲突已按 A / B / C 决策处理，未静默覆盖；
 4. `state.yaml` 已写 `status: completed` 与 `delivered_to`，任务已 `delete-active` 移出活跃列表。
 
 未同时满足四条，不得宣告交付完成。
 
-### 上下文压缩恢复
+## 上下文压缩恢复
 
 重载：`task_id`、原型路径、评审执行方式与结论、`review_report.md` 是否落盘、归档目录与文件名、是否已 `delete-active`。
 
-- **恢复依据就是落盘产物**：`state.yaml` 只存身份与指针，进度以 `review_report.md` 与归档产物为准
-- 停在 Step 1 → 重新派发评审（已落报告则跳过）；停在 Step 2 → 重读报告后重新询问；停在 Step 3 → 校验目标冲突后继续归档
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）；本环节的进度以 `review_report.md` 与归档产物为准
+- 停在 **Step 1** → 重新派发评审（已落报告则跳过）；停在 **Step 2** → 重读报告后重新询问；停在 **Step 3** → 校验目标冲突后继续归档
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+本技能是**链路终点**，因此**不调用** `polaris-flow state next`：Step 4 已 `delete-active` 移除本任务的
+workflow 游标条目，调用只会得到 `NEXT: done`。
+
+本族**没有**后续阶段技能——独立评审由本技能 Step 1 内部派发（也可先用 `review` 单独评审），
+归档与任务收尾均在本技能内完成。

@@ -15,12 +15,23 @@
 - **规范文档只写规则，不写修订史**：改动理由进 commit message / `docs/specs/`，散在规则中间会稀释规则。负向知识（「不存在 X」）保留，但写正面表述（「由 A 完成」而非「曾误写为 B」）。
 - **停顿点三类**：真决策点写「暂停等用户选」；信息索要写「一次问全」；停止条件写「报告阻塞原因与恢复条件，不得伪造选项」。
 - 评测器：每用例须有参照物(应 PASS)+反例(应 FAIL)，`--selftest` 两边跑；参照物不过先修断言。
-- **「全局协议 ↔ 阶段技能」对接检查法（4 个位点，缺一即未对接）**：
+- **「全局协议 ↔ 阶段技能」对接检查法（5 个位点，缺一即未对接）**：
   ① 技能有指向协议的章节（如「## 自动衔接下一阶段」）；② 该章节给出 `polaris-flow state next <change-name>`；
-  ③ 出口真的推进了游标（`update-active --set phase=<下一阶段>`）；④ 恢复章节有**「恢复依据就是落盘产物」声明 + policy pointer 行**。
+  ③ 出口真的推进了游标（`update-active --set phase=<下一阶段>`）；④ 恢复章节有**「恢复依据就是落盘产物」声明 + policy pointer 行**；
+  ⑤ 出口有**合规的层级 C 提示块**：`下一步：/<SKILL>（建议新开会话 | 可同会话继续）` + 恢复行，
+  **下一步的技能名与括注都取自 `state next`，不得写死**（它是 `/<下一技能>`，斜杠别漏）。
   **查法**：`grep '--set phase='` 列全部游标写入点 → 与阶段表 `task-kind-layout.ts` 的 `skillForPhase` 对齐 → 逐技能比对。
   **入口/旁路阶段例外**：`specify`（入口）与 `retro`（旁路）在阶段表登记 `skill: null`，**不参与自动衔接**；
   但**「属于入口阶段」≠「出口不推游标」** —— 这是本次踩到的混淆点。
+  **范围判据**：凡「出口交给下一个技能」的技能都要有 ①–⑤；**终端技能**（`ship`）只到 ④ + 「链路终点」说明。
+  2026-09-23 已达标：**15 个技能**（coding 8 + prd 3 + prototype 2 + debug 2）的层级 C 块**逐字同构**，「下一步建议 /x」硬编码清零。
+  **终端技能**（各族 `ship`、debug/`closeout`）只到 ④ + 用「## 自动衔接下一阶段」声明自己是**链路终点**（`state next` 得 done），**不加**层级 C。
+- **阶段枚举的权威口径**：**`src/core/config/task-kind-layout.ts` 本表 = 权威**（受版本控制、可 diff、可评审）；
+  两个必须同步的守门件 = ① 各 kind 的 `state.yaml` 模板注释（`assets/shared/templates/*.yaml`，**入仓且随安装落盘**）、
+  ② `docs/specs/2026-09-18-dashboard-api-contract.md` §6.2（由 `task-kind-phases.test.ts` 对齐）。
+  **`assets/zh/skills/README.md` §阶段一览 是人读概览，不是裁定依据** —— 它**不入仓、也不随安装走**
+  （`.gitignore` 全局忽略 README；且它在 `skills/` 顶层、不在任何 family 下，**即使不 ignored 也不会被安装**）。
+  引用方向必须单向：代码/契约 → 各自的守门件，**不要指向未入仓文件**。
 - **游标唯一语义**：`workflow.yaml` 的 `phase` = 「接下来要执行的阶段」；**每个阶段技能的 Step 0 都按自己的阶段名筛**
   （`get-active-changes --phase <self>`）。**只有 specify 曾错位一格**（入口技能里唯一没在出口推游标的），
   已于 2026-09-23 补 `specify 5.5` 推到 `plan`，plan Step 0 随之改为 `--phase plan`（+ 存量兜底）。
@@ -45,6 +56,26 @@
 ## 二、prototype 族
 
 - 分工：`blueprint`（需求理解→《原型蓝图》→人工确认即冻结）/ `build`（设计细化+实现+verify）/ `review`（只评不改）/ `ship`（派独立评审→人工确认→归档）。
+- **真实游标链**：blueprint `--set phase=build` → build Step 6.1 `--set phase=ship` → ship `delete-active`（终点）。
+  **`review` 是服务型技能**（`ship` Step 1 内部派发＝入口 B；用户独立触发＝入口 A / flow R12），
+  **游标永不指向它**，但阶段表登记为普通阶段（`skillForPhase` 返回 `'review'`，`task-kind-phases.test.ts:206` 断言）→ **死映射**；
+  处理与 coding/`retro`（`bypass:true, skill:null`）不一致。
+- **`review.status` 已由 `ship` 写入（2026-09-23 修）**：根因是 `ship` 把评审记录写在 **`ship.*` 命名空间**
+  （`ship.review` / `review_mode` / `review_verdict` / `review_p0_count`），**从未写 `review.*`** →
+  Dashboard 只能按 `i < idx` 把 `review` **推定**为 `done`（`collectPhaseStatuses` 从 `state.yaml` 取 `*.status`；
+  `optional` 标记**不参与** status 判定，只是 UI 提示位 —— coding/design 显示「已跳过」靠的是 plan 写 `runtime.design.status=skipped`）。
+  现 ship Step 1 产出块追加 `review.status=completed` + `review.finished_at`；**`started_at` 刻意不写**（同段执行，回推不如不写）。
+- **收尾与恢复已归一（2026-09-23 批「甲」）**：4 处恢复章节统一为 `## 上下文压缩恢复`（build 从 Step 6 内联**提取**成章节、
+  review 去编号、ship 由 `###` 升 `##`），4/4 具备「**恢复依据就是落盘产物**」声明 + policy pointer；
+  build 补了此前完全缺失的收尾提示，blueprint / build 的层级 C 提示**去掉硬编码「建议新开会话」**、改为
+  「先 `state next` 取模式 → 第 2 行括注由它决定」，**auto 在这两个出口终于能表达**。
+  **乙6 已完成（2026-09-23）**：blueprint / build 补 A 式「## 自动衔接下一阶段」章节 =
+  指向协议 + `polaris-flow state next <change-name>`；出口层级 C 提示改为「先跑 `state next`，技能名与括注
+  **都取自其输出**」（`<SKILL>` 占位），**不再写死**。prd 族（discovery/draft/refine/ship）同步收敛。
+  **仍待决**：`review` 仍是阶段表里的**普通阶段**但游标永不指向（**死映射**）—— 但 `2026-09-19-phase-truth-unification-design.md:63`
+  **已明记「review 是死键」**，A 案又刻意修成同名（`task-kind-phases.test.ts:206` + `state-next.test.ts:265` 断言），
+  且 `dashboard-api-contract.md §6.2` 把它列在主序列 → 改 `bypass` 要动**契约文档 + 2 个测试 + 分组名**，收益仅概念一致。
+  **裁决：不做**，改在 `task-kind-layout.ts` 的 prototype `review` 行上方加注释登记「服务型技能、游标不会落在 review、保留同名映射」。
 - 切分判据 `§31.1/§31.2`：页面数量·范围·批次·深度（PM 拍板）归 blueprint；模式/结构/状态/视觉（专业职责）归 build。
 - 产物默认 `$REPO_ROOT/.polaris/tasks/$task_id/`，路径写 `state.yaml` 的 `output_dir`。**state.yaml 只记身份与指针，不记进度——产物即状态**。
 - 判据唯一来源 `review/references/01-quality-criteria.md`（§33/§34/§36）；`build/references/07` 只留编号壳+指针。
@@ -66,8 +97,15 @@
 ## 四、debug 族
 
 - `diagnose`（场景分流/问题单/复现保全/RCA/方案 tasks.md）→ `patch`（含 1.5 独立验证，仅生产通道）→ `closeout`；`prove` 已并入 patch。
-- 入口在命令层 `zh/commands/maintance/{bugfix,hotfix}.md`，技能层无入口技能。`channel` 只影响加严不影响阶段序列 → `DEBUG_PHASE_TO_SKILL` 单表。
+- 入口在命令层 `zh/commands/maintance/{bugfix,hotfix}.md`，技能层无入口技能。`channel` 只影响加严不影响阶段序列。
+  **旧记的 `DEBUG_PHASE_TO_SKILL` 单表已不存在**（A 案删了那两张手写转移表），现统一走 `skillForPhase`。
 - 判据：*若入口只做「预先声明一个下游反正会重判的东西」，它就是多余的*。
+- **2026-09-23 修掉两个硬 bug**：① **`closeout` 的 Step 0 整段是 `patch` 的复制**（`diff` 逐字相同，45 行）——
+  筛选 `--phase patch`（patch 出口置 closeout → **永远零匹配**）、入口校验查 `diagnose.status`、文案「进入实现与自验」、
+  **初始化写 `phase: build`（debug 无此阶段）**；根因是 A 案只统一了 `state.next` 的映射表，**技能侧 Step 0 的筛选口径是另一半**
+  （`plan` 那处第 2 轮修过，这是全仓最后一处）。② `closeout` 无 `delete-active` → entry 永留活跃列表 + `state next` **自指**，已补。
+- **教训**：跨技能复制 Step 0 时，**筛选口径 / 入口校验 / 阶段中文名 / 初始化 phase** 四处必须逐项改写；
+  `LANG = $(...)` 这种**带空格的赋值**是非法 bash（patch / closeout 都中过）。
 
 ## 五、通用教训
 

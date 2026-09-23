@@ -289,12 +289,14 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --phase blueprint --next-phase build
 ```
 
-3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**；跨技能 → 建议新开会话）：
+3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+   先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
+   —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 
 ```text
 [polaris-flow 原型] 原型蓝图 - 环节完成，状态已落盘。
-下一步：/polaris{{SKN_SPR}}prototype{{SKN_SPR}}build（建议新开会话）。
-恢复：先读 .polaris/tasks/<task_id>/state.yaml 的 work_dir，再读该目录下 blueprint.md 与四份分项（task-card / golden-flow / ia / page-list），从 build 的 Step 0 开始。
+下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+恢复：先读 .polaris/tasks/<task_id>/state.yaml 的 work_dir，再读该目录下 blueprint.md 与四份分项（task-card / golden-flow / ia / page-list），从下一步技能的 Step 0 开始。
 ```
 
 ## 退出条件
@@ -317,3 +319,12 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
 - 停在 **Step 4（人工确认）** → 重新发起确认；**不得**因为「文档已齐全」自行判定为已确认
 - 停在 **Step 5** → 只补阶段推进与状态写入，**不重做** Step 3
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
+
+```bash
+polaris-flow state next <change-name>
+```

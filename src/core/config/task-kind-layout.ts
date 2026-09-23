@@ -24,10 +24,11 @@ export type TaskInitPatches = Record<string, string>;
 /**
  * 阶段定义：`code` 即 `state.yaml` 的 `phase` 取值，是本表与 state 的接缝。
  *
- * 真相来源（2026-09-18 核对）：`assets/zh/skills/README.md` §阶段一览 与各 kind 的
- * `state.yaml` 模板注释；debug 族另参 `assets/zh/skills/debug/README.md`（2026-09-17 三阶段合并）。
+ * **权威口径 = 本表**（受版本控制、可 diff、可评审）。与之必须保持一致的守门件两份：
+ * ① 各 kind 的 `state.yaml` 模板注释（`assets/shared/templates/*.yaml` —— 入仓，且随安装落盘）；
+ * ② `docs/specs/2026-09-18-dashboard-api-contract.md` §6.2 的枚举表（由 `task-kind-phases.test.ts` 对齐）。
  * 与之矛盾的 `workflow-template.yaml` 注释与 `2026-09-16-debug-workflow-design.md` 属陈旧文本，
- * 不作为实现依据。
+ * 不作为实现依据。`assets/zh/skills/README.md` §阶段一览 是**人读概览**，不作裁定依据（该文件不入仓）。
  */
 export type KindPhaseDef = {
   /** 阶段名，与 `state.yaml.phase` 一致 */
@@ -237,6 +238,9 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     phases: [
       { code: 'blueprint', name: '原型蓝图', group: '蓝图', skill: null },
       { code: 'build', name: '原型构建', group: '构建与评审' },
+      // 服务型技能：由 `ship` Step 1 内部派发（入口 B），或用户独立触发（flow R12）。
+      // `build` 出口直接置 `phase=ship`，故游标不会落在 `review` —— 已知不被游标写入，**仍保留同名映射**
+      // （`2026-09-19-phase-truth-unification-design.md` 已记录该键；改 `bypass: true` 会牵动 Dashboard 契约与两处断言）。
       { code: 'review', name: '原型评审', group: '构建与评审' },
       { code: 'ship', name: '交付', group: '交付' },
     ],

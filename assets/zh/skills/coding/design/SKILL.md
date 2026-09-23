@@ -254,7 +254,17 @@ workflow阶段推进至规划阶段：
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill design --where-task-id "$task_id" --set phase=tasks
 ```
 
-输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<task_id>/detailed-design.md 已锁定。下一步建议 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks。`
+输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<task_id>/detailed-design.md 已锁定。`
+
+输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
+—— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
+
+```text
+[polaris-flow 开发]深度设计 - 阶段完成，状态已落盘。
+下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+恢复：先读 openspec/changes/<task_id>/detailed-design.md、reviews/design-review-report.md 与 reviews/openspec-review-report.md（若有），再从下一步技能的 Step 0 开始。
+```
 
 ## 退出条件
 

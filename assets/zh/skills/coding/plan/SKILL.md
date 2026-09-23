@@ -399,7 +399,7 @@ B. 否 — 跳过深化，直接进入 plan（四件套已足够指导细计划�
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set phase=design
 ```
 
-输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 覆写）。下一步 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design。`
+输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 覆写）。`
 
 **B（跳过深化）** → 更新 `state.yaml` 标记 design 跳过，直接推进 tasks：
 
@@ -414,7 +414,17 @@ runtime:
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set phase=tasks
 ```
 
-输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入；已跳过深度设计（runtime.design.status=skipped，tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 覆写）。下一步 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks。`
+输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入；已跳过深度设计（runtime.design.status=skipped，tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 覆写）。`
+
+**A / B 两分支共用同一出口**，输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
+（A 分支应得 `design`、B 分支应得 `tasks`，但**以脚本输出为准，不得写死**）：
+
+```text
+[polaris-flow 开发]提案 - 阶段完成，状态已落盘。
+下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+恢复：先读 openspec/changes/<task_id>/ 的四件套与 reviews/plan-review-report.md、reviews/openspec-review-report.md（若有），再从下一步技能的 Step 0 开始。
+```
 
 ## 退出条件
 
