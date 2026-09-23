@@ -93,6 +93,12 @@ skills-lock.json
 
 assets/zh/skills/prd/temp
 
+# 技能资产目录内不得混入工作记忆（会随技能安装进用户项目）
+# 2026-09-23：清掉 zh/skills/.workbuddy/ 与 zh/skills/prd/.workbuddy/ 后加，防复发
+assets/*/skills/.workbuddy/
+assets/*/skills/*/.workbuddy/
+assets/*/skills/*/*/.workbuddy/
+
 # 全局 gitignore 忽略所有 README.md，这里显式反向放行本仓需要的两份
 !dashboard/docs/README.md
 !/README.md

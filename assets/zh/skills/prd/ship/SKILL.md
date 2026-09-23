@@ -201,10 +201,8 @@ cp "$SRC" "$DST"
 1. 写 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase ship
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" \
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase ship
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --set status=completed \
   --set "finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --set "delivered_to=<文档库目标路径>" \
