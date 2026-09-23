@@ -235,7 +235,7 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 **以该文件为唯一来源，本技能不内联副本**。关键命令：
 
 ```bash
-node polaris-flow state next <change-name>
+polaris-flow state next <change-name>
 ```
 
 ---

@@ -1,5 +1,5 @@
 /**
- * `polaris state next <change-name>` 核心逻辑：读 workflow 游标 + auto_transition，
+ * `polaris-flow state next <change-name>` 核心逻辑：读 workflow 游标 + auto_transition，
  * 输出确定性的下一步衔接指令（对齐 assets/zh/policies/auto-transition.md）。
  *
  * **阶段 → 技能**的映射**不在这里**，而在 `src/core/config/task-kind-layout.ts` 的阶段表上
