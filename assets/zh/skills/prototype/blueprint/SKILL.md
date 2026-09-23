@@ -289,9 +289,13 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --phase blueprint --next-phase build
 ```
 
-3. 输出阶段完成提示（**含恢复清单**；跨技能，建议新开会话）：
+3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**；跨技能 → 建议新开会话）：
 
-`[polaris-flow 原型] 原型蓝图 - 环节完成，即将进入 [原型制作] 环节。可执行 /polaris{{SKN_SPR}}prototype{{SKN_SPR}}build。`
+```text
+[polaris-flow 原型] 原型蓝图 - 环节完成，状态已落盘。
+下一步：/polaris{{SKN_SPR}}prototype{{SKN_SPR}}build（建议新开会话）。
+恢复：先读 .polaris/tasks/<task_id>/state.yaml 的 work_dir，再读该目录下 blueprint.md 与四份分项（task-card / golden-flow / ia / page-list），从 build 的 Step 0 开始。
+```
 
 ## 退出条件
 

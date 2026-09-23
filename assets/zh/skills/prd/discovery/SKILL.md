@@ -71,7 +71,7 @@ version: 0.7
 
 ### Step 1: 初始化任务
 
-### Step 1: 状态检查及中断恢复
+#### 1.1 状态检查及中断恢复
 
 使用 SessionStart 注入的路径（本 skill 内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
 
@@ -123,7 +123,7 @@ done
 
 - **D. 取消退出**：结束本 skill
 
-#### Step 1.5：读取任务进展，继续执行任务
+#### 1.5 读取任务进展，继续执行任务
 
 读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`，按状态值进入对应步骤：
 
@@ -620,6 +620,23 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --phase discovery --next-phase draft
 ```
 
-3. 输出阶段完成提示（**含恢复清单**；跨技能，建议新开会话）：
+3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**；跨技能 → 建议新开会话）：
 
-`[polaris-flow 需求工程] 需求探索 - 阶段完成，即将进入 [编写初稿] 阶段。可执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}draft。`
+```text
+[polaris-flow 需求工程] 需求探索 - 阶段完成，状态已落盘。
+下一步：/polaris{{SKN_SPR}}prd{{SKN_SPR}}draft（建议新开会话）。
+恢复：先读 .polaris/tasks/<task_id>/req_baseline.md 的「需求唯一标识」与各章完成情况，再从 draft 的 Step 0 开始。
+```
+
+---
+
+## 上下文压缩恢复
+
+重载：`task_id`、任务目录下已落盘的《需求基线》`req_baseline.md` 与《需求澄清纪要》`req_clarify_summary.md`、`state.yaml` 的 `discovery.status`、本技能停在哪个 Step。
+
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
+- 停在 **Step 1**（有活跃任务但未选择）→ 按 `./policies/decision-point.md` 重新询问 A/B/C/D，**不得**替用户选
+- 停在 **Step 2–3**（目录已建、基线初稿已写）→ 读 `req_baseline.md` 已写入的章节，从未完成的维度继续拆解
+- 停在 **Step 4–6**（澄清阶段）→ 读 `req_clarify_summary.md` 的「问题闭环明细」，从未闭环的模糊点继续澄清
+- 停在 **Step 7** → 只补终版输出与阶段推进，**不重做**前面的澄清
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
