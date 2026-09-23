@@ -481,12 +481,9 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 自动衔接下一阶段
 
-按 `./policies/auto-transition.md` 执行。关键命令：
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
 
 ```bash
 node polaris-flow state next <change-name>
 ```
-
-- `NEXT: auto` → 调用 `SKILL` 指向的 skill 进入下一阶段
-- `NEXT: manual` → 不要调用下一 skill，按 `HINT` 提示用户手动运行 `/<SKILL>`
-- `NEXT: done` → 流程已完成，无需继续
