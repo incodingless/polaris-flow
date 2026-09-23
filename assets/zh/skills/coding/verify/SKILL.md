@@ -28,7 +28,7 @@ description: "对 build 产出做 Constitution 审计、scorer 评分与对照�
 | 深度设计（只读，`runtime.design.status=skipped` 时不存在） | `openspec/changes/<task_id>/detailed-design.md` |
 | 业务档案 | `.polaris/tasks/<task_id>/state.yaml` |
 | 验证报告 | `openspec/changes/<task_id>/reviews/verify-report.md` |
-| Metrics | `.polaris/tasks/<task_id>/metrics/<timestamp>-metrics.json` |
+| Metrics | `.polaris/metrics/<timestamp>-metrics.json`（顶层） |
 | Constitution 规则 | `./policies/constitution-audit.md` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 
@@ -139,7 +139,7 @@ done
 #### 3.2 聚合写入 metrics
 
 ```bash
-mkdir -p .polaris/tasks/$task_id/metrics
+mkdir -p .polaris/metrics
 TS=$(date -u +%Y%m%d-%H%M%S)
 # 写入 .polaris/metrics/${TS}-metrics.json
 ```
@@ -351,13 +351,24 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 - 轻量或完整验证通过（无未解决 CRITICAL / IMPORTANT）
 - `runtime.verify.blocked=false`（或已合法 override）
-- `.polaris/tasks/<task_id>/metrics/<timestamp>-metrics.json` 已写入且含 `task_id`
+- `.polaris/metrics/<timestamp>-metrics.json`（**顶层**，勿写进 `tasks/<task_id>/`——ship 合回只扫顶层，写错会随 worktree 移除丢失）已写入且含 `task_id`
 - `verify-report.md` 存在且 `runtime.verify.verification_report` 指向它
 - `runtime.verify.status=completed`，且 `phase=ship`
 
 ## 上下文压缩恢复
 
 重载：`task_id`、`worktree_path`、`verify.*`（status / mode / score_level / blocked）、最新 metrics 文件、本 skill 停在哪一步、失败项清单（若有）。  
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
 - 停在 Step 2/3 → 从该步续，勿重复已写入的 metrics（可追加新 timestamp 文件）  
 - 停在 Step 4 失败决策 → 从决策点续，勿重跑已通过的检查项（除非用户要求全量重跑）  
 - 勿重新跑 build apply；勿进入 ship 直到出口校验通过
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
+
+```bash
+polaris-flow state next <change-name>
+```

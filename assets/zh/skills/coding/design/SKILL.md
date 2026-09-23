@@ -169,9 +169,9 @@ canonical_spec: openspec
 #### 3.3 主动式上下文压缩
 若配置 `context-compression: beta`，且在 **`detailed-design.md`、专项设计（若有）、状态证据均已成功持久化落盘后** 考虑主动式压缩。这样压缩后可从文件恢复，不会丢失尚未写入的设计判断。
 
-- 上下文窗口确有压力且存在可调用的原生压缩机制时触发一次，并在恢复提示含 `task_id`、Step 3 完成、以及 `detailed-design.md` / `*-design.md`（若有）/ `brainstorm-summary.md` / OpenSpec 四件套。然后进入 Step 4。
+- 上下文窗口确有压力且存在可调用的原生压缩机制时触发一次，并按 `./policies/auto-transition.md` 的**层级 A 提示语模板**给出落盘产物与恢复点（`task_id`、Step 3 完成、`detailed-design.md` / `*-design.md`（若有）/ `brainstorm-summary.md` / OpenSpec 四件套）。然后进入 Step 4。
 - 压缩只能由用户手动触发时，给出一次非阻塞建议并继续；**不得阻塞**、不得额外制造确认点
-- 不得用 shell 命令或摘要伪造上下文压缩
+- **不得**用 shell 命令或摘要伪造压缩 —— 「压缩上下文」与「新开会话」两词、两个提示语模板均以 `./policies/auto-transition.md` 的「压缩时机与恢复清单」为唯一来源
 
 ### Step 4：设计评审（阻塞点）
 
@@ -266,4 +266,22 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 上下文压缩恢复
 
-重载 Step 3.3 handoff + `reviews/design-review-report.md` + `reviews/openspec-review-report.md`（若有）。
+重载：`task_id`、`brainstorm-summary.md` / `detailed-design.md` / `*-design.md`（若有）的落盘状态、
+`reviews/design-review-report.md`、`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
+
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
+- 停在 **Step 2.3** → 从决策点续；**不得**因为「`brainstorm-summary.md` 已写」自行判定为已确认
+- 停在 **Step 3.2（专项预检决策）** → 从决策点续，已确认过的专项不再重问
+- 停在 **Step 3.3（主动式压缩）** → 产物已落盘，直接进 Step 4
+- 停在 **Step 4.1 / 4.2** → 先完成 4.3 消化（未消化 Critical 不得完成）
+- 停在 **Step 5** → 只补状态写入与阶段推进，**不重做** Step 3
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
+
+```bash
+polaris-flow state next <change-name>
+```

@@ -37,8 +37,13 @@ version: 0.1
 读取task标识列表：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill plan --repo-root "$REPO_ROOT" --phase specify)
+TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill plan --repo-root "$REPO_ROOT" --phase plan)
 RTID_EXIT=$?
+# 存量兼容：升级前创建的变更，其 specify 出口未推进游标，phase 仍停在 specify
+if [ "$RTID_EXIT" = "0" ] && [ "$TASK_IDS" = "[]" ]; then
+  TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill plan --repo-root "$REPO_ROOT" --phase specify)
+  RTID_EXIT=$?
+fi
 ```
 
 - `RTID_EXIT != 0` → **阻断**，按 stderr 处理
@@ -48,9 +53,10 @@ RTID_EXIT=$?
 
 - **唯一匹配**（恰好 1 个 id）→ 直接取该 `task_id`
 - **多个匹配** → 按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配** → 阻断，提示「未找到 specify 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}specify」
+- **零匹配** → 阻断，提示「未找到待接手的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}specify」（其 5.5 会把游标推进到 `plan`）
 
-> 若 entry 已是 `phase=plan`（例如上次中断续跑），且同 `task_id` 下 worktree 决策与 intention 校验已完成，可从中断点续跑；不得重新筛成「零匹配」。可再跑一次不加 `--phase` 或 `--phase plan` 核对。
+> **本步为何按 `phase plan` 筛**：游标语义是「接下来要执行的阶段」；specify 5.5 已把自己推进到 `plan`，
+> 故本步与 design / tasks / build / verify 一致，按**自己的阶段名**筛选。
 
 ### Step 1：Worktree 决策（提示性，非阻断）
 

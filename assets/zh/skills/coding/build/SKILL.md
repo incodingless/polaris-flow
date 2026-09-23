@@ -256,6 +256,17 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 ## 上下文压缩恢复
 
 重载：`task_id`、`worktree_path`、`runtime.build.build_mode` / `runtime.build.review_mode`、当前 `tasks.md` 勾选进度、apply 上次 pause 原因（若有）、本 skill 停在哪一步。  
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
 - 停在 apply pause → 从 Step 3 续，勿重选模式（除非用户要求）  
 - 停在 Step 4 审查未完成 → 从 Step 4 续  
 - 勿重新跑 plan / 勿调用 `writing-plans`
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
+
+```bash
+polaris-flow state next <change-name>
+```

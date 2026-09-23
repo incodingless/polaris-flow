@@ -32,6 +32,12 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 
 > **链路位置**：`specify → … → verify → ship` 之后的**旁路复盘**，不占用 phase 游标、不推进阶段。  
 > verify 写入 metrics；ship 把 worktree 内 metrics / overrides 合回主仓顶层；retro 只读聚合。
+>
+> **入口口径**：**显式入口**（用户触发 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}retro`）——阶段表登记 `skill: null`，
+> 不由任何技能的「自动衔接下一阶段」进入，也不进入任何技能的下游，**不调用** `state next`。
+> **前置**：主仓顶层 `.polaris/metrics/` 至少有一个文件（即至少一个 change 跑完 verify，
+> 且若在 worktree 内验证则该 change 已 ship 合回）；不满足时的处理见 Step 1。
+> 可重复执行，只读聚合、无副作用。
 
 ## 触发与范围
 

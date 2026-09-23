@@ -225,7 +225,20 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 | 2 | 参数/环境错误 | 按 H12 阻断 |
 | 3 | workflow rename 失败 | 按 H12 阻断 |
 
-#### 5.5 完成状态行
+#### 5.5 推进 workflow 游标
+
+`finalize` 只做目录与 entry 的改名（`rename-active` **保留原 phase**），游标此刻仍停在 `specify`。
+本步把它推进到 `plan` —— 与 normal / tweak 在 finalize 之后的动作一致，也是本技能
+「自动衔接下一阶段」能取到 `plan` 的前提：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill specify \
+  --where-task-id "$task_id" --set phase=plan
+```
+
+非 0 退出 → 按 H12 阻断，不得进入 5.6。
+
+#### 5.6 完成状态行
 
 输出：`[polaris-flow 开发]澄清需求 - 澄清阶段完成：.polaris/tasks/<task_id>/intention.md 已锁定；state 已更新。`
 
@@ -249,5 +262,6 @@ polaris-flow state next <change-name>
 - 停在 **Step 3.x** → 从 3.0 自检续做（澄清摘要未达「≥3 问 / ≥3 类」时继续提问，不得跳过）
 - 停在 **4.2 之后、5.4 之前** → 从 **5.1** 续（产物已在 draft 目录，不必重写）
 - 停在 **5.4（finalize）** → 按 5.4 的恢复路径重跑；`mv` 失败按该步的退出码表处理
+- 停在 **5.5（游标未推进）** → 只补执行 5.5 的 `update-active`，**勿重跑 finalize**（目录已改名，重跑会撞 `FINAL_EXIT=1`）
 - 恢复依据是**落盘产物**（首行 `task_id` + draft 目录），不依赖会话记忆
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」

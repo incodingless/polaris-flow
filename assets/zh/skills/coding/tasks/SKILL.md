@@ -403,5 +403,16 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 ## 上下文压缩恢复
 
 重载：`task_id`、`runtime.tasks.tdd_policy`、`detailed-design.md`（若有）、当前 `tasks.md`、`reviews/tasks-review-report.md`、`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
-若停在 Step 2 未选定 → 先完成 TDD 策略再写 tasks。  
-若停在 `runtime.tasks.status=in_progress` 且 tasks 已写未评审 → 从 Step 5.2 / Step 6 续，勿无故重写全部任务（除非用户要求改 `tdd_policy`，则须重跑 Step 2→4）。
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
+- 停在 **Step 2 未选定** → 先完成 TDD 策略再写 tasks。  
+- 停在 **`runtime.tasks.status=in_progress` 且 tasks 已写未评审** → 从 Step 5.2 / Step 6 续，勿无故重写全部任务（除非用户要求改 `tdd_policy`，则须重跑 Step 2→4）。
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
+
+```bash
+polaris-flow state next <change-name>
+```
