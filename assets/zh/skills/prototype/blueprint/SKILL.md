@@ -289,7 +289,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --phase blueprint --next-phase build
 ```
 
-3. 清空上下文并输出：
+3. 输出阶段完成提示（**含恢复清单**；跨技能，建议新开会话）：
 
 `[polaris-flow 原型] 原型蓝图 - 环节完成，即将进入 [原型制作] 环节。可执行 /polaris{{SKN_SPR}}prototype{{SKN_SPR}}build。`
 
@@ -300,3 +300,16 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
 3. `state.yaml` 已写入 `phase: build` 与 `blueprint.status: completed`。
 
 未同时满足三条，不得宣告本环节结束，也不得让流程进入制作环节。
+
+---
+
+## 上下文压缩恢复
+
+重载：`task_id`、任务目录下已落盘的产出（`task-card.md` / `golden-flow.md` / `ia.md` / `page-list.md` / `blueprint.md`）、
+`state.yaml` 的 `blueprint.status`、本技能停在哪个 Step。
+
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
+- 停在 **Step 3.x** → 按已落盘的最后一份分项续做（四份分项互相独立，缺哪份补哪份）
+- 停在 **Step 4（人工确认）** → 重新发起确认；**不得**因为「文档已齐全」自行判定为已确认
+- 停在 **Step 5** → 只补阶段推进与状态写入，**不重做** Step 3
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」

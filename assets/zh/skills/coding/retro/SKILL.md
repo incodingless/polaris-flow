@@ -140,3 +140,15 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 > - 需要
 > - 不需要
 如果用户选择需要则将复盘报告写入到文件 `.polaris/retro/<UTC>-report.md`中。
+
+---
+
+## 上下文压缩恢复
+
+**本技能是原子流程**（读 metrics → 生成复盘报告 → 决定是否保存），中间**不设恢复点**：中断即重跑。
+metrics 是**只读输入**（`.polaris/metrics/*-metrics.json`），重跑无副作用。
+
+- 复盘报告**默认不落盘**是本技能的刻意设计（经决策点询问后才写入 `.polaris/retro/<UTC>-report.md`）；
+  因此中断后**不要**试图从对话历史里找回上一版报告，直接重跑。
+- 不伪造不存在的 metrics：metrics 缺失时如实报告缺失，不凭印象编数。
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」。

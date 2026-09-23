@@ -237,3 +237,17 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 ```bash
 node polaris-flow state next <change-name>
 ```
+
+---
+
+## 上下文压缩恢复
+
+重载：`draft_name`（`.polaris/tasks/` 下的 `draft-*`）、`intention.md` 是否已落盘及其**首行的 `task_id`**、
+`state.yaml`、workflow 游标、本技能停在哪个 Step。
+
+- **名称的恢复**：`task_id` 从 `intention.md` 首行读（4.2 已写入真值）；首行缺失或文件未落盘 → 回 **4.1** 重新确认名称
+- 停在 **Step 3.x** → 从 3.0 自检续做（澄清摘要未达「≥3 问 / ≥3 类」时继续提问，不得跳过）
+- 停在 **4.2 之后、5.4 之前** → 从 **5.1** 续（产物已在 draft 目录，不必重写）
+- 停在 **5.4（finalize）** → 按 5.4 的恢复路径重跑；`mv` 失败按该步的退出码表处理
+- 恢复依据是**落盘产物**（首行 `task_id` + draft 目录），不依赖会话记忆
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
