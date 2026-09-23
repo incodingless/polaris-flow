@@ -55,5 +55,11 @@
 - G7 评审侧无 `example/`；G8 评审 evals 缺 3 条断言；G9 同会话自评是否强制换会话待产品定。
 - D3：coding / prd / prototype 族未迁移「停顿点三类」写法。
 - 拼错的 `./policy/decision-point.md`（`coding/build/SKILL.md:61,85`，少 `ies`）。
-- **2026-09-22 新增待决 D1–D5**（上下文边界与压缩时机）：见 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §七。核心张力：`auto_transition` 默认 `true`（`assets/shared/templates/state.example.yaml:122`）会自动在同会话衔接下一技能，与「每技能新开会话」冲突。
+- **2026-09-22 上下文边界与压缩时机方案**（`docs/specs/2026-09-22-context-boundary-and-compaction-design.md`）：**批 1–4 已落地**；D1/D4/D6 已决，D2/D3/D5 待决。
+  - **衔接两模式**：`manual`（**出厂默认**）⇒ 提示用户新开会话 + 输入技能名；`auto` ⇒ 按平台压缩动作提示用户、其完成后再执行下一技能（六步执行序，agent **无压缩原语**）。**「清空」统一 = 用户新开会话**。配置约束：`auto_transition: 'auto'` ⟹ `context_compression ≠ off`。
+  - **出厂默认**：`auto_transition: false`、`context_compression: beta`（值域维持 `off|beta`）。
+  - **代码落点**：`platforms.ts` 的 `Platform.compressionAction` + `normalizeHostForm` / `resolveCompressionAction`；`config.host_form`（`HostForm = 'ide'|'cli'`）；SessionStart 注入 `HOST_FORM` / `CONTEXT_COMPRESSION_ACTION`（形态未知时给双形式合并描述）。协议唯一源 `zh/policies/auto-transition.md`。
+- **各平台压缩入口**（2026-09-22 查证）：Claude Code `/compact`（可带 focus，另有 auto-compact 与 `/rewind`）；Cursor `/summarize`；**Trae IDE 面板「压缩」按钮（仅 SOLO Agent）/ CLI `/compact`**；Qoder IDE「压缩当前会话」按钮（用量 >40% 才可用）/ CLI `/compact`、`/clear`。**全部需用户操作或宿主自动触发 —— agent 无压缩原语**，只能给操作提示。压缩动作随 **IDE / CLI 形态**而变，而 `platforms.ts` 只按平台 id 分派 → D6。
+- **既有失败（2026-09-22 复核归因）**：`test/ts/task-state.test.ts` 2 例（`createDefaultTaskState` 不回填 `change_id`，测试期望与实现脱节）；`test/ts/commands-install.test.ts` 4 例（`assets/zh/commands/flow.md` 于 9/20「优化技能任务导航」改版后未同步测试的 `referencedSkills` 期望，测试停在上一次提交）。**均与批 1/2 改动无关**。归因方法：`git log --oneline -3 -- <file>` 比对两文件最近提交 + `git diff` 确认改动面。
+- **出厂默认值已改（2026-09-22）**：`auto_transition: false`（manual）、`context_compression: beta`（值域保持 `off|beta`，`beta`=开启）。改动点：`state-next.ts` 的 `isAutoTransitionEnabled` 兜底 + `polaris-project-config.ts` 的 `?? 'off'` + `task-state.ts` 的默认值 + `config.example.yaml` / `state.example.yaml` + `state-next.test.ts` 断言。
 - `zh/policies/context-recovery.md` 是 **comet 时代死文件**（引用 `node polaris state check` / `./reference/*` / superpowers），**零技能引用**却被注入每个技能的 `./policies/` → 第二份（错的）协议，应删或改为索引。

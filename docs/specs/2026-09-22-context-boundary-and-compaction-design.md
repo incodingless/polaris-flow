@@ -1,7 +1,7 @@
 # 上下文边界与压缩时机规范（设计提案）
 
 日期：2026-09-22
-状态：**待评审** —— 三条原则已由用户给定，§六 的 D1–D5 未决
+状态：**批 1–4 已落地（2026-09-22）** —— 三条原则已由用户给定；D1、D6 已决（落法见 §5.6 / §5.6.3）；D2、D3、D5 未决
 触发：用户提出「技能边界应支持新开会话接续」「技能内压缩时机应有统一门槛」「委派材料与回报只走路径」三条原则，要求据此重整四条工作流（prd / coding / prototype / debug）的上下文策略
 上游：`docs/specs/2026-09-19-phase-truth-unification-design.md`（游标权威结论）、`docs/specs/2026-09-16-debug-workflow-design.md`（已作废）
 范围：只定**边界契约**与**压缩时机**；不含技能内部业务分支逻辑，不改 Dashboard
@@ -243,19 +243,142 @@ result:
 | 「请开启新会话」（`prd/draft:258`） | 保留，作为「建议新开会话」的**强语气**版本 |
 | 「由主代理内联评审」/「未独立执行」 | 统一标注 **`inline`** |
 
+### 5.6 技能衔接协议（D1 已决，2026-09-22）
+
+**决策**（用户给定）：
+
+- `auto_transition: false`（**manual**）→ 输出提示，**要求用户新开会话并输入对应的技能名称**；
+- `auto_transition: true`（**auto**）→ **必须先压缩上下文，再自动执行对应的技能**；
+- **「清空」不再作为一种独立动作** —— 它统一等于「用户新开会话」，即 manual 路径。
+
+这条决策把「auto 与『每技能新开会话』冲突」转化成了**配置约束**：`auto_transition` 与
+`context_compression` 本来就是同一份配置（`assets/shared/templates/config.example.yaml` 的
+「工作流状态」/「功能开关」两段）里的两个开关，默认值分别为 `true`（`polaris-project-config.ts:186`）
+与 `off`（同文件 `:190`，值域 `off | beta`）。
+
+| `auto_transition` | `context_compression` | 行为 |
+|---|---|---|
+| `false`（**建议默认**） | 任意 | **manual**：输出提示语，停下等用户新开会话 |
+| `true` | `beta`（或未来的 `on`） | **auto**：提示用户按平台方法压缩 → 用户完成后自动执行下一技能 |
+| `true` | `off` | ❌ **非法组合**——不能压缩就不能自动跑（否则违背原则 1）。写入时拦截；存量数据降级为 manual 并告警 |
+
+#### 5.6.1 压缩动作必须按平台分派（2026-09-22 查证）
+
+| 平台 | IDE 形态的压缩动作 | CLI 形态的压缩动作 | 自动压缩 | 清空 / 新会话 |
+|---|---|---|---|---|
+| Claude Code | `/compact`（可带焦点，如 `/compact focus on X`）；`/rewind` 可分段摘要 | 同左（本就是 CLI） | 接近窗口上限时自动 | `/clear` 或开新会话 |
+| Cursor | `/summarize` | 同左 | 达到窗口上限自动摘要 | 新建对话 |
+| Trae | 上下文使用率面板上的**「压缩」按钮**（仅 SOLO Agent） | `/compact` | 超出窗口时自动触发 | `/new` 开新对话 |
+| Trae-CN | 同 Trae | 同 Trae | 同 Trae | 同 Trae |
+| Qoder | Smart Context Control 的**「压缩当前会话」按钮**（用量 >40% 才可用；对话早期与生成中禁用） | `/compact`；`/clear` | — | 「新建会话」New Chat |
+
+⇒ 两条硬约束：
+
+1. **agent 没有压缩原语**。上表入口全部是「用户输入斜杠命令 / 点击按钮」或「宿主在阈值自动触发」；
+   项目里 agent 的工具映射（`PLATFORMS[].agentToolMap`）也没有斜杠命令工具
+   → **agent 不能自己执行压缩**，只能给出本平台对应的操作提示。
+2. **动作随宿主形态而变**（IDE 用按钮、CLI 用斜杠命令），而现有 `platforms.ts` 只按平台 id 分派，
+   **没有 IDE / CLI 维度** → **D6 已决（A 案），落地形态见 §5.6.3**。
+
+#### 5.6.2 auto 的真实语义是「半自动」
+
+因为第 1 条硬约束，auto 无法做到 agent 自主压缩。它的实现是：
+
+```text
+[<族> <技能>] <阶段>完成，状态已落盘。
+请执行压缩：<本平台压缩动作>（如 Claude Code 输入 /compact；Trae IDE 点击上下文面板的「压缩」）。
+压缩完成后回复「继续」，我将执行 /<下一技能>。
+恢复：先读 <文件1>、<文件2> 的 <字段>。
+```
+
+**auto 的执行序（六步，顺序不可交换）**：
+
+1. 落盘本阶段全部产物（出口契约四件）；
+2. 运行 `polaris-flow state next <change-name>`，取得 `NEXT: auto` 与 `SKILL`；
+3. 把「下一步 = `SKILL`」与恢复清单**写进落盘文件**——压缩后当前会话不再可靠记得它；
+4. 按**本平台压缩动作**输出提示，**停下等用户完成压缩**；
+5. 用户确认完成后，执行 `SKILL`；
+6. 执行前重读恢复清单，校验落盘产物仍在（压缩后防线）。
+
+⇒ **manual 与 auto 的差别**：前者是「新开会话 + 重新输入技能名」（清空）；后者是「留在原会话，
+按平台方法压缩，然后由 agent 接续」。**两者都需要用户动一次手**——区别在于是否重置整个窗口。
+⇒ 若宿主既不支持用户手动压缩、`context_compression` 又为 `off` → auto **无法落地**，
+必须降级 manual，**不得**退化成「背着历史继续跑」（那是被否决的旧行为）。
+
+**禁止**（沿用 `coding/design:3.3` 既有条款，此处提为通则）：
+
+- 不得用 shell 命令或摘要**伪造**压缩；
+- 不得在未落盘时压缩；
+- 不得在 `context_compression: off` 下宣称「已压缩」。
+
+**顺带记录一处 bug**：`coding/design/SKILL.md:170` 判断的是 `context-compression: on`，而配置值域是
+`off | beta`（`src/core/config/polaris-project-config.ts:189`）→ **该分支永不命中**，应改为 `beta`。
+
+#### 5.6.3 A 案落地形态：宿主形态维度（D6 已决，2026-09-22）
+
+**① 数据层** —— `src/core/domain/platforms.ts` 的 `Platform` 新增：
+
+```ts
+/** 上下文压缩动作，按宿主形态分列；缺项 = 该形态无此动作 */
+compressionAction?: { ide?: string; cli?: string };
+```
+
+各平台取值即 §5.6.1 表的第 2、3 列。沿用 `supportsSubagent` + `resolveSubagentCapability` 的既有模式，
+**不新造机制**。
+
+**② 探测层** —— 新增 `resolveHostForm(platformId, config, signals): 'ide' | 'cli' | 'unknown'`，三级链：
+
+| 优先级 | 判据 | 状态 |
+|---|---|---|
+| ① | `config.yaml` 的 `host-form: ide \| cli`（显式声明） | ✅ 确定可用（新增字段） |
+| ② | 宿主信号（平台特有 env / PPID 进程名） | ⚠️ **未实测**，需五平台逐一验证 |
+| ③ | `'unknown'` | ✅ **不猜**，交给消费方降级 |
+
+> **已排除的判据**：Claude Code SessionStart 的 `source` 取值是 `startup / resume / clear / compact`，
+> 语义为「会话如何启动」，**不是宿主形态** → 不可用作判据。
+>
+> **但它是意外收获**：`source: compact` 是「压缩确实发生过」的**宿主级证据**。可挂进 auto 执行序的
+> 第 6 步，用来校验压缩真的发生，而不是只听用户自述「我压缩了」。
+
+**③ 注入层** —— 随现有 SessionStart 注入通道（`additionalContext` + Cursor `env` +
+`.polaris/.cache/runtime-env` + `CLAUDE_ENV_FILE`）：
+
+| 变量 | 值 |
+|---|---|
+| `HOST_FORM` | `ide` \| `cli` \| `''`（unknown） |
+| `CONTEXT_COMPRESSION_ACTION` | 本平台本形态的动作描述；`unknown` 时为空串 |
+
+**④ 消费层** —— 技能衔接提示语直接引用注入值：
+
+```text
+请执行压缩：${CONTEXT_COMPRESSION_ACTION}
+```
+
+`HOST_FORM=''` 时降级为双形式提示（即 §七 D6 的 B 案行为）——**A 案自带降级路径，
+不需要在 A / B 之间二选一**。
+
+**⑤ 落地顺序** —— 先打通 ① + ③（config 显式 + unknown 兜底），让提示语先有确定载体；
+②（PPID / env 探测）作为后续增强：**探测每一步都要在真机实测，不实测不进规范**。
+
 ---
 
 ## 六、落地方案（改动清单）
 
 按「先低风险、后行为变更」排序：
 
-| 批次 | 内容 | 文件数 | 风险 |
-|---|---|---|---|
-| **批 1｜纯修正** | H2（删 `context-recovery.md`）、H3（`./reference/` → `./policies/`）、H4（删 ship 重复段）、H6（补「非权威」注） | 6 | 低（不改变行为） |
-| **批 2｜契约收紧** | 层级 B：`dispatch-execute.md` 的回报契约 + D2 决策落地；`prd/refine` 返回处理改为只收 `artifact_path` | 3 | 中（改变委派行为） |
-| **批 3｜落盘补齐** | H1（待定名落盘）、S2（`prototype/review` 补恢复章节） | 4 | 中 |
-| **批 4｜措辞与提示语归一** | 层级 A/C 的提示语模板；5 类压缩点统一措辞；各技能尾部补「恢复清单」四件套 | ~20 | 低（文本为主） |
-| **批 5｜边界决策落地** | D1（`auto_transition`）、D3（单入口分段点） | 依 D1/D3 结论 | 高（改默认行为） |
+| 批次 | 内容 | 状态 |
+|---|---|---|
+| **批 1｜纯修正** | 删死文件 `context-recovery.md`（H2）；`./reference/` 断链 4 处 → `./policies/`（H3）；`./policy/decision-point.md` 拼错 2 处（H6）；删 `coding/ship` 重复段（H4）；删 `prd/review` 越界写 `refine.build_mode`（H5） | ✅ 2026-09-22 |
+| **批 2｜出厂默认值** | `auto_transition: false` + `context_compression: beta`（值域维持 `off\|beta`）；`state-next` 判定重排；`design:170` 的 `on` → `beta`；测试断言同步 + 新增 auto 集成用例 | ✅ 2026-09-22 |
+| **批 3｜平台维度骨架** | `Platform.compressionAction`（五平台）+ `normalizeHostForm` / `resolveCompressionAction` + `config.host_form` + 注入 `HOST_FORM` / `CONTEXT_COMPRESSION_ACTION` | ✅ 2026-09-22 |
+| **批 4｜协议文本** | `auto-transition.md` 写入 manual / auto 双模式与 auto 六步执行序；4 个技能的内联三分支改指针（消双源）；manual HINT 改为「请新开会话并执行 /X」 | ✅ 2026-09-22 |
+| **批 5｜委派契约收紧** | 层级 B：`dispatch-execute.md` 的 D-2 去留（D2）+ 回报契约改「只回状态 / 产物路径 / 短列表」；`prd/refine` 返回处理只收 `artifact_path` | ⏳ 待决 |
+| **批 6｜落盘补齐** | H1（待定名落盘，D5）、S2（`prototype/review` 补恢复章节） | ⏳ 待决 |
+| **批 7｜措辞与提示语归一** | 层级 A/C 提示语模板统一；5 类压缩点措辞归一；各技能尾部补「恢复清单」四件套 | ⏳ 待决 |
+| **批 8｜形态探测增强** | §5.6.3 ②：PPID 进程名 / 平台 env 探测，逐平台实测后进规范 | ⏳ 待决（依批 3 结论） |
+
+> 批次编号已于 2026-09-22 按**实际执行顺序**重排（原表的「批 2 契约收紧 / 批 3 落盘补齐」顺延为批 5 / 批 6），
+> 以免与已落地的批次混淆。
 
 **守护**：批 1–4 完成后跑 `npx vitest run test/ts/skills-install.test.ts`（技能 md 禁出现以 `..` 开头的路径字面量）；若触及 prototype 页面机制或脚本判定，另跑两侧 `evals/run.mjs --selftest`。
 
@@ -265,10 +388,14 @@ result:
 
 | # | 问题 | 选项 | 影响面 |
 |---|---|---|---|
-| **D1** | `auto_transition` 默认值 | A 全改 manual / B 保留 auto + 落盘检查 / C 按族分 | 4 个技能 + 模板 + policy |
+| **D1** | `auto_transition` 行为 | ✅ **已决并落地（2026-09-22）**：manual（**出厂默认**）⇒ 提示用户新开会话 + 输入技能名；auto ⇒ 按平台动作压缩后自动执行。落法见 §5.6；出厂值 `false` + `context_compression: beta` | 4 个技能 + 配置 + policy |
 | **D2** | D-2 内容注入型 | A 删除改 inline / B 收窄 + 反转保守策略 | `dispatch-execute.md` + 全部调用方 |
 | **D3** | 单入口技能分段点 | 加可选提示 / 维持现状 | `tweak` / `normal` |
-| **D4** | `context-recovery.md` | 删除 / 改写为索引 | 1 个 policy |
+| **D4** | `context-recovery.md` | ✅ **已决并落地（2026-09-22）：删除**（零引用 + 内容为 comet 时代遗留） | 1 个 policy |
 | **D5** | 待定名落盘载体 | draft 目录内文件 / workflow pending 字段 | `specify-finalize.sh` + 3 个技能 |
+| **D6** | **宿主形态维度** | ✅ **已决（2026-09-22）：A 案** —— `Platform.compressionAction` 按形态分列 + `config.host-form` 显式声明 + `resolveHostForm` 三级链（显式 → 宿主信号 → `unknown` 不猜）+ 注入 `HOST_FORM` / `CONTEXT_COMPRESSION_ACTION`。落法见 §5.6.3；探测手段留批 8 | `platforms.ts` + SessionStart + config + 全部衔接提示语 |
 
-> **建议先决 D1**：它决定批 5 的全部内容，也决定「每个技能都应新开会话」能否成为默认行为而非用户手动打断。
+> **D1 / D4 / D6 已决并落地**（批次进度见 §六）。仍待决：**D2**（委派契约收紧）、**D3**（单入口技能分段点）、**D5**（待定名落盘载体）。
+>
+> 出厂默认已定为 `auto_transition: false`（manual）+ `context_compression: beta`。需要连续执行的用户显式设
+> `auto_transition: 'auto'`；**配置校验应保证它与 `context_compression: beta` 联动**（不能压缩就不许自动跑）。
