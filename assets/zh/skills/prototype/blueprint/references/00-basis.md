@@ -72,7 +72,7 @@
 
 编号壳——本环节不涉及。唯一来源：`polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/00-basis.md §六`。
 
-（例外：`§六` 中的**命名与品牌**在 `Step 3.3` 就要用，按 `SKILL.md` 的指针到该技能 `references/05 §16.1` 查。）
+（例外：`§六` 中的**命名与品牌**在 `Step 3.3` 就要用，按 `SKILL.md` 的指针到该技能 `references/02 §16.1` 查。）
 
 ## 七、研发交付与需求追踪
 

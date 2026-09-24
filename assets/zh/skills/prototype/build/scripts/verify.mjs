@@ -2,7 +2,7 @@
 /**
  * verify.mjs — 高保真 HTML 原型的运行时验证器
  *
- * 本脚本是 references/07-delivery-quality-review.md §27.1「原型运行时验证 · 三层法」的
+ * 本脚本是 references/04-delivery-quality-review.md §27.1「原型运行时验证 · 三层法」的
  * 可执行实现。三层法的规格仍写在 §27.1，本脚本负责把规格变成退出码。
  *
  *   第一层｜静态检查          纯文本分析，无需浏览器
@@ -19,7 +19,7 @@
  *   --browser=<path>       指定浏览器可执行文件（也可用环境变量 PROTO_BROWSER）
  *   --flow=<file.json>     黄金任务流步骤定义，不给则第三层只做分辨率实测
  *   --blocklist=<file>     每行一个禁止出现的真实姓名 / 内部项目名（# 开头为注释）
- *   --contrast-min=4.5     文本 Token 对白底的最低对比度（references/05 §14.3）
+ *   --contrast-min=4.5     文本 Token 对白底的最低对比度（references/02 §14.3）
  *   --small-font-ratio=5   font-size ≤12px 出现次数达到该值即视为「大面积小字」
  *   --no-pii               跳过去个人化扫描（§27.3）
  *   --timeout=30000        单次浏览器调用超时（毫秒）
@@ -301,7 +301,7 @@ function pickAttr(attrs, name) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// 颜色与对比度（references/05 §14.3）
+// 颜色与对比度（references/02 §14.3）
 // ────────────────────────────────────────────────────────────────
 
 function parseColor(value) {
@@ -517,8 +517,8 @@ function layer1(html, doc, opts) {
     });
   }
 
-  // ── 5. 文本 Token 对比度（references/05 §14.3：对白底 ≥ 4.5:1） ─────
-  // 命名契约同 references/05 §14.1：取值可整套替换，命名不可替换——
+  // ── 5. 文本 Token 对比度（references/02 §14.3：对白底 ≥ 4.5:1） ─────
+  // 命名契约同 references/02 §14.1：取值可整套替换，命名不可替换——
   // 一旦认不出文本色，本项会「全绿」，那是空转的绿，不是通过。
   const cssText = doc.raws.filter((r) => r.tag.name === 'style').map((r) => r.content).join('\n');
   const tokenRe = /--([a-zA-Z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))/g;
@@ -626,7 +626,7 @@ function layer1(html, doc, opts) {
     });
   }
   if (small.length >= opts.smallFontRatio) {
-    add(WARN, 'L1-14', '疑似大面积小字', `11～12px 字号出现 ${small.length} 处（阈值 ${opts.smallFontRatio}）。§34 第 20 条把「大面积 11～12px 正文」列为缺陷；口径见 references/05 §15.2——11～12px 只允许零星用于辅助信息，不得成片，请确认这些不是正文级文本。`, {});
+    add(WARN, 'L1-14', '疑似大面积小字', `11～12px 字号出现 ${small.length} 处（阈值 ${opts.smallFontRatio}）。§34 第 20 条把「大面积 11～12px 正文」列为缺陷；口径见 references/02 §15.2——11～12px 只允许零星用于辅助信息，不得成片，请确认这些不是正文级文本。`, {});
   }
 
   // ── 9. 演示数据去个人化（§27.3 / §34 第 31 条） ─────────────

@@ -1,7 +1,7 @@
 # 原型质量判据 · §33 质量审查清单 / §34 一票否决 / §36 最终判断标准
 
 > **本文件是原型质量判据的唯一来源。** 章节号 **33 / 34 / 36 跨技能沿用**：全文只在本文件一处，
-> 建造侧 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` 的 `references/07` 只留编号壳 + 一行为指针，
+> 建造侧 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` **不复制判据、按技能名引用**（其 `references/04` 头部有编号说明指向本文件），
 > 因此两侧所有 `§33.x` / `§34 第 N 条` / `§36` 的编号引用都成立，不存在第二个判据副本。
 >
 > **本文件回答「什么算合格」；「怎么审」见 `SKILL.md`。** 分级口径（P0–P3）也在 `SKILL.md §四`，不在本文件——
@@ -11,9 +11,9 @@
 > `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build`（建造侧按技能名引用：生成期自检 + 交付门禁）。
 >
 > **执行体不在本文件**：`§34` 第 30 条要求运行 `scripts/verify.mjs`，脚本属 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build`
-> （三层验证规格见其 `references/07 §27.1`）。这是全文唯一一处回指建造侧的地方；跑不了就按「未执行」处理，**不得当作已通过**。
+> （三层验证规格见其 `references/04 §27.1`）。这是全文唯一一处回指建造侧的地方；跑不了就按「未执行」处理，**不得当作已通过**。
 >
-> **本文件内对 `27.3` 的引用**仍指 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/07 §27.3`。
+> **本文件内对 `27.3` 的引用**仍指 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/04 §27.3`。
 
 ---
 

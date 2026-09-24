@@ -1,6 +1,6 @@
 # 交付物（示例输出）· 合同智能审核工作台
 
-> 本文件是 `example/requirement.md` 的**输出**，演示 6+1 交付物实际长什么样（见 `references/07 §33`）。
+> 本文件是 `example/requirement.md` 的**输出**，演示 6+1 交付物实际长什么样（见 `references/04 §32`）。
 > 真实项目里这 6 份文档通常分成多个文件；此处压在一个文件里，是为了让「输入 → 输出」对照可读。
 > 第 7 项《高保真可交互 Web 原型》落在 `example/prototype.html`。
 

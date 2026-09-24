@@ -7,12 +7,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>合同智能审核工作台</title>
 <style>
-/* 设计 Token —— 具体取值不写在这里，取自 Token 文件（references/05 §14.2）：
+/* 设计 Token —— 具体取值不写在这里，取自 Token 文件（references/02 §14.2）：
    默认 assets/default-tokens.css；需求方提供了设计规范时用 --tokens=<规范.css> 覆盖。
    品牌化与主题调整只改这一区；文本 Token 对白底必须 ≥4.5:1（verify L1-9 强制，不可放宽）。 */
 :root {
   /* @TOKENS:BEGIN */
-  /* 设计 Token · 取值来源：技能兜底基线（zh/skills/prototype/build/assets/default-tokens.css）（references/05 §14.2） */
+  /* 设计 Token · 取值来源：技能兜底基线（zh/skills/prototype/build/assets/default-tokens.css）（references/02 §14.2） */
   --primary-color: #4b55fa;
   --primary-hover: #3b45ea;
   --primary-active: #2b35da;
@@ -1052,7 +1052,7 @@ td.strong { font-weight: 500; color: var(--title-color); }
 <script>
 /* 业务演示脚本：动态问候 / 页面状态层 / AI 处理过程 / 人工确认 / 演示浮层。
    约束：跳转一律走 data-goto 属性与事件代理，本块不出现「函数名 + 带引号页面 id」的字面量调用，
-   否则 verify 第一层会把它当成跳转声明而误报断链（见 references/07 §27.1）。 */
+   否则 verify 第一层会把它当成跳转声明而误报断链（见 references/04 §27.1）。 */
 (function () {
   'use strict';
 

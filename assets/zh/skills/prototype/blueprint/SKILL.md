@@ -230,7 +230,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 └─ 参数
 ```
 
-**命名与品牌层级规范**（产品身份、Header 单一主名称、多层品牌、名称冲突、菜单命名去冗余）以 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/05 §16.1` 为准——**本阶段就要用**，等做到页面再回头改名字就是大面积返工。
+**命名与品牌层级规范**（产品身份、Header 单一主名称、多层品牌、名称冲突、菜单命名去冗余）以 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/02 §16.1` 为准——**本阶段就要用**，等做到页面再回头改名字就是大面积返工。
 
 - 产出：`ia.md`　判据：每个一级导航项对应一个明确用户任务；Header 主名称唯一且全站一致　门禁：无
 

@@ -100,11 +100,11 @@
   **裁决：不做**，改在 `task-kind-layout.ts` 的 prototype `review` 行上方加注释登记「服务型技能、游标不会落在 review、保留同名映射」。
 - 切分判据 `§31.1/§31.2`：页面数量·范围·批次·深度（PM 拍板）归 blueprint；模式/结构/状态/视觉（专业职责）归 build。
 - 产物默认 `$REPO_ROOT/.polaris/tasks/$task_id/`，路径写 `state.yaml` 的 `output_dir`。**state.yaml 只记身份与指针，不记进度——产物即状态**。
-- 判据唯一来源 `review/references/01-quality-criteria.md`（§33/§34/§36）；`build/references/07` 只留编号壳+指针。
+- 判据唯一来源 `review/references/01-quality-criteria.md`（§33/§34/§36）；`build` **不复制判据、按技能名引用**（其 `references/04` 头部有「编号说明」指向 review；§31/33/34/36 空壳已删）。
 - 等级坐标系两套：E1–E5=取证源，L1–L3=三层验证（静态/冒烟/黄金流）。
 - `verify.mjs` 只判「有没有」，全绿≠合格；L2 空白壳按渲染后可见文本长度 `vlen` 判，不要用 `innerText || textContent` 兜底。
 - 脚本共享契约（改一处须同步两脚本）：`<section id>`、`data-goto`、`symbol#i-*`+`use href="#i-*"`、`--text-*`、`window.goto()`；注释里出现这些字面量也判 HARD。
-- 三层加载：SKILL.md=流程主干；`references/00-basis.md`=**必读**基础（已在文件头/§零/§九三处写明）；01–07 按需查，ref05 约 1030 行按 §九 分段读；`references/03` 已废弃（并入 SKILL.md §四 4.3）。
+- 三层加载：SKILL.md=流程主干；`references/00-basis.md`=**必读**基础（§六 红线阈值已**自包含**：字号 ≥13px / 对比度 ≥4.5:1 直接给值，底线由 `verify L1-x` 兜底）；`01`–`04` 按需查，`02` 约 1000 行按 SKILL.md 尾部「分段路由」读；`03`=响应式/可访问性。**脚本判「底线」、正文留「规则」**（规则更严，如 13px > 11px 底线），方向 A 只删「已脚本化的底线描述」不删规则。
 - SKILL.md 统一模板：frontmatter → 标题 → 用途 → 约定 → 启动语 → `## 流程` → Step 0..N → 退出条件 → 中断恢复/上下文压缩恢复 → 尾部（参考文件与工具 + 交付前自检）。
 - 改页面机制/Token 契约/脚本判定后须重跑两侧 `evals/run.mjs --selftest`；改任何技能资产后跑 `npx vitest run test/ts/skills-install.test.ts`。
 

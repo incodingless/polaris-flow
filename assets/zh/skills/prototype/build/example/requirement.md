@@ -5,7 +5,7 @@
 > 业务目标 · 服务对象 · 使用场景 · 一期范围 · 核心任务 · 交付约束。
 >
 > 本示例**不附带设计系统 / 视觉规范**，因此原型使用技能兜底基线 Token
-> （`assets/default-tokens.css`）；若需求方提供规范，走 `scaffold ... --tokens=<规范.css>` 覆盖，机制与守卫见 `references/05 §14.2`。
+> （`assets/default-tokens.css`）；若需求方提供规范，走 `scaffold ... --tokens=<规范.css>` 覆盖，机制与守卫见 `references/02 §14.2`。
 
 ## 1. 业务目标
 

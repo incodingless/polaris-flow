@@ -32,11 +32,11 @@ version: 1.5.0
 | 五维质量审查清单（业务 / 结构 / 交互 / 视觉 / 研发 + 演示就绪） | 本技能 `references/01-quality-criteria.md` `§33` | 逐维走查时**逐条核对**，每条问题引用它核对到的条款 |
 | 一票否决 31 条 | 同上 `§34` | 命中任一条即判 **P0**，阻断交付 |
 | 最终判断标准（7 条「一看」） | 同上 `§36` | 写结论时的最终口径 |
-| 三层运行时验证规格 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/07 §27.1` | Step 2 实际执行；退出码 0 是交付门禁，未执行的层必须标注 |
+| 三层运行时验证规格 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/04 §27.1` | Step 2 实际执行；退出码 0 是交付门禁，未执行的层必须标注 |
 
 **唯一一处依赖在建造侧**：三层验证的**执行体** `scripts/verify.mjs` 属 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build`——脚本不像文档那样能"按技能名读"，得先按技能名定位它的安装位置再执行。`§34` 第 30 条（未运行 verify 就交付）因此只能在这里合上：**跑不了就标「未执行」，不得当作已通过**。
 
-**判据的维护口径**：`§33` / `§34` / `§36` 的**章节号跨技能沿用**——全文只在本文件一处，建造侧 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` 的 `references/07` 只留编号壳 + 一行指针，因此两侧所有 `§33.x` / `§34 第 N 条` / `§36` 的编号引用都成立。**改判据只改本文件一处**，建造侧 `references/00-basis.md §八` 摘录的 8 条同步对齐即可。判据单向流动：**建造侧 → 本技能**（与 `prd` 族的 `refine → review` 同方向）。
+**判据的维护口径**：`§33` / `§34` / `§36` 的**章节号跨技能沿用**——全文只在本文件一处，建造侧 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` **不复制判据、按技能名引用**（其 `references/04` 头部有编号说明指向本文件），因此两侧所有 `§33.x` / `§34 第 N 条` / `§36` 的编号引用都成立。**改判据只改本文件一处**，建造侧 `references/00-basis.md §八` 摘录的 8 条同步对齐即可。判据单向流动：**建造侧 → 本技能**（与 `prd` 族的 `refine → review` 同方向）。
 
 **判据与分级的职责切分**：`§33` / `§34` / `§36` 回答「这一项**是不是**问题」；本技能 §四 回答「发现的问题**多重**」。分级口径（P0–P3）写在 `SKILL.md §四`，**不写进判据文件**——两边不得互相顶替。
 
@@ -237,7 +237,7 @@ node scripts/verify.mjs <原型.html> --flow=<黄金流.json> --strict
 | 文件 | 内容 | 何时读 |
 |---|---|---|
 | `./references/01-quality-criteria.md` | **质量判据唯一来源**：`§33` 五维质量审查清单、`§34` 一票否决 31 条、`§36` 最终判断标准 | **每次评审必读** |
-| `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/07 §27.1` | 三层运行时验证规格（执行体 `scripts/verify.mjs` 也在该技能） | Step 2 执行验证前 |
+| `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` → `references/04 §27.1` | 三层运行时验证规格（执行体 `scripts/verify.mjs` 也在该技能） | Step 2 执行验证前 |
 | 同上 → `scripts/verify.mjs --help` | 三层验证执行体与全部选项 | Step 2 执行前 |
 | 同上 → `SKILL.md`「交付前人工复核」 | 建造方交付前的 12 条人工复核项（脚本判不了的判断项） | 需要取证线索时（**只作线索，不作结论来源**） |
 | `./templates/prototype_review_report_template.md` | 报告标准格式 | Step 6 输出报告时 |

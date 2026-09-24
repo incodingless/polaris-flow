@@ -146,13 +146,13 @@ LANG_EXIT = $?
 
 #### Step 3.2 页面结构设计
 
-每个 P0 页面定义 12 项（Page ID、名称、角色、目标、进入条件、看到什么、做什么、页面区域、离开方式、业务状态、响应式行为、密度模式与容器高度策略）。每页先用"任务—信息—操作"三层法自查，不支持其一的区域审查必要性。其中**密度模式见 `references/02 §15.5`**，**容器高度策略与内容感知布局（Auto Content / Adaptive Data / Full Workspace）见 `§16.2–16.3`**——这两段在结构阶段就要定，等写完页面再补就是大面积空白类返工。**12 项定义与「任务—信息—操作」三层法的完整展开见 `references/04 §11`**——本步只列项，判据与示例在那份里。
+每个 P0 页面定义 12 项（Page ID、名称、角色、目标、进入条件、看到什么、做什么、页面区域、离开方式、业务状态、响应式行为、密度模式与容器高度策略）。每页先用"任务—信息—操作"三层法自查，不支持其一的区域审查必要性。其中**密度模式见 `references/02 §15.5`**，**容器高度策略与内容感知布局（Auto Content / Adaptive Data / Full Workspace）见 `§16.2–16.3`**——这两段在结构阶段就要定，等写完页面再补就是大面积空白类返工。**12 项定义与「任务—信息—操作」三层法的完整展开见 `references/01 §11`**——本步只列项，判据与示例在那份里。
 
 - 产出：`page-structure.md`　判据：12 项无缺项；密度模式与容器高度策略已选定（不是留到写页面时再说）　门禁：无
 
 #### Step 3.3 交互与状态设计
 
-高质量原型不能只有"正常页面"。每个 P0 页面至少考虑 11 种状态：**Initial、Loading、AI Processing（显示"正在解析→检索→分析→生成"而非只转圈）、Skeleton、Empty、Success、Partial Success、Error（必须给出下一步：重试/修改/重新上传/转人工）、Human Review、No Permission、Disabled**。每种状态该长什么样、判据是什么，见 `references/04 §12`（12.1–12.11）；AI Processing 与 Human Review 的额外要求见 `§13`——本步只列状态清单。
+高质量原型不能只有"正常页面"。每个 P0 页面至少考虑 11 种状态：**Initial、Loading、AI Processing（显示"正在解析→检索→分析→生成"而非只转圈）、Skeleton、Empty、Success、Partial Success、Error（必须给出下一步：重试/修改/重新上传/转人工）、Human Review、No Permission、Disabled**。每种状态该长什么样、判据是什么，见 `references/01 §12`（12.1–12.11）；AI Processing 与 Human Review 的额外要求见 `references/01 §13`——本步只列状态清单。
 
 - 产出：并入 `page-structure.md`　判据：每个 P0 页面覆盖适用状态；Error 有下一步；AI 有过程、有依据、有人工确认　门禁：无
 

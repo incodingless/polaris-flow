@@ -2,7 +2,7 @@
 /**
  * scaffold.mjs — 高保真 HTML 原型的薄脚手架
  *
- * 解决的问题（references/07 §27.2「大文件编辑纪律」的根治）：
+ * 解决的问题（references/04 §27.2「大文件编辑纪律」的根治）：
  *   手写千行级单文件原型后，再去做多处修改，只能靠逐条 Edit 硬改——并发写会互相覆盖、
  *   凭记忆拼类名会匹配失败、改了 nav 忘了改页面会出现断链。§27.2 于是要求「必须写断言式
  *   替换脚本」「修改前先 Read 原文」——那是在用纪律补救「没有脚手架」。
@@ -12,12 +12,12 @@
  *   定点插入：标记必须唯一命中，否则中止且不写盘——正是 §27.2 要求的那种替换脚本，
  *   只是它现在由技能交付，不再要模型每次现写。
  *
- * 设计 Token 的来源（references/05 §14.1「接口契约」/ §14.2）：
+ * 设计 Token 的来源（references/02 §14.1「接口契约」/ §14.2）：
  *   具体取值不固化在本脚本里，唯一来源是 Token 文件 —— 默认 assets/default-tokens.css。
  *   需求方给了设计系统时用 --tokens=<规范.css> 覆盖，脚本不做任何值层面的判断，
  *   只做格式校验 + 命名契约校验；对比度是否达标由 verify L1-9 按同一契约裁定。
  *
- * 与 verify.mjs 的契约（两者必须一起演进，原文见 references/05 §14.1）：
+ * 与 verify.mjs 的契约（两者必须一起演进，原文见 references/02 §14.1）：
  *   - 页面容器：<section id="…" class="page" data-title="…">，id 即 goto 目标
  *   - 导航/跳转：data-goto="<page-id>"，且目标必须存在（否则 verify L1-4 HARD）
  *   - 图标：<symbol id="i-*"> 定义 + <use href="#i-*"> 引用（否则 verify L1-7 HARD）
@@ -44,11 +44,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // ────────────────────────────────────────────────────────────────
-// 设计 Token：取值的唯一来源（references/05 §14.2）
+// 设计 Token：取值的唯一来源（references/02 §14.2）
 // ────────────────────────────────────────────────────────────────
 
 const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-/** 兜底基线：需求方没有提供设计系统时使用（references/05 §14.2 优先级 2） */
+/** 兜底基线：需求方没有提供设计系统时使用（references/02 §14.2 优先级 2） */
 const DEFAULT_TOKENS_FILE = path.join(SKILL_DIR, 'assets', 'default-tokens.css');
 /** Token 区在 :root{} 内，缩进两格 */
 const TOKEN_INDENT = '  ';
@@ -149,7 +149,7 @@ function buildTemplate({ title, app }) {
     .join('\n');
 
   const css = `<style>
-/* 设计 Token —— 具体取值不写在这里，取自 Token 文件（references/05 §14.2）：
+/* 设计 Token —— 具体取值不写在这里，取自 Token 文件（references/02 §14.2）：
    默认 assets/default-tokens.css；需求方提供了设计规范时用 --tokens=<规范.css> 覆盖。
    品牌化与主题调整只改这一区；文本 Token 对白底必须 ≥4.5:1（verify L1-9 强制，不可放宽）。 */
 :root {
@@ -541,7 +541,7 @@ function tokenSourceLabel(tokens, custom) {
 
 /** 写进原型 @TOKENS 区的内容：顶部一行标注取值来源，方便交接时追溯 */
 function tokenRegionText(tokens, custom) {
-  return `/* 设计 Token · 取值来源：${tokenSourceLabel(tokens, custom)}（references/05 §14.2） */\n${tokens.body}`;
+  return `/* 设计 Token · 取值来源：${tokenSourceLabel(tokens, custom)}（references/02 §14.2） */\n${tokens.body}`;
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -778,7 +778,7 @@ function cmdList(args) {
   if (unused.length) out.push(`  未被引用：${unused.join(', ')}`);
 
   out.push('');
-  out.push('文本 Token 对白底对比度（references/05 §14.3 要求 ≥4.5:1）');
+  out.push('文本 Token 对白底对比度（references/02 §14.3 要求 ≥4.5:1）');
   for (const tk of tokens.filter((t) => isText(t.name))) {
     const c = parseColor(tk.raw);
     if (!c) continue;
@@ -855,7 +855,7 @@ const USAGE = `
 
 说明：脚手架只生成骨架——App Shell、设计 Token、图标 symbol、页面容器、路由、导航。
 设计 Token 的取值不写在本脚本里，取自 Token 文件（默认 assets/default-tokens.css）：
-需求方给了设计系统就用 --tokens=<规范.css> 覆盖；命名契约与 4.5:1 阈值见 references/05 §14.1。
+需求方给了设计系统就用 --tokens=<规范.css> 覆盖；命名契约与 4.5:1 阈值见 references/02 §14.1。
 页面主体（信息层级、状态覆盖、交互）一律留白给设计者，模板不替业务做决定。
 生成后请立刻跑 verify.mjs 拿静态基线；页面主体填完再跑全三层。
 `.trim();

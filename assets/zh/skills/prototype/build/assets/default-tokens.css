@@ -1,5 +1,5 @@
 /* ────────────────────────────────────────────────────────────────
- * 默认设计 Token · 技能的兜底基线（references/05 §14.2）
+ * 默认设计 Token · 技能的兜底基线（references/02 §14.2）
  *
  * 「具体取值」的唯一来源。规范正文只讲规则与阈值，取值一律从这里取，
  * 避免同一套值在两处各存一份而互相漂移。
@@ -22,7 +22,7 @@
 --error-color: #fa4c6e;
 --info-color: #1890ff;
 
-/* 文本色 —— 对白底均 >= 4.5:1（references/05 §14.3 硬指标） */
+/* 文本色 —— 对白底均 >= 4.5:1（references/02 §14.3 硬指标） */
 --title-color: #2d3b8d;
 --heading-color: rgba(0, 0, 0, 0.85);
 --text-primary: #333333;
@@ -56,7 +56,7 @@
 /* 阴影 —— 保持轻量，禁止大面积重阴影 */
 --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.08);
 
-/* 字号刻度（references/05 §15.1 的层级映射） */
+/* 字号刻度（references/02 §15.1 的层级映射） */
 --fs-caption: 12px;
 --fs-sm: 13px;
 --fs-body: 14px;
@@ -66,7 +66,7 @@
 --fs-kpi: 28px;
 --fs-display: 32px;
 
-/* 比例基线（references/05 §14.4 企业级视觉比例基线） */
+/* 比例基线（references/02 §14.4 企业级视觉比例基线） */
 --header-h: 56px;
 --sidebar-w: 216px;
 --page-pad-x: 24px;
