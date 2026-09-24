@@ -44,7 +44,9 @@ layout:
     prototype: "prototype"
     architecture: "architecture"
     design: "design"
-    testcases: "testcases"
+    testing: "testing"
+    bugfix: "trouble-shooting"
+    refactoring: "refactoring"
 
 # 模型配置
 model:

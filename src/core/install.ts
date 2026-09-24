@@ -6,8 +6,6 @@
  * 3. 公共内容 adapters/policies/templates 随 skills 步骤落入 polaris
  */
 import path from 'path';
-import { readFile, writeFile } from 'fs/promises';
-import { parseDocument } from 'yaml';
 import { getCommandLayout, getPlatformSkillsDir, type Platform } from './domain/platforms.js';
 import {
   type InstallScope,
@@ -27,7 +25,8 @@ import { copyPolarisRules } from './install/rules.js';
 import { copyPolarisSkillsForPlatform } from './install/skills.js';
 import { Assets, readAssets } from './assets/manifest.js';
 import { ensureWorkflowStateFile } from './config/workflow-state.js';
-import { copyIfMissing, ensureDir, fileExists } from '../utils/file-system.js';
+import { copyIfMissing, fileExists } from '../utils/file-system.js';
+import { writeYamlFromTemplate } from '../utils/yaml-io.js';
 
 export type { LockFile, LockSourceEntry } from './install/lock.js';
 export { writeLockFile } from './install/lock.js';
@@ -166,39 +165,36 @@ export async function generatePolarisConfig(
     return;
   }
 
-  await ensureDir(path.dirname(polarisConfigPath));
-
   const repoRoot = path.resolve(projectPath);
   const worktreeRoot = resolveWorktreeRoot(projectPath, scope);
 
-  const templateText = await readFile(getConfigExampleYamlSrc(), 'utf-8');
-  const doc = parseDocument(templateText, { keepSourceTokens: true });
+  await writeYamlFromTemplate(getConfigExampleYamlSrc(), polarisConfigPath, {
+    keepComments: true,
+    transform: (doc) => {
+      doc.set('language', language);
+      // 模板键名为 platform；运行时统一写 platforms，并删除旧键
+      doc.set(
+        'platforms',
+        platforms.map((p) => p.id),
+      );
+      if (doc.has('platform')) {
+        doc.delete('platform');
+      }
+      doc.set('scope', scope);
+      doc.set('install-time', new Date().toISOString());
+      doc.set('main-repo-root', repoRoot);
+      doc.set('worktree-dir', worktreeRoot);
 
-  doc.set('language', language);
-  // 模板键名为 platform；运行时统一写 platforms，并删除旧键
-  doc.set(
-    'platforms',
-    platforms.map((p) => p.id),
-  );
-  if (doc.has('platform')) {
-    doc.delete('platform');
-  }
-  doc.set('scope', scope);
-  doc.set('install-time', new Date().toISOString());
-  doc.set('main-repo-root', repoRoot);
-  doc.set('worktree-dir', worktreeRoot);
-
-  doc.setIn(['layout', 'worktree'], worktreeRoot);
-  doc.setIn(['layout', 'openspec'], path.join(repoRoot, 'openspec'));
-  doc.setIn(['layout', 'tasks', 'root'], path.join(repoRoot, '.polaris', 'tasks'));
-  doc.setIn(['layout', 'docs', 'root'], path.join(repoRoot, 'docs'));
-
-  const text = String(doc);
-  await writeFile(polarisConfigPath, text.endsWith('\n') ? text : `${text}\n`, 'utf-8');
+      doc.setIn(['layout', 'worktree'], worktreeRoot);
+      doc.setIn(['layout', 'openspec'], path.join(repoRoot, 'openspec'));
+      doc.setIn(['layout', 'tasks', 'root'], path.join(repoRoot, '.polaris', 'tasks'));
+      doc.setIn(['layout', 'docs', 'root'], path.join(repoRoot, 'docs'));
+    },
+  });
 }
 
 /**
- * 物化 `.polaris/workflow.yaml`：原样拷贝模板，不写入 version / install-time。
+ * 物化 `.polaris/workflow.yaml`：按模板写出数据，不保留注释，不写入 version / install-time。
  */
 async function generateWorkflowConfig(projectPath: string): Promise<void> {
   await ensureWorkflowStateFile(projectPath);

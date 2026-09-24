@@ -109,8 +109,10 @@
 - **installSource 抽离**: 将 `installSource`（外部源 skills 拷贝执行器）从 `install/commands.ts` 抽到独立的 `install/source-installer.ts`，`deps/superpowers.ts` 改 import `../install/source-installer.js`，修复 deps 反向依赖 install/commands 的分层违反
 - **Pi extension 拆分**: 将 Pi 平台 TS extension 生成（`createPiCommandExtension`/`renderPiCommandExtension`/`getTopLevelSkillNames`/`PI_COMMAND_EXTENSION_FILE`）从 `install/commands.ts` 拆到独立的 `install/pi-extension.ts`，`commands.ts` 仅保留分流调度，不再混入代码生成逻辑
 - **init config 生成**: 从 `config.example.yaml` 生成带注释的 `.polaris/config.yaml`，覆盖语言/平台/作用域/路径等运行时字段；`--overwrite` 时整文件重写
+- **YAML 模板分发**: `renderYamlTemplate` / `writeYamlFromTemplate` 用 `keepComments` 控制落盘是否保留注释。项目 `config.yaml`、全局 `polaris.yaml` 以及其余模板仍保留注释；`workflow.yaml`（init 物化、SessionStart、插件内 `workflow-template.yaml`）只写出数据。任务 `state.yaml` 仍不保留模板注释
 - **init 覆盖策略**: `--overwrite` / `--skip-existing` 可组合——仅 overwrite 四者重装；仅 skip-existing 按组件跳过；两者都传时 OpenSpec/Superpowers/Codegraph 跳过、Polaris 重装
 - **hooks 宿主配置安装**: Trae 写独立 `hooks.json`，Claude/Cursor 写 `settings*.json` 的 `hooks` 字段；已存在时按事件/matcher/command 合并，`--overwrite` 时覆盖 Polaris hooks（settings 其它键保留）
+- **trae-cn hooks 落盘**: 不再把 hooks 写进项目 `.trae/settings.local.json`。Trae 中文版读的是用户目录 `~/.trae-cn/hooks.json`；已有文件只合并 hooks，保留用户自己的事件。脚本路径按项目 context `.trae/skills/polaris/hooks/`，而不是 `.trae-cn/skills/`
 - **polaris-paths 职责拆分**: 平台/插件路径（`getPlugin*` / `getPlatform*` / 相关常量）迁入 `platforms.ts`；`getInstallSkillBase` / `resolveWorktreeRoot` 迁入 `install/layout`；合并重复的 `getPlatformContextDir`（调用方统一从 `platforms` 取）
 - **assets/layout 相对路径**: 落盘映射改用平台 `contextDir`/`globalContextDir` 相对片段，不再依赖绝对路径的 `getPlatformContextDir`
 - **发布包 assets 源路径**: `getAssetsDir` / `getShared*` / 各 template 源从 `polaris-paths` 迁入 `assets/manifest`；`polaris-paths` 只保留运行时 `.polaris` / worktree 路径；`assets/layout` 只负责落盘映射
@@ -162,7 +164,8 @@
 - **install-layout / skills-install**: 覆盖 nested/flat 落盘、hooks 命令路径、agents 与 config 字段；skills 步骤不再隐式安装 agents；断言 `plan-review-agent` / `openspec-review-agent` 落盘
 - **skills-install / agents-install 超时修复**: 给调用 `installPolarisForPlatform` 的 5 个用例加 `INSTALL_TIMEOUT=60s`——该调用拷贝 200+ 文件实测约 15s，默认 5s 必然超时，这些用例此前长期失败且与业务逻辑无关；顺带修正 `skills-install` 的遗留断言 `polaris:flow:clarify` → `polaris:coding:clarify`、`polaris-flow-clarify` → `polaris-coding-clarify`（资产从 `flow` 族重组为 `coding`/`prd` 族后未同步，此前被超时掩盖）；nested/flat 两处补上 testing 族叶技能落盘断言
 - **generatePolarisConfig**: 覆盖从模板首次生成、已存在跳过、`--overwrite` 整文件重写，以及模板注释保留
-- **hooks-install**: Trae/Claude 六场景（不存在写入、合并保留用户配置、overwrite 替换 hooks）
+- **yaml 模板分发**: `keepComments` 为真时保留注释、为假时去掉注释且字段修改仍生效；init 物化的 `workflow.yaml` 与插件内 `workflow-template.yaml` 不含注释行，`state.example.yaml` 分发仍保留注释
+- **hooks-install**: Trae/Claude 六场景（不存在写入、合并保留用户配置、overwrite 替换 hooks）；trae-cn 写入用户目录 `hooks.json`，合并时保留已有事件，command 指向 `.trae/skills/polaris/hooks/`
 - **hook-platform-params**: platform 解析优先级、stdin JSON、`_polaris-cli` 占位替换、hooks command 路径改写、SessionStart session_id
 - **session-start.sh 集成**: 薄包装无 CLI 失败提示；stdin cwd/session_id 全链路落盘；CLI 路径优先于 stdin.cwd
 

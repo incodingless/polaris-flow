@@ -28,14 +28,14 @@ import {
 import { getNpmPackageVersion } from '../core/deps/npm.js';
 import { getAssetsDir, getGlobalPolarisConfigSrc } from '../core/assets/manifest.js';
 import { getGlobalPolarisConfigPath } from '../core/assets/polaris-paths.js';
-import { getSettingsFilePath } from '../core/domain/platforms.js';
+import { getPlatformContextDir } from '../core/domain/platforms.js';
+import { resolveHooksConfigPath } from '../core/install/hooks.js';
 import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
 import type { InstallScope, Languages } from '../core/config/polaris-project-config.js';
 import { initializePolarisCommonLayout } from '../core/install/layout.js';
 import { installCodegraph } from '../core/integrations/codegraph.js';
-import { ensureDir, fileExists } from '../utils/file-system.js';
-import { readFile, writeFile } from 'fs/promises';
-import { parseDocument } from 'yaml';
+import { fileExists } from '../utils/file-system.js';
+import { writeYamlFromTemplate } from '../utils/yaml-io.js';
 import { loadManifestConfig } from '../core/assets/manifest.js';
 
 type InstallStatus = 'installed' | 'skipped' | 'failed';
@@ -361,7 +361,11 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
       const hooks = result?.hooks ?? { installed: false };
 
       if (hooks.installed) {
-        const hooksLocation = getSettingsFilePath(plan.platform, scope);
+        const hooksLocation = resolveHooksConfigPath(
+          getPlatformContextDir(plan.platform, scope, projectPath),
+          plan.platform,
+          scope,
+        );
         log(
           `  ${green('✓')}  Hooks ${dim('→')} ${plan.platform.name} ${dim(`(${hooksLocation})`)}`,
         );
@@ -442,21 +446,19 @@ async function generatePolarisGlobalConfig(
     return;
   }
 
-  // 始终从模板读，避免 copyIfMissing 未完成或 overwrite 时读到旧/空目标
-  const templateText = await readFile(getGlobalPolarisConfigSrc(), 'utf-8');
-  const doc = parseDocument(templateText, { keepSourceTokens: true });
-
-  doc.set('version', '0.1.0');
-  doc.set('install-time', new Date().toISOString());
-  doc.set(
-    'plugins',
-    pluginResults.map((p) => ({
-      id: p.id,
-      version: p.version,
-    })),
-  );
-
-  await ensureDir(path.dirname(polarisGlobalConfigPath));
-  const text = String(doc);
-  await writeFile(polarisGlobalConfigPath, text.endsWith('\n') ? text : `${text}\n`, 'utf-8');
+  // 始终从模板读，避免 overwrite 时读到旧目标
+  await writeYamlFromTemplate(getGlobalPolarisConfigSrc(), polarisGlobalConfigPath, {
+    keepComments: true,
+    transform: (doc) => {
+      doc.set('version', '0.1.0');
+      doc.set('install-time', new Date().toISOString());
+      doc.set(
+        'plugins',
+        pluginResults.map((p) => ({
+          id: p.id,
+          version: p.version,
+        })),
+      );
+    },
+  });
 }

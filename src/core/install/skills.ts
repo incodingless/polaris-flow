@@ -18,6 +18,7 @@ import {
   type CopyJob,
   type CopyResult,
 } from '../../utils/file-system.js';
+import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { Assets } from '../assets/manifest.js';
 import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 import { parseSkillAssetPath, SKILL_FAMILIES } from '../assets/layout.js';
@@ -160,6 +161,46 @@ async function writePrefixedTextJob(job: CopyJob, prefix: string): Promise<CopyR
 }
 
 /**
+ * 判断共享模板是否在分发时丢掉注释。
+ * 目前只有 workflow 游标模板：注释只服务仓库维护，落到用户项目后不保留。
+ */
+function templateDropsComments(shortPath: string): boolean {
+  const normalized = shortPath.replace(/\\/g, '/');
+  const base = normalized.includes('/')
+    ? normalized.slice(normalized.lastIndexOf('/') + 1)
+    : normalized;
+  return base === 'workflow-template.yaml';
+}
+
+/**
+ * 按 YAML 模板分发：覆盖策略与 `keepComments` 由调用方决定。
+ */
+function makeYamlTemplateCopyJob(
+  label: string,
+  src: string,
+  dest: string,
+  overwrite: boolean,
+  keepComments: boolean,
+): CopyJob {
+  const job: CopyJob = {
+    label,
+    src,
+    dest,
+    type: 'file',
+    overwrite,
+  };
+  job.write = async () => {
+    const existed = await fileExists(job.dest);
+    if (existed && !job.overwrite) {
+      return { job, result: 'skipped' };
+    }
+    await writeYamlFromTemplate(job.src, job.dest, { keepComments });
+    return { job, result: 'copied' };
+  };
+  return job;
+}
+
+/**
  * 构造带分隔符替换的拷贝任务。
  */
 function makePrefixedCopyJob(
@@ -214,7 +255,9 @@ function collectSkillLeafRoots(assets: Assets): SkillLeafRoot[] {
  * 从技能资产相对路径解析出技能根（相对 skills 根）与文件所在目录。
  * 返回 null 表示该文件不是可校验的技能叶文件。
  */
-function resolveSkillAssetLocation(shortPath: string): { skillRootRel: string; fileDirRel: string } | null {
+function resolveSkillAssetLocation(
+  shortPath: string,
+): { skillRootRel: string; fileDirRel: string } | null {
   const normalized = shortPath.replace(/\\/g, '/');
   if (shouldSkipSkillShortPath(normalized)) {
     return null;
@@ -242,7 +285,10 @@ function resolveSkillAssetLocation(shortPath: string): { skillRootRel: string; f
  * 安装器只替换 `{{SKN_SPR}}`，不重写 `../` 与 `{{SKILL_NAME_PREFIX}}`，因此源资产扫描等价于产物扫描。
  */
 export async function findSkillAssetRefViolations(assets: Assets): Promise<string[]> {
-  const targets: { file: Assets['langDirAssets'][number]['files'][number]; location: { skillRootRel: string; fileDirRel: string } }[] = [];
+  const targets: {
+    file: Assets['langDirAssets'][number]['files'][number];
+    location: { skillRootRel: string; fileDirRel: string };
+  }[] = [];
   for (const skillAsset of assets.langDirAssets.filter((a) => a.dir === 'skills')) {
     for (const file of skillAsset.files) {
       const location = resolveSkillAssetLocation(file.shortPath);
@@ -312,10 +358,23 @@ export async function copyPolarisSkillsForPlatform(
   );
   for (const sharedDir of sharedDirs) {
     for (const file of sharedDir.files) {
+      const dest = path.join(polarisSkillsBaseDir, sharedDir.dir, file.shortPath);
+      if (sharedDir.dir === 'templates' && file.shortPath.endsWith('.yaml')) {
+        jobs.push(
+          makeYamlTemplateCopyJob(
+            'shared_templates',
+            file.fullPath,
+            dest,
+            overwrite,
+            !templateDropsComments(file.shortPath),
+          ),
+        );
+        continue;
+      }
       jobs.push({
         label: 'shared_' + sharedDir.dir,
         src: file.fullPath,
-        dest: path.join(polarisSkillsBaseDir, sharedDir.dir, file.shortPath),
+        dest,
         type: 'file',
         overwrite,
       });
@@ -327,15 +386,20 @@ export async function copyPolarisSkillsForPlatform(
   );
   for (const contentDir of contentDirs) {
     for (const file of contentDir.files) {
-      jobs.push(
-        makePrefixedCopyJob(
-          contentDir.dir,
-          file.fullPath,
-          path.join(polarisSkillsBaseDir, contentDir.dir, file.shortPath),
-          overwrite,
-          prefix,
-        ),
-      );
+      const dest = path.join(polarisSkillsBaseDir, contentDir.dir, file.shortPath);
+      if (contentDir.dir === 'templates' && file.shortPath.endsWith('.yaml')) {
+        jobs.push(
+          makeYamlTemplateCopyJob(
+            contentDir.dir,
+            file.fullPath,
+            dest,
+            overwrite,
+            !templateDropsComments(file.shortPath),
+          ),
+        );
+        continue;
+      }
+      jobs.push(makePrefixedCopyJob(contentDir.dir, file.fullPath, dest, overwrite, prefix));
     }
   }
 

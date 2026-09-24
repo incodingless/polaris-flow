@@ -5,9 +5,9 @@
  * - coding / testcase：先建 draft-*，再由 finalize（或后续流程）落到正式 id
  * - requirement / prototype：不建 draft，须传正式 taskId，直接初始化任务目录
  */
-import { copyFile, mkdir, rename, readFile, writeFile } from 'fs/promises';
+import { mkdir, rename, readFile, writeFile } from 'fs/promises';
 import path from 'path';
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import type { Document } from 'yaml';
 
 import { getPolarisConfigPath } from '../config/polaris-project-config.js';
 import { getTaskStateTemplateSrc } from '../assets/manifest.js';
@@ -29,6 +29,7 @@ import {
 import { patchTaskStateFile } from '../config/task-state.js';
 import type { WorkflowTaskKind } from '../config/workflow-state.js';
 import { fileExists } from '../../utils/file-system.js';
+import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { runDraftCreate } from './draft-create.js';
 import { runWorkflowEntry } from './workflow-entry.js';
 
@@ -69,21 +70,6 @@ type ResolvedIdentity =
       result: InitResult;
     };
 
-/** 按点路径写入嵌套对象 */
-function setByPath(root: Record<string, unknown>, dotted: string, value: unknown): void {
-  const parts = dotted.split('.');
-  let cur: Record<string, unknown> = root;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const key = parts[i]!;
-    const next = cur[key];
-    if (!next || typeof next !== 'object' || Array.isArray(next)) {
-      cur[key] = {};
-    }
-    cur = cur[key] as Record<string, unknown>;
-  }
-  cur[parts[parts.length - 1]!] = value;
-}
-
 /** 将补丁占位符替换为实际值 */
 function resolvePatchValue(
   raw: string,
@@ -103,19 +89,20 @@ function resolvePatchValue(
   }
 }
 
-/** 对解析后的 state 对象应用 initPatches */
+/** 对 state 模板文档应用 initPatches（点路径写入对应节点） */
 function applyInitPatches(
-  state: Record<string, unknown>,
+  doc: Document,
   patches: TaskInitPatches,
   vars: { taskId: string; now: string; intentionRel: string; planRel: string },
 ): void {
   for (const [dotted, raw] of Object.entries(patches)) {
-    setByPath(state, dotted, resolvePatchValue(raw, vars));
+    doc.setIn(dotted.split('.'), resolvePatchValue(raw, vars));
   }
 }
 
 /**
- * 复制 kind 对应 state 模板到任务目录，再写入初始化补丁。
+ * 按 kind 对应 state 模板写出任务 state.yaml。
+ * 不保留模板注释；初始化补丁写在同一份文档上。
  */
 async function materializeStateFromTemplate(
   root: string,
@@ -128,25 +115,22 @@ async function materializeStateFromTemplate(
   if (!(await fileExists(templateSrc))) {
     throw new Error(`state 模板不存在: ${templateSrc}`);
   }
-  await mkdir(path.dirname(statePath), { recursive: true });
-  await copyFile(templateSrc, statePath);
-
-  const raw = await readFile(statePath, 'utf-8');
-  const parsed = parseYaml(raw);
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(`state 模板无法解析为对象: ${templateSrc}`);
-  }
-  const state = parsed as Record<string, unknown>;
   const now = new Date().toISOString();
-  applyInitPatches(state, layout.initPatches, {
-    taskId,
-    now,
-    intentionRel: getTaskIntentionRelPath(taskId),
-    planRel: getTaskKindRelPath(kind, taskId, 'testcase_plan.md'),
+  await writeYamlFromTemplate(templateSrc, statePath, {
+    keepComments: false,
+    transform: (doc) => {
+      const parsed = doc.toJS();
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error(`state 模板无法解析为对象: ${templateSrc}`);
+      }
+      applyInitPatches(doc, layout.initPatches, {
+        taskId,
+        now,
+        intentionRel: getTaskIntentionRelPath(taskId),
+        planRel: getTaskKindRelPath(kind, taskId, 'testcase_plan.md'),
+      });
+    },
   });
-
-  const text = stringifyYaml(state, { lineWidth: 0 });
-  await writeFile(statePath, text.endsWith('\n') ? text : `${text}\n`, 'utf-8');
 }
 
 /** 写入 layout.bootstrapFiles */

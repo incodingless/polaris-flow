@@ -1,8 +1,10 @@
 /**
  * Polaris hooks 安装：按平台写入/合并宿主 hooks 配置。
- * Trae → 独立 hooks.json；Claude/Cursor → settings*.json 的 hooks 字段。
+ * trae-cn → `~/.trae-cn/hooks.json`；trae → context 下 `hooks.json`；
+ * Claude/Cursor → settings*.json 的 hooks 字段。
  * 落盘前将 command 改写为项目相对路径（不依赖 CLAUDE_PLUGIN_ROOT）。
  */
+import os from 'os';
 import path from 'path';
 
 import { readJsonObjectOrEmpty, writeJsonPretty } from '../../utils/json-io.js';
@@ -19,15 +21,22 @@ export function getHooksJsonSrc(): string {
 
 /**
  * 解析宿主 hooks 配置落盘路径。
- * Trae：独立 hooks.json；其余 claude-code：project→settings.local.json，global→settings.json。
- * @param baseDir 平台 context 根（如 project/.claude）
+ * trae-cn：用户目录 `~/.trae-cn/hooks.json`（与安装 scope 无关）。
+ * trae：平台 context 下的 `hooks.json`。
+ * 其余 claude-code：project→settings.local.json，global→settings.json。
+ * @param baseDir 平台 context 根（如 project/.claude）；trae-cn 不使用该目录
+ * @param homeDir 用户主目录，测试可注入，默认 `os.homedir()`
  */
 export function resolveHooksConfigPath(
   baseDir: string,
   platform: Platform,
   scope: InstallScope,
+  homeDir: string = os.homedir(),
 ): string {
-  if (platform.id === 'trae') {
+  if (platform.id === 'trae-cn') {
+    return path.join(homeDir, platform.globalContextDir, platform.hooksConfigFile || 'hooks.json');
+  }
+  if (platform.id === 'trae' || platform.hookFormat === 'trae') {
     return path.join(baseDir, platform.hooksConfigFile || 'hooks.json');
   }
   const fileName = scope === 'project' ? 'settings.local.json' : 'settings.json';
@@ -35,10 +44,22 @@ export function resolveHooksConfigPath(
 }
 
 /**
+ * hooks 脚本相对项目根（或全局安装时的绝对目录）的父路径，不含 `hooks/` 文件名。
+ * 项目级用 context 目录名（trae-cn 的 context 是 `.trae`，不是 `.trae-cn`）。
+ */
+function resolveHookScriptRoot(baseDir: string, scope: InstallScope): string {
+  if (scope === 'global') {
+    return path.join(baseDir, 'skills', 'polaris').replace(/\\/g, '/');
+  }
+  return `${path.basename(baseDir)}/skills/polaris`;
+}
+
+/**
  * 生成项目相对 hooks 脚本 command（cwd 一般为项目根）。
  */
-export function buildPolarisHookCommand(platformId: string, scriptName: string): string {
-  return `bash ".${platformId}/skills/polaris/hooks/${scriptName}"`;
+export function buildPolarisHookCommand(scriptRoot: string, scriptName: string): string {
+  const root = scriptRoot.replace(/\\/g, '/').replace(/\/$/, '');
+  return `bash "${root}/hooks/${scriptName}"`;
 }
 
 /**
@@ -58,7 +79,7 @@ export function isManagedHookCommand(command: unknown): boolean {
 /**
  * 将托管 hook command 改写为平台相对路径；非托管原样返回。
  */
-export function rewriteHookCommand(command: string, platformId: string): string {
+export function rewriteHookCommand(command: string, scriptRoot: string): string {
   if (!isManagedHookCommand(command)) {
     return command;
   }
@@ -66,7 +87,7 @@ export function rewriteHookCommand(command: string, platformId: string): string 
   if (!match) {
     return command;
   }
-  return buildPolarisHookCommand(platformId, match[1]);
+  return buildPolarisHookCommand(scriptRoot, match[1]);
 }
 
 /**
@@ -74,7 +95,7 @@ export function rewriteHookCommand(command: string, platformId: string): string 
  */
 export function rewriteHooksCommandsForPlatform(
   hooks: Record<string, Array<Record<string, unknown>>>,
-  platformId: string,
+  scriptRoot: string,
 ): Record<string, Array<Record<string, unknown>>> {
   const out: Record<string, Array<Record<string, unknown>>> = {};
   for (const [event, groups] of Object.entries(hooks)) {
@@ -86,7 +107,7 @@ export function rewriteHooksCommandsForPlatform(
         ...group,
         hooks: (group.hooks as Array<Record<string, unknown>>).map((hook) => ({
           ...hook,
-          command: rewriteHookCommand(String(hook.command ?? ''), platformId),
+          command: rewriteHookCommand(String(hook.command ?? ''), scriptRoot),
         })),
       };
     });
@@ -106,6 +127,7 @@ export async function installPolarisHooksForPlatform(
   scope: InstallScope,
   asset: Assets,
   overwrite: boolean = false,
+  homeDir: string = os.homedir(),
 ): Promise<{ installed: boolean; reason?: string }> {
   if (!platform.supportsHooks || !platform.hookFormat) {
     return { installed: false, reason: 'platform does not support hooks' };
@@ -127,12 +149,21 @@ export async function installPolarisHooksForPlatform(
     return { installed: false, reason: 'hooks config file not found' };
   }
 
-  const destPath = resolveHooksConfigPath(baseDir, platform, scope);
+  const destPath = resolveHooksConfigPath(baseDir, platform, scope, homeDir);
   const isStandaloneHooksFile = platform.id === 'trae';
+  const isTraeCnGlobalHooks = platform.id === 'trae-cn';
 
   try {
     const template = await readJsonObjectOrEmpty(templatePath);
-    const templateHooks = rewriteHooksCommandsForPlatform(asHooksMap(template.hooks), platform.id);
+    const templateHooks = rewriteHooksCommandsForPlatform(
+      asHooksMap(template.hooks),
+      resolveHookScriptRoot(baseDir, scope),
+    );
+
+    if (isTraeCnGlobalHooks) {
+      await writeTraeCnHooksFile(destPath, templateHooks);
+      return { installed: true };
+    }
 
     if (!(await fileExists(destPath))) {
       if (isStandaloneHooksFile) {
@@ -175,6 +206,26 @@ export async function installPolarisHooksForPlatform(
   } catch (err) {
     return { installed: false, reason: (err as Error).message };
   }
+}
+
+/**
+ * 写入 `~/.trae-cn/hooks.json`。
+ * 已存在时只合并 hooks，保留 version 和用户自己的事件，不整文件覆盖。
+ */
+async function writeTraeCnHooksFile(
+  destPath: string,
+  templateHooks: Record<string, Array<Record<string, unknown>>>,
+): Promise<void> {
+  if (!(await fileExists(destPath))) {
+    await writeJsonPretty(destPath, { version: 1, hooks: templateHooks });
+    return;
+  }
+  const existing = await readJsonObjectOrEmpty(destPath);
+  existing.hooks = mergeHooksMaps(asHooksMap(existing.hooks), templateHooks);
+  if (existing.version === undefined) {
+    existing.version = 1;
+  }
+  await writeJsonPretty(destPath, existing);
 }
 
 /** 从分组中剔除 Polaris 已管 hooks；组内 hooks 清空且原有 hooks 非空则去掉该组 */

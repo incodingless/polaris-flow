@@ -221,7 +221,9 @@ describe('installPolarisForPlatform layout', () => {
       expect(ship).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
 
       // 族目录本身不应被当作技能安装
-      await expect(access(path.join(tmpDir, '.trae/skills/polaris-prototype/SKILL.md'))).rejects.toThrow();
+      await expect(
+        access(path.join(tmpDir, '.trae/skills/polaris-prototype/SKILL.md')),
+      ).rejects.toThrow();
 
       await access(
         path.join(tmpDir, '.trae/skills/polaris-coding-specify/policies/decision-point.md'),
@@ -234,28 +236,36 @@ describe('installPolarisForPlatform layout', () => {
 });
 
 describe('copyPolarisSkillsForPlatform', () => {
-  it(
-    '仅拷贝 skills/公共内容，不安装 agents',
-    { timeout: INSTALL_TIMEOUT },
-    async () => {
-      const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-skills-only-'));
-      const skillsDir = path.join(tmpDir, '.claude', 'skills', 'polaris');
-      const asset = await readAssets('zh');
-      await copyPolarisSkillsForPlatform(
-        skillsDir,
-        path.join(tmpDir, '.claude', 'skills'),
-        'nested',
-        true,
-        asset,
-      );
+  it('仅拷贝 skills/公共内容，不安装 agents', { timeout: INSTALL_TIMEOUT }, async () => {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-skills-only-'));
+    const skillsDir = path.join(tmpDir, '.claude', 'skills', 'polaris');
+    const asset = await readAssets('zh');
+    await copyPolarisSkillsForPlatform(
+      skillsDir,
+      path.join(tmpDir, '.claude', 'skills'),
+      'nested',
+      true,
+      asset,
+    );
 
-      await access(path.join(tmpDir, '.claude/skills/polaris/coding/specify/SKILL.md'));
-      await access(path.join(tmpDir, '.claude/skills/polaris/scripts/workflow-entry.sh'));
-      await expect(
-        access(path.join(tmpDir, '.claude/agents/tasks-review-agent.md')),
-      ).rejects.toThrow();
-    },
-  );
+    await access(path.join(tmpDir, '.claude/skills/polaris/coding/specify/SKILL.md'));
+    await access(path.join(tmpDir, '.claude/skills/polaris/scripts/workflow-entry.sh'));
+    const workflowTpl = await readFile(
+      path.join(skillsDir, 'templates', 'workflow-template.yaml'),
+      'utf-8',
+    );
+    expect(workflowTpl).not.toMatch(/^\s*#/m);
+    expect(workflowTpl).toContain('coding_tasks:');
+    expect(workflowTpl).toContain('debug_tasks:');
+    const stateTpl = await readFile(
+      path.join(skillsDir, 'templates', 'state.example.yaml'),
+      'utf-8',
+    );
+    expect(stateTpl).toContain('# 单 change 业务档案模板');
+    await expect(
+      access(path.join(tmpDir, '.claude/agents/tasks-review-agent.md')),
+    ).rejects.toThrow();
+  });
 });
 
 describe('validateSkillAssetsNoCrossSkillParentRefs', () => {

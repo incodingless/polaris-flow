@@ -37,6 +37,7 @@ describe('initPolarisConfig', () => {
     const wfRaw = await readFile(path.join(tmp, '.polaris', 'workflow.yaml'), 'utf-8');
     expect(wfRaw).not.toMatch(/^version:/m);
     expect(wfRaw).not.toMatch(/^install-time:/m);
+    expect(wfRaw).not.toMatch(/^\s*#/m);
     expect(wfRaw).toContain('coding_tasks:');
     expect(wfRaw).toContain('requirement_tasks:');
     expect(wfRaw).toContain('testcase_tasks:');

@@ -182,14 +182,6 @@ export function getCommandLayout(platform: Platform): CommandLayout {
   return platform.commandLayout ?? 'nested';
 }
 
-/** 返回平台 settings 相对路径（project→settings.local.json，global→settings.json） */
-export function getSettingsFilePath(platform: Platform, scope: InstallScope): string {
-  // Project scope → settings.local.json (not committed)
-  // Global scope → settings.json
-  const fileName = scope === 'project' ? 'settings.local.json' : 'settings.json';
-  return `${platform.skillsDir}/${fileName}`;
-}
-
 /**
  * 返回平台上下文目录（project→项目/.platform，global→~/.platform）
  * @param platform 平台

@@ -3,7 +3,7 @@
  * 由 `polaris session-start` CLI 与薄包装 session-start.sh 调用。
  */
 import { randomBytes } from 'crypto';
-import { copyFile, mkdir, readFile, writeFile, appendFile } from 'fs/promises';
+import { mkdir, readFile, writeFile, appendFile } from 'fs/promises';
 import path from 'path';
 
 import {
@@ -20,6 +20,7 @@ import {
   getWorkflowConfigPath,
 } from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
+import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { createHookIo, type HookIo } from './hook-io.js';
 import {
   checkPluginPresence,
@@ -202,7 +203,7 @@ async function checkConfig(
       const workflowSrc = path.join(pluginRoot, 'templates', 'workflow-template.yaml');
       if (await fileExists(workflowSrc)) {
         try {
-          await copyFile(workflowSrc, workflowDst);
+          await writeYamlFromTemplate(workflowSrc, workflowDst, { keepComments: false });
           io.ok('materialized .polaris/workflow.yaml (from template)');
         } catch {
           io.warn(`failed to write ${workflowDst} (skills will lazily create it on first write)`);

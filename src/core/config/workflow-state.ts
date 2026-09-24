@@ -2,12 +2,13 @@
  * `.polaris/workflow.yaml` 工作流游标读写。
  * 与 polaris-config（项目静态配置）分离：本文件描述四类任务列表游标。
  */
-import { copyFile, mkdir, readFile, writeFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists } from '../../utils/file-system.js';
+import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { getWorkflowTemplateYamlSrc } from '../assets/manifest.js';
 import { getWorkflowConfigPath } from '../assets/polaris-paths.js';
 
@@ -26,11 +27,7 @@ export type WorkflowTaskKind = 'coding' | 'requirement' | 'testcase' | 'prototyp
 
 /** kind 对应的 YAML 顶层键名 */
 export type WorkflowTaskListKey =
-  | 'coding_tasks'
-  | 'requirement_tasks'
-  | 'testcase_tasks'
-  | 'prototype_tasks'
-  | 'debug_tasks';
+  'coding_tasks' | 'requirement_tasks' | 'testcase_tasks' | 'prototype_tasks' | 'debug_tasks';
 
 /** `.polaris/workflow.yaml` 根结构 */
 export type WorkflowState = {
@@ -189,7 +186,7 @@ export async function loadWorkflowCursor(repoRoot: string): Promise<WorkflowStat
 }
 
 /**
- * 若缺失则物化 workflow.yaml：优先拷贝模板，否则写四空列表骨架。
+ * 若缺失则物化 workflow.yaml：有模板则写出无注释数据，否则写五空列表骨架。
  */
 export async function ensureWorkflowStateFile(repoRoot: string): Promise<string> {
   const filePath = getWorkflowStatePath(repoRoot);
@@ -199,7 +196,7 @@ export async function ensureWorkflowStateFile(repoRoot: string): Promise<string>
   await mkdir(path.dirname(filePath), { recursive: true });
   const templateSrc = getWorkflowTemplateYamlSrc();
   if (await fileExists(templateSrc)) {
-    await copyFile(templateSrc, filePath);
+    await writeYamlFromTemplate(templateSrc, filePath, { keepComments: false });
     return filePath;
   }
   const skeleton =
