@@ -141,3 +141,29 @@ req_naming:
   prefix_rule: derived        # derived | fixed | manual
   prefix_pattern: "{DEPT}-{MODULE}"   # 仅 fixed 使用；占位符运行时求解
   conflict_policy: extend
+
+# 测试执行配置（verify 阶段 Step 4.0 使用；由「探测 → 展示 → 人工确认」回路落盘，不靠手填）
+test:
+  # 三档命令（探测/人工确认后落盘；留空 = 该档不可用 → 记 No-Verification）
+  commands:
+    unit: ""              # 例：mvn -B test（只跑单测，不含集成）
+    integration: ""       # 例：mvn -B verify（Failsafe *IT.java）
+    smoke: ""             # 例：make smoke（须自带环境准备）
+  # 来源标记（探测→确认回路的产物）
+  source: probed          # probed | confirmed | corrected
+  confirmed_at: ""
+  # 超时（秒）：按框架默认表，可覆盖
+  # 首次超时自动放宽 1 次（冷缓存 / 依赖首次下载）；仍超时按「无结果摘要」处置
+  timeout:
+    unit: 300             # JVM 生态（Maven / Gradle）用 600
+    integration: 600
+    smoke: 900
+  # 失败测试的处置：retry_and_mark = 重试 1 次 + 报告强制标注「首次失败 · 重试通过」
+  # 从严可改回 fail_on_flake（不重试，更贴合「无法失败的测试比没有测试更糟」）
+  flaky_policy: retry_and_mark    # retry_and_mark | fail_on_flake | retry_once
+  # 探测不到测试框架时的处置：by_mode = light 放行 + 声明 / full 阻断
+  no_framework_policy: by_mode    # by_mode | block | pass
+  # 基线红名单来源（默认全绿才放行；此处仅在项目 CI 本身有红时启用）
+  baseline:
+    command: ""           # 项目提供的取红名单命令
+    file: ""              # 或直接指向 CI artifact
