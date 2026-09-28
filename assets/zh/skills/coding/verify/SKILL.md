@@ -44,7 +44,6 @@ description: "对 build 产出做验证并按证据落盘：编译闸门 → 意
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 
 > **链路**：`specify → plan → (design 可选) → tasks → build → **verify** → ship`。
-> 本阶段验证是否可交付；不交付、不归档。
 > Step 0–16 **按顺序执行，任一步未完成不得进入下一步**；两道硬闸门（Step 1 的 dirty 处置、Step 3 的编译闸门）不过即停。
 > Step 14（独立代码评审）与 Step 15（人工验证）是内嵌的**子步，不是阶段** —— 不占游标、不写 `phase`。
 
@@ -100,8 +99,7 @@ RTID_EXIT=$?
 - **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
 - **零匹配**：阻断，提示「未找到构建(build)阶段的活动任务，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}build」
 
-> 若 entry 已是 `phase=build`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
-> 若上次中断在 verify（`runtime.verify.status=in_progress`），从中断点续跑；不得因「已是 verify」而报零匹配。
+> **中断续跑**：entry 停在 `phase=build` 或 `runtime.verify.status=in_progress` 时从中断点续跑，**不得**判成「零匹配」。
 
 **入口校验**（失败 → 阻断）：
 
@@ -192,11 +190,6 @@ stdout 为 `key: value` 行：`framework` / `command` / `evidence`（含 `文件
 
 **落盘**（`.polaris/config.yaml` 的 `test:` 段）：`test.commands.<slot>` + `test.source: probed|confirmed|corrected` + `test.confirmed_at`。
 
-> - **不靠手填** —— 值 = 探测结果 + 人工确认的产物
-> - **确认一次长期有效**：已有 confirmed 值 → 直接读、不再问（否则高频变更每轮都要停一次）
-> - **冲突时 config 优先**：项目换了框架、探测结果与之不符 → 不打断，仅在报告记一行提示
-> - **槽位缺失 ≠ 失败**：`commands.build` / `commands.unit` 为空 → 按上表退出码 `1` 处置
-
 **可执行确认 4 项**：
 
 1. 命令在 PATH —— 脚本已判（不通过即退出码 `2`）
@@ -205,10 +198,6 @@ stdout 为 `key: value` 行：`framework` / `command` / `evidence`（含 `文件
 4. 环境依赖 —— **探测不出来**，只能首跑暴露 → 按三级分叉第 2 级处置
 
 ### Step 3：编译 / 构建闸门（硬闸门）
-
->**模式无关**：`light` / `full` 都跑，且排在意图验收之前 —— 它是**验证的入场条件**，编译不过则没有可验证的对象；且零注意力成本，挡在需人参与的 Step 4 之前可省掉一轮人工注意力（排序依据见「流程」）。
->
->**执行**：
 
 ```bash
 CI=true <test.commands.build>
@@ -223,9 +212,7 @@ CI=true <test.commands.build>
 
 > **性质**：本阶段最前的**粗粒度方向闸门** —— 与 Step 15 的细粒度复核成对（方向优先，见「流程」排序依据）。
 
-> **无条件执行**：固定清单，**不读 `score_level`、不受 `verify_mode` 控制** —— 5 个 scorer 全部测「做得规范不规范」，**无一测「方向对不对」**，高分不代表方向对。
-
-> 核验 `13.2` 完整清单的 #2–#6 五项（内容零增删）：
+> **无条件执行**：固定清单，**不读 `score_level`、不受 `verify_mode` 控制**。
 
 检查清单：
 
@@ -243,7 +230,7 @@ CI=true <test.commands.build>
 
 ### Step 5：自动检查项
 
-> 本步两项都是**只读文件、不依赖测试产物**的机器检查；Constitution 的 `audit.violations` 要进 metrics，故排在 Step 6 写 metrics 之前。
+> `audit.violations` 要进 metrics（Step 7.2），故本步必须排在 Step 6 之前。
 
 #### 5.1 Constitution Compliance Audit（注入点 D）
 
@@ -275,11 +262,7 @@ done
 
 **脚本缺失**：不得伪造分数。decision-point：A 阻断并提示补齐 scorers / B 用户接受「scorer 跳过」且仅当 mode≠team blocking 策略要求时方可继续（team + 强制 scorer 时只允许 A）。
 
-> **第 5 个 scorer（`test-coverage-scorer`）不在本步**：它读的是**覆盖率产物**（`coverage-summary.json` / `lcov.info` / JaCoCo XML），而覆盖率由 Step 6 单测产生 → 见 Step 7。
-
 ### Step 6：单元测试
-
-> **总是跑**（`light` / `full` 都要）。
 
 #### 6.1 共用执行规则（Step 6 / 10 / 11 / 12 同用）
 
@@ -366,7 +349,7 @@ CI=true <test.commands.unit>
 
 ### Step 7：覆盖率打分 + 强度补强
 
-> **为什么在这里**：`test-coverage-scorer` **只读**覆盖率产物、自己不跑测试，而覆盖率由 Step 6 产生 → 必须紧跟单元测试（见 Step 5 末注）。升格也必须在此定格，否则 Step 9 会漏探 `smoke` 槽。
+> `test-coverage-scorer` **只读**覆盖率产物、自己不跑测试，而覆盖率由 Step 6 产生 → 必须紧跟单元测试。
 
 #### 7.1 覆盖率打分
 
@@ -471,7 +454,6 @@ git diff --stat <base-ref>...HEAD
 
 写入 `runtime.verify.verify_mode: <light|full>` —— **这是强度的唯一读取来源**。
 
-> ⚠️ **不得读 `state.yaml` 顶层的 `verify_mode`**（文首 HARD-GATE 同一禁令）：那是默认生成、无消费点的死值，读它会让 `full` 永不触发。
 > **覆盖**：agent 或用户仍可随时按 decision-point 改为 `light|full`。
 
 **立即执行：** 加载 Superpowers `verification-before-completion`。禁止跳过。
@@ -539,7 +521,7 @@ done
 
 **性质**：验**链路** —— 从入口到出口的整条业务链路跑通（库存扣了没、消息发了没、落库对不对）。
 
-> **与集成测试不是同一件事**：集成验**接缝**（2–3 个组件之间），功能验**链路**（入口到出口）；集成可以完全不涉及业务流程。术语澄清的出处是设计文档 §1.3（已裁决）。
+> **与集成测试不是同一件事**：集成验**接缝**（2–3 个组件之间），功能验**链路**（入口到出口）；集成可以完全不涉及业务流程。
 > **判定归属的简易规则**：断言「响应字段 / 状态码 / SQL 结果」→ 集成；断言「业务后置状态」→ 功能。
 
 **触发**：`verify_mode=full` **且** `smoke` 槽存在。`light` 下不探不跑。
@@ -558,8 +540,6 @@ done
 |------|------|
 | `verify_mode=light` | `13.1` 轻量清单（**6 项**） |
 | `verify_mode=full` | `13.2` 完整清单（**7 项**） |
-
-> 只需按 `verify_mode` 二选一，无第三条分支。
 
 #### 13.1 轻量验证（6 项）
 
@@ -594,8 +574,7 @@ done
 7. `detailed-design.md` 可定位且与当前 change 相关（**仅 `runtime.design.status=completed` 时检查**）
 
 > **项数不得改**：「7 项完整验证」被 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` 的 `policies/exit-check.md` 引用，改项数会破坏该跨技能契约。#2–#6 的结论见 Step 4。
-> **编译与安全不在本 7 项内**：编译见 Step 3（模式无关），安全见 `13.1` #5；测试与评审各见其步。
-> **代码评审不在本 7 项内**：无论 `light` / `full`，统一由 **Step 14** 按 `runtime.build.review_mode` 执行。
+> **本 7 项之外**：编译见 Step 3（模式无关）、安全见 `13.1` #5、测试见 Step 10–12、代码评审见 Step 14（按 `runtime.build.review_mode`，`light` / `full` 统一）。
 
 **不通过** → [验证失败决策](#验证失败决策阻塞点)。
 
@@ -637,7 +616,6 @@ done
 **性质**：本阶段**唯一的「人工验证者」**落点。位置在 **Step 14 之后**、[验证失败决策](#验证失败决策阻塞点)**之前**。
 
 > 人工在 verify 里共三个角色：**配置确认者**（Step 2 / 9 的命令、`6.2` 的红名单）、**验证者**（本步）、**裁决者**（验证失败 / override / 规格漂移）。
-> 本步是最后的**细粒度方向复核**，与 Step 4 的粗粒度闸门成对。放最后因为需要机器侧结论作输入，且人工注意力稀缺（见「流程」排序依据）。
 
 **输入（给人看这三样，不给人看原始 diff）**：
 
