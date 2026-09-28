@@ -14,7 +14,7 @@
 - **阶段枚举权威**＝`task-kind-layout.ts`（代码，可 diff）；守门件＝各 kind 的 `state.yaml` 模板注释 + `dashboard-api-contract.md` §6.2；`skills/README.md` 一览**不作裁定依据**。
 - **游标语义**：`workflow.yaml` 的 `phase` =「接下来要执行的阶段」，阶段技能 Step 0 按自己的阶段名筛；**恢复章节 house style** 以 `prototype/blueprint` 为准，**引用方向单向：技能 → protocol**。
 - **metrics 只认顶层 `.polaris/metrics/`（数据丢失级）**：`harness-sync` 不递归，写进 tasks 子目录的文件随 worktree 移除**永久丢失**。
-- **清理判据**：只找**不承担判据/指令职能**的文字（＝「尾部死内容」）；`>` 引用块与 HTML 契约注释**不是整类豁免**，须逐条按职能判断。
+- **清理判据**：只找**不承担判据/指令职能**的文字；`>` 引用块与 HTML 契约注释**不是整类豁免**；**无职能的重复两处都删**（有职能才「保其一」）。
 
 ## 二、族内要点
 
@@ -34,7 +34,7 @@
 
 ## 四、进行中与已知问题（指针）
 
-- **plan of record**：`docs/specs/2026-09-25-verify-test-evidence-design.md`（verify 证据链，**09-27 结项、09-28 顺序重构**，现行口径见 §十一）；前身 `2026-09-10-verify-redesign-proposal.md` **部分过期**。
+- **plan of record**：`docs/specs/2026-09-25-verify-test-evidence-design.md`（**09-28 顺序重构**，现行口径见 §十一）；前身 `2026-09-10-verify-redesign-proposal.md` **部分过期**。
 - **既有失败测试（勿重复归因）**：存量 **11 条**（清单见 `2026-09-24.md`），只按**同名同因**判断新增。**全量并发跑多出约 9 条假失败**，单跑即绿——先单跑复验再归因。
 - **分批提交**：暂存区还留着别的改动时**不要**用裸 `git commit`（会把它一并吞掉）→ 只 `git add` 本次路径再提交。
 - **待办与口径指针**：`codereview` 是服务型技能（不进阶段表，verify Step 14 按 `review_mode` 调用，inline 须标降级）；报告《AICoding Verify 最佳实践》**不宜当规范**，只作增量来源。**⑦ tier＝缺风险轴**（现只有规模轴；既有 `tiers:` 是零消费方死配置）。
