@@ -210,7 +210,7 @@ CI=true <test.commands.build>
 
 ### Step 4：意图验收
 
-> **性质**：本阶段最前的**粗粒度方向闸门** —— 与 Step 15 的细粒度复核成对（方向优先，见「流程」排序依据）。
+> **性质**：本阶段最前的**粗粒度方向闸门**（方向优先，见「流程」排序依据）。
 
 > **无条件执行**：固定清单，**不读 `score_level`、不受 `verify_mode` 控制**。
 
@@ -389,8 +389,8 @@ TS=$(date -u +%Y%m%d-%H%M%S)
 }
 ```
 
-> `audit.violations` / `audit.total_checks` 来自 **Step 5.1** Constitution 审计（JSON 字段名历史兼容，不等于阶段名 audit）。
-> 本步的 `scorers[]` 由**两块**拼成：Step 5.2 的 4 个 + 本步 7.1 的 `test-coverage` —— 故**聚合必须在此处**（所有 scorer 都跑完之后）。
+> `audit.violations` / `audit.total_checks` 来自 **Step 5.1** Constitution 审计。
+> 本步的 `scorers[]` 由**两块**拼成：Step 5.2 的 4 个 + 本步 7.1 的 `test-coverage`。
 
 #### 7.3 Overall Score 加权聚合
 
@@ -449,7 +449,6 @@ git diff --stat <base-ref>...HEAD
 | 未命中（小改动 → `light`） | `high` | `light` |
 | 命中 → `full` | 任意 | `full` |
 
-> 升格是**单向加严**：低分把小改动提到完整验证；**高分不放松**（见 Step 4）。
 > 必须在此处定格：Step 9 要按**最终**模式决定探不探 `smoke` 槽。
 
 写入 `runtime.verify.verify_mode: <light|full>` —— **这是强度的唯一读取来源**。
@@ -574,7 +573,7 @@ done
 7. `detailed-design.md` 可定位且与当前 change 相关（**仅 `runtime.design.status=completed` 时检查**）
 
 > **项数不得改**：「7 项完整验证」被 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` 的 `policies/exit-check.md` 引用，改项数会破坏该跨技能契约。#2–#6 的结论见 Step 4。
-> **本 7 项之外**：编译见 Step 3（模式无关）、安全见 `13.1` #5、测试见 Step 10–12、代码评审见 Step 14（按 `runtime.build.review_mode`，`light` / `full` 统一）。
+> **本 7 项之外**：编译见 Step 3（模式无关）、安全见 `13.1` #5、测试见 Step 10–12、代码评审见 Step 14。
 
 **不通过** → [验证失败决策](#验证失败决策阻塞点)。
 
