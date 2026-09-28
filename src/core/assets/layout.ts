@@ -18,12 +18,13 @@ const PACKAGE_COMMON_PREFIXES = ['adapters/', 'policies/', 'templates/', 'hooks/
  * 测试族固定为 `testing`——**不可用 `test`**，与仓库根 `test/`（单元测试）及保留目录冲突。
  * `prototype` 自 2026-09-14 从 `prd` 族独立成族：其下为 `blueprint`（蓝图）/ `build`（建造）/ `review`（交付评审）。
  * `debug` 为缺陷修复族：其下为 `diagnose`（诊断与方案）/ `patch`（实现与自验）/ `closeout`（关闭Bug）。
+ * `maintance` 为维护族：其下为 `code-review`（代码评审）等服务型技能。
  * 两条通道（bugfix / hotfix）**不再各占一个入口技能**——入口在 `commands/maintance/`，
  * 通道由 `diagnose` 的场景分流步判定并写入 `state.yaml` 的 `channel`。
  * 新增族时须同步 `assets/<lang>/skills/` 下目录，否则该目录会被降级识别为「顶层叶技能」，
  * 导致其下所有技能塌缩为同一个技能根、policies 注入层级错位。
  */
-export const SKILL_FAMILIES = new Set(['coding', 'debug', 'prd', 'prototype', 'testing']);
+export const SKILL_FAMILIES = new Set(['coding', 'debug', 'maintance', 'prd', 'prototype', 'testing']);
 
 /** 应忽略的空壳 / 备份路径前缀 */
 const SKIP_PREFIXES = [
