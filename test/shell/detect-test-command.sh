@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # detect-test-command.sh 夹具自测（回归场景）
-# 用法: bash /tmp/detect-selftest.sh <脚本绝对路径>
+# 用法: bash test/shell/detect-test-command.sh [被测脚本的绝对路径]
+# 退出码: 0 = 全绿 / 1 = 有失败用例（供 vitest 集成测试断言）
 set -uo pipefail
 
-SCRIPT="${1:-/Users/weiliu/Documents/work/projects/polaris/polaris-flow/assets/shared/scripts/detect-test-command.sh}"
-WORK=$(mktemp -d /tmp/detect-fixtures.XXXXXX)
+# 自定位：本文件在 <repo>/test/shell/ 下 → 仓库根 = ../..
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=$(cd "$HERE/../.." && pwd)
+SCRIPT="${1:-$REPO_ROOT/assets/shared/scripts/detect-test-command.sh}"
+
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/detect-fixtures.XXXXXX")
+trap 'rm -rf "$WORK"' EXIT
 
 PASS=0; FAIL=0
 declare -a FAILED
@@ -242,5 +248,4 @@ if [ "$FAIL" -gt 0 ]; then
   printf '失败用例:\n'; for f in "${FAILED[@]}"; do printf '  - %s\n' "$f"; done
   exit 1
 fi
-rm -rf "$WORK"
 exit 0
