@@ -14,7 +14,7 @@
 - **阶段枚举权威**＝`task-kind-layout.ts`（代码，可 diff）；守门件＝各 kind 的 `state.yaml` 模板注释 + `dashboard-api-contract.md` §6.2；`skills/README.md` 一览**不作裁定依据**。
 - **游标语义**：`workflow.yaml` 的 `phase` =「接下来要执行的阶段」，阶段技能 Step 0 按自己的阶段名筛；**恢复章节 house style** 以 `prototype/blueprint` 为准，**引用方向单向：技能 → protocol**。
 - **metrics 只认顶层 `.polaris/metrics/`（数据丢失级）**：`harness-sync` 不递归，写进 tasks 子目录的文件随 worktree 移除**永久丢失**。
-- **清理判据**：只找**不承担判据/指令职能**的文字（＝「尾部死内容」）；HTML 契约注释与引用块 `>` 不可清。
+- **清理判据**：只找**不承担判据/指令职能**的文字（＝「尾部死内容」）；`>` 引用块与 HTML 契约注释**不是整类豁免**，须逐条按职能判断。
 
 ## 二、族内要点
 
@@ -25,7 +25,7 @@
 
 ## 三、通用教训
 
-- 核验中文用 **Grep 工具（ripgrep）**；macOS grep 对 md 常有假空（双引号内不吃 `\|`）。
+- 核验中文用 **Grep 工具（ripgrep）**；macOS grep 对 md 常有假空。
 - 沙箱禁 `ps`；git 写操作须 `dangerouslyDisableSandbox` + 先 `rm -f .git/index.lock`；批量删除用 `mv` 移走。
 - **Edit 报成功 ≠ 落盘**：改前看 `git status` + mtime，写完读回。
 - 技能 md 里**禁止以 `..` 开头的路径字面量**（硬阻断安装测试）。
