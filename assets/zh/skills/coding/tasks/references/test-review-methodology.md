@@ -24,7 +24,7 @@
 
 4. **如果完全没有测试框架**：仍然产出覆盖率图，但跳过具体测试代码生成，只在评审报告中记录"项目无测试框架，建议先引入"。
 
-**命令口径的单一来源**：上述检测的**可执行实现**是 `$PLUGIN_ROOT/scripts/detect-test-command.sh`（执行期为 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 4.0.2）。本表只用于**认出框架**；**写进计划的命令串一律以该脚本输出为准**，不得照本表自行拼命令。
+**命令口径的单一来源**：上述检测的**可执行实现**是 `$PLUGIN_ROOT/scripts/detect-test-command.sh`（执行期为 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` 的 Step 2 模式无关槽与 Step 9 按强度槽）。本表只用于**认出框架**；**写进计划的命令串一律以该脚本输出为准**，不得照本表自行拼命令。
 
 ## Step 2: 追踪计划中每条代码路径
 

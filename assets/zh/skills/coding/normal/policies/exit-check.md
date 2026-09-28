@@ -82,7 +82,7 @@ TS=$(date -u +%Y%m%d-%H%M%S)
 # 写入 .polaris/metrics/${TS}-metrics.json
 ```
 
-结构与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 3.2 **完全一致**——这是 retro 能统一聚合的前提：
+结构与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 7.2 **完全一致**——这是 retro 能统一聚合的前提：
 
 ```json
 {
