@@ -242,6 +242,84 @@ run "$d" --slot unit
 check "行内反引号 unit 退出码" 0 "$RC"
 check "行内反引号 命令" "make test" "$(kv command)"
 
+# ---- 23/24/25. build 槽（编译闸门，只编译不跑测试） ----
+d=$(fixture build-maven)
+printf '<project><build><plugins><plugin><artifactId>maven-surefire-plugin</artifactId></plugin></plugins></build></project>\n' >"$d/pom.xml"
+run "$d" --slot build
+check "build 槽 Maven 退出码" 0 "$RC"
+check "build 槽 Maven 命令" "mvn -B package -DskipTests" "$(kv command)"
+check "build 槽 Maven excluded 标注不含测试生命周期" "test 生命周期（编译闸门不跑测试）" "$(kv excluded)"
+
+d=$(fixture build-node)
+printf '{ "name": "x", "scripts": { "build": "tsc -p .", "test": "vitest run" } }\n' >"$d/package.json"
+run "$d" --slot build
+check "build 槽 Node 退出码" 0 "$RC"
+check "build 槽 Node 取 scripts.build" "npm run build" "$(kv command)"
+
+d=$(fixture build-tsc)
+printf '{ "name": "x", "scripts": { "test": "vitest run" } }\n' >"$d/package.json"
+printf '{ "compilerOptions": {} }\n' >"$d/tsconfig.json"
+run "$d" --slot build
+check "build 槽 Node 无 build 脚本时退化为类型检查" "npx tsc --noEmit" "$(kv command)"
+
+# ---- 26. build 槽：Rust ----
+d=$(fixture build-rust)
+printf '[package]\nname = "x"\n' >"$d/Cargo.toml"
+run "$d" --slot build
+check "build 槽 cargo 命令" "cargo build" "$(kv command)"
+
+# ---- 27. build 槽：空目录 → 退出码 1（Python / 纯脚本项目合法） ----
+d=$(fixture build-empty)
+run "$d" --slot build
+check "build 槽空目录 退出码" 1 "$RC"
+check "build 槽空目录 reason" "未探测到构建入口（项目无编译 / 构建步骤，如纯脚本 / 文档项目）" "$(kv reason)"
+
+# ---- 28. contract 槽：Node 显式 test:contract ----
+d=$(fixture contract-node)
+printf '{ "name": "x", "scripts": { "test": "vitest run", "test:contract": "pact-verify" } }\n' >"$d/package.json"
+run "$d" --slot contract
+check "contract 槽 Node 退出码" 0 "$RC"
+check "contract 槽 Node 命令" "npm run test:contract" "$(kv command)"
+
+# ---- 29. contract 槽：Python tests/contract 目录约定 ----
+d=$(fixture contract-py)
+printf '[tool.pytest.ini_options]\n' >"$d/pyproject.toml"
+mkdir -p "$d/tests/contract"
+run "$d" --slot contract
+check "contract 槽 Python 退出码" 0 "$RC"
+check "contract 槽 Python 命令" "pytest tests/contract" "$(kv command)"
+
+# ---- 30. contract 槽：README 显式声明（权威来源） ----
+d=$(fixture contract-declared)
+cat >"$d/README.md" <<'EOF'
+## Testing
+
+```bash
+npm run test:contract
+```
+EOF
+run "$d" --slot contract
+check "contract 槽声明块 退出码" 0 "$RC"
+check "contract 槽声明块 命令" "npm run test:contract" "$(kv command)"
+
+# ---- 31. contract 槽：空目录 → 退出码 1 ----
+d=$(fixture contract-empty)
+run "$d" --slot contract
+check "contract 槽空目录 退出码" 1 "$RC"
+check "contract 槽空目录 reason" "未探测到契约测试入口（项目无接口契约源，或未声明契约测试命令）" "$(kv reason)"
+
+# ---- 32. unit 槽不得取集成命令（mvn verify 是新加严的排除项） ----
+d=$(fixture unit-no-verify)
+cat >"$d/README.md" <<'EOF'
+## Testing
+
+```bash
+mvn verify
+```
+EOF
+run "$d" --slot unit
+check "unit 槽排除 mvn verify（退回探测不到）" 1 "$RC"
+
 echo
 printf '通过 %d / 失败 %d\n' "$PASS" "$FAIL"
 if [ "$FAIL" -gt 0 ]; then

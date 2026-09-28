@@ -26,7 +26,7 @@ function runFixture(cwd: string = projectRoot): { status: number | null; output:
   return { status: result.status, output: stripAnsi(`${result.stdout}${result.stderr}`) };
 }
 
-const EXPECTED_CASES = 44;
+const EXPECTED_CASES = 62;
 
 describe('detect-test-command.sh 回归夹具', () => {
   it('被测脚本存在（夹具的运行前提）', () => {
