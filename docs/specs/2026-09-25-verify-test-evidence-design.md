@@ -1,7 +1,7 @@
 # verify 测试证据链设计（新增 Step 4.0 前置验证）
 
 日期：2026-09-25
-状态：**已落地（2026-09-27）** —— ①–⑥ 与 §三 附 1–12 已裁决并实现（落地清单与自测见 §七）；脚本同日经**真实项目二轮加严**（§7.2）。§八 剩 4 项待决（均**不卡开工**）＋ 1 项挂起（⑦ tier）
+状态：**已落地并结项（2026-09-27）** —— ①–⑥ 与 §三 附 1–12 已裁决并实现（落地清单与自测见 §七）；脚本同日经**真实项目二轮加严**（§7.2）。§八 的**待决项已全部结项**，仅剩 1 项挂起（⑦ tier）
 触发：研究报告《AICoding 中 Verify 过程的最佳实践》（L1–L5 验证层级 / 生成与裁决分离 / 自报告不是证据）+ `verify` 现状实测发现「三层各自空转」
 上游：`docs/specs/2026-09-10-verify-redesign-proposal.md`（本文的**前身**；其 §3 / §4 / §8 / §9 与本文冲突处以**本文为准**，见 §九）
 范围：**只动 `coding/verify`**（不碰 build / tweak / normal 的既有文本）；另**新增** `shared/scripts/detect-test-command.sh` 与 config `test:` 段（2026-09-27 附 11 授权）。不含 L4 增强验证（已划出 v1）、不含 tier 风险分级（⑦ 挂起）
@@ -211,7 +211,7 @@ L4 增强验证（**变异测试 / 属性测试 / 性能压测 / 多模型交叉
 第 3 序可另查测试基础设施以佐证（`jest.config.*` / `vitest.config.*` / `pytest.ini` / `.rspec` / `phpunit.xml`；`test/` / `tests/` / `spec/` / `__tests__/`）。
 
 > **与 `coding/tasks` 检测口径的关系（2026-09-27 修订）**
-> 检测口径在仓内曾为**两份判定表**（计划期 `coding/tasks/references/test-review-methodology.md:7-25` §Step 1 / 执行期本文）。**脚本化后只剩一份可执行实现** —— 判定逻辑活在 `detect-test-command.sh` 里，verify 与 tasks 都只是「它的调用方或描述方」。
+> 检测口径在仓内曾有两处 —— **声明侧** `coding/tasks/references/test-review-methodology.md:7-25` §Step 1 / **执行侧**本文。**但二者并非同一张表的两份副本**：tasks 那份只到「检出标志 → 框架」，从不产出命令串；真实重叠只有两点（① 优先读项目根 `## Testing`；② 清单文件 → 框架）。**脚本化后只剩一份可执行实现** —— 判定逻辑活在 `detect-test-command.sh` 里，verify 与 tasks 都只是「它的调用方或描述方」。
 > ⇒ 同步义务**降级**：不再是「改一处须记得改另一处（两份表）」，而是「**脚本是唯一实现，改口径改脚本**」。tasks 那句 §Step 1 文字描述是否改为直接调用脚本，属 §八 第 4 项（现已从「加反向指针」升级为「可否统一到脚本」）。
 > ⇒ 运行时以 §五 config 的 `commands.*` **已确认值**为准 —— 脚本输出与 config 冲突时 config 赢。
 
@@ -445,7 +445,7 @@ test:
 4. **`No-Verification` 的三种合法触发**：① 探测不到入口（项目属性）；② 环境不可用（重试 1 次后）；③ 存量轨红且在红名单内。**必须真调用一次**才可判 ②。
 5. **`No-Verification` 不是免罪金牌**：`full` 模式下**既无单测证据也无功能验证证据 → 阻断**；`light` 模式可放行 + 声明。（「风险决定做不做」的应用）
 6. **4.3 的入口条件**：**不存在未归因的红**（所有红要么已回 build 修掉、要么已记入 `No-Verification`）才允许开始独立评审。4.3 目前只受 `review_mode` 控制，缺这个前置。
-7. **检测口径的唯一实现**：判定逻辑活在 **`assets/shared/scripts/detect-test-command.sh`**；`coding/verify` 与 `coding/tasks` 都只是「调用方或描述方」。**改口径＝改脚本一处**。（2026-09-25 曾登记为「两份判定表须同步」，2026-09-27 脚本化后**降级**。）
+7. **检测口径的唯一实现**：判定逻辑活在 **`assets/shared/scripts/detect-test-command.sh`**；`coding/verify` 是**调用方**、`coding/tasks` 是**描述方 + 指针**（`references/test-review-methodology.md` Step 1 只用于**认出框架**，命令串一律以脚本输出为准）。**改口径＝改脚本一处**。（2026-09-25 曾登记为「两份判定表须同步」，2026-09-27 脚本化后**降级**；同日「加指针」待决项亦结项。）
 8. **同一件事不出现第二种说法**：`No-Verification` 是**报告字段名**（本设计新造）；其下各触发的**声明文案**复用既有措辞，例：探测不到框架 → 「项目无测试框架，建议先引入」（出处 `test-review-methodology.md:25`）。禁止为同一现象新造第二套术语。
 9. **人工验证者只有 `4.4` 一个落点**：机械性残留（环境没起、需手工跑一条命令）**不得派给 `4.4`**；`4.4` 只做业务语义判断。`4.4` 允许被用户**明确跳过**，但**不得默认跳过**，且跳过必须留原因。
 
@@ -453,13 +453,16 @@ test:
 
 ## 七、落地清单
 
-**已于 2026-09-27 全部落地**（脚本同日经真实项目二轮加严，见 §7.2）。
+**已于 2026-09-27 全部落地**（脚本同日经真实项目二轮加严，见 §7.2；§八 待决项同日一并结项）。
 
 | 文件 | 动作 | 状态 |
 | --- | --- | --- |
 | `assets/zh/skills/coding/verify/SKILL.md`（416 → **662 行**） | 新增 `4.0` 五个子项；**新增 `4.4 人工验证（业务语义确认）`**；Step 4 标题补「前置验证」；4.2a 第 4 项改为指向 4.0（**保留 6 项计数**）；4.2b #2–#6 **原位保留计数**、正文改指向 `4.0.1`；4.3 加入口条件；Step 5 落盘加 `test_*` 与 `semantics_review` 字段及输出行；HARD-GATE（+3 条）/ 退出条件 / 压缩恢复同步 | ✅ |
 | `assets/shared/scripts/detect-test-command.sh`（475 → 516 行） | **新增** —— 契约见 §4.0.2（入参 / stdout key-value / 退出码 `0`·`1`·`2`）。二轮加严修 3 处，见 §7.2 | ✅ |
 | `assets/shared/templates/config.example.yaml` | 新增 `test:` 段（§五） | ✅ |
+| `assets/zh/skills/coding/tasks/references/test-review-methodology.md` | Step 1 末尾加「**命令口径的单一来源**」指针 → 指向脚本（§八 待决 ① 结项） | ✅ |
+| `test/shell/detect-test-command.sh`（**新**，246 行） | 44 断言回归夹具：自 `assets/tmp/` 移入并**改为自定位**（原默认值硬编码了本机绝对路径，不能入仓）。可手动跑：`bash test/shell/detect-test-command.sh` | ✅ |
+| `test/ts/detect-test-command.integration.test.ts`（**新**） | 用 `spawnSync` 驱动夹具，使其进入 `npx vitest run`；断言「通过数 ≥ 44 且失败数 = 0」，场景被删会失败（§八 待决 ④ 结项） | ✅ |
 
 `assets/shared/scripts/` 原 20 个脚本，**无任何「跑测试」或「探测测试命令」的脚本** —— 此能力确为空白，已新建。
 
@@ -499,10 +502,11 @@ test:
 | 3 | `framework: —`（命令明明是 `npx vitest run`） | `_framework_of` 只认包管理器（`npm/pnpm/…`），不认**显式测试运行器**；`npx` 也不等于 `npm` | 先认运行器（`vitest/jest/mocha/pytest/…`）再退回包管理器；`_excluded_for_cmd` 同步补 Node 运行器分支 |
 
 第 2 条的理由：*「单测命令」的本意是**跑全量单测***。取到单文件命令会让 verify 只跑 1 个文件却报「单测通过」—— 正是本设计要防的**假证据**。
-若更想让两条候选都摆给用户选（走 `4.0.2` 的人工确认回路），把 `command:` 改成输出多行候选即可 —— **属未决，见 §八**。
+两条候选**不都摆给用户选**：`command:` 保持单行、由脚本按「未限定范围优先」选定（§八 待决 ③ 已按此结项）。理由：多候选会让「人工确认」退化成**每次都要读一遍候选列表再选**，而这层本就是「一次展示、一次确认」；真选错了人会在同一屏上直接改成明确命令（走 `4.0.2` 的「明确命令 → 不再探测」分支）。
 
-**夹具**：`assets/tmp/detect-selftest.sh`（仓库既有的一次性脚本暂存区，**不随安装分发**），**44 个断言全绿**（基础 12 + 二轮新增：integration 槽无入口、不可执行命令 `./gradlew` 无 wrapper → 退出码 `2`、块内多候选、全部限定范围退回第一条、pytest / cargo / Gemfile、行内反引号路径、从任意 CWD 运行 `--repo-root` 生效）。
-是否提升为 `test/shell/` 下的 Bats 正式回归，见 §八 待决 4。
+**夹具**：`test/shell/detect-test-command.sh`，**44 个断言全绿**（基础 12 + 二轮新增：integration 槽无入口、不可执行命令 `./gradlew` 无 wrapper → 退出码 `2`、块内多候选、全部限定范围退回第一条、pytest / cargo / Gemfile、行内反引号路径、从任意 CWD 运行 `--repo-root` 生效）。
+
+由 `test/ts/detect-test-command.integration.test.ts` 驱动，**真跑在 `npx vitest run` 里**。只把夹具放进 `test/shell/` 而不接驱动 = 没人执行 = 假覆盖：AGENTS.md 虽声明「Shell 脚本测试放在 `test/shell/`，使用 Bats」，但 **bats 全仓未安装、也不在 `devDependencies`**，而既有同名目录里的脚本实为**手工调试件**（无任何测试引用）。故按仓库**实际**做法落地 —— `test/shell/` 放壳夹具 + vitest 驱动。（AGENTS.md 那句声明与现状不符，属**仓库级文档问题**，未在本次擅改。）
 
 ---
 
@@ -516,36 +520,28 @@ test:
 | 09-27 | **① 范围边界** | **走脚本路线**（附 11），④「只动 verify」据此修订 |
 | 09-27 | **⑥ 人工验证层 L5 落点** | **新增 `4.4`**（附 12、§4.4） |
 | 09-27 | **红名单 config 键名** | `test.baseline.command` / `test.baseline.file`（纯命名，无需裁决） |
+| 09-27 | **tasks 侧统一到脚本** | **加指针**（② 直接调用会让评审 agent 依赖运行时脚本；③ 不动则歧义仍在）。落点 `tasks/references/test-review-methodology.md` Step 1 —— 那份清单**不在** `tasks/SKILL.md` 里 |
+| 09-27 | **`full` 无框架的宽限期** | **不给**。现状 `no_framework_policy: by_mode` 即 `light` 放行 / `full` 阻断，**零代码改动**即达成；宽限期会退化成永久豁免 |
+| 09-27 | **块内多候选的输出形态** | **保持现行**（脚本按「未限定范围优先」取一条，不进 `4.0.2` 供人选）。理由见 §7.2 |
+| 09-27 | **夹具是否入仓** | **入仓，但不用 Bats**：`test/shell/detect-test-command.sh` + `test/ts/…integration.test.ts` 驱动。见 §7.2 与下方「④ 的证据修正」 |
 
-**待决 4 项（均不卡开工）**
+**待决项：0**（原 4 项已于 2026-09-27 全部结项）
 
-| # | 项 | 选项 | 倾向 |
-| --- | --- | --- | --- |
-| 1 | **tasks 侧是否统一到脚本** | ① 保留其 §Step 1 文字描述 + 加一句「实现见 `detect-test-command.sh`」；② 改为直接调用脚本；③ 不动 | ① —— 最小改动即可消除「两份表」的歧义；② 更彻底但要改 `coding/tasks/`，越出本次范围 |
-| 2 | **`full` 无框架的宽限期** | 给「首次只警告、二次起阻断」/ 不给 | 倾向**不给** —— 宽限期会变成永久豁免 |
-| 3 | **块内多候选的输出形态**（§7.2 二轮新增） | ① 脚本直接取「未限定范围」的一条（**现行**）；② `command:` 输出多行候选，由 `4.0.2` 的人工确认来选 | ① —— 不扩 stdout 契约；② 更贴「人工确认」本意，但要新增键 / 改 4.0.2 |
-| 4 | **夹具是否入仓**（§7.2 二轮新增） | ① 固化为 `test/shell/` 下的 Bats（AGENTS.md 已声明的壳测试位置）；② 留在 `/tmp`（用完即弃） | ① —— 脚本要随安装进用户项目、判定靠启发式，回归价值高；代价是动 `test/`（越出「只动 verify + 新增 `shared/` 新件」） |
+**④ 的证据修正**：原待决把选项写成「① 固化为 `test/shell/` 下的 Bats / ② 留在 `/tmp`」，**前提有误** —— 仓库里没有 bats（`devDependencies` 无、`command -v bats` 空），`test/shell/` 现有的 3 个脚本是**手工调试件**、无任何测试引用。落地 `.bats` 会成为**没人执行的测试**，恰是本文反对的「无法失败的测试比没有测试更糟」。故改为：**文件放 `test/shell/`（符合声明的目录）+ vitest 驱动（符合实际做法）**。
 
 **挂起 1 项**
 
 | # | 项 | 状态 |
 | --- | --- | --- |
-| ⑦ **tier 1–3 风险分级** | **整块挂起，单独一轮**（与既有 `tiers: trivial/standard/critical` 构成双源） |
+| ⑦ **tier 1–3 风险分级** | **整块挂起，单独一轮** |
 
-**⑦ 的已知冲突**：`config.example.yaml` 已有
+**⑦ 的证据（2026-09-27 取证，性质与原先判断不同）**：原先记为「与既有 `tiers:` 构成双源」，取证后应改写为 —— **既有 `tiers:` 是死配置，没有第二方在跑**：
 
-```yaml
-triage:
-  mechanical_script: "hooks/triage-t1.sh"
-  sensitive_keywords_file: ".polaris/keywords/critical.txt"
-  default_tier_when_unclear: "standard"
-tiers:
-  trivial:  { path: [build, ship] }
-  standard: { path: [design, lock, build, audit, ship] }
-  critical: { path: [design, lock, challenge, build, audit, ship] }
-```
-
-与 proposal 的 `risk_tier: tier1/2/3` 构成**双源**，且判据不同（既有＝**敏感关键词文件**，proposal＝**路径 glob**）。另有两个待查：`tiers.*.path` 里的 `lock` / `audit` / `challenge` 疑似**旧阶段体系残留**；proposal 的「数字越大越高危」与数据中心 Tier I–IV 惯例**相反**，若采用必须写死方向。
+- `src/core/config/polaris-project-config.ts:86` 只有一行类型声明 `tiers?: Record<string, { path: string[] }>`；`grep -rn "tiers" src/` **全仓仅此一行**，**零消费方**（没有任何代码按 tier 改变流程）
+- `triage`（`mechanical_script` / `sensitive_keywords_file`）同样只在类型与 `task-state.ts` 里声明，未接任何阶段决策
+- 故 ⑦ 不是「两套机制打架」，而是「**一个死块 vs 一个新提案**」——**决策成本比原先估计低**，但方向仍需拍板：是删掉死块、还是把它接成真机制
+- **`tiers.*.path` 的阶段名已失真**（取证）：现行 coding 阶段为 `specify` / `plan` / `design` / `tasks` / `verify` / `ship`（`task-kind-layout.ts`），而 `tiers.*.path` 里的 `build` / `lock` / `audit` / `challenge` **四个都不是阶段名** —— `lock` 在 `src/` 只指文件锁（`workflow.lock` / `skills-lock.json`）、`challenge` 只指模型槽位（`model.challenger`）、`audit` 仅出现在 `tasks-lint.ts:28` 的一条违规文案里（写作「应由 `/ezfl:audit` 阶段处理」，**又一处旧阶段残留**）。这块配置停在**更早的阶段体系**上
+- proposal 的「数字越大越高危」与数据中心 Tier I–IV 惯例**相反**，若采用必须写死方向
 
 ---
 
