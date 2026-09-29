@@ -43,7 +43,18 @@ task_id: ""
 # 可选值: idle-空闲 | specify-澄清 | plan-提案 | design-设计 | tasks-任务 | build-构建 | verify-验证 | ship-交付
 phase: idle
 
-# 当前层级
+# 分级（两轴）—— 信号表唯一源: policies/risk-signals.md
+# 写入时机: specify Step 5.4 初判（三字段齐写）→ verify Step 8 用 diff 复核（只升不降）
+#
+# 复杂度轴（做多深）
+# 可选值: trivial-简单 | standard-标准 | critical-复杂
+complexity_level: ""
+
+# 风险轴（做不做）
+# 可选值: trivial-简单 | standard-标准 | critical-关键
+risk_level: ""
+
+# 当前层级 = 最终值 = max(复杂度轴, 风险轴)（升档门优先）
 # 可选值: trivial-简单 | standard-标准 | critical-关键
 current_tier: ""
 

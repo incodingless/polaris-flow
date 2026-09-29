@@ -1,10 +1,10 @@
 # verify 测试证据链设计（新增 Step 4.0 前置验证）
 
 日期：2026-09-25
-状态：**已落地并结项（2026-09-27）**，**并于 2026-09-28 完成顺序重构**（§十一：前置 ×2 + Step 2–16）—— ①–⑥ 与 §三 附 1–12 已裁决并实现（落地清单与自测见 §七）；脚本同日经**真实项目二轮加严**（§7.2）。§八 的**待决项已全部结项**，仅剩 1 项挂起（⑦ tier）
+状态：**已落地并结项（2026-09-27）**，**并于 2026-09-28 完成顺序重构**（§十一：前置 ×2 + Step 2–16）—— ①–⑥ 与 §三 附 1–12 已裁决并实现（落地清单与自测见 §七）；脚本同日经**真实项目二轮加严**（§7.2）。§八 的**待决项已全部结项**；最后 1 项挂起（⑦ tier）已于 **2026-09-29** 单独一轮结项（`2026-09-29-risk-grading-design.md`）
 触发：研究报告《AICoding 中 Verify 过程的最佳实践》（L1–L5 验证层级 / 生成与裁决分离 / 自报告不是证据）+ `verify` 现状实测发现「三层各自空转」
 上游：`docs/specs/2026-09-10-verify-redesign-proposal.md`（本文的**前身**；其 §3 / §4 / §8 / §9 与本文冲突处以**本文为准**，见 §九）
-范围：**只动 `coding/verify`**（不碰 build / tweak / normal 的既有文本）；另**新增** `shared/scripts/detect-test-command.sh` 与 config `test:` 段（2026-09-27 附 11 授权）。2026-09-28 的顺序重构**额外同步 3 处下游路标**（细目与理由见 §11.5）。不含 L4 增强验证（已划出 v1）、不含 tier 风险分级（⑦ 挂起）
+范围：**只动 `coding/verify`**（不碰 build / tweak / normal 的既有文本）；另**新增** `shared/scripts/detect-test-command.sh` 与 config `test:` 段（2026-09-27 附 11 授权）。2026-09-28 的顺序重构**额外同步 3 处下游路标**（细目与理由见 §11.5）。不含 L4 增强验证（已划出 v1）；tier 风险分级（⑦）已于 2026-09-29 单独一轮结项（`2026-09-29-risk-grading-design.md`）
 
 ---
 
@@ -94,7 +94,7 @@ L4 增强验证（**变异测试 / 属性测试 / 性能压测 / 多模型交叉
 | ④ | 改动范围 | **只动 verify** —— 2026-09-27 经附 11 修订为「不碰 build / tweak / normal 的既有文本；**可新增 `shared/` 新件**」 | 用户 |
 | ⑤ | 落地形态 | **加子步（`4.0`）不重排** | 用户 |
 | ⑥ | 设计稿归宿 | 已 `git mv` 至 `docs/specs/2026-09-10-verify-redesign-proposal.md` | 用户 |
-| ⑦ | tier 1–3 风险分级 | **挂起**（与 `config.example.yaml` 既有 `tiers: trivial/standard/critical` 构成双源） | 待专门讨论 |
+| ⑦ | tier 1–3 风险分级 | **已结项（2026-09-29）**：落 `state.yaml` 两轴（`complexity_level` + `risk_level`）与最终值 `current_tier`；信号表唯一源 `zh/policies/risk-signals.md`；`config.example.yaml` **零改动** | 用户 + `2026-09-29-risk-grading-design.md` |
 | 附 1 | 三档轨道 | unit 总是 / integration 跨模块边界 / smoke 仅 `full` 且有入口 | 用户确认 |
 | 附 2 | 环境归属 | **项目负责，技能不自己拼装**（不起容器、不灌数据） | 用户确认 |
 | 附 3 | 三级分叉 | 探测不到 / 无结果摘要 / **有结果摘要** —— 判据＝有无测试结果摘要 | 本文提出 |
@@ -531,18 +531,18 @@ test:
 
 **④ 的证据修正**：原待决把选项写成「① 固化为 `test/shell/` 下的 Bats / ② 留在 `/tmp`」，**前提有误** —— 仓库里没有 bats（`devDependencies` 无、`command -v bats` 空），`test/shell/` 现有的 3 个脚本是**手工调试件**、无任何测试引用。落地 `.bats` 会成为**没人执行的测试**，恰是本文反对的「无法失败的测试比没有测试更糟」。故改为：**文件放 `test/shell/`（符合声明的目录）+ vitest 驱动（符合实际做法）**。
 
-**挂起 1 项**
+**挂起：0**（⑦ 已于 2026-09-29 单独一轮结项 → `2026-09-29-risk-grading-design.md`）
 
 | # | 项 | 状态 |
 | --- | --- | --- |
-| ⑦ **tier 1–3 风险分级** | **整块挂起，单独一轮** |
+| ⑦ **tier 1–3 风险分级** | **已结项（2026-09-29）** —— 两轴（复杂度 + 风险）落 `state.yaml`；下表为该轮取证记录，其中**第 3、4 条已被该轮更正** |
 
-**⑦ 的证据（2026-09-27 取证，性质与原先判断不同）**：原先记为「与既有 `tiers:` 构成双源」，取证后应改写为 —— **既有 `tiers:` 是死配置，没有第二方在跑**：
+**⑦ 的证据（2026-09-27 取证）**：原先记为「与既有 `tiers:` 构成双源」，取证后改写为 —— **既有 `tiers:` 在本仓零消费方**：
 
 - `src/core/config/polaris-project-config.ts:86` 只有一行类型声明 `tiers?: Record<string, { path: string[] }>`；`grep -rn "tiers" src/` **全仓仅此一行**，**零消费方**（没有任何代码按 tier 改变流程）
 - `triage`（`mechanical_script` / `sensitive_keywords_file`）同样只在类型与 `task-state.ts` 里声明，未接任何阶段决策
-- 故 ⑦ 不是「两套机制打架」，而是「**一个死块 vs 一个新提案**」——**决策成本比原先估计低**，但方向仍需拍板：是删掉死块、还是把它接成真机制
-- **`tiers.*.path` 的阶段名已失真**（取证）：现行 coding 阶段为 `specify` / `plan` / `design` / `tasks` / `verify` / `ship`（`task-kind-layout.ts`），而 `tiers.*.path` 里的 `build` / `lock` / `audit` / `challenge` **四个都不是阶段名** —— `lock` 在 `src/` 只指文件锁（`workflow.lock` / `skills-lock.json`）、`challenge` 只指模型槽位（`model.challenger`）、`audit` 仅出现在 `tasks-lint.ts:28` 的一条违规文案里（写作「应由 `/ezfl:audit` 阶段处理」，**又一处旧阶段残留**）。这块配置停在**更早的阶段体系**上
+- 故 ⑦ 不是「两套机制打架」，而是「**本仓零消费方 vs 一个新提案**」——**决策成本比原先估计低**。2026-09-29 拍板：**这两块 config 不删**（下述第 4 条更正了「死块」的判断），新提案落 `state.yaml`
+- ~~**`tiers.*.path` 的阶段名已失真**（取证）：现行 coding 阶段为 `specify` / `plan` / `design` / `tasks` / `verify` / `ship`（`task-kind-layout.ts`），而 `tiers.*.path` 里的 `build` / `lock` / `audit` / `challenge` **四个都不是阶段名**~~ → **2026-09-29 更正**：它们**不是本仓阶段名，而是 `polaris-cli` 侧的 verb 枚举** —— `polaris-cli/assets/shared/templates/change-state-template.yaml:10` 的 `current_verb: idle | triage | design | propose | lock | build | audit | ship` 与之逐项对应。该配置属 **cli 血脉**，本仓**既不删、也不按本仓阶段名校验**
 - proposal 的「数字越大越高危」与数据中心 Tier I–IV 惯例**相反**，若采用必须写死方向
 
 ---
@@ -684,4 +684,4 @@ proposal 的 §2「报告增量三档评估」仍是**审查范围的原始依�
 ### 11.7 本轮**未**动
 
 - **L4 增强验证**（变异 / 属性 / 性能 / 并发 / 多模型）—— 已划出 v1
-- **⑦ tier 风险分级** —— 仍挂起。已知缺口：测试轨的开关只挂**规模轴**（`verify_mode` 由规模启发式推得），**缺风险轴** → 小改动碰高危路径（认证 / 支付 / 并发 / 加密）会两头落空（不跨边界 → 不跑集成；规模小 → `light` → 不跑功能）。已写进 Step 12 正文作为提醒
+- **⑦ tier 风险分级** —— 已于 **2026-09-29** 结项（`2026-09-29-risk-grading-design.md`）。该轮关闭了本节第一版写下的「已知缺口」：新增**风险轴** `risk_level`，`critical` 强制 `verify_mode=full` + 必跑功能轨 + 强制完整清单 —— 「小改动碰高危路径两头落空」不再成立

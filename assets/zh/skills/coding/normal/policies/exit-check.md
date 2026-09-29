@@ -14,12 +14,12 @@
 
 | # | 检查项 | 通过条件 | 失败级别 |
 |---|--------|----------|----------|
-| C1 | tasks 已勾完 | `openspec/changes/<change_id>/tasks.md` 中不存在 `- [ ]` | CRITICAL |
-| C2 | 改动与 tasks 一致 | `git diff --stat` / cached / `<base-ref>...HEAD` 对照，改动文件落在 tasks 声明的 Files 内；超出部分须有解释 | IMPORTANT |
-| C3 | 构建 / 编译通过 | 运行项目对应命令，exit 0 | CRITICAL |
-| C4 | 相关测试通过 | 运行 tasks 内的测试 / 验证命令，exit 0 | CRITICAL |
-| C5 | 无明显安全问题 | 无硬编码密钥、无新增 `unsafe` / 无危险默认放开；人工审视 | CRITICAL（仅确认存在时） |
-| C6 | specs 验收场景可追溯 | `specs/<capability>/spec.md` 的 Requirements + Scenarios（GWT）逐条能对应到实现或测试；未覆盖项须写明原因 | IMPORTANT |
+| C1 | tasks 已勾完 | `openspec/changes/<change_id>/tasks.md` 中不存在 `- [ ]` | Critical |
+| C2 | 改动与 tasks 一致 | `git diff --stat` / cached / `<base-ref>...HEAD` 对照，改动文件落在 tasks 声明的 Files 内；超出部分须有解释 | Major |
+| C3 | 构建 / 编译通过 | 运行项目对应命令，exit 0 | Critical |
+| C4 | 相关测试通过 | 运行 tasks 内的测试 / 验证命令，exit 0 | Critical |
+| C5 | 无明显安全问题 | 无硬编码密钥、无新增 `unsafe` / 无危险默认放开；人工审视 | Critical（仅确认存在时） |
+| C6 | specs 验收场景可追溯 | `specs/<capability>/spec.md` 的 Requirements + Scenarios（GWT）逐条能对应到实现或测试；未覆盖项须写明原因 | Major |
 
 ### 1.1 dirty worktree 处理
 
@@ -49,10 +49,10 @@ bash "$PLUGIN_ROOT/scripts/constitution-validity.sh"   # 0=有效 / 1=无效 / 2
 
 | 脚本结果 | 处理 |
 |----------|------|
-| 0（有效） | 逐条核对 Core Principle；`NON-NEGOTIABLE` 违规 → **Critical**；其余 → **Important** |
+| 0（有效） | 逐条核对 Core Principle；`NON-NEGOTIABLE` 违规 → **Critical**；其余 → **Major** |
 | 1 / 2 | 按 `.polaris/config.yaml` 的 `constitution_required` 决定告警或阻断；脚本缺失 → 按失败决策的 A/B 二选一处理，不得伪造结论 |
 
-输出格式照 `constitution-audit.md` §3。累计的 Critical + Important 条数记为 metrics 的 `audit.violations`，核对项总数记为 `audit.total_checks`（无明确分母时填 1）。
+输出格式照 `constitution-audit.md` §3。累计的 Critical + Major 条数记为 metrics 的 `audit.violations`，核对项总数记为 `audit.total_checks`（无明确分母时填 1）。
 
 写入 `state.yaml`：`runtime.verify.constitution_valid: <true|false>`。
 
@@ -140,7 +140,7 @@ else:  # team
 
 ### 4.1 严重程度判定
 
-**不确定性原则**：无法确定严重程度时，**宁可标轻**（SUGGESTION 或 WARNING），**禁止**在不确定时标 CRITICAL。仅对下列已确认事实使用 CRITICAL：
+**不确定性原则**：无法确定严重程度时，**宁可标轻**（Nit 或 Minor），**禁止**在不确定时标 Critical。仅对下列已确认事实使用 Critical：
 
 - 构建失败、测试失败
 - 已确认的安全问题
@@ -151,7 +151,7 @@ else:  # team
 | 选择 | 动作 |
 |------|------|
 | 全部修复 | 回 normal Step 8.3 重新 `/opsx:apply`（用户确认后）；本轮先写 `runtime.verify.status: failed` 与失败原因，**不**推进 phase |
-| 逐项处理 | CRITICAL / IMPORTANT 必须修；WARNING / SUGGESTION 可接受偏差但须写入报告；存在任一 CRITICAL / IMPORTANT 时禁止「全部接受」 |
+| 逐项处理 | Critical / Major 必须修；Minor / Nit 可接受偏差但须写入报告；存在任一 Critical / Major 时禁止「全部接受」 |
 | 接受偏差（仅非 blocking） | 记 `.polaris/overrides.log` + `verify-report.md`；team blocking 场景除外 |
 | 升到 P03 | 命中升档信号（`./tier-gate.md` §2）时可选；按其 §2.3 转交 design |
 
@@ -166,10 +166,10 @@ else:  # team
 `openspec/changes/<change_id>/reviews/verify-report.md` 必须包含：
 
 1. 6 项检查表（C1–C6 + PASS / FAIL）
-2. Constitution 审计摘要（核对项、violations、Critical / Important 分级）
+2. Constitution 审计摘要（核对项、violations、Critical / Major 分级）
 3. `overall_score` 与 `score_level`
 4. 5 个 scorer 的逐项 score + reason
-5. Step 8.5 代码审查的 IMPORTANT 项及其处置结论
+5. Step 8.5 代码审查的 Major 项及其处置结论
 6. Step 7 合并主审的遗留 concerns 及其处置结论
 7. 接受的偏差（若有）及原因
 
@@ -183,7 +183,7 @@ else:  # team
 
 ## 6. 硬阻断（不得推进 phase）
 
-- 任一 CRITICAL 未解决
+- 任一 Critical 未解决
 - `.polaris/metrics/<timestamp>-metrics.json` 未写入或不含 `change_id`
 - `reviews/verify-report.md` 未落盘
 - `runtime.verify.blocked=true` 且用户未 override

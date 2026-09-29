@@ -26,7 +26,7 @@ read openspec/memory/constitution.md
 - 检查实施产出是否有违规
 - 违规分级：
   - `NON-NEGOTIABLE` 标记的原则 → **Critical**（必须修复）
-  - 其他原则 → **Important**（应修复）
+  - 其他原则 → **Major**（应修复）
 
 ### 3. 输出违规清单
 
@@ -41,7 +41,7 @@ read openspec/memory/constitution.md
 
 ### 4. 违规处理
 
-若有任何 Critical 或 Important 违规：
+若有任何 Critical 或 Major 违规：
 - 停等用户三选项：
   1. 自己修复违规代码
   2. 接受违规（记录到 overrides.log）

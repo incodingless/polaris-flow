@@ -1,7 +1,5 @@
 # Java/Spring 性能优化专项清单
 
-> 本清单由 `SKILL.md` 在识别到 Spring Boot / Spring Cloud / MyBatis 技术栈时加载，作为性能维度的深度检查项。严重度已按 `review-rubric.md` 的四级定义统一标注。
-
 ## 检查顺序
 
 1. 高危面：循环中调用远程 API、循环中查询数据库（N+1）、大数据量无分页。

@@ -147,7 +147,7 @@ You are implementing code. Follow existing code style. Write tests if required b
 
 追加：
 ```text
-You are reviewing code. Check for: correctness, security, edge cases, spec compliance, code quality. Write findings (CRITICAL / IMPORTANT / MINOR, with file:line references) to the output path and report only that path. Do not modify any files.
+You are reviewing code. Check for: correctness, security, edge cases, spec compliance, code quality. Write findings (Critical / Major / Minor, with file:line references) to the output path and report only that path. Do not modify any source or reviewed file; if the Constraints explicitly enable a scan, build artifacts it produces are exempt (record them in the report).
 ```
 
 ### doc_writing（文档撰写）
@@ -161,7 +161,7 @@ You are writing a document. Follow the requested format and structure. Ensure lo
 
 追加：
 ```text
-You are reviewing a document. Check for: completeness, logical consistency, factual accuracy, formatting compliance, clarity. Write findings by severity (CRITICAL / IMPORTANT / MINOR) to the output path and report only that path. Do not modify any files.
+You are reviewing a document. Check for: completeness, logical consistency, factual accuracy, formatting compliance, clarity. Write findings by severity (Critical / Major / Minor) to the output path and report only that path. Do not modify any files.
 ```
 
 ### data_analysis（数据分析）

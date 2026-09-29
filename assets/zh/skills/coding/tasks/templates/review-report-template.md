@@ -18,9 +18,9 @@
 
 {{CRITICAL_ISSUES_OR_NONE}}
 
-## Important Issues（应在本次迭代内修复）
+## Major Issues（应在本次迭代内修复）
 
-{{IMPORTANT_ISSUES_OR_NONE}}
+{{MAJOR_ISSUES_OR_NONE}}
 
 ## Minor Issues（可留作后续改进）
 

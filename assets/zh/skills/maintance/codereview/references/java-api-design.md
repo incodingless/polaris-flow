@@ -1,34 +1,33 @@
 # Java/Spring 接口设计专项清单
 
-> 本清单由 `SKILL.md` 在识别到 Spring Boot / Spring Cloud / MyBatis 技术栈时加载，作为架构/正确性维度中「接口设计」的深度检查项。严重度已按 `review-rubric.md` 的四级定义统一标注。
-
 ## 检查顺序
 
 1. 高危面：接口参数校验缺失、敏感数据传输未加密。
-2. 中危面：接口设计不合理/拆分不恰当（胖接口、职责混杂、过度耦合）。
+2. 中危面：接口设计不合理/拆分不恰当（胖接口、职责混杂、过度耦合）、业务逻辑写在 Controller 层。
 3. 低危面：接口返回格式不统一规范。
 
-## 检查项清单（4 条）
+## 检查项清单
 
-### 参数校验（1 条）
+### 参数校验
 
 | 关注点 | 严重度 |
 |--------|--------|
 | 接口是否进行了参数校验（注解校验 `@Valid`/`@Validated` 或代码内手动校验均可） | Major |
 
-### 数据安全（1 条）
+### 数据安全
 
 | 关注点 | 严重度 |
 |--------|--------|
 | 接口传输敏感数据时是否进行加密 | Critical |
 
-### 接口设计（1 条）
+### 接口设计
 
 | 关注点 | 严重度 |
 |--------|--------|
 | 接口设计是否合理，拆分是否恰当 | Minor |
+| Controller 是否只做参数接收与响应封装（业务逻辑是否下沉到 Service） | Minor |
 
-### 返回格式（1 条）
+### 返回格式
 
 | 关注点 | 严重度 |
 |--------|--------|
@@ -175,6 +174,7 @@ public class UserVO {
 | 过度耦合 | 接口强依赖多个下游服务，任一下游不可用则整体失败 |
 | 批量与单个混用 | 同一接口同时支持单条和批量操作，参数结构复杂 |
 | 接口粒度过细 | 简单的 CRUD 操作拆成过多接口，增加调用复杂度 |
+| 业务逻辑写在 Controller | Controller 里出现业务处理、数据校验、数据库操作，未下沉到 Service |
 
 **反例 1**：胖接口——一个接口处理多种不相关操作。
 
@@ -256,6 +256,39 @@ public ApiResponse<Void> activateUser(@PathVariable Long id, @RequestBody @Valid
 }
 ```
 
+**反例 4**：业务逻辑写在 Controller——Controller 内含数据校验、库存计算与通知发送。
+
+```java
+@PostMapping("/orders")
+public ApiResponse<OrderVO> createOrder(@RequestBody OrderRequest request) {
+    if (request.getItems() == null || request.getItems().isEmpty()) {
+        return ApiResponse.fail(1001, "订单项不能为空");
+    }
+    int total = request.getItems().stream().mapToInt(OrderItem::getPrice).sum();
+    orderMapper.insert(new Order(request.getUserId(), total));
+    stockMapper.deduct(request.getItems());
+    smsClient.send(request.getUserId(), "下单成功");
+    return ApiResponse.success(new OrderVO(total));
+}
+```
+
+**正例 4**：Controller 只接收参数与封装响应，业务逻辑下沉到 Service。
+
+```java
+@RestController
+@RequestMapping("/orders")
+public class OrderController {
+    @Autowired
+    private OrderService orderService;
+
+    @PostMapping
+    public ApiResponse<OrderVO> createOrder(@RequestBody @Valid OrderRequest request) {
+        OrderVO result = orderService.createOrder(request);
+        return ApiResponse.success(result);
+    }
+}
+```
+
 ### 4. 接口返回格式不统一
 
 **反例**：不同接口返回格式不一致，有的包装 `ApiResponse`，有的直接返回对象，有的返回 `ResponseEntity`。
@@ -331,4 +364,5 @@ public class ApiResponse<T> {
 - **「参数校验了吗」**：接口参数既无 `@Valid`/`@Validated` + 约束注解，方法体内也无手动校验 → Major，要求补充校验（注解或手动均可）。
 - **「敏感数据加密了吗」**：请求/响应中包含密码/身份证/银行卡等敏感字段且未加密/脱敏 → Critical，要求加密传输或脱敏返回。
 - **「接口设计合理吗」**：胖接口/返回数据过多/混合操作/过度耦合 → Minor，要求拆分或重构。
+- **「分层对了吗」**：Controller 中含业务逻辑、数据校验或数据库操作 → Minor，要求下沉到 Service。
 - **「返回格式统一吗」**：同一项目内接口返回格式不一致 → Nit，建议统一。

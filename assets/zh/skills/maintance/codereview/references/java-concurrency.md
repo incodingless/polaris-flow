@@ -1,7 +1,5 @@
 # Java/Spring 并发与线程安全专项清单
 
-> 本清单由 `SKILL.md` 在识别到 Spring Boot / Spring Cloud / MyBatis 技术栈时加载，作为正确性维度中「并发与竞态」的深度检查项。严重度已按 `review-rubric.md` 的四级定义统一标注。
-
 ## 检查顺序
 
 1. 高危面：直接 new 线程、线程安全问题（共享可变状态无同步）、并发工具类误用。

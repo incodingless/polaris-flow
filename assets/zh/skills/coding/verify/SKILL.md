@@ -1,22 +1,24 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}verify
-description: "对 build 产出做验证并按证据落盘：编译闸门 → 意图验收 → Constitution 审计与静态 scorer → 单元测试（含三级分叉与三段判读 + 基线红名单）→ 覆盖率打分与强度补强 → 按 verify_mode 探测并执行契约 / 集成 / 功能三条测试轨 → 收口清单（轻量 6 项 / 完整 7 项）→ 按 runtime.build.review_mode 可选委派的独立代码评审（polaris{{SKN_SPR}}coding{{SKN_SPR}}codereview）→ 人工业务语义确认；用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}verify，或在 build 完成后要求验收 / 审计实施产出 / 跑测试并落盘测试证据 / 跑 Constitution 合规与 scorer / 对照 specs 与深度设计做验证时必须使用本 skill。"
+description: "对 build 产出做验证并按证据落盘：编译闸门 → 意图验收 → Constitution 审计与静态 scorer → 单元测试（含三级分叉与三段判读 + 基线红名单）→ 覆盖率打分与强度补强 → 按 verify_mode 探测并执行契约 / 集成 / 功能三条测试轨 → 收口清单（轻量 6 项 / 完整 7 项）→ 按 runtime.build.review_mode 可选派发独立 subagent 做独立代码评审（可含用户选定的可选 SonarQube 扫描与门禁判定）→ 人工业务语义确认；用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}verify，或在 build 完成后要求验收 / 审计实施产出 / 跑测试并落盘测试证据 / 跑 Constitution 合规与 scorer / 对照 specs 与深度设计做验证时必须使用本 skill。"
 ---
 
 # Polaris 工作流 - 阶段：验证（verify）
 
 <HARD-GATE>
-本 skill **仅**负责：在 **build 已完成** 的前提下，按「编译闸门 → 意图验收 → 自动检查项 → 按强度分档跑测试 → 收口清单」做实现验证与测试证据落盘，另含 Constitution 合规审计（注入点 D）、scorer 评分、对照 OpenSpec 四件套（+ `detailed-design.md` 若已深化）的实现验证，以及**按 `review_mode` 可选委派的独立代码评审**（Step 14，委派 `polaris{{SKN_SPR}}coding{{SKN_SPR}}codereview`）与**人工业务语义确认**（Step 15）；通过后推进到 ship。
+本 skill **仅**负责：在 **build 已完成** 的前提下，按「编译闸门 → 意图验收 → 自动检查项 → 按强度分档跑测试 → 收口清单」做实现验证与测试证据落盘，另含 Constitution 合规审计（注入点 D）、scorer 评分、对照 OpenSpec 四件套（+ `detailed-design.md` 若已深化）的实现验证，以及**按 `review_mode` 可选派发独立 subagent 的独立代码评审**（Step 14）与**人工业务语义确认**（Step 15）；通过后推进到 ship。
 
 - **禁止**跳过 5 个 scorer 脚本（脚本缺失见 Step 5 / Step 7 降级；不得假装已跑）
 - **禁止**在 team 模式下，scorer / Constitution 形成 blocking 时把 `runtime.verify.blocked=false` 或标记通过
 - **禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 且未完成出口校验就把 `phase` 推到 ship
 - **禁止**未过 Step 3 编译闸门而继续（探不到构建入口时按 `No-Verification` 记，不阻断）
 - **禁止**从 `state.yaml` 顶层的 `verify_mode` 读取强度 —— 唯一来源是 `runtime.verify.verify_mode`（顶层那份是默认生成的历史遗留死值）
+- **禁止**下调 `risk_level` —— 两轴复核**只升不降**（信号表唯一源：`./policies/risk-signals.md`）；确需下调**必须**由用户按 `./policies/decision-point.md` 显式确认后再改
 - **禁止**本阶段做分支合并 / PR / worktree 合回 / `/opsx:archive`（那是 ship）
 - **禁止**本阶段编写业务实现代码；用户确认修复后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`，不得在 verify 内静默改实现
 - **禁止**未按 `./policies/decision-point.md` 获得用户对「验证失败 / override / 规格漂移」的明确选择就继续或接受偏差
-- **禁止**用主代理（生成方）自审替代 Step 14 的**独立**代码评审；无独立 subagent 能力时按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}codereview` 的「降级决策」走，不得默认自审、不得把降级结果写成独立评审
+- **禁止**用主代理（生成方）自审替代 Step 14 的**独立**代码评审；无独立 subagent 能力时按 Step 14 的「降级决策」走，不得默认自审、不得把降级结果写成独立评审
+- **禁止**在 Step 14 的「评审判据 + 派发方式 + 能力探测 + 降级决策」之外自造评审口径（该四者以 Step 14 为唯一出处）
 - **禁止把本技能的显式要求「自行加码」**：执行口径以各 Step 与 `test.commands.*` 为准 —— 例：`unit` 槽只跑单测命令（`mvn -B test`），**不得**擅自升格为 `mvn verify` / `gradlew check` 等含集成的命令；`build` 槽只跑编译（`gradlew assemble`），**不得**换成会连带跑测试的 `gradlew build`。技能没显式要求的，不跑
 - **禁止冒充测试证据**：未真实调用测试命令、未拿到「命令 + 退出码 + 输出摘要 + commit SHA」时，不得声称测试通过；拿不到证据一律记 `No-Verification` 并写明原因
 - **禁止默认跳过 Step 15 人工业务语义确认**：跳过**必须**由用户明确选择并留下原因（`semantics_review=skipped_by_user` + 原因），不得静默略过
@@ -117,6 +119,11 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_R
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --set runtime.verify.blocked=false
 ```
 输出：`[polaris-flow 开发]验证: 任务ID=<task_id> ; worktree=<path|main>`
+
+**分级读入**：读 `state.yaml` 顶层的 `complexity_level` / `risk_level` / `current_tier`（`specify` Step 5.4.1 初判值），供 Step 8 复核与 Step 12/13 的触发判定使用。
+
+- 字段缺失（老任务 / 非 specify 入口）→ 按 `standard` 兜底并在报告中标注「无初判，按默认档」
+- 本步**只读不判**；复核统一在 Step 8
 
 ### Step 1：处理dirty worktree（硬闸门）
 
@@ -244,10 +251,10 @@ bash "$PLUGIN_ROOT/scripts/constitution-validity.sh"   # 0=有效 / 1=无效 / 2
 
 判定：
 
-- **有效**：逐条核对 Core Principle —— `NON-NEGOTIABLE` 违规为 Critical，其余为 Important；有 Critical/Important → 停等用户三选项（自己修复 / 接受并记 overrides.log / 重做任务组）
+- **有效**：逐条核对 Core Principle —— `NON-NEGOTIABLE` 违规为 Critical，其余为 Major；有 Critical/Major → 停等用户三选项（自己修复 / 接受并记 overrides.log / 重做任务组）
 - **无效**：按配置 `constitution_required`（来自 `.polaris/config.yaml` 或项目约定）告警或阻断
 
-将累计的 Critical+Important 条数记为后续 metrics 的 `audit.violations`；核对项总数记为 `audit.total_checks`（无明确分母时填 1）。
+将累计的 Critical+Major 条数记为后续 metrics 的 `audit.violations`；核对项总数记为 `audit.total_checks`（无明确分母时填 1）。
 写入 `state.yaml`：`runtime.verify.constitution_valid: <true|false>`。
 
 #### 5.2 静态 scorer（4 个）
@@ -288,7 +295,7 @@ done
 | 仍失败 | 进三段判读（仅单元轨），按真失败处置 | 正常记录 |
 
 - **强制标注不可省**：重试解决偶发抖动，标注防「flaky 被静默掩盖」
-- 同一 change 内**同一用例两次重试才过** → 升级 **CRITICAL**（不是抖动，是设计问题）
+- 同一 change 内**同一用例两次重试才过** → 升级 **Critical**（不是抖动，是设计问题）
 - `test.flaky_policy` 可改回 `fail_on_flake`（关闭重试）
 
 **三级分叉判读**（四轨共用）：因「环境由项目负责」，「入口存在但环境没起好」是高频情形 —— 只按「非零退出码 → 回 build」会把环境问题误判成代码缺陷。
@@ -315,7 +322,7 @@ CI=true <test.commands.unit>
 |--------|------|
 | a **增量轨** | 本次新写的测试有红 → **回 build**（**本次新增的测试必须绿**，属 build 的欠账）。**不比对红名单** |
 | b **存量轨** | 红且**不在**红名单 → 回 build（**回归**）；红且**在**红名单 → 记 `No-Verification: 历史欠债` 放行 |
-| c **清单增删** | 测试文件**删除 / 加 skip**（`@skip` / `xfail` / `.only` / 注释掉断言）且无理由 → **CRITICAL** |
+| c **清单增删** | 测试文件**删除 / 加 skip**（`@skip` / `xfail` / `.only` / 注释掉断言）且无理由 → **Critical** |
 
 报告须写清：新增 N / 修改 M / **删除必须为 0**（或逐条显式声明理由）—— 否则「全绿」报告对删测试 / 加 skip 完全无感。
 
@@ -425,7 +432,7 @@ else:  # team
 
 ### Step 8：确定 `verify_mode`
 
-**唯一强度轴** —— 影响面：Step 9 探哪些槽位 / Step 12 是否跑功能测试 / `no_framework_policy` 的处置 / Step 13 选哪份收口清单。一处定、后面全用。
+**强度的唯一出口**（输入 = 规模启发式 + `score_level` + 风险轴复核，见下）—— 影响面：Step 9 探哪些槽位 / Step 12 是否跑功能测试 / `no_framework_policy` 的处置 / Step 13 选哪份收口清单。一处定、后面全用。
 
 **启发式基础档**（满足任一 → `full`，否则 `light`）：
 
@@ -441,7 +448,7 @@ else:  # team
 git diff --stat <base-ref>...HEAD
 ```
 
-**强度补强**（消费 Step 7 的 `score_level`）：
+**强度补强（一）—— 消费 Step 7 的 `score_level`**：
 
 | 基础档（规模启发式） | `score_level` | 最终 `verify_mode` |
 |---|---|---|
@@ -449,9 +456,33 @@ git diff --stat <base-ref>...HEAD
 | 未命中（小改动 → `light`） | `high` | `light` |
 | 命中 → `full` | 任意 | `full` |
 
+**两轴复核（两段式的第二段）—— 只升不降**
+
+用 build 以来的 diff 复核**风险轴**：按 `./policies/risk-signals.md` **§5** 的 glob 扫改动路径，并按 **§4** 的实现侧信号（`D1` / `D3` / `D4` / `D7`）做语义判断。
+取 `risk_level' = max(Step 0 读入的 risk_level, 本次复核值)` —— **只升不降**（下调须用户按 `./policies/decision-point.md` 显式确认）。`complexity_level` 本步**不重判**（实现侧不改需求复杂度）。
+
+**强度补强（二）—— 消费复核后的 `risk_level'`**：
+
+| `risk_level'` | 最终 `verify_mode` |
+|---|---|
+| `critical` | **`full`**（一票覆盖基础档） |
+| `standard` / `trivial` | 沿用「补强（一）」的结果 |
+
 > 必须在此处定格：Step 9 要按**最终**模式决定探不探 `smoke` 槽。
 
-写入 `runtime.verify.verify_mode: <light|full>` —— **这是强度的唯一读取来源**。
+**写回**（这一处定、后面全用）：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.verify.verify_mode=<light|full> \
+  --set risk_level=<risk_level'> \
+  --set current_tier=<max(complexity_level, risk_level')> \
+  --set runtime.verify.risk_escalation_reason=<上调时记命中的信号编号 / glob 片段；未上调留空>
+```
+
+- `runtime.verify.verify_mode` —— **强度的唯一读取来源**
+- `risk_level` / `current_tier` —— 复核后的最终档，Step 12 / 13 直接消费
 
 > **覆盖**：agent 或用户仍可随时按 decision-point 改为 `light|full`。
 
@@ -523,20 +554,26 @@ done
 > **与集成测试不是同一件事**：集成验**接缝**（2–3 个组件之间），功能验**链路**（入口到出口）；集成可以完全不涉及业务流程。
 > **判定归属的简易规则**：断言「响应字段 / 状态码 / SQL 结果」→ 集成；断言「业务后置状态」→ 功能。
 
-**触发**：`verify_mode=full` **且** `smoke` 槽存在。`light` 下不探不跑。
+**触发**（满足任一）：
+
+- `verify_mode=full` **且** `smoke` 槽存在
+- `risk_level=critical`（风险轴闸门）—— 即便 `verify_mode` 被人工覆盖为 `light`，高危变更仍强制探并跑功能轨
+
+两者皆不满足 → 不探不跑。
 
 **执行与判读**：共用规则见 `6.1`；判读同 Step 10 的三分。
 
 **两轨同源时只跑一次**：若 Step 9 探测到 `integration` 与 `smoke` 是**同一条命令** → 本步不重复执行，复用集成轨的结果并在报告标「两轨同源」。
 
-> ⚠️ 已知缺口：`light` 下功能测试不跑，则**小改动碰高危路径**（认证 / 支付 / 并发 / 加密）会两头落空（规模小 → `light`；不跨模块边界 → 也不跑集成）—— 此时只剩单测 + 代码评审 + 人工。根因是测试轨只挂**规模轴**、缺**风险轴**。
+> **缺口已闭合**（原「小改动碰高危路径两头落空」）：风险轴由 Step 8 复核，`risk_level=critical` 时一票强制 `full`（见 Step 8「补强（二）」），本步的第二个触发条件再兜一层人工覆盖的例外。信号表唯一源：`./policies/risk-signals.md` §5。
 
 ### Step 13：收口清单
 
-按 Step 8 的 `verify_mode` 选择清单：
+按 Step 8 的结果选择清单（自上而下取首个命中）：
 
 | 条件 | 清单 |
 |------|------|
+| `risk_level=critical` | `13.2` 完整清单（**7 项**）—— 风险轴闸门，优先于 `verify_mode`（人工覆盖为 `light` 时仍成立） |
 | `verify_mode=light` | `13.1` 轻量清单（**6 项**） |
 | `verify_mode=full` | `13.2` 完整清单（**7 项**） |
 
@@ -553,7 +590,7 @@ done
 
 **跳过项**（轻量不做）：spec scenario 全覆盖、detailed-design 深度比对、纯 style 一致性、delta 与设计漂移检测。
 
-**通过**：6 项全 OK，无 CRITICAL / IMPORTANT。
+**通过**：6 项全 OK，无 Critical / Major。
 **不通过** → [验证失败决策](#验证失败决策阻塞点)。
 
 报告：简表 6 项 + PASS/FAIL，写入 `reviews/verify-report.md`（先确保 `openspec/changes/<task_id>/reviews/` 存在）。
@@ -585,30 +622,138 @@ done
 | B | 用户确认后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`（或回 design/tasks，由用户选），更新设计与 specs |
 | C | 确认偏差可接受，继续；报告中记录接受原因与影响 |
 
-### Step 14：独立代码评审
+### Step 14：独立代码评审（派独立 subagent）
 
 **触发**：`runtime.build.review_mode` ∈ `{standard, thorough}` → 执行；`off` → 跳过并记原因。
-**入口条件**：**不存在未归因的红** —— `6.1` / `6.2` 的判读必须已全部结清（所有红要么已回 build 修掉、要么已记入 `No-Verification`）。有未归因的红时**不得开始**独立评审：评审结论无法归因即作废，等于白审。
 
-**执行**：调用 `polaris{{SKN_SPR}}coding{{SKN_SPR}}codereview`（`use_skill`），传入 `task_id` 并声明「用途 = 验证阶段的独立代码评审、范围 = 本次 diff（build 之后的新增改动为主）」。评审清单、派发方式、能力探测与降级决策**以该技能为唯一出处，本技能不内联副本**。
-
-**回报消费**（`codereview.status`）：
-
-| 回报 | 本步动作 |
-|------|----------|
-| `done`（`independent=true`） | 正常；按下方「判定」处理 |
-| `degraded_inline`（`independent=false`） | **不阻断**，但报告中必须如实标注「降级 · 非独立裁判」；team 模式下按 `./policies/decision-point.md` 让用户确认是否接受 |
-| `skipped:no_independent_reviewer` | 记入报告，非 blocking |
-| `skipped:off` | 无需处理（Step 0 已判 `review_mode=off`） |
-| `blocked` | **阻断** → [验证失败决策](#验证失败决策阻塞点) |
-
-**判定**：
-
-- 报告含 **CRITICAL** → **阻断** → [验证失败决策](#验证失败决策阻塞点)；不得自动接受
-- 仅 **IMPORTANT** → 逐条进 [验证失败决策](#验证失败决策阻塞点)
-- 仅 **WARNING / SUGGESTION** → 记入报告，不阻断
+> **本步必须跑在独立 subagent（独立上下文）里**（H10 / H13）—— 评审者拿不到 build 的自述推理，只拿 diff 与规格，以此实现「生成与裁决分离」。主代理（生成方）自审**不是**本步的等价物，只能作为「降级决策」里的显式降级项并如实标注。
 
 **范围**：build 的审查由**生成方**执行，本步是**独立裁判** —— 聚焦「build 之后的新增改动 + 独立视角复核」，build 已审过且未再改动的 diff 不整份重审。
+
+**入口条件**：**不存在未归因的红** —— `6.1` / `6.2` 的判读必须已全部结清（所有红要么已回 build 修掉、要么已记入 `No-Verification`）。有未归因的红时**不得开始**独立评审：评审结论无法归因即作废，等于白审。
+
+#### 14.1 能力探测（H10）
+
+1. 读 SessionStart 注入：`PLATFORM_DEGRADATION=inline|unsupported` → **直接进入「降级决策」**（不派发、不探测）
+2. 若本步只要默认通用 agent 且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ **不调** probe，记 `agent=null`，进 `14.2`
+3. 否则 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传 `platform` / `PLATFORM_ID`），按返回结构取 `agents`；`agents=[]` 且平台支持默认 subagent → `agent=null`；`agents=[]` 且平台不支持 → 进入「降级决策」
+
+**禁止**在缺能力结论时假设宿主有独立 subagent。
+
+#### 14.2 圈定 diff 范围（最小改动原则）
+
+```bash
+git diff --stat <base-ref>...HEAD
+git diff <base-ref>...HEAD
+```
+
+- `base-ref` 优先取 `detailed-design.md` / plan 头信息里的 `base-ref`；缺失用 `git merge-base` 与主干估算
+- 产出**变更文件清单**（路径 + 增删行数），作为 subagent 的 `materials`
+- **越界检测**：改动越出 `tasks.md` / `specs` 声明的范围（无关重构、无关文件）→ 记为一条 **Major**，带 `文件:行`
+- 变更文件数为 0 → 阻断（没有可审的 diff）
+
+#### 14.3 可选 SonarQube 扫描（用户决策点，派发前）
+
+**为什么在这里问**：subagent 是**非交互**的（H13），问不出用户；扫描又会写目标仓构建产物（`mvn sonar:sonar` 写 `target/`、`sonar-scanner` 写 `.scannerwork/`），不该让「只读评审者」自行决定跑不跑。因此**决策由主代理在派发前完成**，结论作为 flag 随 `constraints` 下传，由执行者在报告内一并给出扫描结果与门禁判定。
+
+**决策点**（按 `./policies/decision-point.md` 暂停，不得自动选）：
+
+| 序 | 问题 | 选项 |
+|---|---|---|
+| 1 | 本次代码评审是否追加 SonarQube 扫描？ | A **不启用**（默认）→ 跳过，报告记「SonarQube 未执行（用户跳过）」/ B 启用 |
+| 2 | （仅选 B 追问）门禁规则 | A 质量门禁 FAILED（**默认**）/ B 存在 Blocker/Critical 问题 / C 仅新增问题 / D 仅记录，不改结论 |
+
+> 门禁规则的**语义与默认值以 `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` 的 Step 2「决策点 2/2」为唯一出处**——本步只传名、不复制定义；该处默认值变更时此处随之生效。
+
+**选 B 时**在下游注入 `constraints`：
+
+```yaml
+sonarqube: { enabled: true, gate_rule: "<quality_gate | blocker_critical | new_only | record_only>" }
+```
+
+并附执行口径**指针**（不复制）：通道探测顺序（`mvn -B sonar:sonar` → `./gradlew sonar` → `sonar-scanner`）、凭据读取（`SONAR_TOKEN` 缺失即该通道不可用；地址读 `SONAR_HOST_URL` 或既有 `sonar.host.url`，**不索要 token 明文、不新增配置文件**）、范围收窄（`-Dsonar.inclusions=` 对齐 `14.2` 的变更文件清单，**不整仓全扫**）、结果读取（`/api/qualitygates/project_status` + `/api/issues/search`）——全部按该技能 **Step 2**。
+
+**副作用留痕**：扫描产生构建产物。执行者仍**不得修改任何源码或被审文件**；产物须在报告记一行（路径 + 是否已被 `.gitignore` 忽略），未被忽略的进 `verify-report.md` 的审查覆盖，本步不清理。
+
+**三项都探不到**（缺命令 / 缺 token / 缺服务端地址）→ 按 `decision-point.md` 的停止条件报阻塞原因与恢复条件；**不得伪造扫描结果，也不得把 `scripts/analyze.*` 的结论冒名为 SonarQube 结论**。
+
+**何时不问**：`14.1` 判定宿主无独立裁判能力、直接进入「降级决策」时，本子步随之跳过——降级路径不叠加外部扫描，保持最简。
+
+#### 14.4 派独立 subagent
+
+`use_skill("polaris{{SKN_SPR}}subagent-dispatch")`，传入：
+
+| 参数 | 值 |
+|------|-----|
+| `platform` | 宿主平台 id |
+| `agent` | `14.1` 结果（`null` = 宿主默认 subagent） |
+| `task_spec.task_type` | `code_review` |
+| `task_spec.task_description` | 对本次变更的 diff 做独立代码评审，找缺陷不找风格偏好 |
+| `task_spec.materials` | diff 内容 / 变更文件清单 / `tasks.md` / `specs/` 验收场景 / `detailed-design.md`（若存在） |
+| `task_spec.constraints.output_path` | `openspec/changes/<task_id>/reviews/code-review-report.md` |
+| `task_spec.constraints` | 见下方「评审判据」与「硬约束」 |
+| `task_spec.language` | 跟随主会话 |
+
+**评审判据（本步唯一出处）**：
+
+1. **正确性 + 边界** —— 逻辑错误；`null` / 空 / 0 / 极大值 / off-by-one / 溢出；异常路径与错误处理
+2. **安全** —— 注入（SQL / OS 命令）、越权、硬编码密钥、新增 `unsafe` / 关闭校验
+3. **规格一致性** —— 实现是否覆盖 `specs` 验收场景与 `tasks.md` 描述；是否有 tasks 范围外的改动
+4. **AI 幻觉模式** —— 幽灵导入（引用不存在的模块 / 符号）、缺失 `await`、永真 / 永假分支、重复条件、空 `catch`
+5. **副作用与全局状态** —— 未声明的 I/O、隐式全局写入、跨模块的隐式耦合
+
+> 需要更深的清单（Java/Spring 专项、OWASP 安全、代码异味）时，由 subagent 加载 `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` 的 `references/`（清单与 rubric）；**报告结构同样按该技能的 `templates/review-report.md`（唯一源，本节不复制其字段清单）**；**SonarQube 扫描的实现在该技能的 `SKILL.md` Step 2**（`references/` 不含实现），开关与门禁规则由 `14.3` 传入。均**不在此复制**。
+
+**写进 `constraints` 的硬约束**：
+
+- 严重度只用 **Critical / Major / Minor / Nit**（rubric 口径，源头见 `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` 的 `references/review-rubric.md` §严重级别定义）
+- **每条发现必须带 `文件:行`**（自报告不是证据）；给不出定位的观察进「证据不足」，不写成缺陷
+- **禁止修改任何源码与被审文件**；只输出报告（`14.3` 选 B 时允许扫描产生构建产物，按 `14.3` 留痕）
+- **报告按 `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` 的 `templates/review-report.md` 输出**（结构、字段、分级详略一律以该模板为唯一源）；模板中标注 **★ 的两行在本步必须填**：`评审标识`＝`task_id`、`执行者`＝`独立 subagent`，且「审查范围」行须写 base-ref 与变更文件数；`14.3` 选 B 时另在模板 §3「静态扫描门禁」节给出扫描结果与门禁判定
+- 未覆盖的检查项（若有）写进模板「审查概览 · 审查覆盖」的未下结论项，**不写成缺陷**
+
+派发后按 `dispatch.status` 消费（`dispatched` / `degraded_default` / `degraded_inline` / `unsupported`）。`degraded_inline` = 主代理在本会话执行 → **这是降级，必须标注**。`unsupported` → 进入「降级决策」。派发走 `subagent-probe` → `subagent-dispatch` → 宿主原生 Task / AgentTool；**禁止**回退到 superpowers 派发驱动器（H13）。
+
+#### 14.5 回读校验 + 落盘
+
+1. **回读校验**（派发成功时必做）：报告文件存在 + 模板 ★ 两行已填 + 每条发现带 `文件:行`。不完整 → 允许**重派一次**并附上缺什么；仍不完整 → 记 `NEEDS_CONTEXT`，走降级决策
+2. **校订 ★ 行**（内容由主代理按 `14.1` / `14.2` / `14.3` 的真实执行情况填，subagent 有误或缺失时照实改正）：`评审标识`＝`task_id`；`审查范围`＝base-ref + 变更文件数；`执行者`＝`独立 subagent（平台 / agent）` 或 `降级 · 非独立裁判`——**降级标记不得省略，也不得把降级写成独立评审**
+3. 落盘路径固定 `openspec/changes/<task_id>/reviews/code-review-report.md`（不另起文件名、不落 `.polaris/`）
+4. **SonarQube 回读**（`14.3` 选 B 时）：报告须含扫描结果与门禁判定；缺失 → 按第 1 条的不完整处理（重派一次 → 仍缺则走降级决策）
+
+#### 14.6 判定 + 写入 state
+
+| 报告结论 | 动作 |
+|---|---|
+| 存在 **Critical** | **阻断**本步 → `./policies/decision-point.md`：A 回 build 修复 / B 用户接受风险并记 override（须显式确认）/ C 放弃。**不得**自行接受 |
+| `14.3` 启用且**门禁未过** | **阻断**本步 → 同上三选项；报告「合并建议」钉 `❌ 不建议合并`（不得被其他维度的高分抵消），「风险摘要」首句写出门禁未过与所用规则 |
+| 仅 **Major** | 不阻断本步；交 [验证失败决策](#验证失败决策阻塞点) 逐条决策 |
+| 仅 **Minor / Nit** | 记入报告，不阻断 |
+| 报告未落盘 / 子代理 `FAILED` | 走降级决策 |
+
+**`runtime.verify.codereview_status` 取值与处理**（Step 16 写入）：
+
+| 值 | 产生条件 | 处理 |
+|---|---|---|
+| `done` | 独立 subagent 派发成功且报告完整 | 正常；按上表判定 |
+| `degraded_inline` | 降级决策选 A（同会话自审） | **不阻断**，但 `code-review-report.md`（模板 ★ 行 `执行者` ＝ `降级 · 非独立裁判`）与 `verify-report.md` 必须标注「降级 · 非独立裁判」；team 模式下按 `./policies/decision-point.md` 让用户确认是否接受 |
+| `skipped:off` | Step 0 已判 `review_mode=off` | 无需处理 |
+| `skipped:no_independent_reviewer` | 降级决策选 B（跳过） | 记入报告，非 blocking |
+| `blocked` | 存在未解决的 Critical，或启用的 SonarQube 门禁未过 | **阻断** → [验证失败决策](#验证失败决策阻塞点) |
+
+**降级决策（无独立裁判能力时）** —— 触发：`PLATFORM_DEGRADATION=inline|unsupported`、`14.1` 后宿主无可用 subagent、或派发返回 `unsupported`。
+
+**必须**按 `./policies/decision-point.md` 暂停，不得自动选：
+
+| 选项 | 动作 | 记录 |
+|------|------|------|
+| **A. 降级同会话自审** | 主代理按 `14.4` 的评审判据逐项自审 | 模板 ★ 行 `执行者` 写「**降级 · 非独立裁判**」；`independent: false`，供 retro 识别 |
+| **B. 跳过本次代码评审** | 不产出报告 | 记 `skipped:no_independent_reviewer`，在 `verify-report.md` 与 state 留痕 |
+| **C. 阻断回 build** | 停止，报阻塞原因与恢复条件 | 不得伪造「已评审」 |
+
+- **禁止**默认选 A（A 是降级不是等价物）
+- **禁止**把 A 的结果描述成独立评审
+- 用户选 B 时**不阻断**（本步可选）；但 `13.1` #6 / `13.2` 与 Step 16 的出口校验须能读到该跳过状态
 
 ### Step 15：人工验证（业务语义确认）
 
@@ -622,7 +767,7 @@ done
 |---|------|------|
 | 1 | 意图基线 | Step 4 产出 |
 | 2 | **术语 → 实现**映射清单（逐条列「业务术语 → 落到哪个实现」） | 从 specs + diff 提取 |
-| 3 | 机器侧结论摘要 | `6.1` / `6.2` 的轨结果 + Step 10–12 的结论 + Step 14 的 CRITICAL / IMPORTANT 列表 + `No-Verification` 清单 |
+| 3 | 机器侧结论摘要 | `6.1` / `6.2` 的轨结果 + Step 10–12 的结论 + Step 14 的 Critical / Major 列表 + `No-Verification` 清单 |
 
 **人只判一件事**：*AI 是否正确理解了业务术语，实现是否符合业务规则的真实意图*。
 
@@ -646,7 +791,7 @@ done
 | **发现偏** | 记入报告「业务语义确认」段 | 进 [验证失败决策](#验证失败决策阻塞点) |
 | **明确跳过** | `semantics_review=skipped_by_user` + **原因必填** | `full` 下记 `No-Verification: 用户跳过业务语义确认`；不额外阻断 |
 
-- **不得默认跳过**（与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}codereview` 的降级三选项同构：**可降级、必须标**）；跳过必须留原因 —— 否则报告会看起来「全绿」而这层根本没做
+- **不得默认跳过**（与 Step 14 的降级三选项同构：**可降级、必须标**）；跳过必须留原因 —— 否则报告会看起来「全绿」而这层根本没做
 - **与 Step 14 不可互相替代**：Step 14 是机器（独立 subagent）审「**代码写得对不对**」，本步是人审「**写的业务含义对不对**」—— Step 14 没有业务上下文，本步不做逐行代码审查
 - **落盘**：`reviews/verify-report.md` 的「业务语义确认」段 + `runtime.verify.semantics_review`
 
@@ -654,7 +799,7 @@ done
 
 验证通过后：
 
-1. 确保 `openspec/changes/<task_id>/reviews/verify-report.md` 已写完整结论（含 Constitution 摘要、overall_score、light/full、各检查项、**Step 3 编译闸门结论**、**Step 6 / 10–12 的测试证据链（命令 + 退出码 + 输出摘要 + commit SHA + 三段判读结论 + flaky 标注 + 各项 `No-Verification`）**、**Step 14 代码评审的回报状态与 CRITICAL/IMPORTANT 计数**、**Step 15 业务语义确认结论**）
+1. 确保 `openspec/changes/<task_id>/reviews/verify-report.md` 已写完整结论（含 **两轴分级（`complexity_level` / `risk_level`（含复核结论与升档理由）/ `current_tier`）**、Constitution 摘要、overall_score、light/full、各检查项、**Step 3 编译闸门结论**、**Step 6 / 10–12 的测试证据链（命令 + 退出码 + 输出摘要 + commit SHA + 三段判读结论 + flaky 标注 + 各项 `No-Verification`）**、**Step 14 代码评审的回报状态与 Critical/Major 计数**、**Step 15 业务语义确认结论**）
 2. 更新 `state.yaml`：
 
 ```bash
@@ -690,6 +835,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 ```
 验证阶段完成：
   task_id : <task_id>
+  tier      : <current_tier>（complexity=<...> / risk=<...>；复核升档: <risk_escalation_reason|无>）
   mode      : <light|full>
   score     : <overall_score> (<score_level>)
   编译      : <passed|no_verification>（<build_command>）
@@ -712,14 +858,14 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 **硬阻断（不得推进 phase）**：
 
 - `runtime.verify.blocked=true` 且用户未 override
-- 存在未解决的 CRITICAL / IMPORTANT
+- 存在未解决的 Critical / Major
 - **存在未归因的红**（`6.2` 三段判读未结清）
 - **Step 3 编译闸门未通过**，或已探到 `build` 槽但命令非零退出且未处置
 - `6.1` 三级分叉第 1 级命中（探测不到测试入口）且 `verify_mode=full`
 - `runtime.verify.semantics_review` 未写入（Step 15 未处理，含未留原因的静默跳过）
 - metrics 文件未写入
 - 验证报告未落盘
-- Step 14 回报 `blocked`（独立代码评审被阻断），或存在未处理的代码评审 CRITICAL
+- Step 14 回报 `blocked`（独立代码评审被阻断），或存在未处理的代码评审 Critical；或 `14.3` 启用的 SonarQube 门禁未过
 
 ---
 
@@ -730,17 +876,17 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 暂停时必须列出：
 
 - 失败项
-- 严重程度：CRITICAL / IMPORTANT / WARNING / SUGGESTION
+- 严重程度：Critical / Major / Minor / Nit
 - 推荐处理方式
 
-**不确定性原则**：无法确定严重程度时，**宁可标轻**（SUGGESTION 或 WARNING），**禁止**在不确定时标 CRITICAL。仅对构建失败、测试失败、已确认安全问题使用 CRITICAL。
+**不确定性原则**：无法确定严重程度时，**宁可标轻**（Nit 或 Minor），**禁止**在不确定时标 Critical。仅对构建失败、测试失败、已确认安全问题使用 Critical。
 
 用户选择后：
 
 | 选择 | 动作 |
 |------|------|
 | 全部修复 | 写 `runtime.verify.status: failed`；调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build` 修复（用户确认后） |
-| 逐项处理 | CRITICAL / IMPORTANT 必须修；WARNING / SUGGESTION 可接受偏差但须写入报告；存在任一 CRITICAL/IMPORTANT 时禁止「全部接受」 |
+| 逐项处理 | Critical / Major 必须修；Minor / Nit 可接受偏差但须写入报告；存在任一 Critical/Major 时禁止「全部接受」 |
 | 接受偏差（仅非 blocking） | 记 overrides.log + 报告；team blocking 场景除外 |
 
 **重试上限**：连续 3 次 verify→build→verify 失败循环后，第 4 次失败时**必须** decision-point 仅两选项：「接受所有偏差并记录」或「继续修复」——代理不得自行选择继续修。
@@ -755,19 +901,19 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 退出条件
 
-- 轻量或完整清单通过（无未解决 CRITICAL / IMPORTANT）
+- 轻量或完整清单通过（无未解决 Critical / Major）
 - Step 3 编译闸门已通过（或探不到构建入口并已记 `No-Verification`）
 - `runtime.verify.blocked=false`（或已合法 override）
 - `.polaris/metrics/<timestamp>-metrics.json`（**顶层**，勿写进 `tasks/<task_id>/`——ship 合回只扫顶层，写错会随 worktree 移除丢失）已写入且含 `task_id`
 - `verify-report.md` 存在且 `runtime.verify.verification_report` 指向它
 - **测试轨已结清**：所有红已归因（回 build 修掉，或记 `No-Verification`），测试证据链（命令 + 退出码 + 输出摘要 + commit SHA）已落盘
-- 代码评审已按 `review_mode` 处理完毕（`runtime.verify.codereview_status` 已写）；`done` 时 `reviews/code-review-report.md` 已落盘
+- 代码评审已按 `review_mode` 处理完毕（`runtime.verify.codereview_status` 已写）；`done` 时 `reviews/code-review-report.md` 已落盘且**结构符合** `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` 的 `templates/review-report.md`（★ 行已填）；`14.3` 启用 SonarQube 时其扫描结论与门禁判定已记入该报告
 - **Step 15 已处理**：`runtime.verify.semantics_review` ∈ `{confirmed, skipped_by_user}`（跳过时原因已记入 `semantics_skip_reason`）
 - `runtime.verify.status=completed`，且 `phase=ship`
 
 ## 上下文压缩恢复
 
-重载：`task_id`、`worktree_path`、`verify.*`（status / verify_mode / score_level / blocked / build_command / test_command / test_result / test_slots / semantics_review）、最新 metrics 文件、本 skill 停在哪一步、失败项清单（若有）、`test.*` 配置（`.polaris/config.yaml`）。
+重载：`task_id`、`worktree_path`、**分级三字段 `complexity_level` / `risk_level` / `current_tier`**、`verify.*`（status / verify_mode / score_level / blocked / build_command / test_command / test_result / test_slots / semantics_review / risk_escalation_reason）、最新 metrics 文件、本 skill 停在哪一步、失败项清单（若有）、`test.*` 配置（`.polaris/config.yaml`）。
 - **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
 - 停在 Step 2 命令确认 → 从该回路续；`test.commands.build` / `commands.unit` 已有 confirmed 值则**直接读、勿重新探测**（否则会把用户否定的答案再探一遍）
 - 停在 Step 3 编译闸门 → 重跑闸门命令；**勿从 `state.yaml` 顶层读 `verify_mode`**（唯一来源是 `runtime.verify.verify_mode`）
@@ -775,7 +921,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 - 停在 Step 6 → 勿重复已产生证据的轨；三级分叉的判定看**有无测试结果摘要**，不看退出码记忆
 - 停在 `6.2` 红名单确认 → 从决策点续，**勿重跑全量**；`baseline-tests.*` 已在则复用
 - 停在 Step 7 → 覆盖率产物已在则直接打分；`overall_score` 已写入 metrics 则勿重算
-- 停在 Step 8 → `runtime.verify.verify_mode` 已写则直接用（含升格结果），勿重新启发式
+- 停在 Step 8 → `runtime.verify.verify_mode` 已写则直接用（含升格结果），勿重新启发式；`risk_level` / `current_tier` 与 `risk_escalation_reason` 已写则视为**复核已完成**（只升不降，勿重判下调）
 - 停在 Step 9 命令确认 → 同 Step 2 的规则（已有 confirmed 值直接读）
 - 停在 Step 10–12 → 勿重复已产生证据的轨；「两轨同源」已标记则复用
 - 停在 Step 14 → 代码评审报告在则从回报消费续，不在则重派；**勿把 `degraded_inline` 当独立评审**

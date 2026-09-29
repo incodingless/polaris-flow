@@ -295,7 +295,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "multiSelect": false,
     "options": [
       { "label": "M01 · 修复Bug（生产）", "description": "线上 / 生产故障修复，三段通道（诊断与方案·含现场保全与止血确认 → 实现与自验·含独立验证 → 关闭Bug），发布 / 灰度 / 回滚由人在环执行" },
-      { "label": "M02 · 评审代码", "description": "评审既有改动，识别代码缺陷（⚠️ 暂不可用）" },
+      { "label": "M02 · 评审代码", "description": "对指定范围的代码做系统化审查，识别缺陷（可选 SonarQube 扫描）" },
       { "label": "M03 · 重构代码", "description": "改善代码结构而不改变外部行为（⚠️ 暂不可用）" },
       { "label": "M04 · 修复Bug（测试）", "description": "测试环境异常 / 提测后回归失败，三段标准修复（诊断与方案 → 实现与自验 → 关闭Bug）" }
     ]
@@ -375,7 +375,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 | **C03** 实现复杂功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` | 见文末《功能类选项的复杂度判定》 |
 | **M01** 修复生产Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `hotfix`；diagnose（诊断与方案·含现场保全与止血确认）→ patch（实现与自验·含五维独立验证）→ closeout（关闭Bug + 自有收尾归档）。**通道由 diagnose 的场景分流步判定**，预声明只是用户的第一意图 |
 | **M04** 修复测试Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `bugfix`；diagnose → patch → closeout（同上）。**自有收尾**归档到 `docs/troubleshooting/<issue_id>/`（不使用 openspec，不交 ship） |
-| **M02** 代码评审 | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` | ⚠️ 暂不可用 · 该技能尚未提供 |
+| **M02** 代码评审 | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` | 对指定范围的代码做系统化审查（正确性 / 安全 / 性能 / 可维护性 / 架构），可按用户选择启用 SonarQube 扫描并按门禁规则判定 |
 | **M03** 重构 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}refactor` | ⚠️ 暂不可用 · 该技能尚未提供 |
 | **R01** 编写用户需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}userstory` | ⚠️ 暂不可用 · 该技能尚未提供 |
 | **R02** 编写产品需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship |

@@ -176,7 +176,9 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 
 ##### 3.3.1 先判定推荐（不得代选）
 
-在发问前，基于已读的 `intention.md`（或 fallback 原始 prompt）与 `state.yaml`（若有 `current_tier` / `triage`）做一次**推荐判定**，并在决策点中写明建议与依据。
+在发问前，基于已读的 `intention.md`（或 fallback 原始 prompt）与 `state.yaml` 的**分级三字段**（`complexity_level` / `risk_level` / `current_tier`）做一次**推荐判定**，并在决策点中写明建议与依据。
+
+> 三字段由 `specify` Step 5.4.1 落盘（**必有**，不再是「若有」）；缺失（老任务 / 非 specify 入口）→ 按 `standard` 兜底并在决策点标注。信号表唯一源：`./policies/risk-signals.md`。
 **禁止**用推荐直接写入 `artifact_review_mode` 或跳过询问。
 
 **推荐 A（`per_batch`）— 每批生成后立即审查**，满足任一即倾向 A：
@@ -390,6 +392,8 @@ B. 否 — 跳过深化，直接进入 plan（四件套已足够指导细计划�
 ```
 
 **推荐规则**（可附在选项旁，不强制）：涉及跨服务、数据模型、对外 API 契约、领域模型或高风险 → 推荐 A；四件套已把架构、模块、接口、数据流写清、无需专项展开 → 推荐 B。
+
+**风险轴闸门（`risk_level=critical` 时）**：本决策点**只保留 A**，不呈现 B —— 高危变更必须深化设计，不得跳过。发问时须写明依据（如 `risk_level=critical（命中 D4 破坏性契约变更）`）。降档须先由用户按 `./policies/decision-point.md` 显式下调 `risk_level`（两轴复核只升不降，`./policies/risk-signals.md` §6）。
 
 #### 5.2 按决策推进 phase
 

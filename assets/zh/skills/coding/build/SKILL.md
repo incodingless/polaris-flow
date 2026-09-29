@@ -186,7 +186,7 @@ Working directory: <worktree_path 或 main repo root>
 | `standard` | 加载 Superpowers `requesting-code-review`，范围：本次 diff + `tasks.md` + 必要测试结果；只查正确性 / 安全 / 边界 |
 | `thorough` | 同上，并额外要求对照 `tasks.md` 与相关 specs 做覆盖与一致性关注（仍是一次最终审查，不是每任务审查） |
 
-- 审查发现 **CRITICAL / IMPORTANT** → **阻断**完成；decision-point：A 回 Step 3 修复 / B 用户接受风险并记录 override（须显式确认） / C 放弃
+- 审查发现 **Critical / Major** → **阻断**完成；decision-point：A 回 Step 3 修复 / B 用户接受风险并记录 override（须显式确认） / C 放弃
 - `requesting-code-review` 不可用 → 标注跳过原因，decision-point：A 接受跳过 / B 阻断
 
 > 与 verify 去重：本步已审过且未再改动的 diff，verify 侧应聚焦「是否符合 spec/tasks」与「build 之后新增改动」，避免整份重审。

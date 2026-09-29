@@ -4,7 +4,8 @@
  *
  * 顶层：
  *   language / install-time / main-repo-root / worktree-dir
- *   kind / change_id / phase / current_tier
+ *   kind / change_id / phase
+ *   complexity_level / risk_level / current_tier（分级两轴 + 最终值）
  *   workflow: { mode, tweak, normal }（字典；tweak / normal 段仅 mode 对应时填充）
  *   artifact_review_mode / artifact_max_round
  *   verify_mode / auto_transition / isolation / context_compression
@@ -212,6 +213,12 @@ export interface TaskState {
   /** 旧字段兼容 */
   task_id?: string;
   phase?: TaskPhase;
+
+  /** 复杂度轴：specify Step 5.4 初判（trivial | standard | critical）；做多深 */
+  complexity_level?: string;
+  /** 风险轴：specify 初判、verify Step 8 用 diff 复核（只升不降）；做不做 */
+  risk_level?: string;
+  /** 最终层级 = max(复杂度轴, 风险轴)（升档门优先）；deepread 徽章消费 */
   current_tier?: string;
 
   /** 工作流类型与升档/降档决策（字典结构；旧字符串写法仅在迁移层兼容） */
@@ -428,6 +435,8 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
     kind: options.kind ?? 'coding',
     task_id: task_id,
     phase: options.phase ?? 'idle',
+    complexity_level: '',
+    risk_level: '',
     current_tier: '',
     // 顶层 workflow 字段保持字符串兼容写法（落盘双形式）
     workflow: workflowMode,

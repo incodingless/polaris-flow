@@ -1,7 +1,5 @@
 # Java/Spring 数据库与事务专项清单
 
-> 本清单由 `SKILL.md` 在识别到 Spring Boot / Spring Cloud / MyBatis 技术栈时加载，作为正确性/性能维度的持久层与事务深度检查项。严重度已按 `review-rubric.md` 的四级定义统一标注。
-
 ## 检查顺序
 
 1. 风险面：无条件删改、SQL 拼接、超大 IN、无分页的大表扫描。

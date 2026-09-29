@@ -483,8 +483,8 @@ apply 完成后跑**一次** `superpowers:requesting-code-review`，范围 = 本
 
 | 发现级别 | 处理 |
 |----------|------|
-| CRITICAL | **阻断**，回 8.3 修复 |
-| IMPORTANT | 不阻断本步，但必须记入 `reviews/verify-report.md`，并在 Step 9.4 由用户逐条决策 |
+| Critical | **阻断**，回 8.3 修复 |
+| Major | 不阻断本步，但必须记入 `reviews/verify-report.md`，并在 Step 9.4 由用户逐条决策 |
 | 技能不可用 | 标注跳过原因，记入报告；不阻断 |
 
 ### Step 9：出口检查
@@ -498,7 +498,7 @@ apply 完成后跑**一次** `superpowers:requesting-code-review`，范围 = 本
 
 **硬阻断（不得推进 phase）**：
 
-- 任一 CRITICAL 未解决
+- 任一 Critical 未解决
 - `exit-check.md` 定义的 metrics 文件未写入
 - `verify-report.md` 未落盘
 
@@ -601,7 +601,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 - `tasks.md` 全部 checkbox 为 `- [x]`
 - 5 个 scorer 已跑完，`.polaris/metrics/<timestamp>-metrics.json` 已写入且含 `task_id`
 - `reviews/verify-report.md` 存在且 `runtime.verify.verification_report` 指向它
-- 无未解决的 CRITICAL；IMPORTANT 已逐条决策
+- 无未解决的 Critical；Major 已逐条决策
 - `runtime.build.status` / `runtime.verify.status=completed`，且 `phase=ship`
 
 ## 自动衔接下一阶段

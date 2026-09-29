@@ -23,9 +23,9 @@ import sys
 from pathlib import Path
 
 # ==================== 阈值常量 ====================
-LONG_FUNC_LINES = 50       # 超长函数行数阈值
+LONG_FUNC_LINES = 100      # 超长函数行数阈值（与 code-smells.md 一致）
 LARGE_FILE_LINES = 500     # 超大文件行数阈值
-MAX_NESTING = 4            # 最大嵌套深度
+MAX_NESTING = 5            # 最大嵌套深度（与 code-smells.md 一致）
 MAX_COMPLEXITY = 10        # 圈复杂度阈值
 EXCLUDE_DIRS = {
     '.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build',

@@ -7,18 +7,20 @@
 
 检查点：
 - 逻辑错误：条件判断、循环边界、空值/undefined 处理
+- 集合遍历中修改：遍历过程中增删元素（Java 栈为 `for-each` + `remove()`，触发 fail-fast，改用 `removeIf`/`Iterator.remove()`）
 - 边界条件：空输入、空数组、零值、极端值、越界
 - 错误处理：异常是否被吞掉、错误码是否正确传递
 - 并发与竞态：共享状态、锁、异步时序、脏读
 - 返回值与副作用：函数是否有预期外的副作用
 
 ### 2. 安全性（Security）
-对照 `security-checklist.md` 逐项检查，重点关注：
+对照 `security-checklist.md` §一（入口速查）/ §二（OWASP 语言无关）逐项检查（Java 栈另加 §三 专有项），重点关注：
 - 注入类（SQL / 命令 / 模板注入）
 - 敏感信息泄露（硬编码密钥、日志打印凭据）
 - 认证与授权缺陷（缺失鉴权、越权、弱会话）
 - 加密误用（弱哈希、自研加密、硬编码 IV）
 - 依赖漏洞与反序列化风险
+- 网络与逻辑（SSRF / 开放重定向 / CORS 过宽）
 
 ### 3. 性能（Performance）
 - 算法复杂度：O(n²) 及以上、不必要的重复计算
@@ -44,12 +46,13 @@
 
 当识别到 Java/Spring（Spring Boot / Spring Cloud / MyBatis）技术栈时，深度审查需额外对照 `references/java-*.md` 专项清单，作为通用五维度在以下领域的深度补充：
 
-- `java-api-design.md` — 接口设计（参数校验/敏感数据/接口拆分/返回格式）
-- `java-code-quality.md` — 代码质量与可维护性（分层/异常/日志/类设计）
+- `java-api-design.md` — 接口设计（参数校验/敏感数据/接口拆分/分层职责/返回格式）
+- `java-code-quality.md` — 异常与日志（异常处理/日志规范）
 - `java-concurrency.md` — 并发与线程安全（线程池/竞态/工具类/死锁）
 - `java-database.md` — 数据库与事务（SQL/连接池/事务边界/分布式一致性）
 - `java-performance.md` — 性能（循环远程调用/N+1/分页/内存泄漏/缓存）
-- `java-security.md` — 安全编码（注入/访问控制/加密/文件路径/SSRF）
+
+安全维度不单列 Java 文件：OWASP 通用项在 `security-checklist.md` §二，Java/Spring 专有项在 §三（§一 为入口速查）。
 
 专项清单中的严重度已按下方四级定义统一标注，与通用维度共用同一套级别，报告不再出现「高/中/低」。
 

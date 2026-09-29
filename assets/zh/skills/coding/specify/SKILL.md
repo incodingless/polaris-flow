@@ -225,6 +225,24 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 | 2 | 参数/环境错误 | 按 H12 阻断 |
 | 3 | workflow rename 失败 | 按 H12 阻断 |
 
+##### 5.4.1 分级初判（写两轴三字段）
+
+`finalize` 成功后，按 `./policies/risk-signals.md` 对**需求侧**做一次初判，写 `state.yaml`。
+判定输入 = `intention.md` 的目标 / 任务范围 / 验收场景 / 下游约束，加 3.1 拆分预检结论；**不得**凭对话印象。
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set complexity_level=<trivial|standard|critical> \
+  --set risk_level=<trivial|standard|critical> \
+  --set current_tier=<两轴取较高档>
+```
+
+- 档位定义与方向见 `./policies/risk-signals.md` §1；信号见 §4（需求侧重点 `D2` / `D6` / `D7`）；合成见 §6
+- `current_tier = max(complexity_level, risk_level)`（升档门优先）
+- **只初判不代决**：本步只落档位；需要用户拍板的仍是 `normal` Step 5 的通道决策点，本步不得代选
+- 输出判定依据（命中信号编号，如 `D6,D7`），随 5.6 状态行一并呈现
+
 #### 5.5 推进 workflow 游标
 
 `finalize` 只做目录与 entry 的改名（`rename-active` **保留原 phase**），游标此刻仍停在 `specify`。
@@ -240,7 +258,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 #### 5.6 完成状态行
 
-输出：`[polaris-flow 开发]澄清需求 - 澄清阶段完成：.polaris/tasks/<task_id>/intention.md 已锁定；state 已更新。`
+输出：`[polaris-flow 开发]澄清需求 - 澄清阶段完成：.polaris/tasks/<task_id>/intention.md 已锁定；state 已更新；分级初判 = complexity=<...> / risk=<...> → current_tier=<...>（命中 <信号编号>）。`
 
 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
 先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
@@ -266,12 +284,13 @@ polaris-flow state next <change-name>
 ## 上下文压缩恢复
 
 重载：`draft_name`（`.polaris/tasks/` 下的 `draft-*`）、`intention.md` 是否已落盘及其**首行的 `task_id`**、
-`state.yaml`、workflow 游标、本技能停在哪个 Step。
+`state.yaml`（含分级三字段 `complexity_level` / `risk_level` / `current_tier`）、workflow 游标、本技能停在哪个 Step。
 
 - **名称的恢复**：`task_id` 从 `intention.md` 首行读（4.2 已写入真值）；首行缺失或文件未落盘 → 回 **4.1** 重新确认名称
 - 停在 **Step 3.x** → 从 3.0 自检续做（澄清摘要未达「≥3 问 / ≥3 类」时继续提问，不得跳过）
 - 停在 **4.2 之后、5.4 之前** → 从 **5.1** 续（产物已在 draft 目录，不必重写）
 - 停在 **5.4（finalize）** → 按 5.4 的恢复路径重跑；`mv` 失败按该步的退出码表处理
+- 停在 **5.4.1（分级初判）** → 三个字段已有值则直接用，**勿重判**；只缺部分字段则补齐缺失项（`current_tier` 须与两轴取高一致）
 - 停在 **5.5（游标未推进）** → 只补执行 5.5 的 `update-active`，**勿重跑 finalize**（目录已改名，重跑会撞 `FINAL_EXIT=1`）
 - 恢复依据是**落盘产物**（首行 `task_id` + draft 目录），不依赖会话记忆
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」

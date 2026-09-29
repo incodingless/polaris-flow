@@ -28,7 +28,7 @@
 
 - 解释什么被过度构建
 - 提出达成核心目标的最小版本（缩 Scope 建议）
-- 严重度至少 Important；明显臆造模块 → Critical
+- 严重度至少 Major；明显臆造模块 → Critical
 
 **不**在 agent 内询问用户是否缩减——由 plan skill 展示建议后 decision-point。
 
@@ -54,7 +54,7 @@
 ## 0.6 完整性检查（Completeness Principle）
 
 - AI 辅助下「完整方案」成本低：默认倾向完整覆盖 specs / detailed-design，而非人时导向的 shortcut
-- 若计划用 shortcut 省掉关键验收或测试 → Finding（Important / Critical）
+- 若计划用 shortcut 省掉关键验收或测试 → Finding（Major / Critical）
 
 ## 触发结果
 

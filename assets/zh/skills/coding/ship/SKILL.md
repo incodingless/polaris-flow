@@ -255,7 +255,7 @@ openspec-cn archive "$task_id" --yes
 交付完成：
 
   task_id     : <task_id>
-  tier          : <tier>
+  tier          : <current_tier>（complexity=<complexity_level> / risk=<risk_level>）   # 读 state.yaml 顶层分级三字段
   分支          : <feature/...>
   worktree      : <已合回并清理 / 已保留 / 未创建>
   产物合回      : <已合回主仓 .polaris/archive/<task_id>/ | 未合回（worktree 保留）| 部分失败：<失败项> | n/a>
