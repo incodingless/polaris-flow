@@ -2,6 +2,8 @@
 
 本文档是 **`polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks`** 下 `tasks-review-agent` 在 Section 3「测试评审」中的详细执行规范（路径：`./references/test-review-methodology.md`）。
 
+> **场景分类语言单源**：分类口径以 `./references/test-case-checklist.md` 的 6 大类为唯一来源，本节不另起一套。反查每个 TDD 任务内联用例清单的分类覆盖（缺类 = 缺口；无对应场景应已标「无」），是本节的**首要落点**。
+
 测试评审的目标是 **100% 覆盖**。评估计划中的每条代码路径，确保每条路径都有对应的测试。若计划缺少测试，把测试缺口写入报告「建议加入 tasks」清单——**不直接改** `tasks.md`（由 tasks skill 消化）。
 
 ## Step 1: 检测测试框架
@@ -174,6 +176,8 @@ LLM 集成: [GAP] [→EVAL] Prompt 模板变更——需要 eval 测试
 如果所有路径都已覆盖：输出"测试评审：所有新代码路径均有测试覆盖 ✓"，继续下一节。
 
 ## Step 7: 把缺失的测试写入报告建议
+
+**反查用例清单**：先按 `./references/test-case-checklist.md` 的 6 大类，检查每个 TDD 任务内联用例清单的分类覆盖（缺类 = 缺口；无对应场景应已标「无」），再与覆盖率图交叉，最后写入缺口清单。
 
 对图中识别出的每个 GAP，写入 Plan Review Report「建议加入 tasks 的测试缺口」（**不直接改** `tasks.md`）。要具体：
 

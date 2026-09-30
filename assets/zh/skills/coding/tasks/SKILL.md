@@ -130,7 +130,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 在加载 `writing-plans`、拆任务、覆写 `tasks.md` **之前**，必须按 `./policies/decision-point.md` 暂停，询问本次 change 的 TDD 策略。  
 **推荐只能说明，不能代选。** 选定前禁止进入 Step 3。
 
-向用户说明：TDD 决定的是 **tasks.md 里每条顶层任务的子步骤形态**（TDD=5 步 / 非 TDD=3 步），不是 build 阶段再选的全局开关；build 将严格按标注执行。
+向用户说明：TDD 决定的是 **tasks.md 里每条顶层任务的子步骤形态**（TDD=用例清单 + 5 步 / 非 TDD=3 步），不是 build 阶段再选的全局开关；build 将严格按标注执行。
 
 | 选项 | 写入值 | 含义 | 适用 |
 |------|--------|------|------|
@@ -169,7 +169,7 @@ runtime:
 | 存 `docs/superpowers/plans/...` | **禁止**；只覆写 `openspec/.../tasks.md` |
 | 自审后直接给执行选项 | 自审后必须先经 `tasks-review-agent`（及 OV 询问），再提示进入 build |
 | 假设执行者零上下文 | **保留**：路径、命令、期望输出、Interfaces 必须自洽 |
-| TDD 五步节奏 | **保留**（当 `tdd_policy` 允许该任务为 TDD 时），映射为 `<!-- TDD 任务 -->` 的 1.x.1–1.x.5 |
+| TDD 五步节奏 | **保留**（当 `tdd_policy` 允许该任务为 TDD 时），映射为 `<!-- TDD 任务 -->` 的 1.x.1–1.x.5；用例清单作为内容块前置，不在子步骤编号内 |
 | 配置/文档类 | 映射为 `<!-- 非 TDD 任务 -->` 三步，勿伪造成 RED/GREEN |
 
 骨架模式须服从 Step 2 的 `tdd_policy`：`prefer_direct` 下不得把配置类以外的任务强行全部打成 TDD；`require_tdd` 下不得把含行为变更的任务标成非 TDD。
@@ -192,7 +192,7 @@ read_file ./templates/tasks-template.md
 |----------|-------------|----------------------|
 | 每条 spec requirement / 验收场景 | `specs/` | Task … |
 | detailed-design 实现方案中的模块/接口 | `detailed-design.md`（仅 `runtime.design.status=completed`；`skipped` 时跳过此行） | Task … |
-| 测试策略与关键边界 | `detailed-design.md`（仅 `runtime.design.status=completed`；`skipped` 时由四件套 `design.md` 推导） | 落在相关 TDD 任务的 RED 步或独立验证步 |
+| 测试策略与关键边界 | `detailed-design.md`（仅 `runtime.design.status=completed`；`skipped` 时由四件套 `design.md` 推导） | 落在相关 TDD 任务的用例清单 / RED 步或独立验证步 |
 | proposal 非目标 | `proposal.md` | **不得**出现对应任务 |
 
 任一 spec 需求或 detailed-design 必做模块（若有）无对应任务 → 先补行，再写 tasks.md。
@@ -217,7 +217,7 @@ read_file ./templates/tasks-template.md
 
 - 一个顶层任务 = 带自身验证环、值得独立评审的最小交付
 - 脚手架 / 配置 / 文档同步：**折进**需要它的交付任务；禁止无验收的「纯脚手架」顶层任务
-- 子步骤：TDD=5 步 / 非 TDD=3 步（见模板）；每步约 2–5 分钟量级的**一个动作**
+- 子步骤：TDD=用例清单 + 5 步 / 非 TDD=3 步（见模板）；每步约 2–5 分钟量级的**一个动作**
 - **不要**按 plan 粗骨架原样加细——粗骨架可拆可并，以 specs + detailed-design（若有）覆盖为准
 
 #### 4.4 每条顶层任务必须含
@@ -257,6 +257,7 @@ read_file ./templates/tasks-template.md
 2. **占位符扫描**：全文搜失败标志，清零。
 3. **类型/接口一致**：后任务 Consumes 与前任务 Produces 同名同义。
 4. **TDD 标注**：每条顶层任务有且仅有一种 HTML 注释类型；标注与 `runtime.tasks.tdd_policy` + 例外清单一致（`require_tdd` 下不得把行为变更标成非 TDD；`prefer_direct` 下不得无依据地把任务全打成 TDD）。
+5. **用例清单覆盖**：每个 TDD 任务含 6 大类场景的用例清单（内容块，按 `./references/test-case-checklist.md`），枚举维度与被测对象类型匹配（纯函数至少 正常/边界/异常）；P0 覆盖全部核心路径与核心异常。
 
 #### 5.2 脚本校验（禁止脑补）
 
@@ -293,17 +294,18 @@ LINT_EXIT=$?
      2. `./policies/four-section-review.md`
      3. `./references/engineering-mindset.md`
      4. `./references/test-review-methodology.md`
-     5. `./templates/review-report-template.md`
-     5. `openspec/changes/<task_id>/tasks.md`
-     6. `openspec/changes/<task_id>/proposal.md`
-     7. `openspec/changes/<task_id>/design.md`
-     8. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
-     9. 若有（`runtime.design.status=completed`）：`openspec/changes/<task_id>/detailed-design.md`
-     10. 若有：`openspec/changes/<task_id>/reviews/design-review-report.md`
-     11. 若有：`openspec/changes/<task_id>/*-design.md`（专项设计；排除四件套 `design.md`）
-     12. 若有：`openspec/changes/<task_id>/intention.md`
+     5. `./references/test-case-checklist.md`
+     6. `./templates/review-report-template.md`
+     7. `openspec/changes/<task_id>/tasks.md`
+     8. `openspec/changes/<task_id>/proposal.md`
+     9. `openspec/changes/<task_id>/design.md`
+     10. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
+     11. 若有（`runtime.design.status=completed`）：`openspec/changes/<task_id>/detailed-design.md`
+     12. 若有：`openspec/changes/<task_id>/reviews/design-review-report.md`
+     13. 若有：`openspec/changes/<task_id>/*-design.md`（专项设计；排除四件套 `design.md`）
+     14. 若有：`openspec/changes/<task_id>/intention.md`
 
-   D-1 下 agent 自读上述路径；D-2 下主代理 Read 全部全文（含四份标准文档）拼入 `Materials:` 段；`StandardsRoot` 在 D-2 下仅作溯源标注用。
+   D-1 下 agent 自读上述路径；D-2 下主代理 Read 全部全文（含五份标准文档）拼入 `Materials:` 段；`StandardsRoot` 在 D-2 下仅作溯源标注用。
 
 4. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；将完整 **Plan Review Report** 写入 `openspec/changes/<task_id>/reviews/tasks-review-report.md`。
 

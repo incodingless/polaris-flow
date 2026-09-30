@@ -33,6 +33,8 @@
 
 **完整方法论详见 `../references/test-review-methodology.md`**。这是本 skill 最重的一节，目标 100% 覆盖。
 
+> **分类语言单源**：场景分类以 `../references/test-case-checklist.md` 的 6 大类为唯一口径；反查每个 TDD 任务内联用例清单的分类覆盖（缺类 = 缺口）。
+
 核心步骤（精简版）：
 
 1. **Step 1**：检测项目测试框架
