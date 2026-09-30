@@ -50,12 +50,10 @@ export type KindPhaseDef = {
   /**
    * 该阶段对应的技能名（族的相对名）。**缺省 = 同名（`code`）**。
    *
-   * 显式 `null` = 「无自动衔接」，三种情形（都在本表逐条登记，不留隐性默认）：
+   * 显式 `null` = 「无自动衔接」，两种情形（都在本表逐条登记，不留隐性默认）：
    *   - **入口阶段**：coding `specify` / requirement·testcase `discovery` /
    *     prototype `blueprint` / debug `diagnose` —— 由入口命令显式进入，不走 `state next`
    *   - **旁路阶段**：coding `retro` —— 可出现在 state.yaml，但不属推进游标的主序列
-   *   - **技能名与阶段码尚未对齐**：testcase 全族 —— 现有技能目录是 `case`/`acceptance`，
-   *     与 `discovery`/`draft`/`refine`/`ship` 对不上，映射过去只会产出不存在的技能名
    */
   skill?: string | null;
 };
@@ -211,14 +209,30 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     ],
     phases: [
       { code: 'discovery', name: '澄清', group: '澄清与草稿', skill: null },
-      { code: 'draft', name: '草稿', group: '澄清与草稿', skill: null },
-      { code: 'refine', name: '完善', group: '完善与交付', skill: null },
-      { code: 'ship', name: '交付', group: '完善与交付', skill: null },
+      { code: 'draft', name: '草稿', group: '澄清与草稿' },
+      { code: 'refine', name: '完善', group: '完善与交付' },
+      // 服务型技能：`testing/review` 不进相位表——由 `refine` Step 6 以 subagent 派发（工作流必走，
+      // Critical 清零才放行 ship），或由用户独立触发（flow T03 评审测试用例）。
+      // 与 `requirement`（`prd/review` 服务型）、`prototype`（`review` 为相位但游标不落）同构。
+      { code: 'ship', name: '交付', group: '完善与交付' },
     ],
-    // 只登记已核实项：testing/ 族的 SKILL.md 目前不含任何路径引用，
-    // 其余产物待该族落地后按实测补，不猜。
+    // 依据 `assets/zh/skills/testing/<阶段>/SKILL.md` 各自的「落盘」约定登记，不猜。
     artifacts: [
-      { phase: 'draft', relPaths: ['.polaris/testcases/<id>/testcase_plan.md'], kind: 'file' },
+      { phase: 'discovery', relPaths: ['.polaris/testcases/<id>/testcase_plan.md'], kind: 'file' },
+      { phase: 'draft', relPaths: ['.polaris/testcases/<id>/test-cases.md'], kind: 'file' },
+      {
+        phase: 'refine',
+        relPaths: [
+          '.polaris/testcases/<id>/test-cases-nonfunctional.md',
+          '.polaris/testcases/<id>/test-cases-interface.md',
+          '.polaris/testcases/<id>/test-cases-automation.md',
+          '.polaris/testcases/<id>/testcase-review-report.md',
+        ],
+        kind: 'file',
+      },
+      { phase: 'ship', relPaths: ['.polaris/testcases/<id>/testcase-report.md'], kind: 'file' },
+      // ship 交付到 $CASE_DOC_DIR，默认 $REPO_ROOT/docs/testcases/<id>/（PROJECT_DOCS_SUBDIRS 已含 testcases）
+      { phase: 'ship', relPaths: ['docs/testcases'], kind: 'dir' },
     ],
   },
   prototype: {

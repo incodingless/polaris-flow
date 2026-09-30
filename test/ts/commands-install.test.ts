@@ -18,15 +18,16 @@ const claude = PLATFORMS.find((p) => p.id === 'claude')!;
 const cursor = PLATFORMS.find((p) => p.id === 'cursor')!;
 const trae = PLATFORMS.find((p) => p.id === 'trae')!;
 
-/** 菜单命令中引用的七个技能，按布局展开后的期望形态 */
+/** 菜单命令中引用的八个技能，按布局展开后的期望形态 */
 const referencedSkills = {
   nested: [
     'polaris:coding:specify',
     'polaris:prd:discovery',
     'polaris:prd:draft',
     'polaris:prd:readiness',
-    'polaris:testing:case',
+    'polaris:testing:discovery',
     'polaris:testing:acceptance',
+    'polaris:testing:review',
     'polaris:debug:diagnose',
   ],
   flat: [
@@ -34,8 +35,9 @@ const referencedSkills = {
     'polaris-prd-discovery',
     'polaris-prd-draft',
     'polaris-prd-readiness',
-    'polaris-testing-case',
+    'polaris-testing-discovery',
     'polaris-testing-acceptance',
+    'polaris-testing-review',
     'polaris-debug-diagnose',
   ],
 } as const;
@@ -61,7 +63,7 @@ describe('installPolarisForPlatform commands', () => {
         expect(command).toContain(skill);
       }
       // 路由表编号齐全（P / R / T 三组 + 已可用的 M01 / M04；M02 / M03 标「暂不可用」不作断言）
-      for (const code of ['P01', 'P02', 'P03', 'M01', 'M04', 'R01', 'R02', 'R03', 'T01', 'T02']) {
+      for (const code of ['P01', 'P02', 'P03', 'M01', 'M04', 'R01', 'R02', 'R03', 'T01', 'T02', 'T03']) {
         expect(command).toContain(`**${code}**`);
       }
 
@@ -149,19 +151,29 @@ describe('resolveCommandDest', () => {
 
 describe('testing 族技能安装', () => {
   it(
-    'claude nested：testing 族叶技能进入 polaris/testing/',
+    'claude nested：四个阶段技能 + 服务型 review 进入 polaris/testing/，已退休的 case 不再落盘',
     { timeout: INSTALL_TIMEOUT },
     async () => {
       const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-testingfam-'));
       await installPolarisForPlatform(tmpDir, claude, true, 'zh', 'project');
 
-      const caseSkill = await readFile(
-        path.join(tmpDir, '.claude/skills/polaris/testing/case/SKILL.md'),
-        'utf-8',
-      );
-      expect(caseSkill).toMatch(/^name: polaris:testing:case$/m);
-      expect(caseSkill).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+      // 四个阶段技能（discovery/draft/refine/ship）+ 一个服务型技能（review，不进相位表）
+      // 均独立安装，name 正确且占位符已展开
+      for (const skill of ['discovery', 'draft', 'refine', 'review', 'ship']) {
+        const stage = await readFile(
+          path.join(tmpDir, '.claude/skills/polaris/testing', skill, 'SKILL.md'),
+          'utf-8',
+        );
+        expect(stage).toMatch(new RegExp(`^name: polaris:testing:${skill}$`, 'm'));
+        expect(stage).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+      }
 
+      // 已退休的 case 不得再随安装落盘（职责由 draft 承接）
+      await expect(
+        access(path.join(tmpDir, '.claude/skills/polaris/testing/case/SKILL.md')),
+      ).rejects.toThrow();
+
+      // acceptance 保留为上游技能（产出 GWT 验收标准，供 discovery 作输入）
       const acceptanceSkill = await readFile(
         path.join(tmpDir, '.claude/skills/polaris/testing/acceptance/SKILL.md'),
         'utf-8',

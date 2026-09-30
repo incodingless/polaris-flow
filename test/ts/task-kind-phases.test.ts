@@ -182,7 +182,7 @@ describe('skillForPhase：游标 phase → 技能名（A 案的核心语义）',
   /**
    * 这条断言表是 `docs/specs/2026-09-19-phase-truth-unification-design.md` §4.1 的
    * **可执行形式**。约定只有一条：**游标 phase = 接下来要执行的阶段 ⇒ 同名映射**；
-   * 例外（入口阶段 / 旁路阶段 / 技能名未对齐的族）在阶段表的 `skill` 字段上逐条登记。
+   * 例外（入口阶段 / 旁路阶段）在阶段表的 `skill` 字段上逐条登记。
    *
    * 它取代了原来那条"盯 `state-next` 里两张转移表"的护栏：那两张表已被删除，
    * 漂移的可能性也随之消失 —— 现在**只有这一份真相**。
@@ -223,10 +223,13 @@ describe('skillForPhase：游标 phase → 技能名（A 案的核心语义）',
     expect(skillForPhase('coding', 'retro')).toBeNull();
   });
 
-  it('testcase 全族无自动衔接 —— 技能目录名（case/acceptance）与阶段码对不上', () => {
-    for (const phase of ['discovery', 'draft', 'refine', 'ship']) {
-      expect(skillForPhase('testcase', phase)).toBeNull();
-    }
+  it('testcase：入口 discovery 无衔接，其余三阶段同名映射', () => {
+    // 与 requirement 族同构 —— discovery 是入口（见上），draft/refine/ship 走同名默认映射。
+    // `testing/review` 是服务型技能（不进相位表），故此处无 review 断言。
+    expect(skillForPhase('testcase', 'discovery')).toBeNull();
+    expect(skillForPhase('testcase', 'draft')).toBe('draft');
+    expect(skillForPhase('testcase', 'refine')).toBe('refine');
+    expect(skillForPhase('testcase', 'ship')).toBe('ship');
   });
 
   it('idle / 空串 / 未登记值 → null（未知值不崩）', () => {

@@ -225,14 +225,15 @@ describe('runStateNext', () => {
     expect(result.skill).toBe('polaris:prd:refine');
   });
 
-  it('testcase 任何阶段 → done（技能目录名与阶段码未对齐，映射过去只会产出不存在的技能）', async () => {
+  it('testcase phase=draft → manual + polaris:testing:draft（族名是 testing，不是 kind）', async () => {
     const repo = await tmpRepo();
     const state = emptyWorkflowState();
     state.testcase_tasks = [{ task_id: 'tc-1', phase: 'draft', worktree_path: '', started_at: '' }];
     await saveWorkflowState(repo, state);
 
     const result = await runStateNext({ changeName: 'tc-1', repoRoot: repo });
-    expect(result.next).toBe('done');
+    expect(result.next).toBe('manual');
+    expect(result.skill).toBe('polaris:testing:draft');
   });
 
   // ---- D13 回归：旧实现两张转移表偏移一位，会逐段跳阶段且不报错 ----
