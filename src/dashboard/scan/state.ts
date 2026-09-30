@@ -102,14 +102,18 @@ function nameFromState(state: Record<string, unknown>, kind: WorkflowTaskKind): 
 /**
  * 收集各阶段的状态：`runtime.<phase>.status` 与顶层 `<phase>.status` 都收。
  * 判据是「值是对象且带 string 类型的 status」，不写死阶段名 —— 阶段表变了这里不用改。
+ * 顶层 `workflow` 也带 status，但它是通道决策不是阶段，扫顶层时跳过。
  */
 function collectPhaseStatuses(state: Record<string, unknown>): Record<string, string> {
   const result: Record<string, string> = {};
-  const collect = (container: unknown) => {
+  const collect = (container: unknown, skipKeys?: ReadonlySet<string>) => {
     if (!container || typeof container !== 'object' || Array.isArray(container)) {
       return;
     }
     for (const [key, value] of Object.entries(container as Record<string, unknown>)) {
+      if (skipKeys?.has(key)) {
+        continue;
+      }
       if (value && typeof value === 'object' && !Array.isArray(value)) {
         const status = (value as Record<string, unknown>).status;
         if (typeof status === 'string' && status) {
@@ -119,7 +123,7 @@ function collectPhaseStatuses(state: Record<string, unknown>): Record<string, st
     }
   };
   collect(state.runtime);
-  collect(state);
+  collect(state, new Set(['workflow']));
   return result;
 }
 

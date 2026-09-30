@@ -100,18 +100,13 @@ def parse_ts_runtime_subfield_map(ts_path: Path):
     return result
 
 
-def parse_ts_workflow_subfield_map(ts_path: Path):
-    """从 task-state.ts 提取 TaskWorkflowTweakState / TaskWorkflowNormalState 的字段集合"""
+def parse_ts_workflow_fields(ts_path: Path):
+    """从 task-state.ts 提取扁平 TaskWorkflowState 的字段集合"""
     text = ts_path.read_text(encoding="utf-8")
-    result = {}
-    for seg, type_name in [("tweak", "TaskWorkflowTweakState"), ("normal", "TaskWorkflowNormalState")]:
-        m = re.search(rf"export\s+type\s+{type_name}\s*=\s*\{{([\s\S]*?)\n\}}", text)
-        if not m:
-            continue
-        block = m.group(1)
-        fields = set(re.findall(r"\b([a-z_][a-z0-9_]*)\?:\s*", block))
-        result[seg] = fields
-    return result
+    m = re.search(r"export\s+type\s+TaskWorkflowState\s*=\s*\{([\s\S]*?)\n\}", text)
+    if not m:
+        return set()
+    return set(re.findall(r"\b([a-z_][a-z0-9_]*)\?:\s*", m.group(1)))
 
 
 def parse_ts_top_fields(ts_path: Path):
@@ -162,19 +157,17 @@ def main():
     tpl_top, tpl_runtime, tpl_workflow = parse_simple_yaml_top_keys(TEMPLATE)
     print(f"\n[模板] 顶层字段：{len(tpl_top)} 个")
     print(f"[模板] runtime 子段：{sorted(tpl_runtime)}")
-    print(f"[模板] workflow 子段：{sorted(tpl_workflow)}")
+    print(f"[模板] workflow 字段：{sorted(tpl_workflow)}")
 
     # 2. TS 字段
     ts_top = parse_ts_top_fields(TS_TASK_STATE)
     ts_runtime_subfields = parse_ts_runtime_subfield_map(TS_TASK_STATE)
-    ts_workflow_subfields = parse_ts_workflow_subfield_map(TS_TASK_STATE)
+    ts_workflow = parse_ts_workflow_fields(TS_TASK_STATE)
     ts_runtime = set(ts_runtime_subfields.keys())
-    ts_workflow = set(ts_workflow_subfields.keys()) | {"mode"}
     print(f"\n[TS] TaskState 顶层字段：{len(ts_top)} 个")
     print(f"[TS] TaskRuntimeState 子段：{sorted(ts_runtime)}")
-    print(f"[TS] TaskWorkflowState 子段：{sorted(ts_workflow)}")
+    print(f"[TS] TaskWorkflowState 字段：{sorted(ts_workflow)}")
     print(f"[TS] runtime 子段字段：{ {k: len(v) for k, v in ts_runtime_subfields.items()} }")
-    print(f"[TS] workflow 子段字段：{ {k: len(v) for k, v in ts_workflow_subfields.items()} }")
 
     fail = 0
 
@@ -186,13 +179,13 @@ def main():
     else:
         print(f"\n✓ 模板 runtime 子段全部在 TS 中定义")
 
-    # 4. 模板 workflow ⊆ TS workflow
+    # 4. 模板 workflow 扁平字段 ⊆ TS TaskWorkflowState
     miss_in_ts_wf = tpl_workflow - ts_workflow
     if miss_in_ts_wf:
-        print(f"❌ 模板 workflow 子段在 TS 中缺失：{sorted(miss_in_ts_wf)}")
+        print(f"❌ 模板 workflow 字段在 TS 中缺失：{sorted(miss_in_ts_wf)}")
         fail += 1
     else:
-        print(f"✓ 模板 workflow 子段全部在 TS 中定义")
+        print(f"✓ 模板 workflow 字段全部在 TS 中定义")
 
     # 5. 顶层字段大致对齐
     tpl_top_norm = {k.replace("-", "_") for k in tpl_top}
@@ -230,12 +223,8 @@ def main():
     for seg, sub in skill_workflow:
         if not sub:
             continue
-        if seg not in tpl_workflow:
-            bad_workflow.append(f"{seg}.{sub}")
-            continue
-        subfields = ts_workflow_subfields.get(seg, set())
-        if sub not in subfields:
-            bad_workflow.append(f"{seg}.{sub}")
+        # workflow 已扁平，两段路径（workflow.tweak.signals）一律是旧结构残留
+        bad_workflow.append(f"{seg}.{sub}")
     if bad_workflow:
         print(f"❌ 技能 workflow.{sorted(bad_workflow)[:8]} 不在模板/TS（共 {len(bad_workflow)} 条）")
         fail += 1

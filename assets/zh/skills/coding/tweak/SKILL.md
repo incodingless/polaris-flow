@@ -241,7 +241,7 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 
 - **命中任一信号** → 按 `./policies/decision-point.md` 暂停：**A 升到 P02** / **B 继续 tweak 并记录风险**
   - A → 按 `upgrade-check.md` 的转交动作执行，本 skill 结束
-  - B → 把命中信号写入 `state.yaml: workflow.tweak.signals[]`，在简报「前提与风险」节追加风险接受记录，进入 Step 4
+  - B → 把命中信号写入 `state.yaml: workflow.signals[]`，在简报「前提与风险」节追加风险接受记录，进入 Step 4
 - **未命中** → 直接进入 Step 4
 
 ### Step 4：生成 `tasks.md`
@@ -324,13 +324,13 @@ LINT_EXIT=$?
 #### 4.6 状态写入
 
 ```yaml
+workflow:
+  mode: tweak
+  status: in_progress
+  tdd_mode: auto_by_task_type
+  build_mode: inline        # 或 subagent_dispatch（仅用户显式要求）
+  signals: []               # 命中的升档信号（Step 3 选 B 时记录）
 runtime:
-  tweak:
-    mode: tweak
-    status: in_progress
-    tdd_mode: auto_by_task_type
-    build_mode: inline        # 或 subagent_dispatch（仅用户显式要求）
-    signals: []               # 命中的升档信号（Step 3 选 B 时记录）
   build:
     status: in_progress
     build_mode: inline
@@ -407,10 +407,10 @@ apply 完成后跑**一次** `superpowers:requesting-code-review`，范围 = 本
 出口校验全部通过后，**一次性**完成所有状态写入——这是 tweak 与完整链路的第二个关键差异：中间不推 phase，全程只有这一 workflow 写。
 
 ```yaml
+workflow:
+  status: completed
+  finished_at: "<ISO>"
 runtime:
-  tweak:
-    status: completed
-    finished_at: "<ISO>"
   build:
     status: completed
     build_mode: <inline|subagent_dispatch>

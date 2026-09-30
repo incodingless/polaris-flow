@@ -6,7 +6,9 @@
  *   language / install-time / main-repo-root / worktree-dir
  *   kind / change_id / phase
  *   complexity_level / risk_level / current_tier（分级两轴 + 最终值）
- *   workflow: { mode, tweak, normal }（字典；tweak / normal 段仅 mode 对应时填充）
+ *   workflow: { mode, status, tdd_mode, build_mode, signals, downgrade_*, upgrade_*, finished_at }
+ *     （扁平；mode 是唯一通道开关。旧字符串、workflow.tweak/normal、runtime.tweak/normal
+ *      在读取时折进本对象，不再落盘）
  *   artifact_review_mode / artifact_max_round
  *   verify_mode / auto_transition / isolation / context_compression
  *   triage / worktree
@@ -167,37 +169,21 @@ export type TaskRuntimeState = {
 /** workflow.mode 取值 */
 export type WorkflowMode = 'sdd' | 'tweak' | 'bugfix' | 'full' | string;
 
-/** workflow.tweak（仅 mode=tweak 时填充） */
-export type TaskWorkflowTweakState = {
-  mode?: string;
+/** workflow 容器：通道与升档/降档决策（扁平，mode 是唯一通道开关） */
+export type TaskWorkflowState = {
+  mode?: WorkflowMode;
+  /** in_progress | completed | downgraded | upgraded */
   status?: string;
   tdd_mode?: string;
   build_mode?: string;
   signals?: string[];
-  upgrade_reason?: string;
-  upgrade_target?: string;
-  finished_at?: string;
-};
-
-/** workflow.normal（仅 mode=sdd 时填充；含降档与升档信号） */
-export type TaskWorkflowNormalState = {
-  mode?: string;
-  status?: string;
-  tdd_mode?: string;
-  build_mode?: string;
-  signals?: string[];
+  /** 仅 mode=sdd 降档时填写 */
   downgrade_reason?: string;
   downgrade_target?: string;
   upgrade_reason?: string;
+  /** tweak 可升到 normal 或 design；sdd 只升到 design */
   upgrade_target?: string;
   finished_at?: string;
-};
-
-/** workflow 容器：工作流类型选择与决策信号 */
-export type TaskWorkflowState = {
-  mode?: WorkflowMode;
-  tweak?: TaskWorkflowTweakState;
-  normal?: TaskWorkflowNormalState;
 };
 
 /** 任务 state.yaml 根结构 */
@@ -221,8 +207,8 @@ export interface TaskState {
   /** 最终层级 = max(复杂度轴, 风险轴)（升档门优先）；deepread 徽章消费 */
   current_tier?: string;
 
-  /** 工作流类型与升档/降档决策（字典结构；旧字符串写法仅在迁移层兼容） */
-  workflow?: TaskWorkflowState | string;
+  /** 通道与升档/降档决策（扁平对象；旧字符串写法仅在读取时展开） */
+  workflow?: TaskWorkflowState;
   /** 旧字段兼容：旧写法下顶层出现的 review_mode / build_mode 不会被默认生成 */
   review_mode?: string;
   build_mode?: string;
@@ -243,13 +229,13 @@ export interface TaskState {
 
   /** 阶段状态统一容器 */
   runtime?: TaskRuntimeState;
-  /** 工作流决策容器 */
-  workflow_state?: TaskWorkflowState;
 }
 
 /** createDefaultTaskState 可选覆盖 */
 export type CreateDefaultTaskStateOptions = {
   task_id?: string;
+  /** 与父目录名对齐；缺省空串 */
+  change_id?: string;
   language?: string;
   phase?: TaskPhase;
   kind?: string;
@@ -318,9 +304,115 @@ function deepMerge<T extends Record<string, unknown>>(base: T, patch: Partial<T>
   return result as T;
 }
 
+/** 通道决策字段；嵌套段上的 mode 不抄进父对象（它与 workflow.mode 重复且值域不同） */
+const WORKFLOW_CHANNEL_FIELDS = [
+  'status',
+  'tdd_mode',
+  'build_mode',
+  'signals',
+  'downgrade_reason',
+  'downgrade_target',
+  'upgrade_reason',
+  'upgrade_target',
+  'finished_at',
+] as const;
+
+/** 判断值是普通对象 */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return undefined;
+}
+
+/** 通道字段是否写过实质内容（空串和空数组不算） */
+function channelFieldFilled(value: unknown): boolean {
+  if (value === undefined || value === '') return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  return true;
+}
+
+/** 把来源段里已填写的通道字段补进目标；不覆盖目标里已有的值，不复制 mode */
+function foldChannelFields(
+  target: Record<string, unknown>,
+  source: Record<string, unknown> | undefined,
+): void {
+  if (!source) return;
+  for (const field of WORKFLOW_CHANNEL_FIELDS) {
+    const incoming = source[field];
+    if (!channelFieldFilled(incoming)) continue;
+    if (channelFieldFilled(target[field])) continue;
+    target[field] = incoming;
+  }
+}
+
+/** 段里是否有任一通道决策字段 */
+function channelHasData(source: Record<string, unknown> | undefined): boolean {
+  if (!source) return false;
+  return WORKFLOW_CHANNEL_FIELDS.some((field) => channelFieldFilled(source[field]));
+}
+
 /**
- * 把旧扁平结构归一到 runtime.* / workflow_state.*
- * （仅作读取层兼容，落盘由 createDefaultTaskState + patchTaskState 控新结构）
+ * 把旧 workflow 形态收成扁平对象。
+ * 字符串展开为 { mode }；workflow.tweak / workflow.normal 与 runtime.tweak / runtime.normal
+ * 按 mode 折进父对象后删除。技能曾把决策写在 runtime 下：所选段为空而另一段有数据时改折有数据的那段；
+ * 父级 mode 为空或仍是模板默认 sdd、且实际折的是 tweak 段时，把 mode 纠正为 tweak。
+ */
+function flattenWorkflow(parsed: Record<string, unknown>, runtime: Record<string, unknown>): void {
+  let workflow: Record<string, unknown>;
+  if (typeof parsed.workflow === 'string') {
+    workflow = { mode: parsed.workflow };
+  } else if (asRecord(parsed.workflow)) {
+    workflow = { ...asRecord(parsed.workflow)! };
+  } else if (asRecord(parsed.workflow_state)) {
+    workflow = { ...asRecord(parsed.workflow_state)! };
+  } else {
+    workflow = {};
+  }
+
+  const tweakPayload: Record<string, unknown> = {};
+  foldChannelFields(tweakPayload, asRecord(workflow.tweak));
+  foldChannelFields(tweakPayload, asRecord(runtime.tweak));
+  const normalPayload: Record<string, unknown> = {};
+  foldChannelFields(normalPayload, asRecord(workflow.normal));
+  foldChannelFields(normalPayload, asRecord(runtime.normal));
+
+  const tweakHas = channelHasData(tweakPayload);
+  const normalHas = channelHasData(normalPayload);
+  const mode = typeof workflow.mode === 'string' ? workflow.mode : '';
+
+  let picked: 'tweak' | 'normal' | undefined;
+  if (mode === 'tweak') {
+    picked = tweakHas ? 'tweak' : normalHas ? 'normal' : undefined;
+  } else if (normalHas) {
+    picked = 'normal';
+  } else if (tweakHas) {
+    picked = 'tweak';
+  }
+
+  if (picked === 'tweak') {
+    foldChannelFields(workflow, tweakPayload);
+    if (!mode || mode === 'sdd') {
+      workflow.mode = 'tweak';
+    }
+  } else if (picked === 'normal') {
+    foldChannelFields(workflow, normalPayload);
+    if (!mode) {
+      workflow.mode = 'sdd';
+    }
+  }
+
+  delete workflow.tweak;
+  delete workflow.normal;
+  delete runtime.tweak;
+  delete runtime.normal;
+  delete parsed.workflow_state;
+  parsed.workflow = workflow;
+}
+
+/**
+ * 把旧扁平结构归一到 runtime.*，并把旧 workflow 形态折成扁平 workflow。
+ * （仅作读取层归一，落盘由 createDefaultTaskState + patchTaskState 控新结构）
  */
 function migrateLegacyShape(parsed: Record<string, unknown>): Record<string, unknown> {
   const runtime: Record<string, unknown> =
@@ -398,12 +490,7 @@ function migrateLegacyShape(parsed: Record<string, unknown>): Record<string, unk
     }
   }
 
-  // workflow 字符串 → workflow_state 字典
-  if (typeof parsed.workflow === 'string') {
-    parsed.workflow_state = { mode: parsed.workflow };
-  } else if (parsed.workflow && typeof parsed.workflow === 'object') {
-    parsed.workflow_state = parsed.workflow;
-  }
+  flattenWorkflow(parsed, runtime);
 
   // 顶层 review_mode / build_mode 迁入 runtime.build
   if (parsed.review_mode !== undefined || parsed.build_mode !== undefined) {
@@ -419,6 +506,8 @@ function migrateLegacyShape(parsed: Record<string, unknown>): Record<string, unk
 
   if (Object.keys(runtime).length > 0) {
     parsed.runtime = runtime;
+  } else {
+    delete parsed.runtime;
   }
   return parsed;
 }
@@ -433,15 +522,23 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
     main_repo_root: '',
     worktree_dir: '',
     kind: options.kind ?? 'coding',
+    change_id: options.change_id ?? '',
     task_id: task_id,
     phase: options.phase ?? 'idle',
     complexity_level: '',
     risk_level: '',
     current_tier: '',
-    // 顶层 workflow 字段保持字符串兼容写法（落盘双形式）
-    workflow: workflowMode,
-    workflow_state: {
+    workflow: {
       mode: workflowMode,
+      status: '',
+      tdd_mode: '',
+      build_mode: '',
+      signals: [],
+      downgrade_reason: '',
+      downgrade_target: '',
+      upgrade_reason: '',
+      upgrade_target: '',
+      finished_at: '',
     },
     artifact_review_mode: 'per_batch',
     artifact_max_round: 5,

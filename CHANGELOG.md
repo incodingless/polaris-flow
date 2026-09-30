@@ -56,6 +56,7 @@
 
 ### Changed
 
+- **workflow 扁平**: 通道决策不再拆 `workflow.tweak` / `workflow.normal`，升档、降档和信号都写在同一份 `workflow` 上，用 `mode` 区分通道；默认不再双写字符串 `workflow` 与 `workflow_state`。读取时把旧嵌套段和写错到 `runtime.tweak` / `runtime.normal` 的决策折进扁平对象，避免进行中任务丢字段
 - **Superpowers agent 映射**: `npx skills add` 使用平台 id（`trae-cn`）而非展示名（`Trae-CN`），与 skills CLI 注册键对齐
 - **init 摘要**: Superpowers 失败单独标为组件失败，不再把已成功安装 Polaris 的平台只写成「失败：Trae-CN」
 - **Superpowers 失败提示**: 明确 clone 与 npx 都依赖 GitHub，不再声称 npx 在国内更稳
@@ -154,6 +155,7 @@
 
 ### Tests
 
+- **task-state workflow 折叠**: 覆盖默认扁平 `workflow`、旧字符串 `workflow: sdd` 展开为 `workflow.mode`，以及 `workflow.tweak` / `runtime.tweak` 折进父对象后删除嵌套段和 `workflow_state`
 - **commands-install**: 覆盖 claude（nested）与 trae（flat）下命令落盘路径，以及菜单命令中 5 个技能引用 `{{SKN_SPR}}` 分别展开为 `polaris:<family>:<skill>` 与 `polaris-<family>-<skill>`；新增 testing 族叶技能落盘断言（`polaris/testing/case/SKILL.md` 且 `name: polaris:testing:case`）。此前测试断言族名为 `test`，与资产目录 `testing/` 不符，3 项全部失败（命令引用断言不匹配 + 落盘路径 ENOENT），族名统一后转为全通过
 - **agents-install**: 覆盖 `mapAgentTools`（trae 恒等、claude/cursor 映射去重）、安装落盘 tools/model、overwrite 跳过
 - **openspec relocate**: 覆盖 trae-cn 迁入 `.trae-cn`、trae 不迁入、trae+trae-cn 双保留

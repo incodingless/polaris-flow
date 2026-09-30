@@ -2,7 +2,7 @@
  * task-state 读写与 patch 单测。
  *
  * 覆盖：
- * 1. createDefaultTaskState 输出新结构骨架（runtime.* / workflow_state）
+ * 1. createDefaultTaskState 输出新结构骨架（runtime.* / 扁平 workflow）
  * 2. load 兼容 kebab 顶层键
  * 3. patch 不丢未改字段
  * 4. saveTaskState 可回读
@@ -23,7 +23,7 @@ import { getTaskStatePath } from '../../src/core/assets/polaris-paths.js';
 
 describe('task-state', () => {
   it('createDefaultTaskState 含新结构骨架', () => {
-    const state = createDefaultTaskState({ changeId: 'draft-1', phase: 'specify' });
+    const state = createDefaultTaskState({ change_id: 'draft-1', phase: 'specify' });
     expect(state.change_id).toBe('draft-1');
     expect(state.phase).toBe('specify');
     expect(state.runtime).toBeDefined();
@@ -44,9 +44,13 @@ describe('task-state', () => {
     expect(state.runtime?.plan?.review_log_file).toBe('');
     expect(state.artifact_review_mode).toBe('per_batch');
     expect(state.artifact_max_round).toBe(5);
-    // workflow_state 是 dict（含 mode）
-    const wf = state.workflow_state as { mode?: string; tweak?: unknown; normal?: unknown };
+    const wf = state.workflow;
     expect(wf?.mode).toBe('sdd');
+    expect(wf?.status).toBe('');
+    expect(wf?.signals).toEqual([]);
+    expect(wf?.downgrade_reason).toBe('');
+    expect(wf?.upgrade_target).toBe('');
+    expect(state).not.toHaveProperty('workflow_state');
   });
 
   it('load 兼容 kebab 键；patch 不丢未改字段', async () => {
@@ -88,7 +92,7 @@ describe('task-state', () => {
 
   it('saveTaskState 可回读', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'polaris-task-save-'));
-    const state = createDefaultTaskState({ changeId: 'c1', phase: 'plan' });
+    const state = createDefaultTaskState({ change_id: 'c1', phase: 'plan' });
     await saveTaskState(root, 'c1', state);
     const loaded = await loadTaskState(root, 'c1');
     expect(loaded?.change_id).toBe('c1');
@@ -136,9 +140,9 @@ describe('task-state', () => {
     expect(loaded?.runtime?.tasks?.plan_review_status).toBe('completed');
     // review.constitution_compliance → runtime.verify.constitution_compliance
     expect(loaded?.runtime?.verify?.constitution_compliance).toBe('true');
-    // workflow 字符串 → workflow_state.mode
-    const wf = loaded?.workflow_state as { mode?: string } | undefined;
-    expect(wf?.mode).toBe('sdd');
+    // workflow 字符串 → workflow.mode
+    expect(loaded?.workflow?.mode).toBe('sdd');
+    expect(loaded).not.toHaveProperty('workflow_state');
     // build_mode 顶层 → runtime.build.build_mode
     expect(loaded?.runtime?.build?.build_mode).toBe('tdd');
   });
@@ -146,7 +150,7 @@ describe('task-state', () => {
   it('patch 写入 runtime.specify 不丢其他 runtime 块', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'polaris-task-patch-'));
     const taskId = 'patch-1';
-    const initial = createDefaultTaskState({ changeId: taskId, phase: 'plan' });
+    const initial = createDefaultTaskState({ change_id: taskId, phase: 'plan' });
     initial.runtime!.plan!.status = 'in_progress';
     initial.runtime!.plan!.review_round = 1;
     await saveTaskState(root, taskId, initial);
@@ -157,5 +161,48 @@ describe('task-state', () => {
     expect(patched.runtime?.specify?.intention_path).toContain('intention.md');
     expect(patched.runtime?.plan?.status).toBe('in_progress');
     expect(patched.runtime?.plan?.review_round).toBe(1);
+  });
+
+  it('旧 workflow.tweak / runtime.tweak 折进扁平 workflow', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'polaris-task-workflow-'));
+    const taskId = 'fold-1';
+    const statePath = getTaskStatePath(root, taskId);
+    await mkdir(path.dirname(statePath), { recursive: true });
+    await writeFile(
+      statePath,
+      [
+        'change_id: "fold-1"',
+        'phase: build',
+        'workflow:',
+        '  mode: sdd',
+        '  tweak:',
+        '    mode: tweak',
+        '    status: in_progress',
+        '    signals:',
+        '      - U1',
+        'runtime:',
+        '  tweak:',
+        '    upgrade_reason: "U1"',
+        '    upgrade_target: normal',
+        '  build:',
+        '    status: in_progress',
+        'workflow_state:',
+        '  mode: sdd',
+        '',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    const loaded = await loadTaskState(root, taskId);
+    expect(loaded?.workflow?.mode).toBe('tweak');
+    expect(loaded?.workflow?.status).toBe('in_progress');
+    expect(loaded?.workflow?.signals).toEqual(['U1']);
+    expect(loaded?.workflow?.upgrade_reason).toBe('U1');
+    expect(loaded?.workflow?.upgrade_target).toBe('normal');
+    expect(loaded?.workflow).not.toHaveProperty('tweak');
+    expect(loaded?.workflow).not.toHaveProperty('normal');
+    expect(loaded?.runtime).not.toHaveProperty('tweak');
+    expect(loaded?.runtime?.build?.status).toBe('in_progress');
+    expect(loaded).not.toHaveProperty('workflow_state');
   });
 });

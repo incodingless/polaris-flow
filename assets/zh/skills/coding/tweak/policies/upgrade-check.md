@@ -70,13 +70,12 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 ### 3.3 写状态并交接
 
 ```yaml
-runtime:
-  tweak:
-    mode: tweak
-    status: upgraded
-    upgrade_reason: "U1,U5"          # 命中的信号编号
-    upgrade_target: normal
-    finished_at: "<ISO>"
+workflow:
+  mode: tweak
+  status: upgraded
+  upgrade_reason: "U1,U5"          # 命中的信号编号
+  upgrade_target: normal
+  finished_at: "<ISO>"
 phase: idle
 ```
 
@@ -91,7 +90,7 @@ phase: idle
 
 ## 4. 风险接受记录（用户选 B）
 
-1. `state.yaml` 写入 `workflow.tweak.signals: ["U1","U5"]`（命中编号列表）
+1. `state.yaml` 写入 `workflow.signals: ["U1","U5"]`（命中编号列表）
 2. 在 `change-brief.md`「前提与风险」节追加「风险接受记录」三行（命中信号 / 用户决策 / 日期）——模板已预留该结构
 3. 输出：
 

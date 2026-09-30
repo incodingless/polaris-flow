@@ -60,63 +60,36 @@ current_tier: ""
 
 # 工作流配置
 ####################
-# 工作流类型
-# 可选值: sdd-需求开发 | tweak-需求优化 | bugfix-缺陷修复 | full-全栈开发
+# 通道与升档/降档决策。mode 是唯一通道开关，不再按通道拆平行段。
+# mode 可选值: sdd-需求开发 | tweak-需求优化 | bugfix-缺陷修复 | full-全栈开发
+# sdd 即常规通道；tweak 即快速通道。downgrade_* 仅 mode=sdd 降档时填写。
 workflow:
   mode: sdd
-
-  # 仅 mode=tweak 时使用
-  tweak:
-    # 工作流模式（与 workflow.mode 冗余但方便单点查询）
-    mode: tweak
-    # 状态
-    # 可选值: in_progress-进行中 | completed-完成 | upgraded-已升档
-    status: ""
-    # TDD 模式
-    # 可选值: auto_by_task_type-按任务类型自动 | prefer_tdd-优先TDD | require_tdd-强制TDD | prefer_direct-优先直接
-    tdd_mode: ""
-    # 构建模式
-    # 可选值: inline-内联执行 | subagent_dispatch-子代理派发
-    build_mode: ""
-    # 命中的升档信号编号列表（Step 3 选 B 时记录）
-    signals: []
-    # 升档原因（命中的信号编号，如 "U1,U5"）
-    upgrade_reason: ""
-    # 升档目标
-    # 可选值: normal-需求开发 | design-深度设计
-    upgrade_target: ""
-    # 完成时间
-    # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-    finished_at: ""
-
-  # 仅 mode=sdd 时使用（与 tier-gate 联动）
-  normal:
-    # 工作流模式
-    mode: normal
-    # 状态
-    # 可选值: in_progress-进行中 | completed-完成 | downgraded-已降档 | upgraded-已升档
-    status: ""
-    # TDD 模式
-    # 可选值: auto_by_task_type-按任务类型自动 | prefer_tdd-优先TDD | require_tdd-强制TDD | prefer_direct-优先直接
-    tdd_mode: ""
-    # 构建模式
-    # 可选值: inline-内联执行 | subagent_dispatch-子代理派发
-    build_mode: ""
-    # 命中的守门/升档信号编号列表（Step 5 选 B 时记录）
-    signals: []
-    # 降档原因（命中的条件编号，如 "D1',D3'"）
-    downgrade_reason: ""
-    # 降档目标
-    # 可选值: tweak-需求优化
-    downgrade_target: ""
-    # 升档原因（命中的信号编号，如 "D2,D4"）
-    upgrade_reason: ""
-    # 升档目标
-    # 可选值: design-深度设计
-    upgrade_target: ""
-    # 完成时间
-    # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-    finished_at: ""
+  # 通道状态
+  # 可选值: in_progress-进行中 | completed-完成 | downgraded-已降档 | upgraded-已升档
+  status: ""
+  # TDD 模式
+  # 可选值: auto_by_task_type-按任务类型自动 | prefer_tdd-优先TDD | require_tdd-强制TDD | prefer_direct-优先直接
+  tdd_mode: ""
+  # 构建模式
+  # 可选值: inline-内联执行 | subagent_dispatch-子代理派发
+  build_mode: ""
+  # 命中的守门/升档信号编号列表
+  signals: []
+  # 降档原因（仅 mode=sdd 降档时填写，如 "D1',D3'"）
+  downgrade_reason: ""
+  # 降档目标
+  # 可选值: tweak-需求优化
+  downgrade_target: ""
+  # 升档原因（命中的信号编号，如 "U1,U5" 或 "D2,D4"）
+  upgrade_reason: ""
+  # 升档目标
+  # 可选值: normal-需求开发 | design-深度设计
+  # tweak 可升到 normal 或 design；sdd 只升到 design
+  upgrade_target: ""
+  # 完成时间
+  # 格式: YYYY-MM-DDTHH:MM:SS.SSSZ
+  finished_at: ""
 
 # 制品审查模式
 # 可选值: after_all -全部生成后审查 | per_batch -每批次生成后审查

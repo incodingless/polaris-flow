@@ -368,13 +368,13 @@ LINT_EXIT=$?
 #### 6.4 状态写入
 
 ```yaml
+workflow:
+  mode: sdd
+  status: in_progress
+  tdd_mode: auto_by_task_type
+  build_mode: inline        # 或 subagent_dispatch（仅用户显式要求）
+  signals: []               # 命中的守门信号（Step 5 选 B 时记录）
 runtime:
-  normal:
-    mode: normal
-    status: in_progress
-    tdd_mode: auto_by_task_type
-    build_mode: inline        # 或 subagent_dispatch（仅用户显式要求）
-    signals: []               # 命中的守门信号（Step 5 选 B 时记录）
   build:
     status: in_progress
     build_mode: inline
@@ -509,10 +509,10 @@ apply 完成后跑**一次** `superpowers:requesting-code-review`，范围 = 本
 出口校验全部通过后，**一次性**完成所有状态写入——与 tweak 同款模式：中间不推 phase，全程只有这一 workflow 写。
 
 ```yaml
+workflow:
+  status: completed
+  finished_at: "<ISO>"
 runtime:
-  normal:
-    status: completed
-    finished_at: "<ISO>"
   plan:
     status: completed
     review_report: openspec/changes/<task_id>/reviews/plan-review-report.md

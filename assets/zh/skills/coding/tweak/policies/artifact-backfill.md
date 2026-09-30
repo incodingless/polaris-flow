@@ -58,7 +58,7 @@
 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` Step 5（归档询问）之前，满足**任一**即触发：
 
 - `openspec/changes/<change_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
-- `state.yaml` 中 `workflow.tweak.mode == "tweak"`
+- `state.yaml` 中 `workflow.mode == "tweak"`
 
 未触发时（例如本次本就是 P02/P03 完整链路）跳过整节。
 

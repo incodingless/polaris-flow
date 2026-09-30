@@ -12,7 +12,7 @@ description: "verify 通过后做终验、分支收尾、worktree 产物合回�
 - **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 3.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
 - **禁止**未按 `./policies/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
 - **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 6.1
-- **P01 快速通道**：`workflow.tweak.mode=tweak` 时**必须**执行 Step 4.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
+- **P01 快速通道**：`workflow.mode=tweak` 时**必须**执行 Step 4.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
 - **禁止**本阶段编写业务实现代码；终验失败 → 回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（必要时再回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`）
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]交付 - 进入Step <N>: <动作>`
 </HARD-GATE>
@@ -196,7 +196,7 @@ phase: idle
 
 **触发条件**（满足任一即执行，否则整步跳过）：
 
-- `state.yaml` 中 `workflow.tweak.mode == "tweak"`
+- `state.yaml` 中 `workflow.mode == "tweak"`
 - `openspec/changes/<task_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
 
 **执行**：`read_file ./policies/artifact-backfill.md`，按 **§3 归档路径**把 `change-brief.md` 转换为四件套（`proposal.md` / `design.md` / `specs/<capability>/spec.md`）。

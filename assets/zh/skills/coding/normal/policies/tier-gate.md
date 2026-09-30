@@ -39,13 +39,12 @@ B. 继续 normal — 记录决策后按常规通道执行
 3. 写状态：
 
 ```yaml
-runtime:
-  normal:
-    mode: normal
-    status: downgraded
-    downgrade_reason: "D1',D3'"     # 命中的条件编号
-    downgrade_target: tweak
-    finished_at: "<ISO>"
+workflow:
+  mode: sdd
+  status: downgraded
+  downgrade_reason: "D1',D3'"     # 命中的条件编号
+  downgrade_target: tweak
+  finished_at: "<ISO>"
 phase: idle
 ```
 
@@ -61,7 +60,7 @@ tweak 侧衔接说明（随交接输出）：tweak Step 0 会检测到 existing 
 
 ### 1.4 风险接受记录（用户选 B）
 
-1. `state.yaml` 写入 `workflow.normal.signals: ["D1'","D3'"]`
+1. `state.yaml` 写入 `workflow.signals: ["D1'","D3'"]`
 2. 输出：`[polaris-flow 开发]常规通道 - 用户选择继续 normal：已记录降档信号（<D..' >）`
 3. 继续 normal Step 6。**后续 Step 7 / 9 不得因同一信号再次询问**——已持久化的决策不重复发问
 
@@ -96,13 +95,12 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 3. 写状态：
 
 ```yaml
-runtime:
-  normal:
-    mode: normal
-    status: upgraded
-    upgrade_reason: "D2,D4"        # 命中的信号编号
-    upgrade_target: design
-    finished_at: "<ISO>"
+workflow:
+  mode: sdd
+  status: upgraded
+  upgrade_reason: "D2,D4"        # 命中的信号编号
+  upgrade_target: design
+  finished_at: "<ISO>"
 phase: idle
 ```
 
@@ -117,7 +115,7 @@ phase: idle
 
 ### 2.4 风险接受记录（用户选 B）
 
-1. `state.yaml` 写入 `workflow.normal.signals: ["D2","D4"]`
+1. `state.yaml` 写入 `workflow.signals: ["D2","D4"]`
 2. 在 `design.md`「风险与降级方案」节追加「风险接受记录」三行（命中信号 / 用户决策 / 日期）
 3. 输出：`[polaris-flow 开发]常规通道 - 用户选择继续 normal：已记录风险接受（信号 <D..>）`
 4. 继续 normal Step 6。**后续 Step 7 / 9 不得因同一信号再次询问**
