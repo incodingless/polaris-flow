@@ -260,17 +260,25 @@ function asHookGroup(value: unknown): Array<Record<string, unknown>> {
 
 /**
  * 合并两个 hooks 事件表：对每个事件做 mergeHookGroups。
- * 合并前剔除 Polaris 已管 command，再写入模板条目，避免重复。
+ *
+ * 合并前剔除**所有**事件中的 Polaris 托管 command，再写入模板条目。只清 incoming 事件是不够的：
+ * 模板中被删除的事件不会进入 incoming，其托管 command 会永久残留在宿主配置里。
  */
 function mergeHooksMaps(
   existing: Record<string, Array<Record<string, unknown>>>,
   incoming: Record<string, Array<Record<string, unknown>>>,
 ): Record<string, Array<Record<string, unknown>>> {
-  const result: Record<string, Array<Record<string, unknown>>> = { ...existing };
+  const result: Record<string, Array<Record<string, unknown>>> = {};
+
+  for (const [event, groups] of Object.entries(existing)) {
+    const cleaned = stripManagedHookCommands(asHookGroup(groups));
+    if (cleaned.length > 0) {
+      result[event] = cleaned;
+    }
+  }
 
   for (const [event, incomingGroups] of Object.entries(incoming)) {
-    const cleanedExisting = stripManagedHookCommands(asHookGroup(result[event]));
-    result[event] = mergeHookGroups(cleanedExisting, incomingGroups);
+    result[event] = mergeHookGroups(asHookGroup(result[event]), incomingGroups);
   }
 
   return result;

@@ -36,8 +36,30 @@ node bin/polaris.js --version
 - `polaris status` — 展示当前change与工作流状态
 - `polaris dashboard` — 启动本地工作台（单进程单端口，API 与前端同端口；`--api-only` 供前端 HMR 开发）
 - `polaris doctor` — 诊断环境、schema 与 skill 安装状态
-- `polaris update` — 更新 schema、skills 与依赖
+- `polaris update` — 更新程序本体、工作流资产与第三方依赖（范围可选）
 - `polaris uninstall` — 卸载已安装组件（占位，尚未实现）
+
+### `polaris update` 更新范围
+
+分三层，可单独选择；缺省全量。
+
+| 层 | 成员 | 说明 |
+|---|---|---|
+| `program` | — | CLI 程序本体（npm 包）。探测实际使用的包管理器后全局安装 `@latest`；`npx` 临时执行时降级为只提示 |
+| `assets` | `skills` `commands` `agents` `rules` `hooks` | 按资产源指纹判断是否需要重写；已装平台的落盘内容与资产一致时整体跳过 |
+| `deps` | `openspec` `superpowers` `codegraph` | 复用 init 侧的安装器 |
+
+| 选项 | 描述 |
+|---|---|
+| `--only <items>` | 只更新列出的项（逗号分隔，可用组名）；与 `--skip` 互斥 |
+| `--skip <items>` | 跳过列出的项，其余按全量 |
+| `--force` | 忽略资产源指纹，强制重写所选类别 |
+| `--prune` | 删除 Polaris 独占目录下已不在资产清单中的陈旧产物（当前覆盖 `skills` / `commands`） |
+| `--lang <lang>` | 技能语言：`zh` 或 `en`；缺省读 `.polaris/config.yaml` |
+| `--scope <scope>` | 安装范围：`project` 或 `global`；缺省读 `.polaris/config.yaml` |
+| `--json` | 输出结构化 JSON |
+
+例：`polaris update --only skills,commands`、`polaris update --skip deps`、`polaris update --only assets --prune`
 
 ## Superpowers 安装与网络
 

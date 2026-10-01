@@ -31,7 +31,11 @@ import { getGlobalPolarisConfigPath } from '../core/assets/polaris-paths.js';
 import { getPlatformContextDir } from '../core/domain/platforms.js';
 import { resolveHooksConfigPath } from '../core/install/hooks.js';
 import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
-import type { InstallScope, Languages } from '../core/config/polaris-project-config.js';
+import {
+  loadPolarisConfig,
+  type InstallScope,
+  type Languages,
+} from '../core/config/polaris-project-config.js';
 import { initializePolarisCommonLayout } from '../core/install/layout.js';
 import { installCodegraph } from '../core/integrations/codegraph.js';
 import { fileExists } from '../utils/file-system.js';
@@ -184,7 +188,9 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
 
   const detectedPlatforms = await detectPlatforms(projectPath);
   const scope = await selectScope(options, langHint);
-  const language = await selectLanguage(options, langHint);
+  // 已有 config 时沿用其语言：--yes 缺省为 zh，重装不该把既有语言改掉
+  const existingConfig = await loadPolarisConfig(projectPath);
+  const language = await selectLanguage(options, langHint, existingConfig?.language);
   const lang = language;
   const platforms = await selectPlatforms(detectedPlatforms, options, lang);
 

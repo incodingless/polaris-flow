@@ -25,6 +25,7 @@ import type { CommandLayout, SkillsLayout } from '../domain/platforms.js';
 import { Assets } from '../assets/manifest.js';
 import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 import { applySkillNamePrefix, resolveSkillNamePrefix } from './skills.js';
+import type { CopyStats } from './types.js';
 
 /** 安装 Polaris bundled 命令（读取 assets 内 commands/） */
 
@@ -83,7 +84,7 @@ async function writeCommandFile(
  * @param asset 资产
  * @param skillsLayout 平台技能布局，决定 `{{SKN_SPR}}` 展开成的分隔符
  * @param commandLayout 平台命令布局，决定落盘路径扁平化与 `{{CMD_SPR}}` 展开
- * @returns 拷贝结果
+ * @returns 拷贝计数与落盘文件清单（含未改写的既有文件）
  */
 export async function installPolarisCommandsForPlatform(
   commandsDir: string,
@@ -91,7 +92,7 @@ export async function installPolarisCommandsForPlatform(
   asset: Assets,
   skillsLayout: SkillsLayout,
   commandLayout: CommandLayout = 'nested',
-): Promise<{ copied: number; skipped: number }> {
+): Promise<CopyStats> {
   const skillPrefix = resolveSkillNamePrefix(skillsLayout);
   const commandPrefix = commandLayout === 'flat' ? '-' : ':';
   const commandDirs = asset.langDirAssets.filter((asset) => ['commands'].includes(asset.dir));
@@ -109,5 +110,10 @@ export async function installPolarisCommandsForPlatform(
       jobs.push(job);
     }
   }
-  return runCopyJobs(jobs);
+  const result = await runCopyJobs(jobs);
+  return {
+    copied: result.copied,
+    skipped: result.skipped,
+    files: result.results.map((entry) => entry.job.dest),
+  };
 }

@@ -51,17 +51,22 @@ function resolveCodegraphCommand(): string | null {
   return resolvePnpmGlobalCommand('codegraph');
 }
 
+/**
+ * 确保 CodeGraph CLI 可用。
+ * @param upgrade 为 true 时即使已安装也执行一次全局升级（`polaris update` 用）
+ */
 async function ensureCodegraphCli(
   projectPath: string,
   shouldInstall = true,
+  upgrade = false,
 ): Promise<string | null> {
   const existingCommand = resolveCodegraphCommand();
-  if (existingCommand) return existingCommand;
-  if (!shouldInstall) return null;
+  if (existingCommand && !upgrade) return existingCommand;
+  if (!shouldInstall) return existingCommand;
 
-  console.log('    Installing CodeGraph CLI...');
+  console.log(`    ${existingCommand ? 'Upgrading' : 'Installing'} CodeGraph CLI...`);
   try {
-    execFileSync(getNpmExecutable(), ['install', '-g', '@colbymchenry/codegraph'], {
+    execFileSync(getNpmExecutable(), ['install', '-g', '@colbymchenry/codegraph@latest'], {
       cwd: projectPath,
       stdio: 'inherit',
       timeout: 180_000,
@@ -71,18 +76,28 @@ async function ensureCodegraphCli(
   } catch (error) {
     console.error(`    Failed to install CodeGraph CLI: ${(error as Error).message}`);
     printCommandErrorDetails(error);
-    return null;
+    // 升级失败时既有命令仍可用，不阻断后续步骤
+    return existingCommand;
   }
 }
 
+/**
+ * 安装 / 升级 CodeGraph 并按 scope 建索引。
+ * @param upgradeCli 为 true 时只升级 CLI：已存在 `.codegraph` 索引则跳过重建（重建代价高）
+ */
 async function installCodegraph(
   projectPath: string,
   scope: InstallScope,
   shouldInstallCli = true,
+  upgradeCli = false,
 ): Promise<'installed' | 'failed' | 'skipped'> {
   if (hasCodegraphProjectIndex(projectPath)) {
     console.log('    CodeGraph: existing .codegraph index detected');
-    return 'skipped';
+    if (!upgradeCli) {
+      return 'skipped';
+    }
+    const upgraded = await ensureCodegraphCli(projectPath, shouldInstallCli, true);
+    return upgraded ? 'installed' : 'failed';
   }
 
   const codegraphCommand = await ensureCodegraphCli(projectPath, shouldInstallCli);

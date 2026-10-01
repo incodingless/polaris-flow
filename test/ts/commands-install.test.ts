@@ -23,7 +23,7 @@ const referencedSkills = {
   nested: [
     'polaris:coding:specify',
     'polaris:prd:discovery',
-    'polaris:prd:draft',
+    'polaris:prd:userstory',
     'polaris:prd:readiness',
     'polaris:testing:discovery',
     'polaris:testing:acceptance',
@@ -33,7 +33,7 @@ const referencedSkills = {
   flat: [
     'polaris-coding-specify',
     'polaris-prd-discovery',
-    'polaris-prd-draft',
+    'polaris-prd-userstory',
     'polaris-prd-readiness',
     'polaris-testing-discovery',
     'polaris-testing-acceptance',
@@ -62,8 +62,8 @@ describe('installPolarisForPlatform commands', () => {
       for (const skill of referencedSkills.nested) {
         expect(command).toContain(skill);
       }
-      // 路由表编号齐全（P / R / T 三组 + 已可用的 M01 / M04；M02 / M03 标「暂不可用」不作断言）
-      for (const code of ['P01', 'P02', 'P03', 'M01', 'M04', 'R01', 'R02', 'R03', 'T01', 'T02', 'T03']) {
+      // 路由表编号齐全（P01–P02 / R / T + 已可用的 M01 / M04；M02 / M03 标「暂不可用」不作断言）
+      for (const code of ['P01', 'P02', 'M01', 'M04', 'R01', 'R02', 'R03', 'T01', 'T02', 'T03']) {
         expect(command).toContain(`**${code}**`);
       }
 
@@ -268,17 +268,17 @@ describe('debug 族技能安装', () => {
       );
       expect(tasksTpl).toContain('bash "$PLUGIN_ROOT/scripts/tasks-lint.sh"');
 
-      // H14 与 flow.md 的「开发类」清单必须同时含 M04，否则 M04 入口不受零步阻断保护
+      // H14 与 flow.md 的「开发类」清单必须一致，且含 M04，否则 M04 入口不受零步阻断保护
       const hardStops = await readFile(
         path.join(tmpDir, '.claude/skills/polaris/debug/diagnose/policies/hard-stops.md'),
         'utf-8',
       );
-      expect(hardStops).toContain('M01 / M04 / P01–P03 / M03');
+      expect(hardStops).toContain('M01 / M04 / C01–C03 / M03');
       const flowCmd = await readFile(
         path.join(tmpDir, '.claude/commands/polaris/flow.md'),
         'utf-8',
       );
-      expect(flowCmd).toContain('（M01 / M04 / P01–P03 / M03）');
+      expect(flowCmd).toContain('（M01 / M04 / C01–C03 / M03）');
     },
   );
 });

@@ -8,6 +8,15 @@ import { updateCommand } from '../commands/update.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { statusCommand } from '../commands/status.js';
 import { DEFAULT_DASHBOARD_PORT, dashboardCommand } from '../commands/dashboard.js';
+import { UPDATE_TARGETS } from '../core/update/scope.js';
+
+/** 逗号分隔列表选项 → 去空数组 */
+function splitList(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 /**
  * 注册 polaris 用户命令：init / status / dashboard / doctor / update / uninstall。
@@ -25,11 +34,7 @@ export function registerUserCommands(program: Command): void {
     .option(
       '--platforms <ids>',
       'comma-separated platform ids (e.g. trae,claude,cursor); skips platform prompt',
-      (value: string) =>
-        value
-          .split(',')
-          .map((id) => id.trim())
-          .filter(Boolean),
+      splitList,
     )
     .option('--json', 'output JSON')
     .action(async (path: string, options) => {
@@ -96,19 +101,40 @@ export function registerUserCommands(program: Command): void {
 
   program
     .command('update')
-    .description('Update bundled Polaris skills to latest version')
+    .description('Update the Polaris program, bundled assets, and dependencies (scope selectable)')
     .argument('[path]', 'target project directory', process.cwd())
-    .option('--force', 'force re-copy all components')
-    .option('--lang <lang>', 'skill language: zh or en')
-    .option('--scope <scope>', 'install scope: project or global')
+    .option(
+      '--only <items>',
+      'only update these targets (comma-separated); cannot be combined with --skip',
+      splitList,
+    )
+    .option('--skip <items>', 'update all except these targets (comma-separated)', splitList)
+    .option('--force', 'ignore source fingerprints and rewrite the selected targets')
+    .option('--prune', 'remove stale files in Polaris-owned directories (skills, commands)')
+    .option('--lang <lang>', 'skill language: zh or en (default: from .polaris/config.yaml)')
+    .option('--scope <scope>', 'install scope: project or global (default: config.yaml)')
     .option('--json', 'output JSON')
+    .addHelpText(
+      'after',
+      `\n  targets: groups are 'program' | 'assets' | 'deps' | 'all';\n` +
+        `           members are '${UPDATE_TARGETS.filter((name) => name !== 'all').join("' | '")}'\n`,
+    )
     .action(async (path: string, options) => {
-      await updateCommand(path, {
-        force: options.force,
-        lang: options.lang,
-        scope: options.scope,
-        json: options.json,
-      });
+      try {
+        await updateCommand(path, {
+          only: options.only,
+          skip: options.skip,
+          force: options.force,
+          prune: options.prune,
+          lang: options.lang,
+          scope: options.scope,
+          json: options.json,
+        });
+      } catch (error) {
+        // 范围解析失败等属用户输入问题，给一行结论而不是堆栈
+        console.error(error instanceof Error ? error.message : String(error));
+        process.exitCode = 1;
+      }
     });
 
   program

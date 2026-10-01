@@ -43,8 +43,30 @@ User-facing CLI only (runtime hooks use `polaris-flow`):
 - `polaris status` — show active changes and workflow status
 - `polaris dashboard` — start the local workbench (API + web UI on a single port; `--api-only` for frontend HMR dev)
 - `polaris doctor` — diagnose environment, schema, and skill installation
-- `polaris update` — update schemas, skills, and dependencies
+- `polaris update` — update the program, workflow assets, and dependencies (scope selectable)
 - `polaris uninstall` — remove installed components (stub)
+
+### `polaris update` scope
+
+Three layers, independently selectable; all by default.
+
+| Layer | Members | Notes |
+|---|---|---|
+| `program` | — | The CLI itself (npm package). Detects the package manager in use and installs `@latest` globally; degrades to a hint under `npx` |
+| `assets` | `skills` `commands` `agents` `rules` `hooks` | Gated by asset source fingerprints; skipped entirely when on-disk content already matches |
+| `deps` | `openspec` `superpowers` `codegraph` | Reuses the installers from `init` |
+
+| Option | Description |
+|---|---|
+| `--only <items>` | Only update the listed targets (comma-separated, groups allowed); mutually exclusive with `--skip` |
+| `--skip <items>` | Update everything except the listed targets |
+| `--force` | Ignore asset source fingerprints and rewrite the selected targets |
+| `--prune` | Remove stale artifacts in Polaris-owned directories (currently `skills` / `commands`) |
+| `--lang <lang>` | Skill language: `zh` or `en`; defaults to `.polaris/config.yaml` |
+| `--scope <scope>` | Install scope: `project` or `global`; defaults to `.polaris/config.yaml` |
+| `--json` | Output structured JSON |
+
+Examples: `polaris update --only skills,commands`, `polaris update --skip deps`, `polaris update --only assets --prune`
 
 ## License
 

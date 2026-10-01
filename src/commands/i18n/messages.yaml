@@ -56,18 +56,6 @@ choosePer:
 installingOS:
   en: 'Installing OpenSpec for:'
   zh: 正在安装 OpenSpec：
-osSkippedNoCli:
-  en: OpenSpec CLI not installed, skipping OpenSpec setup
-  zh: 未安装 OpenSpec CLI，跳过 OpenSpec 配置
-allSkipped:
-  en: all skipped
-  zh: 全部跳过
-installingSP:
-  en: 'Installing Superpowers for:'
-  zh: 正在安装 Superpowers：
-spSkippedByUser:
-  en: Superpowers install skipped by user
-  zh: 用户跳过 Superpowers 安装
 alreadyExists:
   en: already exists
   zh: 已存在
@@ -158,24 +146,9 @@ npmDepNotInstalled:
 updateTitle:
   en: Polaris Update
   zh: Polaris 更新
-updatingNpmPackage:
-  en: Updating npm package
-  zh: 正在更新 npm 包
-npmLaunchFailed:
-  en: 'npm package: failed to launch npm'
-  zh: npm 包：启动 npm 失败
-npmUpdateFailed:
-  en: 'npm package: update failed (exit code'
-  zh: npm 包：更新失败（退出码
-npmNetworkHint:
-  en: Check your network connection or firewall settings and try again.
-  zh: 请检查网络连接或防火墙设置后重试。
-npmPackageUpdated:
-  en: 'npm package: updated to latest'
-  zh: npm 包：已更新到最新版本
 npmPackageFailed:
-  en: 'npm package: update failed, continuing with bundled skills'
-  zh: npm 包：更新失败，继续使用已打包的 skills
+  en: 'npm package: update failed'
+  zh: npm 包：更新失败
 noInstallsFound:
   en: No platforms with Polaris skills installed. Run `Polaris init` first.
   zh: 未检测到已安装 Polaris skills 的平台。请先运行 `Polaris init`。
@@ -188,30 +161,12 @@ copyingSkillsFiles:
 skillsCopiedSkipped:
   en: copied,
   zh: 已复制，
-rulesUpdated:
-  en: rule(s) updated
-  zh: 个规则已更新
-rulesFailed:
-  en: failed
-  zh: 失败
-hooksUpdated:
-  en: phase guard hook updated
-  zh: 阶段守卫钩子已更新
-hooksFailed:
-  en: failed
-  zh: 失败
 summary:
   en: 'Summary:'
   zh: 摘要：
 summaryNpm:
   en: 'npm:'
   zh: npm：
-summarySkills:
-  en: 'skills:'
-  zh: skills：
-summaryCodegraph:
-  en: 'codegraph:'
-  zh: codegraph：
 summaryScope:
   en: 'scope:'
   zh: 范围：
@@ -221,6 +176,33 @@ summaryLanguage:
 updateComplete:
   en: Update complete.
   zh: 更新完成。
-cancelled:
-  en: Cancelled.
-  zh: 已取消。
+updateUpToDate:
+  en: already up to date
+  zh: 已是最新
+updateUpdatedTo:
+  en: updated to
+  zh: 已更新到
+updateSkippedTransient:
+  en: 'skipped — launched by npx; install globally first'
+  zh: 已跳过 —— 当前由 npx 临时拉起，请先全局安装
+updateRegistryUnreachable:
+  en: npm registry unreachable
+  zh: 无法访问 npm registry
+updateRunManually:
+  en: 'run manually:'
+  zh: 请手动执行：
+updatePruned:
+  en: pruned
+  zh: 已清理
+updateStalePaths:
+  en: stale path(s)
+  zh: 个陈旧路径
+updateAssetsSkipped:
+  en: 'skills: skipped — no Polaris install detected'
+  zh: 技能：已跳过 —— 未检测到 Polaris 安装
+updateDepsSkipped:
+  en: 'deps: skipped — no Polaris install detected'
+  zh: 依赖：已跳过 —— 未检测到 Polaris 安装
+updateStatusInstalled:
+  en: installed
+  zh: 已安装

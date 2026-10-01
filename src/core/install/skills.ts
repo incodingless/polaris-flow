@@ -22,6 +22,7 @@ import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { Assets } from '../assets/manifest.js';
 import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 import { parseSkillAssetPath, SKILL_FAMILIES } from '../assets/layout.js';
+import type { CopyStats } from './types.js';
 
 /** 技能资产中的名称分隔符占位符 */
 export const SKILL_NAME_PREFIX_PLACEHOLDER = '{{SKN_SPR}}';
@@ -338,6 +339,7 @@ export async function validateSkillAssetsNoCrossSkillParentRefs(assets: Assets):
 
 /**
  * 拷贝 Polaris skills 与包内公共内容到指定平台。
+ * @returns 拷贝计数与落盘文件清单（清单含未改写的既有文件，供 update 清理陈旧产物）
  */
 export async function copyPolarisSkillsForPlatform(
   polarisSkillsBaseDir: string,
@@ -345,7 +347,7 @@ export async function copyPolarisSkillsForPlatform(
   skillsLayout: SkillsLayout,
   overwrite: boolean,
   assets: Assets,
-): Promise<{ copied: number; skipped: number }> {
+): Promise<CopyStats> {
   // 构建期校验：命中跨技能 ../ 引用或幽灵占位符即阻断安装（防回归）。
   await validateSkillAssetsNoCrossSkillParentRefs(assets);
 
@@ -450,5 +452,10 @@ export async function copyPolarisSkillsForPlatform(
     }
   }
 
-  return runCopyJobs(jobs);
+  const result = await runCopyJobs(jobs);
+  return {
+    copied: result.copied,
+    skipped: result.skipped,
+    files: result.results.map((entry) => entry.job.dest),
+  };
 }

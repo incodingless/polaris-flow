@@ -3,7 +3,8 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 
-import { copyFile, ensureDir, fileExists, readJson } from '../../src/utils/file-system.js';
+import { copyFile, ensureDir, fileExists } from '../../src/utils/file-system.js';
+import { readJson } from '../../src/utils/json-io.js';
 
 describe('file-system', () => {
   it('ensureDir and fileExists work together', async () => {

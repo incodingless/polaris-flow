@@ -160,15 +160,21 @@ export async function selectScope(
   return promptInstallScope(lang);
 }
 
-/** 解析 Skill 语言：CLI lang / --yes → en，否则交互询问 */
+/**
+ * 解析 Skill 语言：CLI lang → 已有 config 的语言 → 交互询问。
+ *
+ * 非交互（`--yes`）时缺省 **zh**：`assets/en/skills/` 目前是空目录（仅 .gitkeep），
+ * 默认 en 会装出 0 个技能；`fallback` 用于复用已有 `.polaris/config.yaml` 的语言。
+ */
 export async function selectLanguage(
   options: InitPromptOptions,
   langHint?: string,
+  fallback?: Languages,
 ): Promise<Languages> {
   if (options.lang === 'zh' || options.lang === 'en') {
     return options.lang;
   }
-  if (options.yes) return 'en';
+  if (options.yes) return fallback ?? 'zh';
   return promptSkillLanguage(langHint);
 }
 

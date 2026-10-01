@@ -44,6 +44,13 @@
 - **`ProjectView`（含 `stale` / `reason`）**: 项目注册表条目叠加运行期判定，每次读时算、不落盘
 - **phase 写入校验**: 新增 `src/core/hooks/phase-validation.ts`。`workflow-entry`（`update-active --set phase=`、`append-active --phase=`）与 `task-state-entry`（`enter-phase` / `complete-phase` 的 `--phase` / `--next-phase`）写入前校验合法性，非法值以退出码 3 中止并打印合法集合；校验发生在**取锁之前**。`--force-phase` 是唯一绕过口，且**不静默** —— 记入 `.polaris/overrides.log`（时间/op/kind/task/skill/写入值/当时合法集合）
 - **`skillForPhase` 与写入白名单**: `src/core/config/task-kind-layout.ts` 的阶段表新增 `skill` 字段（缺省 = 同名；显式 `null` = 无自动衔接，三处例外逐条登记），并导出 `skillForPhase` / `normalizePhase` / `isWritablePhase` / `writablePhaseList`。「阶段 → 技能」自此只有一份真相
+- **`polaris update` 三层可范围更新**: 原命令只重拷 Polaris bundled 资产 —— 程序本体仅打印升级提示、OpenSpec / Superpowers / Codegraph 完全不碰。现拆为可独立选择的 `program`（npm 包）/ `assets`（skills·commands·agents·rules·hooks）/ `deps`（openspec·superpowers·codegraph）三层，CLI 新增 `--only` / `--skip`（组名 `assets` / `deps` / `all` 展开为成员）；单层失败不拖累其它层
+- **程序本体自更新**: 新增 `src/core/deps/self-update.ts`，探测用户实际使用的包管理器（先读 `npm_config_user_agent`，再按本包安装路径特征回退）后执行全局安装 `@polaris/polaris-flow@latest`；`npx` / `bunx` 临时执行场景下全局本无该包，降级为只提示以免留下意外全局包；registry 不可达单独成一档状态。不做「下载 tarball 覆盖 `dist/`」式自替换 —— 重复实现包管理器已有能力，且跨平台与权限成本高
+- **资产源指纹门控**: 新增 `src/core/update/fingerprint.ts`，按平台、按类别对「该类别会写出的源文件内容 + 影响落盘的布局 / config 输入（`skillsLayout`、`commandLayout`、`agentToolMap`、模型槽位、`rulesFormat`、`hookFormat`、`scope`）」求 sha256，写入 `.polaris/skills-lock.json` 的 `assets`；取代原 `manifest.version` 与 `.polaris/installed-version` 的比对 —— 版本号并不代表内容是否变化
+- **托管文件清理 `--prune`**: 新增 `src/core/update/prune.ts`，删除 Polaris 独占命名空间内已不在当前资产清单的陈旧产物（nested 走整棵 `<ctx>/skills/polaris` 与 `<ctx>/commands/polaris`；flat 走 `polaris-*` 条目），并清掉因此变空的目录。agents / rules / hooks 与用户自有内容共用目录，无法在不误删的前提下判定归属，**刻意不参与清理**。安装器改为回传落盘文件清单（`CopyStats.files` 与 `PolarisInstallResult.installedFiles`），清理因此无需重新推导落盘路径
+- **`skills-lock.json` 成为安装状态唯一来源**: `LockFile` 新增 `assets`（各平台各类别指纹）与 `updatedAt`；新增 `readLockFile` / `saveLockFile` / `getSkillsLockPath`，`writeLockFile` 保留供 init 使用并可携带指纹
+- **install 内核支持按类别执行**: `installPolarisForPlatform` 新增 `options.only` / `options.overwriteHooks`（缺省全类别、跟随 `overwrite`，init 行为不变）
+- **Codegraph CLI 可升级**: `ensureCodegraphCli` 新增 `upgrade` 参数、`installCodegraph` 新增 `upgradeCli`；`polaris update` 传 true 时已装 CLI 也重新拉 `@latest`，但已有 `.codegraph` 索引时不重建（重建代价高）
 
 ### Tests
 
@@ -137,9 +144,17 @@
 - **`TaskPhase` 退化为 `string`**: 原定义尾部有 `| string` 使其形同虚设，且它是第二处枚举 —— 5 类 kind 阶段序列各不相同，一个联合表达不了。合法值的唯一真相是阶段表
 - **`get-active-changes` 改为按最近工作时间排序（顺序成为契约）**: 原实现按 `workflow.yaml` 的追加序返回，而各族决策点都写作「A. 续写最新一个 = 列表最后一项」—— 追加序 ≠ 最近工作，会续到错误任务。现按 `.polaris/<segment>/<task_id>/` 下一层文件 mtime 的最大值升序（写 `state.yaml` 或产物文档都算；不扫 `docs/prd` 等共享目录），目录缺失视为最旧，时间戳全相等/全缺失时稳定回落 workflow.yaml 顺序（`git clone` 后 mtime 被统一重写的场景下仍可预期）。排序收在 `src/core/hooks/workflow-entry.ts` 的 `sortByUpdatedAt` / `taskUpdatedMs`
 - **`docs/workflow-hooks-call-order.md` 第 4 节**: 补 `get-active-changes` 的顺序契约与「需要本阶段候选时同时传 `--phase`」说明；修正同段落两处过期枚举（列表数 4 → 5、`--kind` 缺 `debug`）
+- **`polaris update` 的门控与覆盖语义**: 指纹未变的类别整体跳过（原实现按 `manifest.version` 判等，版本号不动就永久跳过）；命中需更新的类别以 `overwrite=true` 重写 —— 原实现非 `--force` 时传 `overwrite=false`，只会新增文件、从不改写既有文件，这是「update 更新不了技能」的直接原因之一
+- **update 的 lang / scope 改为先读 `.polaris/config.yaml`**: 原实现语言默认 `en`，而 `assets/en/skills/` 为空目录（仅 `.gitkeep`），于是 `polaris update` 拷贝 0 个技能仍算成功；现按「显式选项 > config > 默认」解析，语言默认回落 `zh`
+- **hooks 更新走合并而非整文件替换**: update 传 `overwriteHooks: false`，不再把 `hooks.json` 整文件替换成模板，以免丢掉用户在宿主配置里的自有条目
+- **update 执行顺序为「先资产、后程序」**: 程序更新后当前进程跑的仍是旧代码，先做完资产更安全
+- **update 输出改为分层**: 程序层 / 资产层（逐平台列出实际重写的类别与清理计数）/ 依赖层分别成行；`--json` 返回 `plan` / `program` / `assets` / `deps` / `lockPath`
+- **init 非交互语言缺省改为 `zh`**: `selectLanguage` 新增 `fallback` 参数由 `runInit` 传入已有 config 的语言，重装不会改掉既有语言
 
 ### Fixed
 
+- **config 文档目录键**: `layout.docs.testcases` 恢复为 `testcases`，与 `PROJECT_DOCS_SUBDIRS` 和测试用例交付目录 `docs/testcases/` 一致；此前模板写成 `testing`，生成的 config 没有 `testcases` 键
+- **H14 开发类清单**: `hard-stops.md` 与 `flow.md` 对齐为 M01 / M04 / C01–C03 / M03。原型 P01–P02 不进零步，旧清单里的 P01–P03 会把非开发类也套上需求预检
 - **testing 技能族落盘路径**: `SKILL_FAMILIES`（`assets/layout.ts` 与 `install/skills.ts` 各一份）原为 `['coding','prd','test']`，与资产目录 `assets/<lang>/skills/testing/` 不一致——`testing` 不在族名集合内，`parseSkillAssetPath` 会把它判为独立技能，落盘成 `polaris/testing/`（含 `case/`、`acceptance/` 子目录）而非两个叶技能，导致 `polaris-flow` 菜单的 T01/T02 两项路由不到任何技能。现统一为 `['coding','prd','testing']`；族名**不可改回 `test`**，与仓库根 `test/`（单元测试）及保留目录冲突
 - **decision-point 策略引用路径**: `assets/zh/policies/decision-point.md` 原指向 `polaris-flow/policies/ask-question-react-policy.md`（文件名与路径均不存在），修正为 `./policies/ask-question-react.md`；该文件是所有阻塞点的发问路由出口，坏引用会导致发问协议断链
 - **OpenSpec 按平台目录落盘**: `installOpenSpec` 接收 Platform 列表；CLI 仍用 `openspecToolId`，init 后按 `contextDir`/`skillsDir`/`commandsDir` 迁入（如 trae-cn → `.trae-cn/skills`），不再把 toolId 当作平台目录
@@ -152,9 +167,13 @@
 - **codegraph 导入路径**: `integration/codegraph.ts` 改为引用 `../command-error` 与 `../types`，修复构建失败
 - **hooks**: 从 `assets/shared/hooks` 扫描并拷贝脚本；settings 中命令指向 `skills/polaris-flow/hooks/`
 - **rules**: 正确解析 `skills/hard-stops.md` 源路径
+- **`polaris update` 的「假成功」**: 不带 `--lang zh` 时拷贝 0 个技能，却仍写 `.polaris/installed-version = manifest.version`，随后即使补上 `--lang zh` 也会因版本相等直接 return（除非 `--force`）—— 用户以为已更新，实际技能没动。根因是「语言默认 en」叠加「把版本号当内容指纹」，两条一并修掉
+- **`polaris init --yes` 装不出技能**: `selectLanguage` 在非交互下返回 `en`，而 `assets/en/skills/` 尚无内容，`polaris init --yes` 会装出 0 个技能
+- **hooks 陈旧残留**: `mergeHooksMaps` 原先只剔除 incoming 事件里的托管 command，模板中已删除的整个事件组会带着旧 command 永久留在宿主配置里；现改为合并前剔除**所有**事件中的托管 command
 
 ### Tests
 
+- **存量失败清零**: 删掉已不存在的 `command-adapters` 测试；`openspec` 改为从 `integrations/openspec` 导入，并按 trae-cn 项目目录 `.trae` 改写迁入断言（目录不一致时的迁入仍单独覆盖）；`commands-install` 的菜单技能改为 `prd:userstory`，路由编号去掉已不存在的 P03，开发类清单改为 C01–C03
 - **task-state workflow 折叠**: 覆盖默认扁平 `workflow`、旧字符串 `workflow: sdd` 展开为 `workflow.mode`，以及 `workflow.tweak` / `runtime.tweak` 折进父对象后删除嵌套段和 `workflow_state`
 - **commands-install**: 覆盖 claude（nested）与 trae（flat）下命令落盘路径，以及菜单命令中 5 个技能引用 `{{SKN_SPR}}` 分别展开为 `polaris:<family>:<skill>` 与 `polaris-<family>-<skill>`；新增 testing 族叶技能落盘断言（`polaris/testing/case/SKILL.md` 且 `name: polaris:testing:case`）。此前测试断言族名为 `test`，与资产目录 `testing/` 不符，3 项全部失败（命令引用断言不匹配 + 落盘路径 ENOENT），族名统一后转为全通过
 - **agents-install**: 覆盖 `mapAgentTools`（trae 恒等、claude/cursor 映射去重）、安装落盘 tools/model、overwrite 跳过
@@ -170,6 +189,11 @@
 - **hooks-install**: Trae/Claude 六场景（不存在写入、合并保留用户配置、overwrite 替换 hooks）；trae-cn 写入用户目录 `hooks.json`，合并时保留已有事件，command 指向 `.trae/skills/polaris/hooks/`
 - **hook-platform-params**: platform 解析优先级、stdin JSON、`_polaris-cli` 占位替换、hooks command 路径改写、SessionStart session_id
 - **session-start.sh 集成**: 薄包装无 CLI 失败提示；stdin cwd/session_id 全链路落盘；CLI 路径优先于 stdin.cwd
+- **update 范围解析**: 组名展开、成员命中并按安装顺序归位、大小写与空白归一、`--only` 与 `--skip` 互斥、未知项与空范围报错
+- **资产指纹**: 同输入结果稳定、源内容变化只影响对应类别、新增叶技能改变 skills 指纹、`skillsLayout` / `commandLayout` / `agentToolMap` / 模型槽位 / `scope` 各自的影响面、声明但缺失的可选文件以存在位参与哈希、`requirements-engineering` 与 `README.md` 不参与 skills 指纹
+- **托管文件清理**: nested 与 flat 两种布局下的陈旧文件与空目录删除、插件根不被自身删空、`openspec-*` / superpowers 技能 / 用户命令 / 同名目录不被误删、目标目录缺失时不抛错
+- **`runUpdate` 端到端**: lang 与 scope 从 config 回读、`--only skills` 不落命令层文件、指纹未变时整体跳过（防「更新不了技能」回归）、`--force` 忽略指纹、`--prune` 前后对比、未检测到安装时置退出码 1 且不写 lock、`--only` 与 `--skip` 同用报错。指纹门控与 `--force` 用例通过**预置 lock 指纹**免掉真实安装（本机单次安装实测 28~34s）
+- **两处存量测试 bug 修复（与本次改动无关）**: `file-system.test.ts` 从 `utils/file-system.js` 导入 `readJson`，而该函数实际在 `utils/json-io.js`；`agents-install.test.ts` 断言读 `.claude/agents/plan-reviewer.md`，而资产已改名 `plan-review-agent.md`
 
 - **`ship-cleanup` 的静默数据丢失**: `src/core/hooks/delivery-cleanup.ts` 把 `kind` 写死 `coding`，于是对 debug / requirement / testcase / prototype 任务「删游标条目」静默失败（`delete-active` 在 `coding_tasks` 里找不到 → 过滤后列表没变 → 其 `no_tid` 校验**假通过** → exit 0），而函数接着 `rm -rf` 任务档案目录 —— 结果是**退出码 0、档案已蒸发、游标条目还在**。另 testcase 的目录是 `.polaris/testcases/<id>/`，旧实现只删 `tasks` 路径（漏删）。修法三条：`kind` 由调用方给出（CLI 缺省 `coding` 仅为兼容，面板显式传）；新增 `planDeliveryCleanup` 预检（目标不在指定 kind 的列表里就报错，并指出它实际属于哪个 kind）；删条目后**全量回读** `workflow.yaml`，只要该 id 还留在任何 kind 的列表里就中止且**不删档案**（这条不依赖任何单一 kind 的校验正确，只依赖「游标还有引用 → 档案不能删」）。CLI 加 `--kind` / `--dry-run`
 - **`ship-cleanup` 成功路径漏带 `plan`**: 执行后回报的 `will_delete` 为空，面板的「删了什么」成了空话
@@ -193,6 +217,8 @@
 - **Dashboard 旧模型代码**: 删除 `src/dashboard/change-scanner.ts`（按文件存在性反推 phase 的整组逻辑：`getChangePhase` / `computeStepStatuses` / `isArtifactDone` 及 6 个 check 函数）、`src/dashboard/api/changes.ts`、`src/dashboard/markdown.ts`（全仓无引用）；`api/projects.ts` 的 `getAggregateStats`（建立在旧扫描器之上）
 - **Dashboard 已移除端点**: `/api/changes` 与 `/api/changes/:name`、`/api/check-openspec`、`GET /api/workflow/:kind/steps/:stepId/operations`（操作白名单属 M3）
 - **前端死代码**: 删除无引用组件 `MiniProgress.vue` / `PhaseBadge.vue` 与零引用导出（`workflowMeta` / `formatRelativeTime` / `statusTagClass` / `normalizeWorkflowPhases` / `normalizeStepOperations` / `normalizeArtifactPhases`）
+- **`.polaris/installed-version`**: 与 `skills-lock.json` 重复的第二处安装状态，且其门控语义已被资产指纹取代；install 状态统一由 lock 承载
+- **update 相关死 i18n 键**: 删除 `npmLaunchFailed` / `npmUpdateFailed` / `npmNetworkHint` / `npmPackageUpdated` / `updatingNpmPackage` / `rulesUpdated` / `rulesFailed` / `hooksUpdated` / `hooksFailed` / `summarySkills` / `summaryCodegraph` / `allSkipped` / `installingSP` / `spSkippedByUser` / `osSkippedNoCli` / `cancelled`（全仓 grep 仅命中 `messages.yaml` 自身，从未被调用）
 
 ## 0.1.0
 

@@ -11,7 +11,7 @@ import {
   buildOpenSpecInitInvocation,
   getOpenSpecNativeContextDir,
   relocateOpenSpecToPlatformDirs,
-} from '../../src/core/integration/openspec.js';
+} from '../../src/core/integrations/openspec.js';
 import { PLATFORMS } from '../../src/core/domain/platforms.js';
 
 describe('openspec CLI install', () => {
@@ -38,38 +38,27 @@ describe('openspec CLI install', () => {
 });
 
 describe('openspec platform relocate', () => {
-  it('trae-cn：原生 .trae 产物迁入 .trae-cn，并清理中间目录', async () => {
+  it('trae-cn 项目目录与原生 .trae 相同，不迁入、不清理', async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'polaris-openspec-'));
     try {
       const nativeSkills = path.join(tmp, '.trae', 'skills', 'openspec-propose');
-      const nativeCmd = path.join(tmp, '.trae', 'commands');
       await fs.mkdir(nativeSkills, { recursive: true });
       await fs.writeFile(path.join(nativeSkills, 'SKILL.md'), '# propose');
-      await fs.mkdir(nativeCmd, { recursive: true });
-      await fs.writeFile(path.join(nativeCmd, 'opsx-propose.md'), '# cmd');
-      // 非 OpenSpec 内容应保留在中间目录清理范围外（仅删 openspec/opsx）
       await fs.mkdir(path.join(tmp, '.trae', 'skills', 'user-skill'), { recursive: true });
 
       const traeCn = PLATFORMS.find((p) => p.id === 'trae-cn');
       expect(traeCn).toBeDefined();
       expect(getOpenSpecNativeContextDir(traeCn!.openspecToolId)).toBe('.trae');
-      expect(traeCn!.contextDir).toBe('.trae-cn');
+      expect(traeCn!.contextDir).toBe('.trae');
+      expect(traeCn!.globalContextDir).toBe('.trae-cn');
 
       await relocateOpenSpecToPlatformDirs(tmp, [traeCn!], 'project');
 
-      await expect(
-        fs.access(path.join(tmp, '.trae-cn', 'skills', 'openspec-propose', 'SKILL.md')),
-      ).resolves.toBeUndefined();
-      await expect(
-        fs.access(path.join(tmp, '.trae-cn', 'commands', 'opsx-propose.md')),
-      ).resolves.toBeUndefined();
-      // 中间目录的 OpenSpec 产物已清；非 OpenSpec 保留
-      await expect(
-        fs.access(path.join(tmp, '.trae', 'skills', 'openspec-propose')),
-      ).rejects.toThrow();
+      await expect(fs.access(path.join(nativeSkills, 'SKILL.md'))).resolves.toBeUndefined();
       await expect(
         fs.access(path.join(tmp, '.trae', 'skills', 'user-skill')),
       ).resolves.toBeUndefined();
+      await expect(fs.access(path.join(tmp, '.trae-cn'))).rejects.toThrow();
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });
     }
@@ -94,20 +83,32 @@ describe('openspec platform relocate', () => {
     }
   });
 
-  it('同时选 trae 与 trae-cn：复制到 .trae-cn 且保留 .trae', async () => {
+  it('contextDir 与原生目录不同时迁入，并只清理 OpenSpec 产物', async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'polaris-openspec-'));
     try {
-      const skill = path.join(tmp, '.trae', 'skills', 'openspec-propose');
-      await fs.mkdir(skill, { recursive: true });
-      await fs.writeFile(path.join(skill, 'SKILL.md'), '# propose');
+      const nativeSkills = path.join(tmp, '.trae', 'skills', 'openspec-propose');
+      const nativeCmd = path.join(tmp, '.trae', 'commands');
+      await fs.mkdir(nativeSkills, { recursive: true });
+      await fs.writeFile(path.join(nativeSkills, 'SKILL.md'), '# propose');
+      await fs.mkdir(nativeCmd, { recursive: true });
+      await fs.writeFile(path.join(nativeCmd, 'opsx-propose.md'), '# cmd');
+      await fs.mkdir(path.join(tmp, '.trae', 'skills', 'user-skill'), { recursive: true });
 
-      const trae = PLATFORMS.find((p) => p.id === 'trae')!;
       const traeCn = PLATFORMS.find((p) => p.id === 'trae-cn')!;
-      await relocateOpenSpecToPlatformDirs(tmp, [trae, traeCn], 'project');
+      const mismatched = { ...traeCn, contextDir: '.trae-cn' };
+      await relocateOpenSpecToPlatformDirs(tmp, [mismatched], 'project');
 
-      await expect(fs.access(path.join(skill, 'SKILL.md'))).resolves.toBeUndefined();
       await expect(
         fs.access(path.join(tmp, '.trae-cn', 'skills', 'openspec-propose', 'SKILL.md')),
+      ).resolves.toBeUndefined();
+      await expect(
+        fs.access(path.join(tmp, '.trae-cn', 'commands', 'opsx-propose.md')),
+      ).resolves.toBeUndefined();
+      await expect(
+        fs.access(path.join(tmp, '.trae', 'skills', 'openspec-propose')),
+      ).rejects.toThrow();
+      await expect(
+        fs.access(path.join(tmp, '.trae', 'skills', 'user-skill')),
       ).resolves.toBeUndefined();
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });

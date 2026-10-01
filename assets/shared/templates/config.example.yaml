@@ -44,7 +44,7 @@ layout:
     prototype: "prototype"
     architecture: "architecture"
     design: "design"
-    testing: "testing"
+    testcases: "testcases"
     bugfix: "trouble-shooting"
     refactoring: "refactoring"
 
