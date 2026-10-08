@@ -21,7 +21,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 8. ❌ **禁止在未完成上下文收集时加载技能**——必须走完第三步，得到用户明确答复（`无` 也算明确答复）
 9. ❌ 禁止写死询问工具名——工具名一律按下方「发问方式」查表得到
 10. ❌ **禁止对标注「⚠️ 暂不可用」的选项尝试加载技能**——必须停下并明确告知用户缺什么，不得静默跳过、直接开工、或自行换用其他技能替代
-11. ❌ **禁止开发类（M01 / M04 / C01–C03 / M03）在无需求内容时加载技能**——必须先走完零步（前置需求预检），把 `需求内容` 填到非 `待预检` 且非 `无`，才能进入第四步。空需求 / 仅"实现 XX"无细节的需求**禁止**靠 Step 0.4 自动评估蒙混过关（参见零步 0.1 的「必含字段」规则）
+11. ❌ **禁止开发类（M01 / M02 / C01–C03）在无需求内容时加载技能**——必须先走完零步（前置需求预检），把 `需求内容` 填到非 `待预检` 且非 `无`，才能进入第四步。空需求 / 仅"实现 XX"无细节的需求**禁止**靠 Step 0.4 自动评估蒙混过关（参见零步 0.1 的「必含字段」规则）
 </HARD-STOP>
 
 ## 发问方式：按平台查表
@@ -52,15 +52,15 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 执行本命令期间维护四个状态，只有**全部填好**才允许进入第四步（查表并加载技能）：
 
 - `已选类别`：需求 / 原型 / 开发 / 测试 / 维护，五者之一
-- `已选功能`：C01–C03 / M01–M04 / R01–R03 / P01–P02 / T01–T03，其中之一
-- `需求内容`：`待预检` / `无` / 具体清单（文字描述 / 文件路径 / 两者）。**仅开发类（M01 / M04 / C01–C03 / M03 / P01-P02）必须非空**；其他类允许为空
+- `已选功能`：C01–C03 / M01 / M02 / M11 / M12 / R01–R03 / P01–P02 / T01–T03，其中之一
+- `需求内容`：`待预检` / `无` / 具体清单（文字描述 / 文件路径 / 两者）。**仅开发类（M01 / M02 / C01–C03）必须非空**；其他类允许为空
 - `附加上下文`：`待收集` / `无` / 具体清单（文件路径、目录、或文字说明）
 
 每一步结束都回头检查状态：
 - 只要 `已选功能` 为空或 `附加上下文` 仍为 `待收集`，就必须继续询问，不得往下走
 - **仅当 `已选功能` 落在开发类**时，还要校验 `需求内容` 非 `待预检` 且非 `无`——否则按零步（前置需求预检）走强制收集
 
-**快捷路径**：若用户首次输入就已给出具体功能（编号如 `P02`，或名称如 `实现常规功能`），
+**快捷路径**：若用户首次输入就已给出具体功能（编号如 `C02`，或名称如 `实现常规功能`），
 则直接把前两个状态一并填好，跳过第一步与第二步，进入第三步。给出的是类别名时才需要走第二步。
 即使用户已给出功能，第三步仍照常执行——除非用户随命令一并给出了上下文材料，此时可直接填入 `附加上下文`。
 **但**：若用户首次输入里已包含满足「需求三要素」的完整需求描述（定义见零步开头），
@@ -68,7 +68,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 
 ## 零步：前置需求预检（仅开发类强制）
 
-**触发条件**：本命令被调用即启动零步；`已选类别` 或 `已选功能` 落在开发类（C01 / C02 / C03 / M01 / M04 / M03）时**必须走完**，其他类别（需求 / 原型 / 测试 / 维护的非开发项）可直接跳过。P01–P02 虽同为产物生成路径，但其需求输入由《需求类、原型类与测试类选项的前置依赖》逐条把关，且 0.3 / 0.4 的复杂度自动路由对原型无意义，故**不**进零步。
+**触发条件**：本命令被调用即启动零步；`已选类别` 或 `已选功能` 落在开发类（C01 / C02 / C03 / M01 / M02）时**必须走完**，其他类别（需求 / 原型 / 测试 / 维护的非开发项）可直接跳过。P01–P02 虽同为产物生成路径，但其需求输入由《需求类、原型类与测试类选项的前置依赖》逐条把关，且 0.3 / 0.4 的复杂度自动路由对原型无意义，故**不**进零步。
 
 **目的**：开发类路径是产物生成路径（代码 / 修复 / 重构），无需求进入会产出**与意图错位**的产物。预检确保至少有一段**可被评估**的需求文本，复杂时还能让用户委托命令自动判档路由。
 
@@ -295,9 +295,10 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "multiSelect": false,
     "options": [
       { "label": "M01 · 修复Bug（生产）", "description": "线上 / 生产故障修复，三段通道（诊断与方案·含现场保全与止血确认 → 实现与自验·含独立验证 → 关闭Bug），发布 / 灰度 / 回滚由人在环执行" },
-      { "label": "M02 · 评审代码", "description": "对指定范围的代码做系统化审查，识别缺陷（可选 SonarQube 扫描）" },
-      { "label": "M03 · 重构代码", "description": "改善代码结构而不改变外部行为（⚠️ 暂不可用）" },
-      { "label": "M04 · 修复Bug（测试）", "description": "测试环境异常 / 提测后回归失败，三段标准修复（诊断与方案 → 实现与自验 → 关闭Bug）" }
+      { "label": "M02 · 修复Bug（测试）", "description": "测试环境异常 / 提测后回归失败，三段标准修复（诊断与方案 → 实现与自验 → 关闭Bug）" },
+      { "label": "M11 · 评审代码", "description": "对指定范围的代码做系统化审查，识别缺陷（可选 SonarQube 扫描）" },
+      { "label": "M12 · 重构代码", "description": "改善代码结构而不改变外部行为（⚠️ 暂不可用）" }
+    
     ]
   }]
 }
@@ -374,28 +375,28 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 | **C01** 实现简单功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` | 见文末《功能类选项的复杂度判定》 |
 | **C02** 实现常规功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` | 见文末《功能类选项的复杂度判定》 |
 | **C03** 实现复杂功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` | 见文末《功能类选项的复杂度判定》 |
-| **M01** 修复生产Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `hotfix`；diagnose（诊断与方案·含现场保全与止血确认）→ patch（实现与自验·含五维独立验证）→ closeout（关闭Bug + 自有收尾归档）。**通道由 diagnose 的场景分流步判定**，预声明只是用户的第一意图 |
-| **M04** 修复测试Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `bugfix`；diagnose → patch → closeout（同上）。**自有收尾**归档到 `docs/troubleshooting/<issue_id>/`（不使用 openspec，不交 ship） |
-| **M02** 代码评审 | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` | 对指定范围的代码做系统化审查（正确性 / 安全 / 性能 / 可维护性 / 架构），可按用户选择启用 SonarQube 扫描并按门禁规则判定 |
-| **M03** 重构 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}refactor` | ⚠️ 暂不可用 · 该技能尚未提供 |
+| **M01** 修复生产Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `hotfix`；diagnose（诊断与方案·含现场保全与止血确认）→ patch（实现与自验·含五维独立验证）→ closeout（关闭Bug + 自有收尾归档）。**通道由 diagnose 的场景分流步判定**，预声明只是用户的第一意图。独立入口命令：`/polaris{{CMD_SPR}}maintance{{CMD_SPR}}hotfix` |
+| **M02** 修复测试Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `bugfix`；diagnose → patch → closeout（同上）。**自有收尾**归档到 `docs/troubleshooting/<issue_id>/`（不使用 openspec，不交 ship）。独立入口命令：`/polaris{{CMD_SPR}}maintance{{CMD_SPR}}bugfix` |
+| **M11** 代码评审 | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` | 对指定范围的代码做系统化审查（正确性 / 安全 / 性能 / 可维护性 / 架构），可按用户选择启用 SonarQube 扫描并按门禁规则判定。**无独立入口命令**，仅经本表路由 |
+| **M12** 重构 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}refactor` | ⚠️ 暂不可用 · 该技能尚未提供 |
 | **R01** 编写用户需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}userstory` | ⚠️ 暂不可用 · 该技能尚未提供 |
-| **R02** 编写产品需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship |
-| **R03** 需求就绪度评估 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness` | readiness（五维度加权评分 + PASS/CONDITIONAL/FAIL 准出判定；FAIL 阻断交付回 refine） |
-| **P01** 制作原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}blueprint` | prototype **全链**：blueprint → build → ship。 |
-| **P02** 评审已有原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review` | prototype **评审** |
-| **T01** 编写测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship。相位序列四段（discovery/draft/refine/ship）；**review 是服务型技能**——由 `refine` Step 6 以 subagent 派发、游标不落，Critical 清零才放行 ship（同 R02 的 review 形态） |
+| **R02** 编写产品需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship。独立入口命令：`/polaris{{CMD_SPR}}prd` |
+| **R03** 需求就绪度评估 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness` | readiness（五维度加权评分 + PASS/CONDITIONAL/FAIL 准出判定；FAIL 阻断交付回 refine）。独立入口命令：`/polaris{{CMD_SPR}}prd{{CMD_SPR}}readiness` |
+| **P01** 制作原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}blueprint` | prototype **全链**：blueprint → build → ship。独立入口命令：`/polaris{{CMD_SPR}}prototype` |
+| **P02** 评审已有原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review` | prototype **评审**（只评不改、不归档）。独立入口命令：`/polaris{{CMD_SPR}}prototype{{CMD_SPR}}review` |
+| **T01** 编写测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship。相位序列四段（discovery/draft/refine/ship）；**review 是服务型技能**——由 `refine` Step 6 以 subagent 派发、游标不落，Critical 清零才放行 ship（同 R02 的 review 形态）。独立入口命令：`/polaris{{CMD_SPR}}testing{{CMD_SPR}}testcase` |
 | **T02** 编写验收标准 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}acceptance` | acceptance（产出 GWT 验收标准清单，供 T01 作上游输入） |
-| **T03** 评审测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}review` | review（**服务型技能**·独立入口；只出报告、不改任何文件、不推游标、不阻断流程） |
+| **T03** 评审测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}review` | review（**服务型技能**·独立入口；只出报告、不改任何文件、不推游标、不阻断流程）。独立入口命令：`/polaris{{CMD_SPR}}testing{{CMD_SPR}}review-testcase` |
 
 按 `已选功能` 的编号在上表中查到入口技能。选项名称以第二步选项的 `label` 为准；
-用户说「代码评审」「重构」等别名时，按编号等价映射到 **M02 / M03**。
+用户说「代码评审」「重构」等别名时，按编号等价映射到 **M11 / M12**。
 
 用户只说「修 bug」「修复缺陷」而未区分场景时，按以下信号判定后再映射，**不得默认选 M01**：
 
 | 信号 | 映射 |
 |------|------|
 | 生产 / 线上环境、真实用户受影响、来自告警或客服工单 | **M01**（hotfix） |
-| 测试环境、提测后回归失败、用例失败、测试同学提单 | **M04**（bugfix） |
+| 测试环境、提测后回归失败、用例失败、测试同学提单 | **M02**（bugfix） |
 | 信号不足或两者皆有可能 | **停下来询问用户是生产还是测试场景**，不做推测 |
 
 **查到「⚠️ 暂不可用」时**（见 HARD-STOP #10）：明确告知用户该功能不可用，照上表「入口技能」列
@@ -403,7 +404,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 
 加载技能时**必须同时交接** `已选功能` / `附加上下文` / `需求内容` 三个字段，并显式告知技能遵守 3.3 的交接口径（先读取全部材料、异常先回报、上下文优先）。
 `需求内容` 为空时（仅对非开发类）技能直接按其自身流程执行。
-`需求内容` 字段名沿用至 tweak / normal / specify / debug（M01 / M04） / prototype（蓝图 / 建造），被加载技能按以下约定读取：
+`需求内容` 字段名沿用至 tweak / normal / specify / debug（M01 / M02） / prototype（蓝图 / 建造），被加载技能按以下约定读取：
 
 - tweak / normal：作为「轻量澄清 / intention」输入
 - specify：作为 Phase 0 discovery 的 seed
@@ -421,7 +422,7 @@ C01 / C02 / C03 的差别在于**走的阶段数**，选择时按以下标准判
 |:---:|---|---|
 | **C01** 简单 | 单模块、单文件级改动、无跨模块设计、无复杂状态流转、风险低 | 走 `tweak` 单入口技能：一次会话内完成轻量澄清（change-brief）→ tasks → 实施 → 出口检查，跳过 design / tasks 与独立 verify，产物为 `change-brief.md` + `tasks.md`，由 ship 归档前补齐四件套 |
 | **C02** 常规 | 多模块协作、需规格契约与任务拆分、有一定风险 | 走 `normal` 单入口技能：轻量澄清（intention）→ OpenSpec 四件套 → 双向守门 → 终版细计划 → 齐套审查（1 次）→ 实施 → 出口检查；产物为四件套 + intention + tasks，无 detailed-design、无独立 design / tasks 主审 |
-| **C03** 复杂 | 跨系统/跨服务、高风险、需专项设计（数据模型/接口契约/领域模型） | 完整链路：specify → plan → design（可选，plan 完成时询问是否深化）→ tasks → build → verify → ship；含专项设计与强制评审。**链尾是 ship**（交付即结束）——`retro` 归档于阶段序列之外：它对 P01/P02/P03 统一适用，是交付后的**可选只读聚合入口**，由用户显式触发，不占 phase 游标 |
+| **C03** 复杂 | 跨系统/跨服务、高风险、需专项设计（数据模型/接口契约/领域模型） | 完整链路：specify → plan → design（可选，plan 完成时询问是否深化）→ tasks → build → verify → ship；含专项设计与强制评审。**链尾是 ship**（交付即结束）——`retro` 归档于阶段序列之外：它对 C01/C02/C03 统一适用，是交付后的**可选只读聚合入口**，由用户显式触发，不占 phase 游标 |
 
 用户已明确复杂度时直接按其选择；用户描述模糊时，用上表判定后向用户确认一次。
 **或**：走零步 0.4 的自动评估，按结果直接覆盖到 C01 / C02 / C03（详见零步）。
@@ -430,7 +431,7 @@ C01 / C02 / C03 的差别在于**走的阶段数**，选择时按以下标准判
 
 | 选项 | 前置条件 | 缺失时的处理 |
 |---|---|---|
-| **R02** 编写产品需求 | 需已存在《需求基线》 | 提示用户先执行 **R01** 产出需求基线 |
+| **R02** 编写产品需求 | 无硬前置：原始需求（用户想法 / 需求文档 / 口头描述）即可起步 | 无——已有《需求基线》时可从下游阶段续跑 |
 | **R03** 需求就绪度评估 | 需已定稿的 PRD 终稿（`prd-final-v1.0.md`） | **阻断**：提示用户先执行 **R02** 完成终稿定稿。前置两份评审报告（`review` / `testability`）缺失**不阻断**，对应维度按「证据不足」3 分封顶 |
 | **P01** 制作原型 | 需可读的需求输入：需求基线 / 定稿 PRD / 建设方案 / Agent 设计文档（任一并可被 `references/02 §4` 映射为用户 × 场景 × 任务） | 提示用户先执行 **R01 / R02**，或在第三步把方案文档附进 `附加上下文` |
 | **P02** 评审已有原型 | 需待评审的原型文件（`.html`），**必须**出现在 `附加上下文` 里；需求文档与已确认蓝图为可选但强烈建议（蓝图是取证源 **E2**，能把「是否符合已确认设计」判到确定结论） | 提示用户在第三步附上原型文件路径；有黄金流 JSON 一并附上则链路审查更完整（`verify.mjs --flow=`）；无需求文档不阻断，业务维度按评审技能 §三 的「无需求文档取证法」判 |

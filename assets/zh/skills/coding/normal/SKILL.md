@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}normal
-description: "面向常规需求（P02）的单入口开发流程：一次入口内串行完成轻量澄清（intention）→ OpenSpec 四件套生成 → 双向守门 → 终版细计划 → 合并主审 → 实施 → 出口检查，然后交给 ship 收尾。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}normal、经 /flow 选择 P02 实现常规功能、或要求实现多模块协作但无需专项设计的功能时必须使用本 skill。不要用于：单模块 / 单文件级简单改动（走 P01 tweak）、跨服务 / 高风险 / 需数据模型或接口契约专项设计的需求（走 P03 完整链路）、出口检查未通过就强行交付、或在本技能内重写已定稿规格的结论。"
+description: "面向常规功能（normal 档）的单入口开发流程：一次入口内串行完成轻量澄清（intention）→ OpenSpec 四件套生成 → 双向守门 → 终版细计划 → 合并主审 → 实施 → 出口检查，然后交给 ship 收尾。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}normal、或要求实现多模块协作但无需专项设计的功能时必须使用本 skill。不要用于：单模块 / 单文件级简单改动（走 polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak）、跨服务 / 高风险 / 需数据模型或接口契约专项设计的需求（走 polaris{{SKN_SPR}}coding{{SKN_SPR}}specify 起头的完整链路）、出口检查未通过就强行交付、或在本技能内重写已定稿规格的结论。"
 version: 0.1
 ---
 
@@ -31,9 +31,9 @@ version: 0.1
 
 ## 定位与边界
 
-normal 是 P02（常规功能）的执行体。它把完整链路的 `specify → plan → design(可选) → tasks → build → verify` 六段压缩进**一个技能**，但保留 P02 的本质差异：**真实产出 OpenSpec 四件套作为跨模块契约**，并保留**一次独立合并主审**。
+normal 是常规档（normal 档）的执行体。它把完整链路的 `specify → plan → design(可选) → tasks → build → verify` 六段压缩进**一个技能**，但保留本档的本质差异：**真实产出 OpenSpec 四件套作为跨模块契约**，并保留**一次独立合并主审**。
 
-| 维度 | tweak（P01） | normal（P02） | 完整链路（P03） |
+| 维度 | tweak | normal | 完整链路 |
 |------|----------------|----------------------|----------------|
 | 适用 | 单模块 / 单文件级、≤ 3 顶层任务、≤ 1 delta spec | 多模块协作、需规格契约、≤ 8 顶层任务 | 跨服务 / 高风险、需专项设计与复盘 |
 | 阶段数 | 1 个技能内部跑完 4 步 | 1 个技能内部跑完 10 步 | specify → plan → design(可选) → tasks → build → verify → ship（→ retro） |
@@ -46,9 +46,9 @@ normal 是 P02（常规功能）的执行体。它把完整链路的 `specify �
 
 **刻意不做**：worktree 决策询问、TDD 策略询问、执行方式询问、审查模式询问、brainstorming、专项设计预检、design / tasks 独立主审、Outside Voice 询问。这些在常规需求里属于过度流程，且 `decision-point.md` 明确要求「只有一个安全下一步时不得制造确认」。
 
-**刻意保留**（相对 tweak 的加法）：真实四件套（多模块协作需要 specs 作为跨模块契约）、一次独立合并主审（规格错误的多模块返工成本远高于单模块）、双向守门（P02 是三档的中间档，两个方向的错档都要兜住）。
+**刻意保留**（相对 tweak 的加法）：真实四件套（多模块协作需要 specs 作为跨模块契约）、一次独立合并主审（规格错误的多模块返工成本远高于单模块）、双向守门（normal 是三档的中间档，两个方向的错档都要兜住）。
 
-**关键收益**：升 P03 的转交成本为零——四件套已在，`polaris{{SKN_SPR}}coding{{SKN_SPR}}design` 可直接深化 `detailed-design.md`。
+**关键收益**：升到完整链路的转交成本为零——四件套已在，`polaris{{SKN_SPR}}coding{{SKN_SPR}}design` 可直接深化 `detailed-design.md`。
 
 ## 遵守的 Hard Stops
 
@@ -73,7 +73,7 @@ normal 是 P02（常规功能）的执行体。它把完整链路的 `specify �
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
 
 > **链路**：`**normal**（轻量澄清 → 四件套 → 双向守门 → 细计划 → 合并主审 → 实施 → 出口检查）→ ship`。
-> 本技能不归档、不合分支；**不产** `detailed-design.md` / `<slug>-design.md` / `brainstorm-summary.md`（那是 P03 design 阶段的产物）。
+> 本技能不归档、不合分支；**不产** `detailed-design.md` / `<slug>-design.md` / `brainstorm-summary.md`（那是完整链路 design 阶段的产物）。
 
 ---
 
@@ -117,7 +117,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 
 #### 1.2 现场勘察
 
-在提问之前先做一次勘察（比 tweak 深一档，因为 P02 是多模块协作）：
+在提问之前先做一次勘察（比 tweak 深一档，因为 normal 档是多模块协作）：
 
 - 读目标模块 / 相关模块，grep 跨模块调用方与被调用方
 - 确认**模块清单**与**模块间接口边界**（这是四件套 design 的直接输入）
@@ -149,14 +149,14 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```text
 A. 确认 — 按此摘要推进，生成意图文档
 B. 需要修正 — 请直接说明要改哪一项（可自由输入）
-C. 超出常规需求 — 升到复杂链路（P03）
+C. 超出常规需求 — 升到完整链路（specify 起）
 ```
 
 | 用户选择 | 动作 |
 |----------|------|
 | A | 进入 1.5 |
 | B | 修改摘要后**重新发问**；修正轮次 > 2 → 视为需求不稳，记入 Step 5 升档门信号 |
-| C | 按 `./policies/tier-gate.md` §2 升档门执行转交（此刻无任何制品，转交成本为零；无 P03 信号也要尊重用户选择） |
+| C | 按 `./policies/tier-gate.md` §2 升档门执行转交（此刻无任何制品，转交成本为零；无完整链路信号也要尊重用户选择） |
 
 **信息不足时**：若诉求模糊到无法形成上述 7 项，**不得臆测填充**——改为一次聚焦追问（**最多 1 轮**，合并成一条消息；多模块协作的边界澄清值得这一轮，但不允许变成盘问），拿到答复后再发理解确认。
 
@@ -295,7 +295,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" \
 | `## 备选方案` | `design.md` 的 `## Alternatives` | 必须包含 |
 | `## 下游约束` | `design.md` 的模块划分 / 接口 / 数据流 | 必须体现 |
 
-**`design.md` 深度边界**（P02 与 P03 的本质差异）：
+**`design.md` 深度边界**（normal 档与完整链路的本质差异）：
 
 - **包含**：架构决策、模块 / 领域划分、模块间接口契约、数据流、异常与风险策略
 - **禁止**：生成 `detailed-design.md`、生成 `<slug>-design.md` 专项设计、跑 brainstorming、做专项设计预检——发现确实需要时记录信号，交 Step 5 升档门判定
@@ -334,8 +334,8 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" \
 
 `read_file ./policies/tier-gate.md`，按其执行：
 
-1. **降档门**：命中 P01 判定门（单模块、≤ 1 delta spec、≤ 3 顶层任务可覆盖、无接口契约 / 数据实体变更）→ decision-point **A 降到 tweak** / **B 继续 normal 并记录**
-2. **升档门**：命中任一 P03 信号（跨服务、需专项设计、数据迁移、破坏性契约变更、顶层任务 > 8、需求不稳、高危领域）→ decision-point **A 升到 P03** / **B 继续 normal 并记录**
+1. **降档门**：命中 tweak 档判定门（单模块、≤ 1 delta spec、≤ 3 顶层任务可覆盖、无接口契约 / 数据实体变更）→ decision-point **A 降到 tweak** / **B 继续 normal 并记录**
+2. **升档门**：命中任一完整链路信号（跨服务、需专项设计、数据迁移、破坏性契约变更、顶层任务 > 8、需求不稳、高危领域）→ decision-point **A 升到完整链路** / **B 继续 normal 并记录**
 3. **两门均未命中** → 直接进入 Step 6，无需询问
 
 转交动作（选 A 时）按 `tier-gate.md` §1.3 / §2.3 执行，本 skill 结束。
@@ -385,7 +385,7 @@ phase: build
 
 ### Step 7：合并主审（阻塞点）
 
-P02 相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**（复用 `plan-review-agent`，评审对象天然就是四件套 + intention）。不做 design / tasks 独立主审，不询问 Outside Voice。
+normal 档相对 tweak 的核心加法：规格 + 细计划经**一次独立主审**（复用 `plan-review-agent`，评审对象天然就是四件套 + intention）。不做 design / tasks 独立主审，不询问 Outside Voice。
 
 #### 7.1 机械终检
 
@@ -437,7 +437,7 @@ runtime:
     status: completed
     review_report: openspec/changes/<task_id>/reviews/plan-review-report.md  # 或 skipped:<reason>
     review_mode: merged
-    outside_voice: not_run:p02-compressed
+    outside_voice: not_run:normal-compressed
     finished_at: "<ISO>"
 ```
 
@@ -517,7 +517,7 @@ runtime:
     status: completed
     review_report: openspec/changes/<task_id>/reviews/plan-review-report.md
     review_mode: merged
-    outside_voice: not_run:p02-compressed
+    outside_voice: not_run:normal-compressed
     finished_at: "<ISO>"
   build:
     status: completed

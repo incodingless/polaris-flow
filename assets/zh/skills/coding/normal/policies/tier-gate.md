@@ -1,6 +1,6 @@
-# 双向守门 — normal 档位校验（P01 ⇄ P02 ⇄ P03）
+# 双向守门 — normal 档位校验（tweak ⇄ normal ⇄ 完整链路）
 
-> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 5 引用。P02 是三档的中间档，两个方向的错档都要兜住：规格过度（实际是简单需求）浪费流程，规格不足（实际是复杂需求）埋返工雷。
+> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 5 引用。normal 是三档的中间档，两个方向的错档都要兜住：规格过度（实际是简单需求）浪费流程，规格不足（实际是复杂需求）埋返工雷。
 >
 > **信号表不在本文件** —— 降档门 `D1′–D4′` 与升档信号 `D1–D7` 的唯一源是 `./policies/risk-signals.md`（`specify` / `verify` 的分级判定取同一张表的另两片）。本文件只留**通道决策**与**转交动作**，不得再内联信号表副本。
 
@@ -11,7 +11,7 @@
 - 任一门命中 → **必须**按 `./policies/decision-point.md` 暂停，由用户选择，不得代选
 - 用户在 Step 1.4 主动选 C（超出常规）时直接走 §2 升档转交，不需要命中信号
 
-## 1. 降档门（→ P01 tweak）
+## 1. 降档门（→ tweak）
 
 **全部满足**才命中。条件表见 `./policies/risk-signals.md` **§3**（`D1′–D4′`），此处不复制。
 
@@ -20,7 +20,7 @@
 命中后按 `./policies/decision-point.md` 暂停，列出命中条件与依据：
 
 ```text
-本次变更满足全部 P01 判定条件（详见下方），建议降到快速通道（tweak）。
+本次变更满足全部 tweak 档判定条件（详见下方），建议降到快速通道（tweak）。
 
 命中条件：
   · D1′ 单模块：<模块>
@@ -64,7 +64,7 @@ tweak 侧衔接说明（随交接输出）：tweak Step 0 会检测到 existing 
 2. 输出：`[polaris-flow 开发]常规通道 - 用户选择继续 normal：已记录降档信号（<D..' >）`
 3. 继续 normal Step 6。**后续 Step 7 / 9 不得因同一信号再次询问**——已持久化的决策不重复发问
 
-## 2. 升档门（→ P03 design）
+## 2. 升档门（→ 完整链路 design）
 
 **命中任一**即触发。信号表见 `./policies/risk-signals.md` **§4**（`D1–D7`，含「影响轴」列），此处不复制。
 
@@ -73,13 +73,13 @@ tweak 侧衔接说明（随交接输出）：tweak Step 0 会检测到 existing 
 ### 2.2 用户决策点（阻塞点）
 
 ```text
-本次变更命中 <N> 项 P03 信号（详见下方），建议升到复杂链路（P03：design 深度设计 → tasks → build → verify → ship → retro）。
+本次变更命中 <N> 项完整链路信号（详见下方），建议升到完整链路（design 深度设计 → tasks → build → verify → ship）。
 
 命中信号：
   · D2 需专项设计：<列出>
   · D4 破坏性契约变更：<列出>
 
-A. 升到 P03 — 四件套已在，从 polaris{{SKN_SPR}}coding{{SKN_SPR}}design 直接深化（推荐，转交成本为零）
+A. 升到完整链路 — 四件套已在，从 polaris{{SKN_SPR}}coding{{SKN_SPR}}design 直接深化（推荐，转交成本为零）
 B. 继续 normal — 记录风险接受后按常规通道执行
 ```
 

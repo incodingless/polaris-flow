@@ -140,7 +140,7 @@ bug  →  tasks  →  build  →  ship
 
 需要拆分的需求并入 `complex`：由 specify 阶段的 `task-split-precheck` 接手拆分（规模检测 → 候选拆分清单 → 决策点 → 批量模式），入口不 STOP。
 
-复杂度评估仅对开发类强制；`/polaris:coding:tweak` / `/polaris:coding:normal` / `/polaris:coding:sdd` / `/polaris:maintance:hotfix` 直达技能命令不受此预检约束。需求类的 `/polaris:prd:readiness`（需求就绪度评估）同样是直达技能命令。
+复杂度评估仅对开发类强制；`/polaris:coding:tweak` / `/polaris:coding:normal` / `/polaris:coding:sdd` / `/polaris:maintance:hotfix` / `/polaris:maintance:bugfix` 直达技能命令不受此预检约束。需求类的 `/polaris:prd`（编写产品需求）与 `/polaris:prd:readiness`（需求就绪度评估）、原型类的 `/polaris:prototype`（制作原型）与 `/polaris:prototype:review`（评审已有原型）、测试类的 `/polaris:testing:testcase`（设计测试用例）与 `/polaris:testing:review-testcase`（评审测试用例）同样是直达技能命令。
 
 具体见 `assets/zh/commands/flow.md` 零步的「0.4 自动评估」一节。
 

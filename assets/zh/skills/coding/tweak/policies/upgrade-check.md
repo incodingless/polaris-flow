@@ -28,7 +28,7 @@
 命中任一信号时，按 `./policies/decision-point.md` 暂停，必须列出命中的信号编号与依据：
 
 ```text
-本次变更命中 <N> 项升档信号（详见下方），建议升到常规通道（P02：polaris{{SKN_SPR}}coding{{SKN_SPR}}normal 单入口，含四件套 + 合并主审）。
+本次变更命中 <N> 项升档信号（详见下方），建议升到常规通道（polaris{{SKN_SPR}}coding{{SKN_SPR}}normal 单入口，含四件套 + 合并主审）。
 
 命中信号：
   · U1 跨模块：<列出模块>

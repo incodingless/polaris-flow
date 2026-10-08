@@ -60,7 +60,7 @@
 - `openspec/changes/<change_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
 - `state.yaml` 中 `workflow.mode == "tweak"`
 
-未触发时（例如本次本就是 P02/P03 完整链路）跳过整节。
+未触发时（例如本次本就是 normal / 完整链路）跳过整节。
 
 ### 3.2 生成规则
 

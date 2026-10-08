@@ -380,7 +380,7 @@ runtime:
 
 #### 5.1 深化设计决策点（阻塞）
 
-plan 完成后，深度设计（design）是**可选**衔接阶段：只有 full（P03 完整链路）在此决策；tweak / normal 不经过本 skill，天然无此决策。
+plan 完成后，深度设计（design）是**可选**衔接阶段：只有完整链路（full，specify 起）在此决策；tweak / normal 不经过本 skill，天然无此决策。
 
 按 `./policies/decision-point.md` 暂停，询问是否进入深度设计深化：
 

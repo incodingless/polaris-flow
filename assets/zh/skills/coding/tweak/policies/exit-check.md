@@ -177,7 +177,7 @@ else:  # team
 报告首行须标注来源：
 
 ```markdown
-> 本报告由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` 出口检查生成（P01 快速通道，verify_mode=light）。
+> 本报告由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` 出口检查生成（tweak 快速通道，verify_mode=light）。
 ```
 
 ---

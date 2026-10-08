@@ -12,7 +12,7 @@ description: "verify 通过后做终验、分支收尾、worktree 产物合回�
 - **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 3.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
 - **禁止**未按 `./policies/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
 - **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 6.1
-- **P01 快速通道**：`workflow.mode=tweak` 时**必须**执行 Step 4.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
+- **tweak 快速通道**：`workflow.mode=tweak` 时**必须**执行 Step 4.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
 - **禁止**本阶段编写业务实现代码；终验失败 → 回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（必要时再回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`）
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]交付 - 进入Step <N>: <动作>`
 </HARD-GATE>
@@ -35,13 +35,13 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 | sync 脚本 | `$PLUGIN_ROOT/scripts/harness-sync.sh` |
 | sync policy | `policies/polaris-sync.md` |
 | lock policy | `policies/ship-lock.md` |
-| P01 产物补齐策略 | `./policies/artifact-backfill.md`（仅快速通道触发） |
+| tweak 产物补齐策略 | `./policies/artifact-backfill.md`（仅快速通道触发） |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 hooks） |
 
-> **链路**：`specify → plan → (design 可选) → tasks → build → verify → **ship**`（P01 快速通道为 `tweak → **ship**`）。
+> **链路**：`specify → plan → (design 可选) → tasks → build → verify → **ship**`（tweak 快速通道为 `tweak → **ship**`）。
 > 本阶段交付与归档；不再做 Constitution / scorer（那是 verify / tweak 出口检查）。
 >
-> **P01 差异**：tweak 只产出 `change-brief.md` + `tasks.md`，没有 proposal / design / specs。归档前必须由本阶段按 `./policies/artifact-backfill.md` 补齐四件套（Step 4.5），否则 `openspec-cn archive` 会失败。
+> **tweak 档差异**：tweak 只产出 `change-brief.md` + `tasks.md`，没有 proposal / design / specs。归档前必须由本阶段按 `./policies/artifact-backfill.md` 补齐四件套（Step 4.5），否则 `openspec-cn archive` 会失败。
 
 ## 输入与入口校验
 
@@ -192,7 +192,7 @@ phase: idle
 
 > Step 4 在 archive **之前**写入 `runtime.ship.status=delivered`，确保 archive 跳过/失败时分支与合回结果不丢失。
 
-### Step 4.5：P01 产物补齐（条件执行）
+### Step 4.5：tweak 产物补齐（条件执行）
 
 **触发条件**（满足任一即执行，否则整步跳过）：
 
@@ -260,7 +260,7 @@ openspec-cn archive "$task_id" --yes
   worktree      : <已合回并清理 / 已保留 / 未创建>
   产物合回      : <已合回主仓 .polaris/archive/<task_id>/ | 未合回（worktree 保留）| 部分失败：<失败项> | n/a>
   verify 总分   : <X>（来自 state.yaml 的 `runtime.verify.overall_score`）
-  产物补齐      : <已补齐四件套（源：change-brief.md）| 无需补齐 | 补齐失败：<reason>>   # 仅 P01 显示
+  产物补齐      : <已补齐四件套（源：change-brief.md）| 无需补齐 | 补齐失败：<reason>>   # 仅 tweak 通道显示
   archive       : <已归档于 <archive_path> | 已延迟（B）| 已跳过（C）| 未归档（失败：<archive_error>）>
 
 后续：

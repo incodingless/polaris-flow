@@ -115,6 +115,15 @@ skill 优化时先写中文版本（`assets/zh/skills/`），用户确认后再�
 
 不能够直接修改Superpowers和OpenSpec的原始Skill
 
+## 编号边界（命令 vs 技能）
+
+flow 菜单编号（C/M/R/P/T 前缀码，如 C01、M11、P02）是**命令层**的 UI 概念，只允许出现在 `assets/*/commands/` 中。技能（`assets/*/skills/`）**禁止**引用菜单编号：
+
+- 技能间指路 → 用技能名（`polaris{{SKN_SPR}}<族>{{SKN_SPR}}<技能>`）
+- 开发档位概念 → 用模式名（`tweak` / `normal` / 完整链路），与 `workflow.mode` 词汇一致
+
+豁免：`prototype/blueprint` 的 Page ID 前缀（`<前缀>-P01`）是原型页面编号体系，与菜单编号无关。
+
 ## 中文术语翻译规范
 
 中文文档不得把英文 “gate” 直译为“门”（如“压缩门”“调试门”“确认门”），这种译法在中文语境下不自然。应按实际含义翻译：

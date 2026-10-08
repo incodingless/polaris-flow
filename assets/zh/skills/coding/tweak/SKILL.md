@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak
-description: "面向简单需求的单入口开发流程：一次会话内串行完成轻量澄清（change-brief）→ 生成 tasks.md → 实施 → 出口检查，然后交给 ship 收尾。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak、经 /flow 选择 P01 实现简单功能、或要求快速实现一个单模块 / 单文件级改动时必须使用本 skill。不要用于：需跨模块设计或多 delta spec 的需求（走 P02 polaris{{SKN_SPR}}coding{{SKN_SPR}}normal）、出口检查未通过就强行交付、或在本技能内重写 proposal / 高层 design 的范围结论。"
+description: "面向简单需求的单入口开发流程：一次会话内串行完成轻量澄清（change-brief）→ 生成 tasks.md → 实施 → 出口检查，然后交给 ship 收尾。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak、或要求快速实现一个单模块 / 单文件级改动时必须使用本 skill。不要用于：需跨模块设计或多 delta spec 的需求（走 polaris{{SKN_SPR}}coding{{SKN_SPR}}normal）、出口检查未通过就强行交付、或在本技能内重写 proposal / 高层 design 的范围结论。"
 version: 0.1
 ---
 
@@ -28,9 +28,9 @@ version: 0.1
 
 ## 定位与边界
 
-tweak 是 P01（简单功能）的执行体。它把完整链路的 `specify → plan → build → verify` 四段压缩进**一次会话、一份简报**，去掉独立 design / tasks 与阶段主审。
+tweak 是简单档（tweak 档）的执行体。它把完整链路的 `specify → plan → build → verify` 四段压缩进**一次会话、一份简报**，去掉独立 design / tasks 与阶段主审。
 
-| 维度 | tweak（P01） | 完整链路（P02 / P03） |
+| 维度 | tweak | 完整链路（normal / complex） |
 |------|----------------|----------------------|
 | 适用 | 单模块 / 单文件级、≤ 3 个顶层任务、≤ 1 个 delta spec、无跨模块设计 | 多模块协作、需详细设计与任务拆分 |
 | 阶段数 | 1 个技能内部跑完 4 步 | specify → plan → design(可选) → tasks → build → verify → ship |
@@ -138,7 +138,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```text
 A. 确认 — 按此摘要推进，生成变更简报
 B. 需要修正 — 请直接说明要改哪一项（可自由输入）
-C. 超出简单需求 — 升到常规通道（P02 normal）
+C. 超出简单需求 — 升到常规通道（normal）
 ```
 
 | 用户选择 | 动作 |
@@ -239,7 +239,7 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 
 `read_file ./policies/upgrade-check.md`，按其中的信号表对简报做一次判定。这是 tweak 唯一的「规模守门」，位置刻意放在 **brief 定稿之后、tasks 生成之前**——此前转交成本为零。
 
-- **命中任一信号** → 按 `./policies/decision-point.md` 暂停：**A 升到 P02** / **B 继续 tweak 并记录风险**
+- **命中任一信号** → 按 `./policies/decision-point.md` 暂停：**A 升到 normal** / **B 继续 tweak 并记录风险**
   - A → 按 `upgrade-check.md` 的转交动作执行，本 skill 结束
   - B → 把命中信号写入 `state.yaml: workflow.signals[]`，在简报「前提与风险」节追加风险接受记录，进入 Step 4
 - **未命中** → 直接进入 Step 4

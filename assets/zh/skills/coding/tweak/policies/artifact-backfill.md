@@ -2,7 +2,7 @@
 
 > `change-brief.md` 的节结构是刻意按四件套的关系设计的，因此两条下游路径都只做**格式转换**，不补内容：
 >
-> - **§2 升档路径**：brief → `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal`（P02 常规通道，由 `upgrade-check.md` §3.1 调用）
+> - **§2 升档路径**：brief → `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal`（normal 常规通道，由 `upgrade-check.md` §3.1 调用）
 > - **§3 归档路径**：brief → 四件套，供 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 归档前调用
 >
 > **硬规则**：brief 每一节必须自洽完整。下游禁止新增简报里没有的需求、模块或验收标准。
@@ -60,7 +60,7 @@
 - `openspec/changes/<change_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
 - `state.yaml` 中 `workflow.mode == "tweak"`
 
-未触发时（例如本次本就是 P02/P03 完整链路）跳过整节。
+未触发时（例如本次本就是 normal / 完整链路）跳过整节。
 
 ### 3.2 生成规则
 
