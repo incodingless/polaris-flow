@@ -4,7 +4,8 @@
 
 ### Added
 
-- **测试用例设计入口命令 `polaris:testcase`**: 新增 `assets/zh/commands/testcase.md`（→ `/polaris:testcase`，与 `flow.md` 平级），交出到 `testing:discovery`，用于启动测试用例设计工作流（澄清测试意图 → 编写用例集 → 完善与独立评审 → 准出交付）。前置为定稿 PRD 且含验收标准，缺失时提示先走 R02 / T02
+- **测试用例设计命令**: 新增 `assets/zh/commands/testing/create-testcase.md`（→ `/polaris:testing:create-testcase`，testing 分类子目录），交出到 `testing:discovery`，用于启动测试用例设计工作流（澄清测试意图 → 编写用例集 → 完善与独立评审 → 准出交付）。前置为定稿 PRD 且含验收标准，缺失时提示先走 R02 / T02
+- **验收标准编写命令**: 新增 `assets/zh/commands/testing/acceptance.md`（→ `/polaris:testing:acceptance`），交出到 `testing:acceptance`（同 flow 菜单 T02），用于把需求条目转换为 GWT 可判定验收标准（需求条目拆解 → 按场景编写 → 可验证性自检 → 输出清单）。前置为需求条目 / 功能点清单（PRD / 需求基线路径或口述功能点），缺失时阻断并提示先走 R02；flow.md T02 路由行、使用指南场景表与详情节、README-zh 同步该入口
 - **需求族族级命令 `polaris:prd`**: `assets/zh/commands/prd/discovery.md` **迁移**为 `assets/zh/commands/prd.md`（→ `/polaris:prd`），交出到 `prd:discovery`。原分类子目录文件不再落盘，`prd/` 下只保留 `readiness.md`——与 prototype 族的「族级命令 + 同族子命令」结构对称。命令正文补注同族另一入口 `/polaris:prd:readiness`，并说明 R01 编写用户需求（`prd:userstory`）技能尚未提供、需要时可直接从原始描述起步
 - **原型族独立入口命令**: 新增 `assets/zh/commands/prototype.md`（→ `/polaris:prototype`）与 `assets/zh/commands/prototype/review.md`（→ `/polaris:prototype:review`），分别交出到 `prototype:blueprint` 与 `prototype:review`。此前原型族 4 个技能只有 2 个命令入口、且都藏在 `/polaris:flow` 菜单后，用户想「改几个页面」或「单独把关一次」没有直达路径。`build` 刻意不给独立入口（返工诉求由链内流转承接）；`review` 命令标注必需输入（原型 `.html`，缺失阻断）与降级输入（需求文档 E1 / 已确认蓝图 E2，缺失不阻断但结论降级），**不写「基于需求」**，以免误导出「无需求文档即不可用」的结论
 - **CLI 双入口分流**: `polaris` 仅暴露用户生命周期命令（init / status / dashboard / doctor / update / uninstall）；hooks/scripts 所用命令（workflow-entry、task-state-entry、worktree-* 等）仅挂在 `polaris-flow`；`uninstall` 仍为入口占位（尚未实现）
@@ -55,7 +56,7 @@
 - **install 内核支持按类别执行**: `installPolarisForPlatform` 新增 `options.only` / `options.overwriteHooks`（缺省全类别、跟随 `overwrite`，init 行为不变）
 - **Codegraph CLI 可升级**: `ensureCodegraphCli` 新增 `upgrade` 参数、`installCodegraph` 新增 `upgradeCli`；`polaris update` 传 true 时已装 CLI 也重新拉 `@latest`，但已有 `.codegraph` 索引时不重建（重建代价高）
 - **维护组编号统一为 M01 / M02 / M11 / M12**: `flow.md` 中 7 处旧编号 M03 / M04 残留全部更正（HARD-STOP #11、执行状态枚举、零步触发条件、测试场景映射、别名映射 M11/M12 等）；`policies/hard-stops.md` H14 规则与自检话术同步；`docs/command-usage-guide.md` 场景表与 FAQ 的 M02/M03 旧编号更正——测试缺陷修复入口现编号为 M02，代码评审为 M11、重构为 M12
-- **testcase 命令随 testing/ 目录迁移更名**: `assets/zh/commands/testing/testcase.md` 的实际安装命令为 `/polaris:testing:testcase`（命令名由文件路径决定），frontmatter `name`/`trigger` 更正为 `testcase`（原 create-testcase 为幽灵命令），`flow.md` T01 行、README-zh、usage-guide 与安装测试同步更正
+- **testcase 命令定名 `create-testcase`**: `assets/zh/commands/testing/create-testcase.md` 的实际安装命令为 `/polaris:testing:create-testcase`（命令名由文件路径决定），frontmatter `name`/`trigger` 与文件名对齐为 `create-testcase`，`flow.md` T01 行、README-zh、usage-guide 与安装测试同步更正
 - **flow.md 内部矛盾修复**: 快捷路径示例「编号如 P02」更正为 C02（P02 在本文件菜单中是评审原型）；retro 适用范围「P01/P02/P03」更正为 C01/C02/C03；零步范围自相矛盾消除——P01–P02（原型）从「需求内容必须非空」清单移除，与「P01–P02 不进零步」对齐；R02 前置更正为「无硬前置：原始需求即可起步」（与 prd.md 命令及 prd/discovery 技能口径一致，原「需先执行 R01」在 R01 不可用时构成永久阻断）；sdd 命令链尾口径对齐 flow.md（retro 移出阶段链，注明可选不占游标）；tweak / normal / sdd 命令描述去除 brainstorming 等遗留词并改用菜单 C 编号
 - **技能侧清除菜单编号引用**: 落实「菜单编号只存在于命令层」的编号边界约定（已写入 AGENTS.md）——coding 族 4 个 SKILL.md（normal / tweak / ship / plan）、8 个 policies / templates、`skills/README.md` 共约 56 处 P01/P02/P03 全部改为模式名（tweak / normal / 完整链路）或技能名，消除技能对菜单重编号的耦合（M 组重编号曾泄漏污染 13 个技能文件）；状态值 `outside_voice: not_run:p02-compressed` 更名为 `not_run:normal-compressed`（无代码消费方）；`ship` 内部流程概念「P01 快速通道」更名为「tweak 快速通道」（与 `workflow.mode=tweak` 对齐）；豁免 `prototype/blueprint` 的 Page ID 前缀（`<前缀>-P01`，原型页面编号体系，与菜单编号无关）
 
@@ -69,8 +70,8 @@
 - **workflow-entry 排序**: `get-active-changes` 按任务目录下一层文件 mtime 升序（最近工作的在最后一项）；覆盖产物 mtime、`--phase` 先过滤再排序、缺 `state.yaml` 回落其它文件 / 全无文件排最前、mtime 全相等回落 YAML 顺序、testcase 族读 `.polaris/testcases/`
 - **原型族命令落盘**: claude nested 断言 `polaris/prototype.md`（族级命令）与 `polaris/prototype/review.md` 同级共存、技能名展开为冒号；cursor flat 断言扁平化为 `polaris-prototype.md` / `polaris-prototype-review.md`；`resolveCommandDest` 补族级命令与同族子目录命令并存的用例（全仓首例，防止前者被后者吞并）
 - **需求族命令迁移**: claude nested 断言 `polaris/prd.md` 交出到 `polaris:prd:discovery` 且**旧路径 `prd/discovery.md` 不再落盘**；cursor flat 断言落盘 `polaris-prd.md` 且 `polaris-prd-discovery.md` 不存在；`resolveCommandDest` 补 `prd.md` / `prd/readiness.md` 用例
-- **测试用例设计命令落盘**: claude nested 断言 `polaris/testcase.md` 交出到 `polaris:testing:discovery`；cursor flat 断言扁平化为 `polaris-testcase.md`；`resolveCommandDest` 补 `testcase.md` 用例
-- **命令一致性修复同步**: 路由表编号断言改为 M01 / M02 / M11；testcase 落盘路径改为 `polaris/testing/testcase.md` / `polaris-testing-testcase.md`；H14 与 flow.md 开发类清单一致性断言改为「M01 / M02 / C01–C03」
+- **测试用例设计命令落盘**: claude nested 断言 `polaris/testing/create-testcase.md` 交出到 `polaris:testing:discovery`；cursor flat 断言扁平化为 `polaris-testing-create-testcase.md`；`resolveCommandDest` 补 `create-testcase.md` 用例
+- **命令一致性修复同步**: 路由表编号断言改为 M01 / M02 / M11；testcase 落盘路径改为 `polaris/testing/create-testcase.md` / `polaris-testing-create-testcase.md`；H14 与 flow.md 开发类清单一致性断言改为「M01 / M02 / C01–C03」
 
 ### Changed
 

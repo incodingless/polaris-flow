@@ -118,13 +118,20 @@ describe('installPolarisForPlatform commands', () => {
         await readFile(path.join(tmpDir, '.claude/commands/polaris/prototype/review.md'), 'utf-8'),
       ).toContain('polaris:prototype:review');
 
-      // 测试用例设计：testing 族命令 testcase.md 交出到 testing 族入口技能（命令名取工作流名 testcase）
+      // 测试用例设计：testing 族命令 create-testcase.md 交出到 testing 族入口技能
       const testcaseEntry = await readFile(
-        path.join(tmpDir, '.claude/commands/polaris/testing/testcase.md'),
+        path.join(tmpDir, '.claude/commands/polaris/testing/create-testcase.md'),
         'utf-8',
       );
       expect(testcaseEntry).toContain('polaris:testing:discovery');
-      expect(testcaseEntry).toContain('/polaris:testing:testcase');
+      expect(testcaseEntry).toContain('/polaris:testing:create-testcase');
+
+      // 验收标准编写：testing 族命令 acceptance.md 交出到 acceptance 技能（同 flow 菜单 T02）
+      const acceptanceEntry = await readFile(
+        path.join(tmpDir, '.claude/commands/polaris/testing/acceptance.md'),
+        'utf-8',
+      );
+      expect(acceptanceEntry).toContain('polaris:testing:acceptance');
     },
   );
 
@@ -180,10 +187,20 @@ describe('installPolarisForPlatform commands', () => {
       expect(
         await readFile(path.join(tmpDir, '.cursor/commands/polaris-maintance-bugfix.md'), 'utf-8'),
       ).toContain('/polaris-maintance-bugfix');
-      // testing 族命令 testcase.md 扁平化为 polaris-testing-testcase.md
+      // testing 族命令 create-testcase.md 扁平化为 polaris-testing-create-testcase.md
       expect(
-        await readFile(path.join(tmpDir, '.cursor/commands/polaris-testing-testcase.md'), 'utf-8'),
-      ).toContain('/polaris-testing-testcase');
+        await readFile(
+          path.join(tmpDir, '.cursor/commands/polaris-testing-create-testcase.md'),
+          'utf-8',
+        ),
+      ).toContain('/polaris-testing-create-testcase');
+      // acceptance.md 同样扁平化，testing 族三个命令（create-testcase / acceptance / review-testcase）互不覆盖
+      expect(
+        await readFile(
+          path.join(tmpDir, '.cursor/commands/polaris-testing-acceptance.md'),
+          'utf-8',
+        ),
+      ).toContain('/polaris-testing-acceptance');
       // 族级命令 prototype.md 扁平化为 polaris-prototype.md，与子目录命令互不覆盖
       expect(
         await readFile(path.join(tmpDir, '.cursor/commands/polaris-prototype.md'), 'utf-8'),
@@ -215,7 +232,12 @@ describe('resolveCommandDest', () => {
     expect(resolveCommandDest('prototype/review.md', 'flat')).toBe('polaris-prototype-review.md');
     expect(resolveCommandDest('prd.md', 'flat')).toBe('polaris-prd.md');
     expect(resolveCommandDest('prd/readiness.md', 'flat')).toBe('polaris-prd-readiness.md');
-    expect(resolveCommandDest('testing/testcase.md', 'flat')).toBe('polaris-testing-testcase.md');
+    expect(resolveCommandDest('testing/create-testcase.md', 'flat')).toBe(
+      'polaris-testing-create-testcase.md',
+    );
+    expect(resolveCommandDest('testing/acceptance.md', 'flat')).toBe(
+      'polaris-testing-acceptance.md',
+    );
   });
 });
 

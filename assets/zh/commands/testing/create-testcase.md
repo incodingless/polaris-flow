@@ -1,7 +1,7 @@
 ---
-name: testcase
+name: create-testcase
 command_prefix: polaris
-triggers: ["/polaris{{CMD_SPR}}testing{{CMD_SPR}}testcase"]
+triggers: ["/polaris{{CMD_SPR}}testing{{CMD_SPR}}create-testcase"]
 description: 测试用例设计工作流（基于定稿 PRD：澄清测试意图 → 编写用例集 → 完善与独立评审 → 准出交付）
 ---
 

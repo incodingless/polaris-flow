@@ -4,6 +4,10 @@
 
 - **命令落盘**：`assets/{zh,en}/commands/*.md` → `<contextDir>/commands/polaris/<file>.md`
   （带 `polaris/` 子目录）。文件名即命令名，`polaris-flow.md` → `/polaris-flow`。
+- **⚠️ 测试用例命令已定名 `create-testcase`（用户裁定，保留不改）**：
+  `assets/zh/commands/testing/create-testcase.md` → `/polaris:testing:create-testcase`（flat:
+  `polaris-testing-create-testcase`）。曾一度收口为 `testcase` 又反转，勿再改回；
+  同族命令 `acceptance.md` / `review-testcase.md` 同样遵循「文件名=命令名」。
 - **`{{SKN_SPR}}` 占位符**：技能与命令共用，安装时按 `skillsLayout` 展开 —— nested（claude / cursor）→ `:`，
   flat（trae / trae-cn）→ `-`。命令正文引用技能**必须**用占位符，写死必然在另一布局失效。
 - **`init` 默认语言是 `en`**，而 `assets/en/skills/` 实际为空（仅 `.gitkeep`）。

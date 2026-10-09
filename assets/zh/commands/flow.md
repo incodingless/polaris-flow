@@ -384,8 +384,8 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 | **R03** 需求就绪度评估 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness` | readiness（五维度加权评分 + PASS/CONDITIONAL/FAIL 准出判定；FAIL 阻断交付回 refine）。独立入口命令：`/polaris{{CMD_SPR}}prd{{CMD_SPR}}readiness` |
 | **P01** 制作原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}blueprint` | prototype **全链**：blueprint → build → ship。独立入口命令：`/polaris{{CMD_SPR}}prototype` |
 | **P02** 评审已有原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review` | prototype **评审**（只评不改、不归档）。独立入口命令：`/polaris{{CMD_SPR}}prototype{{CMD_SPR}}review` |
-| **T01** 编写测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship。相位序列四段（discovery/draft/refine/ship）；**review 是服务型技能**——由 `refine` Step 6 以 subagent 派发、游标不落，Critical 清零才放行 ship（同 R02 的 review 形态）。独立入口命令：`/polaris{{CMD_SPR}}testing{{CMD_SPR}}testcase` |
-| **T02** 编写验收标准 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}acceptance` | acceptance（产出 GWT 验收标准清单，供 T01 作上游输入） |
+| **T01** 编写测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship。相位序列四段（discovery/draft/refine/ship）；**review 是服务型技能**——由 `refine` Step 6 以 subagent 派发、游标不落，Critical 清零才放行 ship（同 R02 的 review 形态）。独立入口命令：`/polaris{{CMD_SPR}}testing{{CMD_SPR}}create-testcase` |
+| **T02** 编写验收标准 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}acceptance` | acceptance（产出 GWT 验收标准清单，供 T01 作上游输入）。独立入口命令：`/polaris{{CMD_SPR}}testing{{CMD_SPR}}acceptance` |
 | **T03** 评审测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}review` | review（**服务型技能**·独立入口；只出报告、不改任何文件、不推游标、不阻断流程）。独立入口命令：`/polaris{{CMD_SPR}}testing{{CMD_SPR}}review-testcase` |
 
 按 `已选功能` 的编号在上表中查到入口技能。选项名称以第二步选项的 `label` 为准；

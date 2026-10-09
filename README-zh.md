@@ -4,13 +4,13 @@ Polaris Flow 是面向 AI 编码环境的一站式工作流平台，覆盖**安�
 
 ## 核心能力
 
-| 能力 | 说明 | 主要目录 |
-| --- | --- | --- |
-| **安装** | 在用户项目及支持的 AI 平台中初始化工作流工具链 | `src/commands/init.ts`、`src/core/` |
-| **工作流配置** | 内置并配置 OpenSpec schema（backend / frontend / test 等） | `assets/`、`src/core/` |
-| **Skills** | 打包并向目标平台分发工作流 Skill（中英文） | `assets/skills/`、`assets/skills-zh/`、`assets/manifest.json` |
-| **Dashboard** | 本地工作台：单进程在同一端口同时提供 API 与 Web UI | `dashboard/`（前端）、`src/dashboard/`（API） |
-| **生命周期** | status、doctor、update、uninstall 等运维命令 | `src/commands/` |
+| 能力           | 说明                                                       | 主要目录                                                      |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------------------- |
+| **安装**       | 在用户项目及支持的 AI 平台中初始化工作流工具链             | `src/commands/init.ts`、`src/core/`                           |
+| **工作流配置** | 内置并配置 OpenSpec schema（backend / frontend / test 等） | `assets/`、`src/core/`                                        |
+| **Skills**     | 打包并向目标平台分发工作流 Skill（中英文）                 | `assets/skills/`、`assets/skills-zh/`、`assets/manifest.json` |
+| **Dashboard**  | 本地工作台：单进程在同一端口同时提供 API 与 Web UI         | `dashboard/`（前端）、`src/dashboard/`（API）                 |
+| **生命周期**   | status、doctor、update、uninstall 等运维命令               | `src/commands/`                                               |
 
 ## 环境要求
 
@@ -43,21 +43,21 @@ node bin/polaris.js --version
 
 分三层，可单独选择；缺省全量。
 
-| 层 | 成员 | 说明 |
-|---|---|---|
-| `program` | — | CLI 程序本体（npm 包）。探测实际使用的包管理器后全局安装 `@latest`；`npx` 临时执行时降级为只提示 |
-| `assets` | `skills` `commands` `agents` `rules` `hooks` | 按资产源指纹判断是否需要重写；已装平台的落盘内容与资产一致时整体跳过 |
-| `deps` | `openspec` `superpowers` `codegraph` | 复用 init 侧的安装器 |
+| 层        | 成员                                         | 说明                                                                                             |
+| --------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `program` | —                                            | CLI 程序本体（npm 包）。探测实际使用的包管理器后全局安装 `@latest`；`npx` 临时执行时降级为只提示 |
+| `assets`  | `skills` `commands` `agents` `rules` `hooks` | 按资产源指纹判断是否需要重写；已装平台的落盘内容与资产一致时整体跳过                             |
+| `deps`    | `openspec` `superpowers` `codegraph`         | 复用 init 侧的安装器                                                                             |
 
-| 选项 | 描述 |
-|---|---|
-| `--only <items>` | 只更新列出的项（逗号分隔，可用组名）；与 `--skip` 互斥 |
-| `--skip <items>` | 跳过列出的项，其余按全量 |
-| `--force` | 忽略资产源指纹，强制重写所选类别 |
-| `--prune` | 删除 Polaris 独占目录下已不在资产清单中的陈旧产物（当前覆盖 `skills` / `commands`） |
-| `--lang <lang>` | 技能语言：`zh` 或 `en`；缺省读 `.polaris/config.yaml` |
-| `--scope <scope>` | 安装范围：`project` 或 `global`；缺省读 `.polaris/config.yaml` |
-| `--json` | 输出结构化 JSON |
+| 选项              | 描述                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `--only <items>`  | 只更新列出的项（逗号分隔，可用组名）；与 `--skip` 互斥                              |
+| `--skip <items>`  | 跳过列出的项，其余按全量                                                            |
+| `--force`         | 忽略资产源指纹，强制重写所选类别                                                    |
+| `--prune`         | 删除 Polaris 独占目录下已不在资产清单中的陈旧产物（当前覆盖 `skills` / `commands`） |
+| `--lang <lang>`   | 技能语言：`zh` 或 `en`；缺省读 `.polaris/config.yaml`                               |
+| `--scope <scope>` | 安装范围：`project` 或 `global`；缺省读 `.polaris/config.yaml`                      |
+| `--json`          | 输出结构化 JSON                                                                     |
 
 例：`polaris update --only skills,commands`、`polaris update --skip deps`、`polaris update --only assets --prune`
 
@@ -132,20 +132,19 @@ bug  →  tasks  →  build  →  ship
 1. **前置需求预检**：识别开发意图（4 选 1：动作+目标+2 项 / 关键字 ≥ 80 字 / 附加文件含需求要素 / 引用 PRD·OpenSpec 制品目录）；开发类若无要求附带，最多 2 轮强制后仍空 → 强制 `complex` 档（让复杂度评估兜底）。
 2. **可选复杂度评估**：复用 idea-discovery 3 档；按评估结果自动路由：
 
-| 评估档 | 入口技能 | 链路 |
-|---|---|---|
-| `simple` | `polaris:coding:tweak` | brief → tasks → build → ship |
-| `standard` | `polaris:coding:normal` | specify → plan → design → tasks → build → verify → ship |
-| `complex` | `polaris:coding:specify`（`/polaris:coding:sdd` 别名） | specify → plan → design(可选) → tasks → build → verify → ship → retro(可选) |
+| 评估档     | 入口技能                                               | 链路                                                                        |
+| ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `simple`   | `polaris:coding:tweak`                                 | brief → tasks → build → ship                                                |
+| `standard` | `polaris:coding:normal`                                | specify → plan → design → tasks → build → verify → ship                     |
+| `complex`  | `polaris:coding:specify`（`/polaris:coding:sdd` 别名） | specify → plan → design(可选) → tasks → build → verify → ship → retro(可选) |
 
 需要拆分的需求并入 `complex`：由 specify 阶段的 `task-split-precheck` 接手拆分（规模检测 → 候选拆分清单 → 决策点 → 批量模式），入口不 STOP。
 
-复杂度评估仅对开发类强制；`/polaris:coding:tweak` / `/polaris:coding:normal` / `/polaris:coding:sdd` / `/polaris:maintance:hotfix` / `/polaris:maintance:bugfix` 直达技能命令不受此预检约束。需求类的 `/polaris:prd`（编写产品需求）与 `/polaris:prd:readiness`（需求就绪度评估）、原型类的 `/polaris:prototype`（制作原型）与 `/polaris:prototype:review`（评审已有原型）、测试类的 `/polaris:testing:testcase`（设计测试用例）与 `/polaris:testing:review-testcase`（评审测试用例）同样是直达技能命令。
+复杂度评估仅对开发类强制；`/polaris:coding:tweak` / `/polaris:coding:normal` / `/polaris:coding:sdd` / `/polaris:maintance:hotfix` / `/polaris:maintance:bugfix` 直达技能命令不受此预检约束。需求类的 `/polaris:prd`（编写产品需求）与 `/polaris:prd:readiness`（需求就绪度评估）、原型类的 `/polaris:prototype`（制作原型）与 `/polaris:prototype:review`（评审已有原型）、测试类的 `/polaris:testing:create-testcase`（设计测试用例）、`/polaris:testing:acceptance`（编写验收标准）与 `/polaris:testing:review-testcase`（评审测试用例）同样是直达技能命令。
 
 具体见 `assets/zh/commands/flow.md` 零步的「0.4 自动评估」一节。
 
 > **命令名随平台变化**：Claude Code / Trae 用嵌套命名空间（`/polaris:coding:normal`）；**Cursor 侧是扁平名**（`/polaris-coding-normal`）——Cursor CLI 只读命令目录顶层的 `.md`，因此安装时会去掉 `polaris/` 层级、改用 `-` 连接。本文其余章节的 `/polaris:*` 写法均以 Claude Code 为准；Cursor 侧把 `:` 换成 `-` 并去掉 `polaris` 之后的层级即可。详见 `assets/zh/adapters/command-registration.md`。
-
 
 ## 许可证
 
