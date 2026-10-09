@@ -11,7 +11,7 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 - **禁止**在 Step 2（能力结论 / 可选 `subagent-probe`，且仅当 `build_mode=subagent_dispatch`）完成之前调用 `/opsx:apply`
 - **禁止**跳过 Constitution 注入点 C（subagent 启动 prompt 必须含 C；inline 时由主代理按 task 输出 C）
 - **禁止**主代理在 `/opsx:apply` 之外直接编写业务实现代码（补丁、新模块、改 API 等）
-- **禁止**调用 `superpowers:subagent-driven-development` / `superpowers:executing-plans`（H13）
+- **禁止**调用 superpowers 的两个派发驱动器（H13，规则见 `./policies/hard-stops.md`）
 - **禁止**未完成出口校验（Step 5）就写 `runtime.build.status: completed` 或把 `phase` 推到 verify
 - **禁止**本阶段强制 `git commit`（提交策略交 ship；apply 过程产生的未提交改动保留在工作区 / worktree）
 - **禁止**重写 `proposal.md` / 高层 `design.md` / `detailed-design.md` / 覆写整份 `tasks.md` 范围；发现计划缺陷 → pause 回 plan，不在 build 静默改 Scope

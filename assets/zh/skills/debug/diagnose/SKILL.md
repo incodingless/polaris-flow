@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose
-description: "缺陷修复通道的「诊断与方案」阶段（合并了原定性 + 定位 + 方案三步）：把用户口述的缺陷/故障变成可核对的证据并分流场景，确认根因、产出 RCA 报告，再确定修复方案与 tasks.md。支持 Jira 问题单接入（优先 Jira MCP 读取，失败则手动补充；issue_id 直接用 Jira 单号）。测试通道完成四要素校验、稳定复现、根因分析、修复方案；生产通道完成现场保全、时间线/影响面/变更清单三对齐（复现可选）、止血确认、根因分析、含回退路径的修复方案。产物：diagnose-brief.md（过程档案）+ rca-report.md（九节 RCA）+ tasks.md。用户要求：复现某个缺陷、确认某个报错、帮我复现测试环境的异常、定位 bug 根因、分析报错调用链、设计修复方案、评估影响面、线上故障先保全现场、按 Jira 单号处理缺陷，或从 `/polaris…maintance…bugfix` / `…hotfix` 入口进入时使用——本技能是缺陷修复的**唯一入口与起点**，两条通道由本技能的场景分流步判定。不触发：改代码与独立验证（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}patch）、收尾归档（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}closeout）。"
+description: "缺陷修复通道的「诊断与方案」阶段（合并了原定性 + 定位 + 方案三步）：把用户口述的缺陷/故障变成可核对的证据并分流场景，确认根因、产出 RCA 报告，再确定修复方案与 tasks.md。支持 Jira 问题单接入（优先 Jira MCP 读取，失败则手动补充；issue_id 直接用 Jira 单号）。测试通道完成四要素校验、稳定复现、根因分析、修复方案；生产通道完成现场保全、时间线/影响面/变更清单三对齐（复现可选）、止血确认、根因分析、含回退路径的修复方案。产物：diagnose-brief.md（过程档案）+ rca-report.md（九节 RCA）+ tasks.md。用户要求：复现某个缺陷、确认某个报错、帮我复现测试环境的异常、定位 bug 根因、分析报错调用链、设计修复方案、评估影响面、线上故障先保全现场、按 Jira 单号处理缺陷，或从 `/psfl{{CMD_SPR}}maintance{{CMD_SPR}}bugfix` / `/psfl{{CMD_SPR}}maintance{{CMD_SPR}}hotfix` 入口进入时使用——本技能是缺陷修复的**唯一入口与起点**，两条通道由本技能的场景分流步判定。不触发：改代码与独立验证（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}patch）、收尾归档（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}closeout）。"
 ---
 
 # 诊断与方案 · 缺陷修复通道 · diagnose
@@ -23,7 +23,7 @@ description: "缺陷修复通道的「诊断与方案」阶段（合并了原定
 
 ## 进入协议
 
-1. 复用 SessionStart 注入的 `$REPO_ROOT` / `$PLUGIN_ROOT`；缺失按 `./policies/hard-stops.md` H12 阻断。
+1. 复用 SessionStart 注入的 `$REPO_ROOT` / `$PLUGIN_ROOT`；缺失则停止并报告阻塞原因（SessionStart 未注入环境变量），提示用户重启会话以触发 SessionStart。
 
 ## 流程
 
@@ -50,7 +50,7 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 | ------------- | ---- | -------- |
 | 0 且数组非空 | 存在未完结缺陷任务 | 暂停等用户选 A/B/C/D（见下） |
 | 0 且数组为空 | 无活跃缺陷任务 | 进入 Step 2 开启新任务 |
-| 非 0 | 参数/环境错误 | 按 H12 阻断 |
+| 非 0 | 参数/环境错误 | 停止并报告阻塞原因（按 stderr） |
 
 存在活跃任务时，**必须暂停等用户选**（不得默认续写）：
 

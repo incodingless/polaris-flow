@@ -42,7 +42,7 @@ tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
 StandardsRoot: <PLUGIN_ROOT>/tasks
 ```
 
-`StandardsRoot` 为已安装的 tasks 技能根目录（例：`.claude/skills/polaris-flow/tasks` 或 flat 布局下的 `polaris-flow-tasks`）。缺省 → `NEEDS_CONTEXT`。
+`StandardsRoot` 为已安装的 tasks 技能根目录（例：`.claude/skills/polaris-flow/tasks` 或 flat 布局下的 `polaris{{SKN_SPR}}flow{{SKN_SPR}}tasks`）。缺省 → `NEEDS_CONTEXT`。
 
 **评审开始前必须 `read_file` 以下标准文档（全文，禁止凭记忆跳过）：**
 
@@ -243,7 +243,7 @@ StandardsRoot: <PLUGIN_ROOT>/tasks
 
 ## 建议加入 tasks 的测试缺口
 - <具体任务建议；无则写「（无）」>
-> 仅建议。由 polaris-flow-tasks 写入 tasks.md。
+> 仅建议。由 polaris{{SKN_SPR}}flow{{SKN_SPR}}tasks 写入 tasks.md。
 
 ## Worktree 并行化策略
 <多独立工作流时给 Lane；否则一句「顺序实施，无并行机会。」>

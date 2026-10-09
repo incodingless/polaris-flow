@@ -24,10 +24,10 @@ export type SkillsLayout = 'nested' | 'flat';
 
 /**
  * 命令目录布局。与 `SkillsLayout` **互相独立**（如 Trae：技能 flat、命令 nested）。
- * - `nested`（默认）：`<contextDir>/commands/polaris/<相对路径>`，命令名 = 相对路径的 `/` → `:`
- *   （如 `commands/polaris/coding/normal.md` → `/polaris:coding:normal`）
- * - `flat`：`<contextDir>/commands/polaris-<相对路径，/ → ->.md`，命令名 = 文件名
- *   （如 `commands/polaris-coding-normal.md` → `/polaris-coding-normal`）
+ * - `nested`（默认）：`<contextDir>/commands/psfl/<相对路径>`，命令名 = 相对路径的 `/` → `:`
+ *   （如 `commands/psfl/coding/normal.md` → `/psfl:coding:normal`）
+ * - `flat`：`<contextDir>/commands/psfl-<相对路径，/ → ->.md`，命令名 = 文件名
+ *   （如 `commands/psfl-coding-normal.md` → `/psfl-coding-normal`）
  *
  * `flat` 用于 **Cursor**：官方行为是 **CLI 只读 `.cursor/commands/` 顶层的 `.md`、跳过全部子目录**
  * （IDE 才递归扫描）。因此即便保留 `polaris/` 这一层，CLI 也读不到 —— 必须去掉命名空间目录，

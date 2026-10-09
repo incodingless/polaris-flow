@@ -191,7 +191,7 @@ export async function merge(
     return { exitCode: 3, message: 'git status 异常' };
   }
   if (dirty) {
-    console.error('[easy-flow] 阻断：worktree 有未提交文件,请先 commit 再 ship。');
+    console.error('[polaris-flow] 阻断：worktree 有未提交文件,请先 commit 再 ship。');
     try {
       console.error(git(wt, ['status', '--short']));
     } catch {
@@ -243,7 +243,7 @@ export async function rebase(
     git(wt, ['rebase', defaultBranch], { stdio: 'inherit' });
   } catch {
     console.error(
-      '[easy-flow] rebase 冲突 → 请在 worktree 内手动 git rebase --continue 解决后重新触发 /ezfl:ship,不自动放弃 worktree。',
+      '[polaris-flow] rebase 冲突 → 请在 worktree 内手动 git rebase --continue 解决后重新触发 /polaris:coding:ship,不自动放弃 worktree。',
     );
     return { exitCode: 1 };
   }
@@ -284,9 +284,7 @@ export async function commitAndRemove(
   let branch = '';
   try {
     const commonDirRaw = git(wt, ['rev-parse', '--git-common-dir']).trim();
-    const commonDir = path.isAbsolute(commonDirRaw)
-      ? commonDirRaw
-      : path.resolve(wt, commonDirRaw);
+    const commonDir = path.isAbsolute(commonDirRaw) ? commonDirRaw : path.resolve(wt, commonDirRaw);
     mainRepo = path.dirname(commonDir);
     branch = git(wt, ['branch', '--show-current']).trim();
   } catch (err) {

@@ -25,7 +25,7 @@
 
 ### 3. 使用模板生成
 
-**强制前置**：必须 `read_file templates/constitution-template.md`，并输出 `[easy-flow constitution] 已 read_file templates/constitution-template.md`。**禁止**未读模板就生成内容。
+**强制前置**：必须 `read_file templates/constitution-template.md`，按其节顺序填充。**禁止**未读模板就生成内容。
 
 基于读取到的模板填充用户回答。
 

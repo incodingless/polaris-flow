@@ -52,8 +52,8 @@
 | 检查点 | 检查方法 | 判为问题 |
 |---|---|---|
 | 双轴齐备 | 核对每条用例 | 只标优先级或只标分层（缺一即问题） |
-| P 级正确 | 按 `./01-case-design-criteria.md §四` 核对 | P0 未覆盖核心业务路径/核心异常 |
-| L 级正确 | 按 `§五` 核对 | **L1 不含 P0 主流程**（违反 `L1 ⊇ P0 主流程`）；异常用例被标为 L1 |
+| P 级正确 | 按 `polaris{{SKN_SPR}}testing{{SKN_SPR}}draft` 的 `references/01-case-design-criteria.md §四` 核对 | P0 未覆盖核心业务路径/核心异常 |
+| L 级正确 | 按 `polaris{{SKN_SPR}}testing{{SKN_SPR}}draft` 的 `references/01-case-design-criteria.md §五` 核对 | **L1 不含 P0 主流程**（违反 `L1 ⊇ P0 主流程`）；异常用例被标为 L1 |
 | 准入可用 | 核对 L1 用例集 | L1 无法独立构成「端到端正常主流程」的冒烟集合 |
 
 ### 维度 6：数据独立性

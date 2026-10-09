@@ -46,7 +46,7 @@ EXIT_CODE=$?
 - `EXIT_CODE != 0` → **阻断**，按 stderr 处理
 - `EXIT_CODE == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-按数组长度解读：**唯一匹配**直接取；**多个匹配**按 `./policies/decision-point.md` 列出候选让用户选择；**零匹配**阻断，提示「未找到 draft 阶段的 active change，请先执行 `/polaris{{CMD_SPR}}flow` 的 T01 编写测试用例」。
+按数组长度解读：**唯一匹配**直接取；**多个匹配**按 `./policies/decision-point.md` 列出候选让用户选择；**零匹配**阻断，提示「未找到 draft 阶段的 active change，请先执行 `/psfl{{CMD_SPR}}flow` 的 T01 编写测试用例」。
 
 > 若选择的任务已是 `phase=draft`（中断续跑），从中断点续跑；不得重新筛成「零匹配」。
 
@@ -70,7 +70,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 **校验项**：
 
-1. `$REPO_ROOT/.polaris/testcases/<task_id>/testcase_plan.md` 存在且**不是 task-init 写入的占位**（须含第 2 章「测试意图清单」与第 3/4 章策略）——否则提示重跑 `/polaris{{CMD_SPR}}flow` 的 T01，终止流程；
+1. `$REPO_ROOT/.polaris/testcases/<task_id>/testcase_plan.md` 存在且**不是 task-init 写入的占位**（须含第 2 章「测试意图清单」与第 3/4 章策略）——否则提示重跑 `/psfl{{CMD_SPR}}flow` 的 T01，终止流程；
 2. 计划中的**范围、粒度、分层、自动化**四项策略齐备（缺失即视为计划未定版，阻断）；
 3. 计划中的**待确认清单**已闭环或已由用户明确转为「后续待跟进」（未闭环的条目**不进入用例设计**）；
 4. 定位定稿 PRD 与验收标准（沿用 discovery 的定位顺序）；报告 `No-Input` 的可选输入清单。

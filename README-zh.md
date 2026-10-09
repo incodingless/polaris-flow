@@ -79,7 +79,7 @@ Polaris Flow 把「开发类需求」按复杂度拆成三档；三档之外另�
 
 ### 1. SDD 工作流（P03 完整链路 — 跨服务 / 高风险）
 
-入口：`/polaris:coding:sdd` 或 `/polaris:flow` 自动评估路由 `complex` 档。
+入口：`/psfl:coding:sdd` 或 `/psfl:flow` 自动评估路由 `complex` 档。
 
 ```
 specify   →   plan   →   design (可选)  →   tasks  →   build  →   verify  →   ship  →   retro (可选)
@@ -90,7 +90,7 @@ specify   →   plan   →   design (可选)  →   tasks  →   build  →   ve
 
 ### 2. 常规需求工作流（P02 — 多模块协作、需规格契约）
 
-入口：`/polaris:coding:normal` 或 `/polaris:flow` 自动评估路由 `standard` 档。
+入口：`/psfl:coding:normal` 或 `/psfl:flow` 自动评估路由 `standard` 档。
 
 ```
 specify   →   plan   →   design   →   tasks  →   build  →   verify  →   ship
@@ -101,7 +101,7 @@ P02 评测压缩：1 次合并主审（复用 `polaris:coding:tasks-review-agent
 
 ### 3. 小改动工作流（P01 — 单模块、快速变更）
 
-入口：`/polaris:coding:tweak` 或 `/polaris:flow` 自动评估路由 `simple` 档。
+入口：`/psfl:coding:tweak` 或 `/psfl:flow` 自动评估路由 `simple` 档。
 
 ```
 brief  →  tasks  →  build  →  ship
@@ -112,7 +112,7 @@ brief  →  tasks  →  build  →  ship
 
 ### 4. 紧急 Bug 修复（P01 变体）
 
-入口：`/polaris:maintance:hotfix`。
+入口：`/psfl:maintance:hotfix`。
 
 ```
 bug  →  tasks  →  build  →  ship
@@ -121,13 +121,13 @@ bug  →  tasks  →  build  →  ship
 
 **省略项**：exit-check、constitution 审计、task-split-precheck、artifact-backfill。
 
-**硬约束**：根因未定位 / 跨 3+ 模块 / schema 变更 / 对外 API breaking change → **强制回 `/polaris:coding:normal`**。
+**硬约束**：根因未定位 / 跨 3+ 模块 / schema 变更 / 对外 API breaking change → **强制回 `/psfl:coding:normal`**。
 
 **强 TDD**：bug 修复必须含 `<!-- TDD 任务 -->` 标记的回归测试用例。
 
-### 入口路由策略（`/polaris:flow`）
+### 入口路由策略（`/psfl:flow`）
 
-`/polaris:flow` 在第一步类别询问之前会做：
+`/psfl:flow` 在第一步类别询问之前会做：
 
 1. **前置需求预检**：识别开发意图（4 选 1：动作+目标+2 项 / 关键字 ≥ 80 字 / 附加文件含需求要素 / 引用 PRD·OpenSpec 制品目录）；开发类若无要求附带，最多 2 轮强制后仍空 → 强制 `complex` 档（让复杂度评估兜底）。
 2. **可选复杂度评估**：复用 idea-discovery 3 档；按评估结果自动路由：
@@ -136,15 +136,15 @@ bug  →  tasks  →  build  →  ship
 | ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------- |
 | `simple`   | `polaris:coding:tweak`                                 | brief → tasks → build → ship                                                |
 | `standard` | `polaris:coding:normal`                                | specify → plan → design → tasks → build → verify → ship                     |
-| `complex`  | `polaris:coding:specify`（`/polaris:coding:sdd` 别名） | specify → plan → design(可选) → tasks → build → verify → ship → retro(可选) |
+| `complex`  | `polaris:coding:specify`（`/psfl:coding:sdd` 别名） | specify → plan → design(可选) → tasks → build → verify → ship → retro(可选) |
 
 需要拆分的需求并入 `complex`：由 specify 阶段的 `task-split-precheck` 接手拆分（规模检测 → 候选拆分清单 → 决策点 → 批量模式），入口不 STOP。
 
-复杂度评估仅对开发类强制；`/polaris:coding:tweak` / `/polaris:coding:normal` / `/polaris:coding:sdd` / `/polaris:maintance:hotfix` / `/polaris:maintance:bugfix` 直达技能命令不受此预检约束。需求类的 `/polaris:prd`（编写产品需求）与 `/polaris:prd:readiness`（需求就绪度评估）、原型类的 `/polaris:prototype`（制作原型）与 `/polaris:prototype:review`（评审已有原型）、测试类的 `/polaris:testing:create-testcase`（设计测试用例）、`/polaris:testing:acceptance`（编写验收标准）与 `/polaris:testing:review-testcase`（评审测试用例）同样是直达技能命令。
+复杂度评估仅对开发类强制；`/psfl:coding:tweak` / `/psfl:coding:normal` / `/psfl:coding:sdd` / `/psfl:maintance:hotfix` / `/psfl:maintance:bugfix` 直达技能命令不受此预检约束。需求类的 `/psfl:prd`（编写产品需求）与 `/psfl:prd:readiness`（需求就绪度评估）、原型类的 `/psfl:prototype`（制作原型）与 `/psfl:prototype:review`（评审已有原型）、测试类的 `/psfl:testing:create-testcase`（设计测试用例）、`/psfl:testing:acceptance`（编写验收标准）与 `/psfl:testing:review-testcase`（评审测试用例）同样是直达技能命令。
 
 具体见 `assets/zh/commands/flow.md` 零步的「0.4 自动评估」一节。
 
-> **命令名随平台变化**：Claude Code / Trae 用嵌套命名空间（`/polaris:coding:normal`）；**Cursor 侧是扁平名**（`/polaris-coding-normal`）——Cursor CLI 只读命令目录顶层的 `.md`，因此安装时会去掉 `polaris/` 层级、改用 `-` 连接。本文其余章节的 `/polaris:*` 写法均以 Claude Code 为准；Cursor 侧把 `:` 换成 `-` 并去掉 `polaris` 之后的层级即可。详见 `assets/zh/adapters/command-registration.md`。
+> **命令名随平台变化**：Claude Code / Trae 用嵌套命名空间（`/psfl:coding:normal`）；**Cursor 侧是扁平名**（`/psfl-coding-normal`）——Cursor CLI 只读命令目录顶层的 `.md`，因此安装时会去掉 `polaris/` 层级、改用 `-` 连接。本文其余章节的 `/psfl:*` 写法均以 Claude Code 为准；Cursor 侧把 `:` 换成 `-` 并去掉 `polaris` 之后的层级即可。详见 `assets/zh/adapters/command-registration.md`。
 
 ## 许可证
 

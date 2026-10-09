@@ -67,6 +67,8 @@ BRIEF="$REPO_ROOT/openspec/changes/$change_id/change-brief.md"
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$change_id" --set phase=plan
 ```
 
+> **游标语义（勿读成矛盾）**：`plan` 是**阶段游标**——`intention.md` 已就绪（即 specify 的产物），下一件该做的是 plan，故游标置 `plan`。**接手的不是 `plan` 技能，而是编排通道 `normal`**（见 §3.3），它从该游标处续跑。`normal` 不是合法阶段值，**不得**尝试把它写进游标（会被校验器以退出码 3 拒绝）。
+
 ### 3.3 写状态并交接
 
 ```yaml

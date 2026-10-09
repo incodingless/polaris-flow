@@ -15,7 +15,7 @@ version: 0.1
 - **禁止**跳过 `tasks-lint.sh` 或用脑补核对代替
 - **禁止**未按 `tweak-tasks-template.md` 的任务类型规则自动标注 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->`；**禁止**用全局开关把「新功能 / Bug 修复 / 含分支逻辑」类任务标成非 TDD（Test-First 是 Constitution NON-NEGOTIABLE）
 - **禁止**主代理在 `/opsx:apply` 之外直接编写业务实现代码
-- **禁止**调用 `superpowers:subagent-driven-development` / `superpowers:executing-plans`（H13）
+- **禁止**调用 superpowers 的两个派发驱动器（H13，规则见 `./policies/hard-stops.md`）
 - **禁止**跳过 5 个 scorer 或伪造分数；**禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 就把 `phase` 推到 ship
 - **禁止**本阶段做分支合并 / PR / `/opsx:archive`（那是 ship）
 - **禁止**未完成出口校验（Step 6）就写 `runtime.build.status` / `runtime.verify.status=completed` 或推进 phase
@@ -48,7 +48,7 @@ tweak 是简单档（tweak 档）的执行体。它把完整链路的 `specify �
 | ID | 在本 skill 的适用方式 |
 |----|---------------------|
 | H8 | 每个 Step 入口输出可见状态行 |
-| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 5.1）时。优先 SessionStart 注入；仅默认通用且支持 → 不调 probe 直接 dispatch(`agent=null`)；选清单时优先 `$SUBAGENT_PROBE_CACHE`，缺缓存/需过滤才 probe。默认 inline 路径不触发本条 |
+| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 5.1）时。派发前**必须**先 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传 `platform`）并等待返回；**不得**以「默认通用」「已有注入」或「已有缓存」为由跳过 probe。默认 inline 路径不触发本条 |
 | H12 | 写 `.polaris/workflow.yaml` 走 `scripts/workflow-entry.sh`（内含 workflow.lock + 写后校验），不自写文件 |
 | H13 | 不调用两个 superpowers 派发驱动器 |
 
@@ -76,7 +76,7 @@ tweak 是简单档（tweak 档）的执行体。它把完整链路的 `specify �
 
 - 优先：环境变量 `$PLUGIN_ROOT` / `$REPO_ROOT`
 - 兜底：source `.polaris/.cache/runtime-env`
-- 仍无 `$PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
+- 仍无 `$PLUGIN_ROOT` → 停止并报告阻塞原因（SessionStart 未注入环境变量），提示用户重启会话以触发 SessionStart
 
 ```bash
 if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/task-init.sh" ]; then
@@ -93,7 +93,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 | ----------- | -------- | ---- | -------- |
 | 0 | `"ok"` | 成功 | 取 `draft_name`，进入 Step 1 |
 | 1 | `"existing"` | 存在未完成 draft | 按决策点协议询问 A/B/C/D（同 specify Step 1） |
-| 2 | —（stderr） | 参数/环境错误 | 按 H12 阻断 |
+| 2 | —（stderr） | 参数/环境错误 | 停止并报告阻塞原因（按 stderr） |
 | 3 | —（stderr） | workflow 写入失败 | 按 H12 阻断 |
 
 `status="existing"` 时按 `./policies/decision-point.md` 暂停：**A 续写最新** / **B 选择指定** / **C 丢弃后重建** / **D 取消退出**。
@@ -180,7 +180,7 @@ C. 超出简单需求 — 升到常规通道（normal）
 
 落盘路径：`$REPO_ROOT/.polaris/tasks/<draft_name>/change-brief.md`
 
-**强制前置**：写入前必须 `read_file ./templates/change-brief-template.md`，并输出：`[polaris-flow 开发]快速通道：已读取变更简报模板 change-brief-template.md`
+**强制前置**：写入前必须 `read_file ./templates/change-brief-template.md`，按其节顺序填充。
 
 内容严格按模板节顺序填充。各节内容来源：
 
@@ -229,8 +229,8 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 | `FINAL_EXIT` | 含义 | 后续动作 |
 | ------------ | ---- | -------- |
 | 0 | 成功 | 进入 Step 3 |
-| 1 | 目标目录已存在 | 按 H12 阻断 |
-| 2 | 参数/环境错误 | 按 H12 阻断 |
+| 1 | 目标目录已存在 | 停止并报告阻塞原因（提示用户改名或清理后重试） |
+| 2 | 参数/环境错误 | 停止并报告阻塞原因（按 stderr） |
 | 3 | workflow rename 失败 | 按 H12 阻断 |
 
 回填 `change-brief.md` 首行为真实 `task_id`。
@@ -305,7 +305,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/change-brief.md" \
 
 #### 4.4 生成 `tasks.md`
 
-**强制前置**：`read_file ./templates/tweak-tasks-template.md`，并输出：`[已 read_file templates/tweak-tasks-template.md]`
+**强制前置**：`read_file ./templates/tweak-tasks-template.md`，按其节顺序填充。
 
 与完整链路的关键差异：plan 产出的是**粗骨架**（等 tasks 覆写），tweak **没有 tasks 阶段**，因此必须一次写成**可执行细计划**——含 Files / Interfaces / 可直接复制的验证命令。
 
@@ -347,10 +347,10 @@ phase: build
 
 仅当用户**显式**要求 subagent 时（H10）：
 
-1. 读 SessionStart 注入；若 `PLATFORM_DEGRADATION=inline|unsupported` → 强制 inline，输出原因（**不调** probe）
-2. 若只要默认通用且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ **不调** probe，`subagent-dispatch`（`agent=null`）
-3. 若要从清单选 agent：优先读 `$SUBAGENT_PROBE_CACHE` 选 id；仅当**缺缓存/缺注入**或需正式过滤时，才 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（probe 优先读缓存），再 dispatch
-4. probe（若调用）返回 `degradation=inline|unsupported` → 强制回退 inline，输出原因
+1. **先 probe**：`use_skill("polaris{{SKN_SPR}}subagent-probe")`（传 `platform`），等待返回——满足 H10，**不设跳过分支**
+2. probe 返回 `degradation=inline|unsupported` → 强制回退 inline，输出原因，不派发
+3. 若只要默认通用（`SUPPORTS_SUBAGENT=true` 且 degradation 空）→ `subagent-dispatch`（`agent=null`）
+4. 若要从清单选 agent：读 probe 返回的 `agents`（或 `$SUBAGENT_PROBE_CACHE`）选 id，再 dispatch
 
 #### 5.2 Constitution 注入点 C
 

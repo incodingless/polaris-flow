@@ -17,7 +17,7 @@ description: Subagent 探测技能。接收 platform（与可选的 subagent_id 
 - SessionStart **未**注入能力/缓存，需要完整探测
 - 需要正式 probe 回执结构（与直接读 JSON 缓存等价过滤时，仍可用本技能统一出口）
 
-**可不必调用**（见下方契约）：已有 SessionStart 注入，且本步只要默认通用、或固定 agent 主审且平台已支持。
+**不设「可跳过」分支**：H10 是硬约束 —— 任何 subagent 派发之前都必须先调用本技能取得平台能力结论（见下方契约）。
 
 **不适用**：
 - 派发 subagent 执行任务（用 `polaris{{SKN_SPR}}subagent-dispatch`）
@@ -26,20 +26,18 @@ description: Subagent 探测技能。接收 platform（与可选的 subagent_id 
 
 ## 调用方契约
 
-**编排型技能在委派 subagent 前须先有平台能力结论，再决定是否调用本技能：**
+**编排型技能在委派 subagent 前必须先调用本技能取得平台能力结论（H10 硬约束，不设跳过分支）：**
 
-1. **能力结论来源**（二选一即可）：
-   - SessionStart 注入的 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`（env、`.polaris/.cache/runtime-env` 或 additionalContext）
-   - 或本技能完整探测返回中的同名结论
-2. **必须调用本技能**当本步需要：`task_type` → `matched_agents` 预筛、或 `subagent_id` 命中检查、或**缺** SessionStart 注入/缓存而需要清单
-3. **可跳过本技能**当：
-   - 已有注入且本步无 `subagent_id`、无 `task_type` 预筛，并满足：
-     - `PLATFORM_DEGRADATION` 为 `inline` / `unsupported` → 直接降级/阻断；或
-     - `SUPPORTS_SUBAGENT=true` 且 degradation 空 → 直接 `subagent-dispatch`（`agent=null` 默认通用），或不经本技能派发**固定**专用 agent（如 coding 主审）
-   - 已有 `$SUBAGENT_PROBE_CACHE` 且本步只需从缓存 `agents` 取固定 id / 全量清单、**不**需要本技能做 `task_type` 预筛 → 调用方可直接读 JSON（与调用本技能且不传 `task_type` 等价）
-4. **缺注入且缺缓存** → **必须**调用本技能（传入 `platform`）
+1. **必调**：传入 `platform`，等待返回。**不得**以「SessionStart 已注入 `SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`」「只要默认通用」「已有 `$SUBAGENT_PROBE_CACHE`」为由跳过本技能
+2. **按返回结论决策**：
+   - `degradation` 为 `inline` / `unsupported` → 调用方回退 inline 或阻断，不派发
+   - 否则由调用方从 `agents` 选 agent（`agent=null` = 默认通用），再调 `polaris{{SKN_SPR}}subagent-dispatch` 派发
+3. `task_type` → `matched_agents` 预筛、`subagent_id` 命中检查，均在本技能内完成；不传 `task_type` 时 `matched_agents` = `agents` 全量
+4. **缺注入且缺缓存**同样调用本技能（探测成本更高，但仍不可省）
 
 拿到 agents 清单后，由调用方自行选 agent，再调用 `polaris{{SKN_SPR}}subagent-dispatch` 派发执行。本技能自身**不写缓存**（SessionStart hook 写入的 `SUBAGENT_PROBE_CACHE` 不算本技能写缓存）。
+
+> **缓存是探测结果的复用，不是探测的替代**：`$SUBAGENT_PROBE_CACHE` 仅用于「本会话内二次取清单」，不得作为跨步骤跳过本技能的理由。
 
 > **勿假定** additionalContext 含全量 agents 列表；全量在 `$SUBAGENT_PROBE_CACHE`（默认 `.polaris/.cache/subagent-probe.json`）。需要 `matched_agents` / `subagent_id` 时仍应调用本技能（可读该缓存），不要只靠上下文摘要。
 

@@ -54,7 +54,7 @@ describe('installPolarisForPlatform commands', () => {
       await installPolarisForPlatform(tmpDir, claude, true, 'zh', 'project');
 
       const command = await readFile(
-        path.join(tmpDir, '.claude/commands/polaris/flow.md'),
+        path.join(tmpDir, '.claude/commands/psfl/flow.md'),
         'utf-8',
       );
 
@@ -81,54 +81,54 @@ describe('installPolarisForPlatform commands', () => {
 
       // 分类子目录原样保留：coding/ prd/ maintance/
       expect(
-        await readFile(path.join(tmpDir, '.claude/commands/polaris/coding/normal.md'), 'utf-8'),
+        await readFile(path.join(tmpDir, '.claude/commands/psfl/coding/normal.md'), 'utf-8'),
       ).toContain('polaris:coding:normal');
       expect(
-        await readFile(path.join(tmpDir, '.claude/commands/polaris/prd/readiness.md'), 'utf-8'),
+        await readFile(path.join(tmpDir, '.claude/commands/psfl/prd/readiness.md'), 'utf-8'),
       ).toContain('polaris:prd:readiness');
       // prd 族级命令与同族子目录命令同级共存（同 prototype 形态）
       const prdEntry = await readFile(
-        path.join(tmpDir, '.claude/commands/polaris/prd.md'),
+        path.join(tmpDir, '.claude/commands/psfl/prd.md'),
         'utf-8',
       );
       expect(prdEntry).toContain('polaris:prd:discovery');
-      expect(prdEntry).toContain('/polaris:prd');
+      expect(prdEntry).toContain('/psfl:prd');
       // discovery 已迁移为族级命令，原分类子目录文件不得再落盘
       await expect(
-        access(path.join(tmpDir, '.claude/commands/polaris/prd/discovery.md')),
+        access(path.join(tmpDir, '.claude/commands/psfl/prd/discovery.md')),
       ).rejects.toThrow();
       expect(
-        await readFile(path.join(tmpDir, '.claude/commands/polaris/maintance/hotfix.md'), 'utf-8'),
-      ).toContain('polaris:maintance:hotfix');
+        await readFile(path.join(tmpDir, '.claude/commands/psfl/maintance/hotfix.md'), 'utf-8'),
+      ).toContain('psfl:maintance:hotfix');
       // M01 / M02 两个入口命令都交出到 debug 族入口技能：{{SKN_SPR}} 按 skillsLayout 展开为冒号
       expect(
-        await readFile(path.join(tmpDir, '.claude/commands/polaris/maintance/bugfix.md'), 'utf-8'),
+        await readFile(path.join(tmpDir, '.claude/commands/psfl/maintance/bugfix.md'), 'utf-8'),
       ).toContain('polaris:debug:diagnose');
 
       // 原型族两个独立入口：族级命令 prototype.md 与分类子目录 prototype/review.md 同级共存
       // （全仓首例，故显式断言落盘路径未被目录吞掉）
       const prototypeEntry = await readFile(
-        path.join(tmpDir, '.claude/commands/polaris/prototype.md'),
+        path.join(tmpDir, '.claude/commands/psfl/prototype.md'),
         'utf-8',
       );
       expect(prototypeEntry).toContain('polaris:prototype:blueprint');
-      // 命令名占位符展开为冒号：/polaris:prototype（不是 /polaris:prototype:prototype）
-      expect(prototypeEntry).toContain('/polaris:prototype');
+      // 命令名占位符展开为冒号：/psfl:prototype（不是 /psfl:prototype:prototype）
+      expect(prototypeEntry).toContain('/psfl:prototype');
       expect(
-        await readFile(path.join(tmpDir, '.claude/commands/polaris/prototype/review.md'), 'utf-8'),
+        await readFile(path.join(tmpDir, '.claude/commands/psfl/prototype/review.md'), 'utf-8'),
       ).toContain('polaris:prototype:review');
 
       // 测试用例设计：testing 族命令 create-testcase.md 交出到 testing 族入口技能
       const testcaseEntry = await readFile(
-        path.join(tmpDir, '.claude/commands/polaris/testing/create-testcase.md'),
+        path.join(tmpDir, '.claude/commands/psfl/testing/create-testcase.md'),
         'utf-8',
       );
       expect(testcaseEntry).toContain('polaris:testing:discovery');
-      expect(testcaseEntry).toContain('/polaris:testing:create-testcase');
+      expect(testcaseEntry).toContain('/psfl:testing:create-testcase');
 
       // 验收标准编写：testing 族命令 acceptance.md 交出到 acceptance 技能（同 flow 菜单 T02）
       const acceptanceEntry = await readFile(
-        path.join(tmpDir, '.claude/commands/polaris/testing/acceptance.md'),
+        path.join(tmpDir, '.claude/commands/psfl/testing/acceptance.md'),
         'utf-8',
       );
       expect(acceptanceEntry).toContain('polaris:testing:acceptance');
@@ -139,7 +139,7 @@ describe('installPolarisForPlatform commands', () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-cmd-trae-'));
     await installPolarisForPlatform(tmpDir, trae, true, 'zh', 'project');
 
-    const command = await readFile(path.join(tmpDir, '.trae/commands/polaris/flow.md'), 'utf-8');
+    const command = await readFile(path.join(tmpDir, '.trae/commands/psfl/flow.md'), 'utf-8');
 
     expect(command).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
     for (const skill of referencedSkills.flat) {
@@ -147,7 +147,7 @@ describe('installPolarisForPlatform commands', () => {
     }
     // trae 侧技能名扁平，但命令目录树与 claude 一致（分类子目录未被扁平化）
     expect(
-      await readFile(path.join(tmpDir, '.trae/commands/polaris/coding/normal.md'), 'utf-8'),
+      await readFile(path.join(tmpDir, '.trae/commands/psfl/coding/normal.md'), 'utf-8'),
     ).toContain('polaris-coding-normal');
   });
 
@@ -158,9 +158,9 @@ describe('installPolarisForPlatform commands', () => {
       const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-cmd-cursor-'));
       await installPolarisForPlatform(tmpDir, cursor, true, 'zh', 'project');
 
-      // 入口命令：Cursor CLI 只读 .cursor/commands/ 顶层 .md，故落盘为 polaris-flow.md
+      // 入口命令：Cursor CLI 只读 .cursor/commands/ 顶层 .md，故落盘为 psfl-flow.md
       const command = await readFile(
-        path.join(tmpDir, '.cursor/commands/polaris-flow.md'),
+        path.join(tmpDir, '.cursor/commands/psfl-flow.md'),
         'utf-8',
       );
       expect(command).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
@@ -170,73 +170,73 @@ describe('installPolarisForPlatform commands', () => {
         expect(command).toContain(skill);
       }
       // 命令名按 commandLayout=flat 展开为连字符
-      expect(command).toContain('/polaris-flow');
+      expect(command).toContain('/psfl-flow');
       // 不得再存在 polaris 命名空间目录（对 CLI 多一层就完全读不到）
-      await expect(access(path.join(tmpDir, '.cursor/commands/polaris'))).rejects.toThrow();
+      await expect(access(path.join(tmpDir, '.cursor/commands/psfl'))).rejects.toThrow();
 
-      // 分类子目录被扁平化为 polaris-<路径>
+      // 分类子目录被扁平化为 psfl-<路径>
       expect(
-        await readFile(path.join(tmpDir, '.cursor/commands/polaris-coding-normal.md'), 'utf-8'),
-      ).toContain('/polaris-coding-normal');
+        await readFile(path.join(tmpDir, '.cursor/commands/psfl-coding-normal.md'), 'utf-8'),
+      ).toContain('/psfl-coding-normal');
       expect(
-        await readFile(path.join(tmpDir, '.cursor/commands/polaris-prd-readiness.md'), 'utf-8'),
-      ).toContain('/polaris-prd-readiness');
+        await readFile(path.join(tmpDir, '.cursor/commands/psfl-prd-readiness.md'), 'utf-8'),
+      ).toContain('/psfl-prd-readiness');
       expect(
-        await readFile(path.join(tmpDir, '.cursor/commands/polaris-maintance-hotfix.md'), 'utf-8'),
-      ).toContain('/polaris-maintance-hotfix');
+        await readFile(path.join(tmpDir, '.cursor/commands/psfl-maintance-hotfix.md'), 'utf-8'),
+      ).toContain('/psfl-maintance-hotfix');
       expect(
-        await readFile(path.join(tmpDir, '.cursor/commands/polaris-maintance-bugfix.md'), 'utf-8'),
-      ).toContain('/polaris-maintance-bugfix');
-      // testing 族命令 create-testcase.md 扁平化为 polaris-testing-create-testcase.md
+        await readFile(path.join(tmpDir, '.cursor/commands/psfl-maintance-bugfix.md'), 'utf-8'),
+      ).toContain('/psfl-maintance-bugfix');
+      // testing 族命令 create-testcase.md 扁平化为 psfl-testing-create-testcase.md
       expect(
         await readFile(
-          path.join(tmpDir, '.cursor/commands/polaris-testing-create-testcase.md'),
+          path.join(tmpDir, '.cursor/commands/psfl-testing-create-testcase.md'),
           'utf-8',
         ),
-      ).toContain('/polaris-testing-create-testcase');
+      ).toContain('/psfl-testing-create-testcase');
       // acceptance.md 同样扁平化，testing 族三个命令（create-testcase / acceptance / review-testcase）互不覆盖
       expect(
         await readFile(
-          path.join(tmpDir, '.cursor/commands/polaris-testing-acceptance.md'),
+          path.join(tmpDir, '.cursor/commands/psfl-testing-acceptance.md'),
           'utf-8',
         ),
-      ).toContain('/polaris-testing-acceptance');
-      // 族级命令 prototype.md 扁平化为 polaris-prototype.md，与子目录命令互不覆盖
+      ).toContain('/psfl-testing-acceptance');
+      // 族级命令 prototype.md 扁平化为 psfl-prototype.md，与子目录命令互不覆盖
       expect(
-        await readFile(path.join(tmpDir, '.cursor/commands/polaris-prototype.md'), 'utf-8'),
-      ).toContain('/polaris-prototype');
+        await readFile(path.join(tmpDir, '.cursor/commands/psfl-prototype.md'), 'utf-8'),
+      ).toContain('/psfl-prototype');
       expect(
-        await readFile(path.join(tmpDir, '.cursor/commands/polaris-prototype-review.md'), 'utf-8'),
-      ).toContain('/polaris-prototype-review');
-      // prd 族级命令同理：polaris-prd.md 与 polaris-prd-readiness.md 并存
+        await readFile(path.join(tmpDir, '.cursor/commands/psfl-prototype-review.md'), 'utf-8'),
+      ).toContain('/psfl-prototype-review');
+      // prd 族级命令同理：psfl-prd.md 与 psfl-prd-readiness.md 并存
       expect(
-        await readFile(path.join(tmpDir, '.cursor/commands/polaris-prd.md'), 'utf-8'),
-      ).toContain('/polaris-prd');
+        await readFile(path.join(tmpDir, '.cursor/commands/psfl-prd.md'), 'utf-8'),
+      ).toContain('/psfl-prd');
       await expect(
-        access(path.join(tmpDir, '.cursor/commands/polaris-prd-discovery.md')),
+        access(path.join(tmpDir, '.cursor/commands/psfl-prd-discovery.md')),
       ).rejects.toThrow();
     },
   );
 });
 
 describe('resolveCommandDest', () => {
-  it('nested 原样保留子目录；flat 加 polaris- 前缀并以 - 连接路径段', () => {
+  it('nested 原样保留子目录；flat 加 psfl- 前缀并以 - 连接路径段', () => {
     expect(resolveCommandDest('flow.md', 'nested')).toBe('flow.md');
     expect(resolveCommandDest('coding/normal.md', 'nested')).toBe('coding/normal.md');
-    expect(resolveCommandDest('flow.md', 'flat')).toBe('polaris-flow.md');
-    expect(resolveCommandDest('coding/normal.md', 'flat')).toBe('polaris-coding-normal.md');
-    expect(resolveCommandDest('maintance/hotfix.md', 'flat')).toBe('polaris-maintance-hotfix.md');
-    expect(resolveCommandDest('maintance/bugfix.md', 'flat')).toBe('polaris-maintance-bugfix.md');
+    expect(resolveCommandDest('flow.md', 'flat')).toBe('psfl-flow.md');
+    expect(resolveCommandDest('coding/normal.md', 'flat')).toBe('psfl-coding-normal.md');
+    expect(resolveCommandDest('maintance/hotfix.md', 'flat')).toBe('psfl-maintance-hotfix.md');
+    expect(resolveCommandDest('maintance/bugfix.md', 'flat')).toBe('psfl-maintance-bugfix.md');
     // 族级命令与同族子目录命令并存：前者不得被后者吞并（全仓首例）
-    expect(resolveCommandDest('prototype.md', 'flat')).toBe('polaris-prototype.md');
-    expect(resolveCommandDest('prototype/review.md', 'flat')).toBe('polaris-prototype-review.md');
-    expect(resolveCommandDest('prd.md', 'flat')).toBe('polaris-prd.md');
-    expect(resolveCommandDest('prd/readiness.md', 'flat')).toBe('polaris-prd-readiness.md');
+    expect(resolveCommandDest('prototype.md', 'flat')).toBe('psfl-prototype.md');
+    expect(resolveCommandDest('prototype/review.md', 'flat')).toBe('psfl-prototype-review.md');
+    expect(resolveCommandDest('prd.md', 'flat')).toBe('psfl-prd.md');
+    expect(resolveCommandDest('prd/readiness.md', 'flat')).toBe('psfl-prd-readiness.md');
     expect(resolveCommandDest('testing/create-testcase.md', 'flat')).toBe(
-      'polaris-testing-create-testcase.md',
+      'psfl-testing-create-testcase.md',
     );
     expect(resolveCommandDest('testing/acceptance.md', 'flat')).toBe(
-      'polaris-testing-acceptance.md',
+      'psfl-testing-acceptance.md',
     );
   });
 });
@@ -303,7 +303,7 @@ describe('debug 族技能安装', () => {
       // 入口在命令层：两个 maintance 命令都交出到 debug:diagnose，各自只声明预期通道
       for (const entry of ['bugfix', 'hotfix']) {
         const cmd = await readFile(
-          path.join(tmpDir, '.claude/commands/polaris/maintance', `${entry}.md`),
+          path.join(tmpDir, '.claude/commands/psfl/maintance', `${entry}.md`),
           'utf-8',
         );
         expect(cmd).toContain('polaris:debug:diagnose');
@@ -371,7 +371,7 @@ describe('debug 族技能安装', () => {
       );
       expect(hardStops).toContain('M01 / M02 / C01–C03');
       const flowCmd = await readFile(
-        path.join(tmpDir, '.claude/commands/polaris/flow.md'),
+        path.join(tmpDir, '.claude/commands/psfl/flow.md'),
         'utf-8',
       );
       expect(flowCmd).toContain('（C01 / C02 / C03 / M01 / M02）');

@@ -164,9 +164,14 @@
 - **update 执行顺序为「先资产、后程序」**: 程序更新后当前进程跑的仍是旧代码，先做完资产更安全
 - **update 输出改为分层**: 程序层 / 资产层（逐平台列出实际重写的类别与清理计数）/ 依赖层分别成行；`--json` 返回 `plan` / `program` / `assets` / `deps` / `lockPath`
 - **init 非交互语言缺省改为 `zh`**: `selectLanguage` 新增 `fallback` 参数由 `runInit` 传入已有 config 的语言，重装不会改掉既有语言
+- **命令命名空间前缀改为 `psfl`**: 命令前缀与技能插件名**解耦**——技能命名空间仍为 `polaris`，命令命名空间由 `polaris` 改为 `psfl`。Claude Code / Trae 侧命令名 `/polaris:*` → `/psfl:*`（`/polaris:flow` → `/psfl:flow`、`/polaris:coding:normal` → `/psfl:coding:normal`、`/polaris:prd:readiness` → `/psfl:prd:readiness`、`/polaris:testing:create-testcase` → `/psfl:testing:create-testcase`）；Cursor 侧扁平名 `/polaris-*` → `/psfl-*`。技能名（`polaris:coding:specify` 等）、`[polaris-flow]` 状态行、`.polaris/` 目录、`polaris-flow` CLI 一律不变。新增常量 `POLARIS_COMMAND_PREFIX`（`core/config/polaris-constants.ts`），安装/布局/清理三处改为引用它：`install/commands.ts` 的 flat 文件名前缀、`install/layout.ts` 的 nested 命名空间目录、`update/prune.ts` 的命令归属判定（技能侧仍用 `POLARIS_PLUGIN_NAME`；`isOwnedEntryName` 改为接收前缀参数）。入口命令 `flow` **保留原名**，即 `/psfl:flow`，刻意**不**升为命名空间根命令——裸 `/psfl` 无动词、语义不清，且会与 `command_prefix` 占位符约定冲突（`command_prefix` 无任何代码消费，`triggers` 与落盘路径均由安装器按 `commandLayout` 推导）
+- **命令资产前缀同步**: `assets/zh/commands/**` 13 个文件的 `command_prefix` 与 `triggers`、正文命令引用改为 `psfl`；技能引用（`{{SKN_SPR}}`）保持不变。`assets/zh/skills/testing/{ship,draft}` 与 `assets/zh/policies/hard-stops.md`（H8 `所有 /psfl:* 命令`、H14 `psfl:flow` 零步）内引用命令处同步为 `psfl`
+- **init 欢迎语更正为现行命令名**: `messages.yaml` 的 `getStartedPolaris` / `getStartedHotfix` / `getStartedTweak` 原为陈旧的 `/polaris`、`/polaris-hotfix`、`/polaris-tweak`（对应命令当时已不存在），更正为 `/psfl:flow`、`/psfl:maintance:hotfix`、`/psfl:coding:tweak`
+- **命令名文案同步**: `README-zh.md`、`docs/command-usage-guide.md`、`assets/zh/adapters/command-registration.md` 的命令名与落盘路径示例改为 `psfl`（含 nested / flat 两套对照表与平台差异段落）
 
 ### Fixed
 
+- **`intention-validate` 的补齐指引指向不存在的命令**: `src/core/hooks/intention-validate.ts` 的「intention.md 不完整」提示写 `/polaris-flow-specify`（上一代扁平命名，当前方案里无此命令），改为 `/polaris:coding:specify`，与同目录 `worktree.ts` / `tasks-lint.ts` 的技能指路写法对齐
 - **config 文档目录键**: `layout.docs.testcases` 恢复为 `testcases`，与 `PROJECT_DOCS_SUBDIRS` 和测试用例交付目录 `docs/testcases/` 一致；此前模板写成 `testing`，生成的 config 没有 `testcases` 键
 - **H14 开发类清单**: `hard-stops.md` 与 `flow.md` 对齐为 M01 / M04 / C01–C03 / M03。原型 P01–P02 不进零步，旧清单里的 P01–P03 会把非开发类也套上需求预检
 - **testing 技能族落盘路径**: `SKILL_FAMILIES`（`assets/layout.ts` 与 `install/skills.ts` 各一份）原为 `['coding','prd','test']`，与资产目录 `assets/<lang>/skills/testing/` 不一致——`testing` 不在族名集合内，`parseSkillAssetPath` 会把它判为独立技能，落盘成 `polaris/testing/`（含 `case/`、`acceptance/` 子目录）而非两个叶技能，导致 `polaris-flow` 菜单的 T01/T02 两项路由不到任何技能。现统一为 `['coding','prd','testing']`；族名**不可改回 `test`**，与仓库根 `test/`（单元测试）及保留目录冲突
@@ -217,6 +222,8 @@
 - **`state-next` 的 prototype / debug 两张转移表偏移一位（自动衔接跳阶段）**: 按「游标 = 待执行阶段」的约定应为同名映射，而旧表是 `blueprint→build`、`build→ship`、`review→ship` 与 `diagnose→patch`、`patch→closeout`。净效果是**逐段跳阶段且不报错**：prototype 游标为 `build` 时派发 `ship`（跳过 `prototype:build`）、debug 三段全跳（诊断→修复→关单），`closeout` 更返回 null（`NEXT: done`，跳过关单）。实测对照见 `docs/specs/2026-09-19-phase-truth-unification-design.md` §八；这四处偏移此前被 `state-next.test.ts` 当作期望断言固化，故修它同时改了断言（单独提交 `b7799f1` 便于回退）
 - **`auto-transition.md` 声称的 `guard --apply` 在代码里不存在**: 该文原写「由 guard `--apply` 完成，同时更新 `workflow.yaml` 与 `.polaris/<change_id>/state.yaml` 的 phase」——全仓 grep 只命中这份文档自身，且 `<change_id>` 路径早已失实（实际是 `.polaris/tasks/<task_id>/`）。改述真实机制（技能内联 `workflow-entry update-active`），并澄清 `state.yaml.phase` 是只写不读的镜像、权威始终是 `workflow.yaml` 的游标
 - **`docs/specs/2026-09-16-debug-workflow-design.md` 自称「已定稿（已实现）· 无待决」却描述六阶段**: 该文 §2 的 `triage` / `prescribe` / `prove` 在 2026-09-17 就已合并为三阶段，但文档头部没有任何作废标记，先读它的人必然被误导（M2 期间据此做过错误判断）。加显著作废标注，指向 `assets/zh/skills/debug/README.md` 与阶段表；正文保留（它是那些设计取舍的唯一记录）
+
+- **命令前缀改名后的安装测试期望**: `commands-install.test.ts`（落盘路径、命令名断言与 `resolveCommandDest` flat 期望）、`update-prune.test.ts`（nested / flat 命令清理的植入路径与命名）、`install-project-layout.test.ts`（`.claude/commands/*` 目录）改为 `psfl`；技能名断言（`polaris:*` / `polaris-*`）保持不变
 
 ### Removed
 

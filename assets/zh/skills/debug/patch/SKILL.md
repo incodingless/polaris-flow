@@ -20,7 +20,7 @@ description: "缺陷修复通道的「实现与自验」阶段：按 tasks.md �
 
 ## 进入协议
 
-1. 复用 `$REPO_ROOT` / `$PLUGIN_ROOT`（缺失按 H12 阻断）。
+1. 复用 `$REPO_ROOT` / `$PLUGIN_ROOT`（缺失则停止并报告阻塞原因：SessionStart 未注入环境变量）。
 2. 找任务：`get-active-changes --kind debug`；多条则**暂停等用户选**。
 3. 读上游：`.polaris/tasks/<issue_id>/tasks.md` + `reviews/rca-report.md`。缺失则提示先走 `debug:diagnose`。
 4. `task-state-entry enter-phase --kind debug --task-id <id> --phase patch`。
@@ -56,7 +56,7 @@ RTID_EXIT=$?
 输出：`[polaris-flow 调试]缺陷修复 - 进入实现与自验：问题单号=<task_id>`
 
 执行：
-1. 更新 `state.yaml`：`phase: build`，`build.status: in_progress`。
+1. 更新 `state.yaml`：`phase: patch`，`runtime.patch.status: in_progress`。
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind debug --phase patch
@@ -79,7 +79,7 @@ LANG_EXIT=$?
 
 - 顺序固定：写复现用例（**红**）→ 写修复（**绿**）→ 补边界用例
 - **生产通道（channel=hotfix）**：修复内容额外含三件——数据脚本（幂等自审 + 可回滚 + 前置校验）、埋点（异常路径全链路 + TraceId + 关键上下文）、特性开关（默认关闭 + 可灰度）；三者与 `diagnose` 的改动点清单一致，超范围即夹带
-- 复杂缺陷可派发 subagent（**仅用户显式要求时**）：先读 SessionStart 注入；`SUPPORTS_SUBAGENT=true` 且只要默认通用 → 不调 probe 直接 dispatch；需选清单或缺注入 → `use_skill("polaris{{SKN_SPR}}subagent-probe")`。默认 inline 按 `tasks.md` 逐项执行
+- 复杂缺陷可派发 subagent（**仅用户显式要求时**）：派发前**必须**先 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传 `platform`）并等待返回（H10，不设跳过分支）；返回 `degradation=inline|unsupported` → 回退 inline 执行。默认 inline 按 `tasks.md` 逐项执行
 
 #### 1.2 补边界用例
 

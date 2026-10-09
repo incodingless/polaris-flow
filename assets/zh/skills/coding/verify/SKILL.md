@@ -609,7 +609,7 @@ done
 6. specs / detailed-design（若有）无未记录矛盾（Build 中改过 spec 的，detailed-design 须有对应记录）—— **结论见 Step 4**，此处不重复展开
 7. `detailed-design.md` 可定位且与当前 change 相关（**仅 `runtime.design.status=completed` 时检查**）
 
-> **项数不得改**：「7 项完整验证」被 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` 的 `policies/exit-check.md` 引用，改项数会破坏该跨技能契约。#2–#6 的结论见 Step 4。
+> **本 7 项是 verify 自身的检查表**：`polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` 的 `policies/exit-check.md` 各自维护**自己的六项检查表（C1–C6）**，与本表相互独立 —— 改本表项数**不会**牵动它们。#2–#6 的结论见 Step 4。
 > **本 7 项之外**：编译见 Step 3（模式无关）、安全见 `13.1` #5、测试见 Step 10–12、代码评审见 Step 14。
 
 **不通过** → [验证失败决策](#验证失败决策阻塞点)。

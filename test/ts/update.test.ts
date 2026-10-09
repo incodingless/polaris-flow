@@ -94,7 +94,7 @@ describe('runUpdate', () => {
       ).toBe(true);
       // 未选中的类别不落盘
       expect(
-        await fileExists(path.join(projectPath, '.claude', 'commands', 'polaris', COMMAND_PATH)),
+        await fileExists(path.join(projectPath, '.claude', 'commands', 'psfl', COMMAND_PATH)),
       ).toBe(false);
 
       const lock = await readLockFile(projectPath);
@@ -152,7 +152,7 @@ describe('runUpdate', () => {
       expect(result.assets[0].updated).toEqual(['commands']);
       expect(result.assets[0].copied.commands).toBeGreaterThan(0);
       expect(
-        await fileExists(path.join(projectPath, '.claude', 'commands', 'polaris', COMMAND_PATH)),
+        await fileExists(path.join(projectPath, '.claude', 'commands', 'psfl', COMMAND_PATH)),
       ).toBe(true);
       expect(
         await fileExists(path.join(projectPath, '.claude', 'skills', 'polaris', SKILL_PATH)),

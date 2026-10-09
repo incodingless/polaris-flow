@@ -151,7 +151,7 @@
 ```
 
 - 用户选择后，**仅**推进该 change 进入 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`
-- 其他 change 保持 active，稍后通过 `/polaris-flow` 恢复
+- 其他 change 保持 active，稍后通过 `/psfl{{CMD_SPR}}flow` 恢复
 
 ---
 

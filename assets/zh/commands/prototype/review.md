@@ -1,7 +1,7 @@
 ---
 name: review
-command_prefix: polaris
-triggers: ["/polaris{{CMD_SPR}}prototype{{CMD_SPR}}review"]
+command_prefix: psfl
+triggers: ["/psfl{{CMD_SPR}}prototype{{CMD_SPR}}review"]
 description: 评审已有原型（判断能不能交研发：三层运行时验证 + 分级问题清单与整改建议；只评不改、不归档）
 ---
 

@@ -570,10 +570,10 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase --repo-root "$REP
 | 状态文件读到的位置                                             | 续跑动作                                                                              |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | 存在「已生成待确认」的章节                                     | 将该章草稿按`./policies/decision-point.md` 重新提交用户确认，确认后置「已确认」再继续 |
-| 全部章节「已确认」，无`prd_final_draft.md`                     | 从 Step 2.5 合并开始                                                                  |
-| 存在`prd_final_draft.md`，无 `full_review_report.md`           | 从 Step 3 评审开始                                                                    |
-| 存在`full_review_report.md` 且含未清零的 P0/T0                 | 从 Step 3.3 修复开始（直接在`prd_final_draft.md` 上修复并递增版本号）                 |
-| `full_review_report.md` 阻塞问题已清零，无 `prd-final-v1.0.md` | 从 Step 4 定稿开始                                                                    |
+| 全部章节「已确认」，无`prd_final_draft.md`                     | 从 Step 3（合并终稿全文）开始                                                                  |
+| 存在`prd_final_draft.md`，无 `full_review_report.md`           | 从 Step 4（完整评审）开始                                                                    |
+| 存在`full_review_report.md` 且含未清零的 P0/T0                 | 从 Step 4.3（问题分级与修复机制）开始（直接在`prd_final_draft.md` 上修复并递增版本号）                 |
+| `full_review_report.md` 阻塞问题已清零，无 `prd-final-v1.0.md` | 从 Step 5（定稿输出）开始                                                                    |
 
 - 已完成的评审结果保留有效，无需重复执行
 - 阻塞问题修复记录完整保留，从中断处继续迭代

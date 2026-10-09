@@ -20,7 +20,7 @@ description: "缺陷修复通道的「关闭Bug」阶段：交付打包 + 收尾
 
 ## 进入协议
 
-1. 复用 `$REPO_ROOT` / `$PLUGIN_ROOT`（缺失按 H12 阻断）。
+1. 复用 `$REPO_ROOT` / `$PLUGIN_ROOT`（缺失则停止并报告阻塞原因：SessionStart 未注入环境变量）。
 2. 找任务：`get-active-changes --kind debug`；多条则**暂停等用户选**。
 3. 读上游：`reviews/rca-report.md` + `tasks.md` + `verification.md` + `diagnose-brief.md`。
 4. `task-state-entry enter-phase --kind debug --task-id <id> --phase closeout`。

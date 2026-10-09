@@ -8,8 +8,8 @@
  * 这样命令体内引用的技能名 / 命令名都与该平台实际落盘的名字一致。
  *
  * 命令落盘路径按 **commandLayout**（命令根由 install/layout.ts 决定）：
- * - nested → `<contextDir>/commands/polaris/<相对路径>`
- * - flat → `<contextDir>/commands/polaris-<相对路径，/ → ->.md`
+ * - nested → `<contextDir>/commands/psfl/<相对路径>`
+ * - flat → `<contextDir>/commands/psfl-<相对路径，/ → ->.md`
  */
 import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
@@ -23,7 +23,7 @@ import {
 } from '../../utils/file-system.js';
 import type { CommandLayout, SkillsLayout } from '../domain/platforms.js';
 import { Assets } from '../assets/manifest.js';
-import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
+import { POLARIS_COMMAND_PREFIX } from '../config/polaris-constants.js';
 import { applySkillNamePrefix, resolveSkillNamePrefix } from './skills.js';
 import type { CopyStats } from './types.js';
 
@@ -32,13 +32,13 @@ import type { CopyStats } from './types.js';
 /** 命令名分隔符占位符（按 commandLayout 展开为 `:` 或 `-`） */
 export const COMMAND_NAME_PREFIX_PLACEHOLDER = '{{CMD_SPR}}';
 
-/** flat 命令的文件名前缀，兼作命名空间替代（如 `polaris-coding-normal.md`） */
-const FLAT_COMMAND_PREFIX = `${POLARIS_PLUGIN_NAME}-`;
+/** flat 命令的文件名前缀，兼作命名空间替代（如 `psfl-coding-normal.md`） */
+const FLAT_COMMAND_PREFIX = `${POLARIS_COMMAND_PREFIX}-`;
 
 /**
  * 解析命令相对落盘路径（相对命令根）。
  * - nested：原样保留相对路径（子目录即命名空间，由宿主推导为 `:` 命名空间）
- * - flat：`polaris-` 前缀 + 路径段以 `-` 连接 + `.md`
+ * - flat：`psfl-` 前缀 + 路径段以 `-` 连接 + `.md`
  * @param shortPath 资产内相对路径，如 `coding/normal.md`
  * @param layout 平台命令布局
  * @returns 相对命令根的落盘路径
@@ -79,7 +79,7 @@ async function writeCommandFile(
 
 /**
  * 安装 commands 到指定平台
- * @param commandsDir 命令根：nested 为 `<contextDir>/commands/polaris`，flat 为 `<contextDir>/commands`
+ * @param commandsDir 命令根：nested 为 `<contextDir>/commands/psfl`，flat 为 `<contextDir>/commands`
  * @param overwrite 是否覆盖
  * @param asset 资产
  * @param skillsLayout 平台技能布局，决定 `{{SKN_SPR}}` 展开成的分隔符

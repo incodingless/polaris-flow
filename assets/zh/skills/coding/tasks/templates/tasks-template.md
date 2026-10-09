@@ -133,10 +133,10 @@ tasks.md 支持两类任务：
 
 | 上游消费方 | 期待 tasks.md 提供什么 |
 |------------|----------------------|
-| `/polaris-flow-plan` | 按本模板生成**粗骨架**（可过 lint）；细粒度留给 plan |
-| `/polaris-flow-tasks` | **覆写**为可执行细计划（Files + Interfaces + TDD/非TDD + 可复制命令）；跑 `tasks-lint`；再派 `tasks-review-agent` |
+| `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` | 按本模板生成**粗骨架**（可过 lint）；细粒度留给 plan |
+| `/polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks` | **覆写**为可执行细计划（Files + Interfaces + TDD/非TDD + 可复制命令）；跑 `tasks-lint`；再派 `tasks-review-agent` |
 | `tasks-review-agent`（由 plan 派发） | 评审粒度、依赖排序、可执行性、测试缺口；写入 `reviews/tasks-review-report.md`，**评审期间不直接改 tasks**；消化与改写由 plan skill 完成；可选 Outside Voice（`openspec-review-agent`） |
-| `/polaris-flow-build`（implementer 跑 `/opsx:apply`） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
+| `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`（implementer 跑 `/opsx:apply`） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
 | verify / audit | 实施完成后对照产物；audit 可不读 tasks，只看代码改动与产出 |
 
 ---

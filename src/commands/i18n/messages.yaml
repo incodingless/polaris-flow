@@ -108,14 +108,14 @@ getStarted:
   en: 'Get started:'
   zh: 开始使用：
 getStartedPolaris:
-  en: /polaris "your idea"  — Start a new change with full workflow
-  zh: /polaris "你的想法"  — 启动完整工作流
+  en: /psfl:flow "your idea"  — Start a new change with full workflow
+  zh: /psfl:flow "你的想法"  — 启动完整工作流
 getStartedHotfix:
-  en: /polaris-hotfix       — Quick bug fix (skip brainstorming)
-  zh: /polaris-hotfix       — 快速修复（跳过 brainstorming）
+  en: /psfl:maintance:hotfix  — Quick bug fix (skip brainstorming)
+  zh: /psfl:maintance:hotfix  — 快速修复（跳过 brainstorming）
 getStartedTweak:
-  en: /polaris-tweak        — Small change (skip brainstorming and plan)
-  zh: /polaris-tweak        — 小改动（跳过 brainstorming 和完整 plan）
+  en: /psfl:coding:tweak  — Small change (skip brainstorming and plan)
+  zh: /psfl:coding:tweak  — 小改动（跳过 brainstorming 和完整 plan）
 selectNpmDeps:
   en: 'Select npm dependencies to install/upgrade:'
   zh: 选择要安装/升级的 npm 依赖：

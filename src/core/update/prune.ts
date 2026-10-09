@@ -7,7 +7,7 @@
  * 清理边界刻意收窄到 **Polaris 独占整个命名空间** 的落盘区：
  * - skills：`<ctx>/skills/polaris`（nested 与 flat 都有的插件根）
  *           以及 flat 布局下每个 `polaris-<family>-<skill>/` 目录
- * - commands：nested → `<ctx>/commands/polaris`；flat → `<ctx>/commands/polaris-*.md`
+ * - commands：nested → `<ctx>/commands/psfl`；flat → `<ctx>/commands/psfl-*.md`
  *
  * agents / rules / hooks 与用户自有内容共用目录（用户会在 `.claude/agents` 放自己的 agent、
  * 在 `.claude/rules` 放自己的规则），无法在不误删的前提下判定归属，因此**不参与清理**。
@@ -16,7 +16,7 @@ import path from 'path';
 import { readdir, rm } from 'fs/promises';
 
 import { fileExists } from '../../utils/file-system.js';
-import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
+import { POLARIS_COMMAND_PREFIX, POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 import type { InstallScope } from '../config/polaris-project-config.js';
 import { getCommandLayout, type Platform } from '../domain/platforms.js';
 import { initializeProjectLayout } from '../install/layout.js';
@@ -37,9 +37,9 @@ function toPosix(value: string): string {
   return value.replace(/\\/g, '/');
 }
 
-/** 是否为 Polaris 托管的条目名（`polaris` 或 `polaris-*`） */
-function isOwnedEntryName(name: string): boolean {
-  return name === POLARIS_PLUGIN_NAME || name.startsWith(`${POLARIS_PLUGIN_NAME}-`);
+/** 是否为指定前缀托管的条目名（`<prefix>` 或 `<prefix>-*`） */
+function isOwnedEntryName(name: string, prefix: string): boolean {
+  return name === prefix || name.startsWith(`${prefix}-`);
 }
 
 /** 列目录；不存在或不可读时返回空数组 */
@@ -116,7 +116,7 @@ export async function pruneOwnedFiles(options: {
       );
 
       for (const name of await readDirSafe(skillsRoot)) {
-        if (!isOwnedEntryName(name)) continue;
+        if (!isOwnedEntryName(name, POLARIS_PLUGIN_NAME)) continue;
         const dir = path.join(skillsRoot, name);
         if (dir === layout.skillsDir) continue;
         if (expectedTopDirs.has(name)) continue;
@@ -132,7 +132,7 @@ export async function pruneOwnedFiles(options: {
     const commandsRoot = path.join(layout.baseDir, platform.commandsDir);
     const deleted: string[] = [];
     for (const name of await readDirSafe(commandsRoot)) {
-      if (!isOwnedEntryName(name) || !name.endsWith('.md')) continue;
+      if (!isOwnedEntryName(name, POLARIS_COMMAND_PREFIX) || !name.endsWith('.md')) continue;
       const file = path.join(commandsRoot, name);
       if (expected.has(toPosix(file))) continue;
       await rm(file, { force: true });
@@ -141,6 +141,6 @@ export async function pruneOwnedFiles(options: {
     return { deleted };
   }
 
-  // nested：commands/polaris 整棵子树归 Polaris 独占
+  // nested：commands/psfl 整棵子树归 Polaris 独占
   return { deleted: await pruneTree(layout.commandsDir, expected) };
 }

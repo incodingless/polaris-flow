@@ -14,7 +14,7 @@ import {
 import { type Languages } from '../config/polaris-project-config.js';
 import { getCommandLayout, getPlatformContextDir, type Platform } from '../domain/platforms.js';
 
-import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
+import { POLARIS_COMMAND_PREFIX, POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
 
 /**
  * 与 `config.example.yaml` 的 `layout.docs` 子键一致（相对 docs.root 的目录名）。
@@ -127,12 +127,12 @@ export async function initializeProjectLayout(
     scope === 'global' ? globalContextDir : getPlatformContextDir(platform, scope, projectPath);
 
   const skillBase = path.join(contextDir, platform.skillsDir, POLARIS_PLUGIN_NAME);
-  // 命令根：nested 带 polaris 命名空间目录；flat 直接落平台命令目录
-  // （Cursor CLI 不递归子目录，多一层 polaris/ 就完全读不到）
+  // 命令根：nested 带 psfl 命名空间目录；flat 直接落平台命令目录
+  // （Cursor CLI 不递归子目录，多一层 psfl/ 就完全读不到）
   const commandBase =
     getCommandLayout(platform) === 'flat'
       ? path.join(contextDir, platform.commandsDir)
-      : path.join(contextDir, platform.commandsDir, POLARIS_PLUGIN_NAME);
+      : path.join(contextDir, platform.commandsDir, POLARIS_COMMAND_PREFIX);
   const agentBase = path.join(contextDir, platform.agentsDir);
   const ruleBase = path.join(contextDir, platform.rulesDir);
 

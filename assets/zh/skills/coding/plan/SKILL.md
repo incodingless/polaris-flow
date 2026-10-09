@@ -139,7 +139,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 | 情况 | 处理 |
 |---|---|
 | **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`（或 `/plan`）时的原始消息作为 plan 输入；输出 `[polaris-flow 开发]提案 - 未找到 intention.md，使用用户原始 prompt 作为 plan 输入。` 后跳到 Step 3.2 |
-| **文件存在**（暂存或已迁入） | 对照 `./templates/intention-template.md` 检查下方**必含节**均存在且非空。缺节 → **阻断**，列出缺失节名，提示回到 specify 补全 |
+| **文件存在**（暂存或已迁入） | 逐节检查**必含节**均存在且非空：目标 / 任务范围 / 验收场景及标准 / 宪法对齐 / 前提 / 结论（架构 + 技术选型）/ 待决问题 / 备选方案。缺节 → **阻断**，列出缺失节名，提示回到 specify 补全 |
 
 #### 2.3 用户最终确认
 按 `./policies/ask-question-react.md` 询问 `A. 确认 / B. 暂停回到 specify`，仅 A 进入 Step 3。
@@ -281,7 +281,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
    ```
    - exit 0 → 通过  
    - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑
-5. 生成 `tasks.md` 前已显式输出：`[已 read_file templates/tasks-template.md]`
+5. 生成 `tasks.md` 前已 `read_file ./templates/tasks-template.md`，按其节顺序填充
 
 > **fallback**（无 intention、仅用户原始 prompt）：若 proposal/design 缺第 2/3 项部分节，可放宽不阻断，仅在摘要标 `(fallback)`；**四件套存在性与 `tasks-lint` 仍必须通过**。
 

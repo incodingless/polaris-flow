@@ -39,7 +39,7 @@ export async function worktreeCreateCommand(changeId: string, mainRepoRoot: stri
     console.log(JSON.stringify(result.payload));
   }
   if (result.message) {
-    console.error(`[easy-flow] 阻断：${result.message}`);
+    console.error(`[polaris-flow] 阻断：${result.message}`);
   }
   if (result.exitCode !== 0) process.exitCode = result.exitCode;
 }

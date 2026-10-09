@@ -84,7 +84,7 @@ LANG_EXIT = $?
 
 | 落盘产物状态 | 判定 | 进入步骤 |
 |---|---|---|
-| 无蓝图产物（`blueprint.md` / `page-list.md` 缺失或未确认） | 本环节**不能开工** | **阻断**：提示先执行 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}blueprint`（flow.md R11）并完成人工确认 |
+| 无蓝图产物（`blueprint.md` / `page-list.md` 缺失或未确认） | 本环节**不能开工** | **阻断**：提示先执行 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}blueprint`（flow.md P01）并完成人工确认 |
 | 有蓝图、无 `page-structure.md` | 设计细化未开始 | 进入 **Step 3.1** |
 | 有 `page-structure.md`、无原型 `.html` | 细化已完、未搭骨架 | 进入 **Step 4.1**（`scaffold init`） |
 | 有原型、无 `flow.json` 或 `verify` 未跑过 | 骨架已落、未验证 | 进入 **Step 4.2** |
@@ -109,7 +109,7 @@ LANG_EXIT = $?
 | 两份齐备且 `blueprint.md` 有确认记录 | 通过，进入 Step 2.2 |
 | 有文件但**无确认记录**（草稿） | **阻断**：提示走 `blueprint` 完成人工确认；不得拿草稿当依据开工 |
 | 文件缺失，**但 `work_dir` 里已有落盘的原型 `.html`**（改已有原型场景） | **不阻断**：按用户明确指定的改动点做**最小改动**（增删页面 / 图标走 `scaffold` 定点插入，不得整份重写）；同时提示蓝图缺失会削弱「范围与页面职责」判据，建议先走 `blueprint` 补一份，或先走 `review` 取问题清单再改 |
-| 文件缺失且无原型 | **阻断**：提示先执行 flow.md **R11** |
+| 文件缺失且无原型 | **阻断**：提示先执行 flow.md **P01** |
 
 **蓝图确认后即冻结**：本环节发现范围、页面职责、任务流的缺口时，只标记 `WEB-DESIGN-CHANGE-XXX` 并在 `handoff.md` 里列出，
 **不得直接改写蓝图产物**——改蓝图等于绕过需求方已经做过的确认。
@@ -206,7 +206,7 @@ node scripts/verify.mjs --help                                      # 全部选�
 
 **规格与规则出处**：三层验证的完整规格见 `references/04 §27.1`（本步的脚本就是它的执行体）；三档分辨率的自适应规则与多分辨率验收矩阵见 `references/03 §25`（App Shell / 宽高自适应 / Dead Space / 表格图表 / 超宽屏），对比度与键盘基线见 `§26`——脚本报了分辨率类 WARN 时按 `§25` 判，不要凭感觉调。
 
-推荐顺序：`scaffold init` → `verify --layer=1` 取静态基线（骨架应即刻全绿）→ 填页面主体 → `verify --flow=… --strict` 全三层 → 进入 **Step 5** 的交付阻塞点（是否进 `ship` 由用户选择，flow.md **R11** 制作链的收尾段）。
+推荐顺序：`scaffold init` → `verify --layer=1` 取静态基线（骨架应即刻全绿）→ 填页面主体 → `verify --flow=… --strict` 全三层 → 进入 **Step 5** 的交付阻塞点（是否进 `ship` 由用户选择，flow.md **P01** 制作链的收尾段）。
 
 ### Step 5: 自检（阻塞点）
 

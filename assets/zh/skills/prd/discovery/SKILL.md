@@ -76,7 +76,7 @@ version: 0.7
 使用 SessionStart 注入的路径（本 skill 内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
 
 - 环境变量 `$PLUGIN_ROOT` / `$REPO_ROOT`（Trae `env`、 Cursor `env`、Claude `CLAUDE_ENV_FILE`，或 Agent 上下文中的同名赋值）
-- 仍无 `$PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
+- 仍无 `$PLUGIN_ROOT` → 停止并报告阻塞原因（SessionStart 未注入环境变量），提示用户重启会话以触发 SessionStart
 
 ```bash
 if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.sh" ]; then
@@ -95,7 +95,7 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 | ------------- | ---- | -------- |
 | 0 且数组非空 | 存在未完结需求任务 | 按决策点协议询问 A/B/C/D（见下） |
 | 0 且数组为空 | 无活跃需求任务 | 进入 Step 2 开启新任务 |
-| 非 0 | 参数/环境错误 | 按 H12 阻断 |
+| 非 0 | 参数/环境错误 | 停止并报告阻塞原因（按 stderr） |
 
 存在活跃任务时，**必须**按 `./policies/decision-point.md` 暂停询问：
 
@@ -194,7 +194,7 @@ done
 |---|---|---|
 | 0 | `ok` | 目录与 `state.yaml` 已建，继续下一个 |
 | 1 | `existing` | **立即中断**：报告冲突目录，请用户改名或删除后重试；**禁止**向既有任务目录写入内容 |
-| 2 | — | 参数/环境错误，按 H12 阻断 |
+| 2 | — | 参数/环境错误，停止并报告阻塞原因（按 stderr） |
 
 **② 写需求内容**（基础任务档案）：为每个新建目录写入《需求基线》初稿，路径 `$REPO_ROOT/.polaris/tasks/<任务名>/req_baseline.md`。
 

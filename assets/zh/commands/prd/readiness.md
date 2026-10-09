@@ -1,11 +1,11 @@
 ---
 name: readiness
-command_prefix: polaris
-triggers: ["/polaris{{CMD_SPR}}prd{{CMD_SPR}}readiness"]
+command_prefix: psfl
+triggers: ["/psfl{{CMD_SPR}}prd{{CMD_SPR}}readiness"]
 description: 需求就绪度评估（研发准出判定：五维度加权评分 + PASS/CONDITIONAL/FAIL + 缺陷清单）
 ---
 
-> **前置依赖**：评估对象必须是**已定稿的 PRD 终稿**（`prd-final-v1.0.md`）。无定稿终稿 → 提示先走 `/polaris{{CMD_SPR}}flow` 的 **R02 编写产品需求** 完成定稿，禁止拿未定稿的草稿评估。
+> **前置依赖**：评估对象必须是**已定稿的 PRD 终稿**（`prd-final-v1.0.md`）。无定稿终稿 → 提示先走 `/psfl{{CMD_SPR}}flow` 的 **R02 编写产品需求** 完成定稿，禁止拿未定稿的草稿评估。
 > 前置两份评审报告（`review` / `testability`）缺失时**不阻断**——对应维度标记「证据不足」并按 3 分封顶。
 
 使用 `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness` 技能。

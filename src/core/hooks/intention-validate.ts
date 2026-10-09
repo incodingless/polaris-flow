@@ -99,6 +99,6 @@ export async function runIntentionValidate(filePath: string): Promise<IntentionV
     exitCode: 2,
     missing,
     payload: { missing },
-    message: `intention.md 不完整，缺失节 ${missing.join(' ')}，请回到 /polaris-flow-specify 补齐。`,
+    message: `intention.md 不完整，缺失节 ${missing.join(' ')}，请回到 /polaris:coding:specify 补齐。`,
   };
 }

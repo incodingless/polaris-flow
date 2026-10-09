@@ -59,14 +59,14 @@ RTID_EXIT=$?
 
 - **唯一匹配**：取其 `task_id`（及 `worktree_path`，若非空）
 - **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 phase=ship 的 active change，请先执行 /polaris-flow-verify」
+- **零匹配**：阻断，提示「未找到 phase=ship 的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}verify」
 
 读 `.polaris/tasks/<task_id>/state.yaml`（若 `worktree_path` 非空 → 从 **worktree 内**同路径读）：
 
 | 检查 | 条件 | 失败动作 |
 |------|------|----------|
-| verify 已完成 | `runtime.verify.status=completed` | 阻断，提示先 `/polaris-flow-verify` |
-| 未阻塞 | `runtime.verify.blocked != true`（或已合法 override） | 阻断，提示回 `/polaris-flow-verify` 处理 |
+| verify 已完成 | `runtime.verify.status=completed` | 阻断，提示先 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` |
+| 未阻塞 | `runtime.verify.blocked != true`（或已合法 override） | 阻断，提示回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` 处理 |
 | worktree 合回分支 | `worktree.created_by_polaris_flow == true` | 触发本 skill Step 3；否则 Step 3 整段跳过 |
 
 通过后更新：`phase: ship`。
@@ -77,7 +77,7 @@ RTID_EXIT=$?
 
 `read_file "./policies/ship-lock.md"`，按其规定在主仓 `.polaris/.locks/ship.lock` 上获取互斥锁；失败即阻断。
 
-锁内容含 `task_id`、PID、启动时间；`trap EXIT INT TERM HUP` 自动释放；≥ 30min 视为 stale，须用户显式确认清理（H11）。
+锁内容、`trap` 自动释放与 stale 判定（≥ 30min）见 `./policies/ship-lock.md`；stale 时须用户显式确认清理（H11）。
 
 输出：`[polaris-flow 开发]交付 - ship lock 已获取：task_id=<task_id> pid=<PID>`
 
@@ -125,7 +125,7 @@ esac
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/worktree-rebase-ff.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$BRANCH"
-# 0=成功 / 1=rebase 冲突（worktree 留中间态；用户手动 git rebase --continue 后重跑 /polaris-flow-ship）
+# 0=成功 / 1=rebase 冲突（worktree 留中间态；用户手动 git rebase --continue 后重跑 /polaris{{SKN_SPR}}flow{{SKN_SPR}}ship）
 # 2=ff merge 失败 / 3=环境异常
 ```
 

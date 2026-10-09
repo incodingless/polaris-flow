@@ -33,7 +33,7 @@ EXIT_CODE=$?
 - `EXIT_CODE != 0` → **阻断**，按 stderr 处理
 - `EXIT_CODE == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-按数组长度解读：**唯一匹配**直接取；**多个匹配**按 `./policies/decision-point.md` 列出候选让用户选择；**零匹配**阻断，提示「未找到 ship 阶段的 active change，请先执行 `/polaris{{CMD_SPR}}flow` 的 T01 编写测试用例并完成 refine」。
+按数组长度解读：**唯一匹配**直接取；**多个匹配**按 `./policies/decision-point.md` 列出候选让用户选择；**零匹配**阻断，提示「未找到 ship 阶段的 active change，请先执行 `/psfl{{CMD_SPR}}flow` 的 T01 编写测试用例并完成 refine」。
 
 **入口校验**：
 
@@ -135,7 +135,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 CASE_DOC_DIR="${CASE_DOC_DIR:-$REPO_ROOT/docs/testcases/$task_id}"
 mkdir -p "$CASE_DOC_DIR"
 SRC="$REPO_ROOT/.polaris/testcases/$task_id"
-test -d "$SRC" || { echo "用例产物缺失：$SRC，请先执行 /polaris{{CMD_SPR}}flow 的 T01" >&2; exit 2; }
+test -d "$SRC" || { echo "用例产物缺失：$SRC，请先执行 /psfl{{CMD_SPR}}flow 的 T01" >&2; exit 2; }
 ```
 
 交付内容（**副本**，任务目录原产物保留不动，便于回溯）：
@@ -184,7 +184,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind testcase --sk
 | **缺陷反向补全** | 测试 Bug 与线上问题**均须**反向补充对应层级的用例，把单点问题转成通用回归校验点 | 重入 `draft` 补用例；补完须重走 `refine` 的评审 |
 | **回归集动态调优** | 定期梳理全量回归用例集，剔除失效场景、补充高风险场景 | 重入 `refine`（调整分层与自动化批次） |
 
-> 缺陷反哺是**唯一入口**：任何缺陷必须在用例集里留下一条回归用例，否则视为未闭环。重入入口统一为 `/polaris{{CMD_SPR}}flow` 的 **T01 编写测试用例**（按任务名恢复既有任务）。
+> 缺陷反哺是**唯一入口**：任何缺陷必须在用例集里留下一条回归用例，否则视为未闭环。重入入口统一为 `/psfl{{CMD_SPR}}flow` 的 **T01 编写测试用例**（按任务名恢复既有任务）。
 
 ## 退出条件
 

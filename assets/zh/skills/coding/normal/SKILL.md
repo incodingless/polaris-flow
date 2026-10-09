@@ -18,7 +18,7 @@ version: 0.1
 - **禁止**未按 `tasks-template.md` 的任务类型规则自动标注 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->`；**禁止**用全局开关把「新功能 / Bug 修复 / 含分支逻辑」类任务标成非 TDD（Test-First 是 Constitution NON-NEGOTIABLE）
 - **禁止**用主代理自审冒充合并主审（Step 7）；主审 subagent 不可用时按 `./policies/decision-point.md` 由用户决定，不得 inline 假评审
 - **禁止**主代理在 `/opsx:apply` 之外直接编写业务实现代码
-- **禁止**调用 `superpowers:subagent-driven-development` / `superpowers:executing-plans`（H13）
+- **禁止**调用 superpowers 的两个派发驱动器（H13，规则见 `./policies/hard-stops.md`）
 - **禁止**跳过 5 个 scorer 或伪造分数；**禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 就把 `phase` 推到 ship
 - **禁止**本阶段做分支合并 / PR / `/opsx:archive`（那是 ship）
 - **禁止**未完成出口校验（Step 9）就写 `runtime.build.status` / `runtime.verify.status=completed` 或推进 phase
@@ -164,7 +164,7 @@ C. 超出常规需求 — 升到完整链路（specify 起）
 
 落盘路径：`$REPO_ROOT/.polaris/tasks/<draft_name>/intention.md`
 
-**强制前置**：写入前必须 `read_file ./templates/intention-template.md`，并输出：`[polaris-flow 开发]常规通道：已读取意图模板 intention-template.md`
+**强制前置**：写入前必须 `read_file ./templates/intention-template.md`，按其节顺序填充，缺节补「无」。
 
 按模板节顺序填充。内容来源：
 
@@ -278,7 +278,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" \
 
 #### 4.3 生成 `proposal.md` / `specs/` / `design.md`
 
-**强制前置**：`read_file ./templates/design-template.md`，并输出：`[已 read_file templates/design-template.md]`
+**强制前置**：`read_file ./templates/design-template.md`，按其节顺序填充。
 
 **`intention.md` 节 → 四件套映射**（与完整链路 plan 的映射一致）：
 
@@ -346,7 +346,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" \
 
 #### 6.1 读取模板
 
-**强制前置**：`read_file ./templates/tasks-template.md`，并输出：`[已 read_file templates/tasks-template.md]`
+**强制前置**：`read_file ./templates/tasks-template.md`，按其节顺序填充。
 
 与完整链路的关键差异：plan 产出的是**粗骨架**（等 tasks 覆写），normal **没有独立 tasks 阶段**，因此必须一次写成**可执行细计划**——含 Files / Interfaces / 可直接复制的验证命令。
 

@@ -128,7 +128,13 @@ And   {附加验证点：数据变化、状态变更、记录生成}
 
 ## Step 4 — 输出验收标准清单
 
-输出到 `openspec/changes/<task_id>/test/acceptance-criteria.md`，结构如下：
+输出验收标准清单（Markdown）。**落盘路径按以下优先级**，不得臆造目录：
+
+1. 调用方给定（命令 / 上层技能传入的输出路径）；
+2. 未给定时，若已有任务目录，写入 `$REPO_ROOT/.polaris/testcases/<task_id>/acceptance-criteria.md`（与测试族其余产物同目录）；
+3. 以上皆无（独立调用且无任务）→ 在对话中输出全文，并请用户指定保存路径。
+
+结构如下：
 
 ```
 # 验收标准清单 — {需求/变更名称}

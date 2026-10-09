@@ -105,11 +105,11 @@ describe('pruneOwnedFiles', () => {
     expect(await fileExists(kept)).toBe(true);
   });
 
-  it('nested commands：只清 commands/polaris 下的陈旧文件，不动同级的其它插件命令', async () => {
+  it('nested commands：只清 commands/psfl 下的陈旧文件，不动同级的其它插件命令', async () => {
     const projectPath = await makeProject();
     const commandsRoot = path.join(projectPath, '.claude', 'commands');
-    const kept = await plant(path.join(commandsRoot, 'polaris', 'coding', 'normal.md'));
-    const stale = await plant(path.join(commandsRoot, 'polaris', 'coding', 'legacy.md'));
+    const kept = await plant(path.join(commandsRoot, 'psfl', 'coding', 'normal.md'));
+    const stale = await plant(path.join(commandsRoot, 'psfl', 'coding', 'legacy.md'));
     const otherPlugin = await plant(path.join(commandsRoot, 'opsx-new.md'));
 
     const result = await pruneOwnedFiles({
@@ -126,14 +126,14 @@ describe('pruneOwnedFiles', () => {
     expect(await readFile(otherPlugin, 'utf-8')).toBe('x');
   });
 
-  it('flat commands：只删 polaris-*.md，保留 openspec / 用户命令', async () => {
+  it('flat commands：只删 psfl-*.md，保留 openspec / 用户命令', async () => {
     const projectPath = await makeProject();
     const commandsRoot = path.join(projectPath, '.cursor', 'commands');
-    const kept = await plant(path.join(commandsRoot, 'polaris-coding-normal.md'));
-    const stale = await plant(path.join(commandsRoot, 'polaris-coding-legacy.md'));
+    const kept = await plant(path.join(commandsRoot, 'psfl-coding-normal.md'));
+    const stale = await plant(path.join(commandsRoot, 'psfl-coding-legacy.md'));
     const otherPlugin = await plant(path.join(commandsRoot, 'openspec-propose.md'));
     const userCommand = await plant(path.join(commandsRoot, 'my-own.md'));
-    const dirEntry = path.join(commandsRoot, 'polaris-not-a-file');
+    const dirEntry = path.join(commandsRoot, 'psfl-not-a-file');
     await mkdir(dirEntry, { recursive: true });
 
     const result = await pruneOwnedFiles({

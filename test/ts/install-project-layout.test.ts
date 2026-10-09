@@ -52,7 +52,7 @@ describe('install/layout', () => {
 
     expect(layout.baseDir).toBe(path.join(projectPath, '.claude'));
     await access(path.join(projectPath, '.claude/skills/polaris'));
-    await access(path.join(projectPath, '.claude/commands/polaris'));
+    await access(path.join(projectPath, '.claude/commands/psfl'));
     await access(path.join(projectPath, '.claude/agents'));
     await access(path.join(projectPath, '.claude/rules'));
   });

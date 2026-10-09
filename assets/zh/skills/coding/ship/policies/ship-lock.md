@@ -4,7 +4,7 @@
 
 ## 目的
 
-ship 是 easy-flow 中唯一会**写主仓共享资源**的阶段（`workflow.yaml` 全文重写、`.polaris/metrics/` 目录合回、`.polaris/overrides.log` 追加、`/opsx:archive` 移动 `openspec/changes/`、`git rebase` + `git merge --ff-only` 主分支 HEAD）。多 worktree 同时 ship 会让上述资源出现 read-modify-write 竞争或 git 引用冲突。本 policy 用文件锁把整个 ship 流程串行化：**同一台机器同一时刻只允许一个 ship 在跑**。
+ship 是 polaris-flow 中唯一会**写主仓共享资源**的阶段（`workflow.yaml` 全文重写、`.polaris/metrics/` 目录合回、`.polaris/overrides.log` 追加、`/opsx:archive` 移动 `openspec/changes/`、`git rebase` + `git merge --ff-only` 主分支 HEAD）。多 worktree 同时 ship 会让上述资源出现 read-modify-write 竞争或 git 引用冲突。本 policy 用文件锁把整个 ship 流程串行化：**同一台机器同一时刻只允许一个 ship 在跑**。
 
 跨机器并发不在本 policy scope（lock 文件不入仓，仅本机生效）；多人协作通过 git 分支 + PR 处理。
 

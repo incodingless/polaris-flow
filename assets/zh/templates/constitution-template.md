@@ -15,8 +15,8 @@
 
 本宪法是 OpenSpec 工作流的最高指导原则，凌驾于具体变更之上。
 
-- **修正流程**：通过 `/ezfl:constitution amend` 命令进行
+- **修正流程**：通过 `/polaris{{SKN_SPR}}constitution` 的 AMEND 模式进行
 - **版本管理**：遵循语义化版本（MAJOR.MINOR.PATCH）
-- **合规性审查**：在 design / lock / build / audit 4 个注入点执行
+- **合规性审查**：在 A（加载宪法）/ C（实施前）/ D（验证审计）三个注入点执行
 
 **Version**: {{VERSION}} | **Ratified**: {{DATE}} | **Last Amended**: {{DATE}}

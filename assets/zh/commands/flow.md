@@ -1,7 +1,7 @@
 ---
 name: flow
-command_prefix: polaris
-triggers: ["/polaris{{CMD_SPR}}flow"]
+command_prefix: psfl
+triggers: ["/psfl{{CMD_SPR}}flow"]
 description: Polaris Flow 总入口。按平台查表选用询问工具，单选让用户依次选择功能类别与具体功能，收集附加上下文（文件/目录/说明）后加载对应技能并进入相应工作流。
 ---
 
@@ -137,7 +137,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 }
 ```
 
-**单次会话有效**：本选择**不**持久化，下次调用 `/polaris{{CMD_SPR}}flow` 时重新问。
+**单次会话有效**：本选择**不**持久化，下次调用 `/psfl{{CMD_SPR}}flow` 时重新问。
 
 - 选「是」→ 跳 0.4 自动评估
 - 选「否」→ 把 `需求内容` 保留，跳过 0.4；正常走第一步 + 第二步（用户手动选 C01/C02/C03），`需求内容` 随技能加载一并交接
@@ -375,18 +375,18 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 | **C01** 实现简单功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` | 见文末《功能类选项的复杂度判定》 |
 | **C02** 实现常规功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` | 见文末《功能类选项的复杂度判定》 |
 | **C03** 实现复杂功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` | 见文末《功能类选项的复杂度判定》 |
-| **M01** 修复生产Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `hotfix`；diagnose（诊断与方案·含现场保全与止血确认）→ patch（实现与自验·含五维独立验证）→ closeout（关闭Bug + 自有收尾归档）。**通道由 diagnose 的场景分流步判定**，预声明只是用户的第一意图。独立入口命令：`/polaris{{CMD_SPR}}maintance{{CMD_SPR}}hotfix` |
-| **M02** 修复测试Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `bugfix`；diagnose → patch → closeout（同上）。**自有收尾**归档到 `docs/troubleshooting/<issue_id>/`（不使用 openspec，不交 ship）。独立入口命令：`/polaris{{CMD_SPR}}maintance{{CMD_SPR}}bugfix` |
+| **M01** 修复生产Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `hotfix`；diagnose（诊断与方案·含现场保全与止血确认）→ patch（实现与自验·含五维独立验证）→ closeout（关闭Bug + 自有收尾归档）。**通道由 diagnose 的场景分流步判定**，预声明只是用户的第一意图。独立入口命令：`/psfl{{CMD_SPR}}maintance{{CMD_SPR}}hotfix` |
+| **M02** 修复测试Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `bugfix`；diagnose → patch → closeout（同上）。**自有收尾**归档到 `docs/troubleshooting/<issue_id>/`（不使用 openspec，不交 ship）。独立入口命令：`/psfl{{CMD_SPR}}maintance{{CMD_SPR}}bugfix` |
 | **M11** 代码评审 | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` | 对指定范围的代码做系统化审查（正确性 / 安全 / 性能 / 可维护性 / 架构），可按用户选择启用 SonarQube 扫描并按门禁规则判定。**无独立入口命令**，仅经本表路由 |
 | **M12** 重构 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}refactor` | ⚠️ 暂不可用 · 该技能尚未提供 |
 | **R01** 编写用户需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}userstory` | ⚠️ 暂不可用 · 该技能尚未提供 |
-| **R02** 编写产品需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship。独立入口命令：`/polaris{{CMD_SPR}}prd` |
-| **R03** 需求就绪度评估 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness` | readiness（五维度加权评分 + PASS/CONDITIONAL/FAIL 准出判定；FAIL 阻断交付回 refine）。独立入口命令：`/polaris{{CMD_SPR}}prd{{CMD_SPR}}readiness` |
-| **P01** 制作原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}blueprint` | prototype **全链**：blueprint → build → ship。独立入口命令：`/polaris{{CMD_SPR}}prototype` |
-| **P02** 评审已有原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review` | prototype **评审**（只评不改、不归档）。独立入口命令：`/polaris{{CMD_SPR}}prototype{{CMD_SPR}}review` |
-| **T01** 编写测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship。相位序列四段（discovery/draft/refine/ship）；**review 是服务型技能**——由 `refine` Step 6 以 subagent 派发、游标不落，Critical 清零才放行 ship（同 R02 的 review 形态）。独立入口命令：`/polaris{{CMD_SPR}}testing{{CMD_SPR}}create-testcase` |
-| **T02** 编写验收标准 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}acceptance` | acceptance（产出 GWT 验收标准清单，供 T01 作上游输入）。独立入口命令：`/polaris{{CMD_SPR}}testing{{CMD_SPR}}acceptance` |
-| **T03** 评审测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}review` | review（**服务型技能**·独立入口；只出报告、不改任何文件、不推游标、不阻断流程）。独立入口命令：`/polaris{{CMD_SPR}}testing{{CMD_SPR}}review-testcase` |
+| **R02** 编写产品需求 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship。独立入口命令：`/psfl{{CMD_SPR}}prd` |
+| **R03** 需求就绪度评估 | `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness` | readiness（五维度加权评分 + PASS/CONDITIONAL/FAIL 准出判定；FAIL 阻断交付回 refine）。独立入口命令：`/psfl{{CMD_SPR}}prd{{CMD_SPR}}readiness` |
+| **P01** 制作原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}blueprint` | prototype **全链**：blueprint → build → ship。独立入口命令：`/psfl{{CMD_SPR}}prototype` |
+| **P02** 评审已有原型 | `polaris{{SKN_SPR}}prototype{{SKN_SPR}}review` | prototype **评审**（只评不改、不归档）。独立入口命令：`/psfl{{CMD_SPR}}prototype{{CMD_SPR}}review` |
+| **T01** 编写测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}discovery` | discovery → draft → refine → review → ship。相位序列四段（discovery/draft/refine/ship）；**review 是服务型技能**——由 `refine` Step 6 以 subagent 派发、游标不落，Critical 清零才放行 ship（同 R02 的 review 形态）。独立入口命令：`/psfl{{CMD_SPR}}testing{{CMD_SPR}}create-testcase` |
+| **T02** 编写验收标准 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}acceptance` | acceptance（产出 GWT 验收标准清单，供 T01 作上游输入）。独立入口命令：`/psfl{{CMD_SPR}}testing{{CMD_SPR}}acceptance` |
+| **T03** 评审测试用例 | `polaris{{SKN_SPR}}testing{{SKN_SPR}}review` | review（**服务型技能**·独立入口；只出报告、不改任何文件、不推游标、不阻断流程）。独立入口命令：`/psfl{{CMD_SPR}}testing{{CMD_SPR}}review-testcase` |
 
 按 `已选功能` 的编号在上表中查到入口技能。选项名称以第二步选项的 `label` 为准；
 用户说「代码评审」「重构」等别名时，按编号等价映射到 **M11 / M12**。

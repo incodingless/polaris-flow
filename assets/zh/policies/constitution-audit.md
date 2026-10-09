@@ -1,8 +1,11 @@
 # Constitution Audit — 合规审计规则
 
+> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（注入点 D）、`polaris{{SKN_SPR}}coding{{SKN_SPR}}normal`（注入点 D，轻量版）与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak`（出口检查）共同引用。
+> **本文件是宪法合规审计规则的唯一来源**，各技能只引用、不复制。
+
 ## 核心原则
 
-Constitution Audit 是 audit command 的 Step 1（注入点 D）。逐条核对实施产出是否符合宪法 Core Principles。
+Constitution Audit 是「宪法注入点 D」的执行规则：逐条核对实施产出是否符合宪法 Core Principles。
 
 ## 前置条件
 

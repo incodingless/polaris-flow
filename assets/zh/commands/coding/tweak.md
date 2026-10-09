@@ -1,7 +1,7 @@
 ---
 name: tweak
-command_prefix: polaris
-triggers: ["/polaris{{CMD_SPR}}coding{{CMD_SPR}}tweak"]
+command_prefix: psfl
+triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}tweak"]
 description: 简单改动（C01 单入口：轻量澄清 → tasks → 实施 → 出口检查）
 ---
 
