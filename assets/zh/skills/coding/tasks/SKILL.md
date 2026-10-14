@@ -102,7 +102,7 @@ RTID_EXIT=$?
 候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
 
 ```
-- <task_id> (工作流：完整(full)，阶段：任务规划(tasks)，技能：任务规划(tasks))
+- <task_id> (工作流：严格(strict)，阶段：任务规划(tasks)，技能：任务规划(tasks))
 ```
 
 <!--

@@ -52,7 +52,9 @@
 
 ## 值域约定（2026-10-12 裁定，勿再动）
 - 分级档位 `complexity_level` / `risk_level` / `current_tier` = **`trivial | standard | critical`**，方向 `critical > standard > trivial`（唯一源 `assets/zh/policies/risk-signals.md:5`）；**代码已写死，用户明确不改**；`simple|normal|complex` 无落点。
-- `state.yaml.workflow.mode` = **`tweak | normal | full`**（Dashboard 已消费）；`sdd` 只是命令名。
+- `state.yaml.workflow.mode` = **`tweak | normal | strict`**（Dashboard 已消费）；`sdd` 只是命令名。
+  ⚠️ **2026-10-14 由 `full` 更名**（旧名与 `verify_mode` 的 `full` 撞词）。存量值**只在读取侧**归一
+  （`normalizeMode` + `WORKFLOW_MODE_ALIASES`，与 `PHASE_ALIASES` 同构），写入白名单 `WORKFLOW_MODE_LABELS` **不含 `full`**；前端 `displayMode` 同步扩 `MODE_ALIASES`。
 - ⚠️ **`state.example.yaml` 的 diff 长期混有用户手改** ⇒ **回退绝不能用 `git checkout`**，只能定点 Edit。
 
 ## Hook 与平台

@@ -26,8 +26,8 @@ export type VerifyMode = 'light' | 'heavy';
 export type AutoTransition = 'auto' | 'off';
 /** 开发模式，可选值: tdd-测试驱动开发 | none-非测试驱动开发 */
 export type BuildMode = 'tdd' | 'none';
-/** 工作流类型，可选值: sdd | tweak | bugfix | full */
-export type WorkflowType = 'sdd' | 'tweak' | 'bugfix' | 'full';
+/** 工作流类型，可选值: sdd | tweak | bugfix | strict（sdd / bugfix 为历史值） */
+export type WorkflowType = 'sdd' | 'tweak' | 'bugfix' | 'strict';
 /**
  * 任务阶段。
  *

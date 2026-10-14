@@ -26,7 +26,7 @@ description: SDD 驱动开发（specification-driven development）——复杂�
 ## 中断恢复
 
 重新执行本命令即可：`specify` Step 1 会枚举在途任务、读回**它自己的** `state.yaml`
-（`workflow.mode=full`）并按决策点询问**续写 / 丢弃并新建**。
+（`workflow.mode=strict`）并按决策点询问**续写 / 丢弃并新建**。
 
 - 任务**仍在 specify** → 续写，或丢弃重建。
 - 任务**已越过 specify**（该任务 `state.yaml` 的 `phase` 为 `plan` / `design` / `tasks` / `build` / `verify`）

@@ -28,6 +28,8 @@ import {
   getTaskKindLayout,
   isKnownPhase,
   isWritablePhase,
+  modeLabel,
+  normalizeMode,
   phaseGroupOf,
   phaseIndexIn,
   skillForModePhase,
@@ -70,7 +72,7 @@ describe('阶段表与契约 §五 一致', () => {
     expect(isKnownPhase('coding', 'retro')).toBe(true);
   });
 
-  it('coding 的 design 标为 optional（仅 full 模式走）', () => {
+  it('coding 的 design 标为 optional（仅 strict 工作流走）', () => {
     const design = getKindPhases('coding').find((p) => p.code === 'design');
     expect(design?.optional).toBe(true);
     const build = getKindPhases('coding').find((p) => p.code === 'build');
@@ -275,18 +277,18 @@ describe('skillForModePhase：恢复分发的判据（mode × 游标 phase → �
     expect(skillForModePhase('coding', 'plan', 'normal')).toBe('normal');
   });
 
-  it('完整链路与其余阶段：同名回落（**入口阶段也返回同名** —— 与 skillForPhase 的关键差别）', () => {
+  it('严格工作流与其余阶段：同名回落（**入口阶段也返回同名** —— 与 skillForPhase 的关键差别）', () => {
     expect(skillForPhase('coding', 'specify')).toBeNull(); // 出口语义：入口阶段无自动衔接
-    expect(skillForModePhase('coding', 'specify', 'full')).toBe('specify'); // 分发语义：要回答「进哪个技能」
-    expect(skillForModePhase('coding', 'plan', 'full')).toBe('plan');
-    expect(skillForModePhase('coding', 'verify', 'full')).toBe('verify');
+    expect(skillForModePhase('coding', 'specify', 'strict')).toBe('specify'); // 分发语义：要回答「进哪个技能」
+    expect(skillForModePhase('coding', 'plan', 'strict')).toBe('plan');
+    expect(skillForModePhase('coding', 'verify', 'strict')).toBe('verify');
     expect(skillForModePhase('coding', 'specify')).toBe('specify'); // mode 缺省同样回落
   });
 
   it('phase=ship 归 ship（mode 不限）—— 交付阶段三通道共用', () => {
     expect(skillForModePhase('coding', 'ship', 'tweak')).toBe('ship');
     expect(skillForModePhase('coding', 'ship', 'normal')).toBe('ship');
-    expect(skillForModePhase('coding', 'ship', 'full')).toBe('ship');
+    expect(skillForModePhase('coding', 'ship', 'strict')).toBe('ship');
   });
 
   it('升档 / 存量兜底：phase 不在 mode 的覆盖内时按 phase 直连', () => {
@@ -295,11 +297,20 @@ describe('skillForModePhase：恢复分发的判据（mode × 游标 phase → �
   });
 
   it('空 / 未知 / 旁路阶段返回 null；历史别名照常归一', () => {
-    expect(skillForModePhase('coding', 'retro', 'full')).toBeNull();
-    expect(skillForModePhase('coding', '', 'full')).toBeNull();
-    expect(skillForModePhase('coding', '  ', 'full')).toBeNull();
-    expect(skillForModePhase('coding', 'nonsense', 'full')).toBeNull();
-    expect(skillForModePhase('coding', 'delivery', 'full')).toBe('ship');
+    expect(skillForModePhase('coding', 'retro', 'strict')).toBeNull();
+    expect(skillForModePhase('coding', '', 'strict')).toBeNull();
+    expect(skillForModePhase('coding', '  ', 'strict')).toBeNull();
+    expect(skillForModePhase('coding', 'nonsense', 'strict')).toBeNull();
+    expect(skillForModePhase('coding', 'delivery', 'strict')).toBe('ship');
+  });
+
+  it('工作流名历史别名 full → strict（改名兜底：存量 state.yaml 照常可读，写入仍被拒）', () => {
+    expect(normalizeMode('full')).toBe('strict');
+    expect(normalizeMode(' strict ')).toBe('strict');
+    expect(normalizeMode('tweak')).toBe('tweak');
+    expect(modeLabel('full')).toBe('严格');
+    expect(modeLabel('strict')).toBe('严格');
+    expect(skillForModePhase('coding', 'specify', 'full')).toBe('specify');
   });
 
   it('channelSkill 只登记在 coding 的 specify / plan 上（不留隐性覆盖）', () => {

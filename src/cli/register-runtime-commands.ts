@@ -244,7 +244,7 @@ export function registerRuntimeCommands(program: Command): void {
     )
     .requiredOption('--kind <kind>', 'task kind: coding|requirement|testcase|prototype|debug')
     .requiredOption('--as <skill>', 'this skill name (family-relative, e.g. tweak)')
-    .option('--mode <mode>', 'workflow mode; written only when creating (tweak|normal|full)')
+    .option('--mode <mode>', 'workflow mode; written only when creating (tweak|normal|strict)')
     .option('--task-id <id>', 're-run for a candidate chosen by the user')
     .option('--started-at <iso>', 'started_at written on create')
     .option('--repo-root <path>', 'main repo root')

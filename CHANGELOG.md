@@ -20,6 +20,7 @@
 - **恢复分发改读 state.yaml**: `workflow-entry get-active-changes --format full` 的 `phase` 与 `mode` 现在同出一个文件，行结构新增 `state_path`（定位结果，便于排查）与 `state_readable`；`--phase` 过滤改为按各任务 state.yaml 的阶段过滤（默认 `ids` 格式仍不读 state.yaml，保持低成本）
 - **阶段推进只走一个原语**: 所有技能的游标 phase 写入（`update-active --set phase=` / `append-active --phase=`）删除，阶段推进统一由 `task-state-entry enter-phase / complete-phase --next-phase` 完成
 - **`tweak` / `normal` 的阶段语义与全链路统一**: 进入实施阶段不再写顶层 `phase: build`（进行中的事实由 `runtime.build.status` 承载）；顶层 `phase` 只承载「下一步该谁接手」，三条工作流自此同义
+- **工作流名 `full` 更名为 `strict`**: 旧名与 `verify_mode` 的取值 `full` **同名不同义** —— 同一份 `state.yaml` 里两个 `full` 指向不同维度。新名描述真实特征（端到端全走、门禁不跳步），中文名由「完整」改为「严格」。**存量数据无需迁移**：历史值只在**读取侧**归一（新增 `normalizeMode`，与 `PHASE_ALIASES` 同构），`--format full` 输出的 `mode` / `mode_label`、恢复分发 `skillForModePhase`、Dashboard 卡片均按现行名显示；**写入侧**白名单不含 `full`，误写会被 `task-entry` 以「未知工作流」拒绝
 
 ### Fixed
 

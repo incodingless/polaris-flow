@@ -60,7 +60,7 @@ RTID_EXIT=$?
 候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
 
 ```
-- <task_id> (工作流：完整(full)，阶段：提案(plan)，技能：提案(plan))
+- <task_id> (工作流：严格(strict)，阶段：提案(plan)，技能：提案(plan))
 ```
 
 1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
@@ -391,7 +391,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 #### 6.1 深化设计决策点（阻塞）
 
-plan 完成后，深度设计（design）是**可选**衔接阶段：只有完整链路（full，specify 起）在此决策；tweak / normal 不经过本 skill，天然无此决策。
+plan 完成后，深度设计（design）是**可选**衔接阶段：只有严格工作流（strict，specify 起）在此决策；tweak / normal 不经过本 skill，天然无此决策。
 
 按 `./policies/decision-point.md` 暂停，询问是否进入深度设计深化：
 

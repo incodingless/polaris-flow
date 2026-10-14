@@ -137,10 +137,11 @@ describe('task-entry · create', () => {
     expect(noMode.exitCode).toBe(3);
     expect(noMode.message).toContain('--mode');
 
+    // 退役名 `full` 不得再被写入：白名单仍是 WORKFLOW_MODE_LABELS（归一只在读取侧做）
     const badMode = await runTaskEntry({
       kind: 'coding',
       as: 'tweak',
-      mode: 'sdd',
+      mode: 'full',
       repoRoot: repo,
     });
     expect(badMode.exitCode).toBe(3);
@@ -188,7 +189,7 @@ describe('task-entry · 判定（resume / handover / block）', () => {
 
   it('唯一 + skill 是别的技能 → handover（本技能不得接手，也不得新建）', async () => {
     const repo = await tmpRepo();
-    await seedTask(repo, 't-2', 'plan', 'full');
+    await seedTask(repo, 't-2', 'plan', 'strict');
 
     const result = await runTaskEntry({ kind: 'coding', as: 'tweak', repoRoot: repo });
     expect(result.payload?.action).toBe('handover');
@@ -227,7 +228,7 @@ describe('task-entry · 判定（resume / handover / block）', () => {
 
   it('skill == null（旁路阶段 retro）→ block，不得落进 handover', async () => {
     const repo = await tmpRepo();
-    await seedTask(repo, 't-retro', 'retro', 'full');
+    await seedTask(repo, 't-retro', 'retro', 'strict');
 
     const result = await runTaskEntry({ kind: 'coding', as: 'tweak', repoRoot: repo });
     expect(result.payload?.action).toBe('block');
@@ -238,7 +239,7 @@ describe('task-entry · 判定（resume / handover / block）', () => {
   it('--task-id 直接判定，跳过 select', async () => {
     const repo = await tmpRepo();
     await seedTask(repo, 'a-1', 'plan', 'tweak', 0);
-    await seedTask(repo, 'b-2', 'specify', 'full', 1000);
+    await seedTask(repo, 'b-2', 'specify', 'strict', 1000);
 
     const result = await runTaskEntry({
       kind: 'coding',
@@ -270,7 +271,7 @@ describe('task-entry · select 与参数', () => {
   it('多个在途任务 → select，候选带中文显示名，且不替用户选', async () => {
     const repo = await tmpRepo();
     await seedTask(repo, 'a-1', 'plan', 'tweak', 0);
-    await seedTask(repo, 'b-2', 'specify', 'full', 1000);
+    await seedTask(repo, 'b-2', 'specify', 'strict', 1000);
 
     const result = await runTaskEntry({ kind: 'coding', as: 'tweak', repoRoot: repo });
     expect(result.payload?.action).toBe('select');

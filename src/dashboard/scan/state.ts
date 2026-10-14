@@ -20,8 +20,8 @@ export type TaskRuntime = {
   channel: string;
   /**
    * 开发模式原文（`state.yaml` 的 `workflow.mode`）。
-   * 历史值域含 `sdd`，现行值域为 `tweak|normal|full` —— **归一由展示层做**
-   * （`sdd` 与 `normal` 视为同一档），此处不吞掉原值。
+   * 历史值域含 `sdd` / `full`，现行值域为 `tweak|normal|strict` —— **归一由展示层做**
+   * （`sdd` 与 `normal` 视为同一档、`full` 与 `strict` 同一档），此处不吞掉原值。
    */
   mode: string;
   /** 任务名：state 的名字字段 → 首个存在的产物文档的标题 → `task_id` */

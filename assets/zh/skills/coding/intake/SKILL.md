@@ -26,7 +26,7 @@ version: 0.1
 |---|---|---|
 | `trivial` | `tweak` | `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` |
 | `standard` | `normal` | `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` |
-| `critical` | `full` | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` |
+| `critical` | `strict` | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` |
 
 - 判档值域 = `trivial | standard | critical`（唯一源 `./policies/risk-signals.md` §1），与 `state.yaml` 的
   `complexity_level` **同一套** —— **不另造词表**。
@@ -63,7 +63,7 @@ RTID_EXIT=$?
 候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
 
 ```
-- <task_id> (工作流：完整(full)，阶段：提案(plan)，技能：提案(plan))
+- <task_id> (工作流：严格(strict)，阶段：提案(plan)，技能：提案(plan))
 ```
 
 选 **A 继续** → **转交**：读该行的 `skill`，**同会话内加载** `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`

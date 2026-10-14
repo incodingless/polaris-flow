@@ -32,7 +32,7 @@
 | `assets/shared/templates/state.example.yaml`                      | 模板默认 `workflow: mode: normal`（**用户已自行改**：注释三档化为 `tweak/normal/full`）     |
 | `coding/tweak/SKILL.md:327-328`                                   | 已写 `mode: tweak` ✓ 无需改                                                   |
 | `coding/normal/SKILL.md:372`、`normal/policies/tier-gate.md:43,99` | 现写 `mode: sdd` → **待改 `mode: normal`**                                   |
-| `coding/specify/SKILL.md`                                         | 现**不写** mode → **待新增 `mode: full`**                                      |
+| `coding/specify/SKILL.md`                                         | 现**不写** mode → **待新增 `mode: strict`**                                      |
 
 ⇒ **通道不落游标 entry 的 `channel`**（那是 debug 族的 `bugfix\|hotfix` 专用，用于 `get-active-changes` 筛选）。  
 coding 走 `state.yaml.workflow.mode` —— **单一源、Dashboard 已可见**。
@@ -71,7 +71,7 @@ coding 走 `state.yaml.workflow.mode` —— **单一源、Dashboard 已可见**
 | **任意 coding 技能** | `get-active-changes --kind coding`（**不带 `--phase`**）拿全部在途任务 → 读 `mode` + 游标 `phase` 查分发表 | 判定 = **本技能** → 接手，跳到「上下文压缩恢复」表里 `phase` 对应 Step；判定 = **他技能** → **转交**（同会话加载，上限 2 跳） |
 | `/psfl:coding:tweak` | 判定 = `tweak`（`mode=tweak` 且 `phase ∈ {specify, plan}`） | decision-point：**A 续写 / B 新建 / C 取消** |
 | `/psfl:coding:normal` | 判定 = `normal`（`mode=normal` 且 `phase ∈ {specify, plan}`） | 同上 |
-| `/psfl:coding:sdd`（→specify） | 判定 = `specify`（`mode=full` 且 `phase=specify`） | 同上 |
+| `/psfl:coding:sdd`（→specify） | 判定 = `specify`（`mode=strict` 且 `phase=specify`） | 同上 |
 | `phase = ship` | **一律归 `ship`**（`mode` 不限，交付阶段三通道共用） | `ship` 接手（`mode=tweak` 时另跑产物补齐） |
 | `/psfl:flow`（选开发类） | 存在任意 coding 在途任务 | 先问「**继续 X 任务 / 开始新任务**」；继续 → 按分发表转交；新建 → 进 intake 评估 |
 
@@ -138,7 +138,7 @@ ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind c
 ### F1d（P0｜与 F1c 配套）通道迁移改写 `mode` — 3 处
 
 - `tweak/policies/upgrade-check.md` §3.3：`mode: tweak` → **`mode: normal`**
-- `normal/policies/tier-gate.md` §2.3：`mode: normal` → **`mode: full`**
+- `normal/policies/tier-gate.md` §2.3：`mode: normal` → **`mode: strict`**
 - `normal/policies/tier-gate.md` §1.3：`mode: normal` → **`mode: tweak`**
 
 `mode` 恒等于「当前通道」，F1c 的分发表才成立；原档由 `workflow.status` +
@@ -190,7 +190,7 @@ ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind c
 | --------- | ------------- | --------------------- |
 | `simple`  | `tweak`       | `/psfl:coding:tweak`  |
 | `normal`  | `normal`      | `/psfl:coding:normal` |
-| `complex` | `full`        | `/psfl:coding:sdd`    |
+| `complex` | `strict`        | `/psfl:coding:sdd`    |
 
 **字段形态**
 
@@ -235,7 +235,7 @@ workflow:
 | ---------------------------------------------------------- | ---------------------------------------- | --------------------------------------- |
 | `state.example.yaml`                                       | 加 `workflow.entry_complexity`；mode 注释三档化 | mode 注释**用户已自行改**；`entry_complexity` 待补 |
 | `normal/SKILL.md:372`、`normal/policies/tier-gate.md:43,99` | `mode: sdd` → `mode: normal`             | 待落盘                                     |
-| `specify/SKILL.md`                                         | **新增**写 `mode: full`                     | 待落盘                                     |
+| `specify/SKILL.md`                                         | **新增**写 `mode: strict`                     | 待落盘                                     |
 | `tweak/SKILL.md:328`、`tweak/policies/upgrade-check.md:76`  | `mode: tweak` 已正确                        | 不动                                      |
 
 ---
@@ -289,7 +289,7 @@ v1 曾需要给 `get-active-changes` 加 `--format full`（把通道放游标 en
 
 - 目标 1：`normal` 跑到 Step 4 中断 → 新会话 `/psfl:coding:normal` → 读 `mode=normal` 命中 → 续写 ✓
 - 目标 2：同上中断后敲 `/psfl:coding:plan` → 读 `mode=normal` → **被拒并提示正确入口** ✓
-- 目标 3：`specify` 完成 → 游标 `phase=plan`、`mode=full` → `/psfl:coding:plan` 续跑 ✓
+- 目标 3：`specify` 完成 → 游标 `phase=plan`、`mode=strict` → `/psfl:coding:plan` 续跑 ✓
 
 ---
 

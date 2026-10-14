@@ -17,6 +17,7 @@ import path from 'path';
 import { getTaskKindDir, resolveTaskStatePath } from '../assets/polaris-paths.js';
 import {
   modeLabel,
+  normalizeMode,
   normalizePhase,
   phaseLabel,
   skillForModePhase,
@@ -104,7 +105,7 @@ export type WorkflowDispatchRow = {
   phase: string;
   /** `phase` 的中文显示名（阶段表 `KindPhaseDef.name`）；未登记时为空串 */
   phase_label: string;
-  /** `state.yaml` 的 `workflow.mode`（`tweak` / `normal` / `full`；旧数据可能为空串） */
+  /** `state.yaml` 的 `workflow.mode`（`tweak` / `normal` / `strict`；历史 `full` 已归一；旧数据可能为空串） */
   mode: string;
   /** `mode` 的中文显示名（`WORKFLOW_MODE_LABELS`）；未登记时为空串 */
   mode_label: string;
@@ -342,7 +343,9 @@ export async function buildDispatchRow(
   const statePath = resolveTaskStatePath(repoRoot, kind, taskId, worktreePath);
   const state = await loadTaskStateFromFile(statePath);
   const phase = String(state?.phase ?? '');
-  const mode = String(state?.workflow?.mode ?? '');
+  // 归一到现行名（历史 `full` → `strict`）—— 让 `mode` 与 `mode_label` 指向同一个值；
+  // 与 `state.yaml` 里同名的 `verify_mode` 无关（那是验证强度，另一个维度）。
+  const mode = normalizeMode(String(state?.workflow?.mode ?? ''));
   const skill = skillForModePhase(kind, phase, mode);
   return {
     task_id: taskId,

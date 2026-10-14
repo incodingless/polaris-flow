@@ -38,7 +38,7 @@ export type KindPhaseDef = {
   /** 所属 UI 分组名（Dashboard 的步骤条按分组分段） */
   group: string;
   /**
-   * 可选阶段（仅 coding 的 design：仅 full 模式走）。
+   * 可选阶段（仅 coding 的 design：仅 strict 工作流走）。
    * UI 规则：当前 phase 已越过它时渲染为「已跳过」，而非「已完成」。
    */
   optional?: boolean;
@@ -236,9 +236,6 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
       { code: 'discovery', name: '澄清', group: '澄清与草稿', skill: null },
       { code: 'draft', name: '草稿', group: '澄清与草稿' },
       { code: 'refine', name: '完善', group: '完善与交付' },
-      // 服务型技能：`testing/review` 不进相位表——由 `refine` Step 6 以 subagent 派发（工作流必走，
-      // Critical 清零才放行 ship），或由用户独立触发（flow T03 评审测试用例）。
-      // 与 `requirement`（`prd/review` 服务型）、`prototype`（`review` 为相位但游标不落）同构。
       { code: 'ship', name: '交付', group: '完善与交付' },
     ],
     // 依据 `assets/zh/skills/testing/<阶段>/SKILL.md` 各自的「落盘」约定登记，不猜。
@@ -386,21 +383,10 @@ export function isKnownPhase(kind: WorkflowTaskKind, phase: string): boolean {
   return TASK_KIND_LAYOUTS[kind].phases.some((p) => p.code === phase);
 }
 
-/**
- * phase 的历史别名 → 现行阶段码。
- *
- * `delivery` / `archive` 是 `ship` 的旧名，存量 `workflow.yaml` 里可能有。
- * 它们**不是**阶段（不在任何 phases 表里），只在「读取游标」与「写入校验白名单」两处归一。
- */
-const PHASE_ALIASES: Record<string, string> = {
-  delivery: 'ship',
-  archive: 'ship',
-};
-
 /** 归一 phase：去空白 + 别名折叠。空串原样返回 */
 export function normalizePhase(phase: string): string {
   const raw = (phase ?? '').trim();
-  return PHASE_ALIASES[raw] ?? raw;
+  return raw;
 }
 
 /**
@@ -436,6 +422,7 @@ export function skillForPhase(kind: WorkflowTaskKind, phase: string): string | n
  *      （coding `tweak` / `normal`）的 `specify` / `plan` 由通道技能本人执行。
  *
  * 返回 `null`：空 / 未知阶段、旁路阶段（coding `retro`）。
+ * `mode` 先经 `normalizeMode` 归一（历史 `full` → `strict`），故存量数据不受改名影响。
  * 消费方：`workflow-entry get-active-changes --format full`（技能 Step 0 的分发判据）。
  */
 export function skillForModePhase(
@@ -447,27 +434,36 @@ export function skillForModePhase(
   if (!code) return null;
   const def = TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === code);
   if (!def || def.bypass) return null;
-  const byMode = mode ? def.channelSkill?.[mode] : undefined;
+  const byMode = mode ? def.channelSkill?.[normalizeMode(mode)] : undefined;
   if (byMode) return byMode;
   return def.skill ?? def.code;
 }
 
 /**
- * 通道（`state.yaml.workflow.mode`）的中文显示名。
+ * 工作流（`state.yaml.workflow.mode`）的中文显示名。
  *
- * 取值沿用 assets 里既有的中文口径（`coding/normal` 标题「常规需求通道」、
- * `coding/tweak` 正文「简单档」、`full` 通称「完整链路」），**不另造词**。
+ * 取值沿用 assets 里既有的中文口径（`tweak`「简单档」、`normal`「常规」，
+ * `strict` = 端到端全走、门禁不跳步），**不另造词**。
  * 未登记 / 空值返回空串 —— 显示层据此退回「只显英文」，不猜。
+ *
+ * ⚠️ `strict` 的旧名 `full` 已退役（2026-10-14）：`full` 与 `verify_mode` 的取值
+ * **同名不同义**，同一份 `state.yaml` 里两个 `full` 指向不同维度，故更名。
  */
 export const WORKFLOW_MODE_LABELS: Record<string, string> = {
   tweak: '简单',
   normal: '常规',
-  full: '完整',
+  strict: '严格',
 };
 
-/** 通道中文名；未登记返回空串 */
+/** 归一工作流名（历史别名 → 现行值）；空值原样返回 */
+export function normalizeMode(mode: string): string {
+  const raw = (mode ?? '').trim();
+  return raw;
+}
+
+/** 工作流中文名；未登记返回空串 */
 export function modeLabel(mode: string): string {
-  return WORKFLOW_MODE_LABELS[(mode ?? '').trim()] ?? '';
+  return WORKFLOW_MODE_LABELS[normalizeMode(mode)] ?? '';
 }
 
 /**
@@ -509,14 +505,13 @@ export function skillLabel(kind: WorkflowTaskKind, skill: string): string {
 export function isWritablePhase(kind: WorkflowTaskKind, phase: string): boolean {
   const raw = (phase ?? '').trim();
   if (raw === '' || raw === 'idle') return true;
-  if (Object.prototype.hasOwnProperty.call(PHASE_ALIASES, raw)) return true;
   return TASK_KIND_LAYOUTS[kind].phases.some((p) => p.code === raw);
 }
 
 /** 校验失败时打印的合法集合（含 `idle` 与别名，便于直接照抄） */
 export function writablePhaseList(kind: WorkflowTaskKind): string {
   const codes = TASK_KIND_LAYOUTS[kind].phases.map((p) => p.code);
-  return [...codes, 'idle', ...Object.keys(PHASE_ALIASES)].join(' | ');
+  return [...codes, 'idle'].join(' | ');
 }
 
 /** 取 kind 的界面显示名（单一真相；前端不再自持一份类型名表） */

@@ -21,7 +21,7 @@ ENTRY_EXIT=$?
 ```
 
 - `--as` 填**本技能的族内相对名**（`tweak` / `normal` / `specify`）。
-- `--mode` 填**本档固定值**（`tweak` / `normal` / `full`）。⚠️ 它**只在需要新建任务时被写入**；
+- `--mode` 填**本档固定值**（`tweak` / `normal` / `strict`）。⚠️ 它**只在需要新建任务时被写入**；
   判定阶段一律用任务**自己** `state.yaml` 里的 `mode` —— 通道不被入口假设。
 - `ENTRY_EXIT != 0` → **阻断**，按 stderr 处理。
 - ⚠️ **本命令在「零个在途任务」时会建任务**（建目录 + 写 `workflow.mode` + 注册游标，全部一步完成）。
@@ -48,7 +48,7 @@ ENTRY_EXIT=$?
 逐行给 `中文(英文)`；中文取不到时只显英文。`state_readable=false` 的行标注「无法路由」并给出 `state_path`。
 
 ```
-- <task_id> (工作流：完整(full)，阶段：提案(plan)，技能：提案(plan))
+- <task_id> (工作流：严格(strict)，阶段：提案(plan)，技能：提案(plan))
 ```
 
 按 `./policies/decision-point.md` 请用户选 **1 个**，然后带 `--task-id <选中>` **重跑 §1**。

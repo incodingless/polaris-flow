@@ -350,7 +350,7 @@ describe('runWorkflowEntry', () => {
       repo,
       'coding',
       'c-full',
-      { 'state.yaml': 'phase: plan\nworkflow:\n  mode: full\n' },
+      { 'state.yaml': 'phase: plan\nworkflow:\n  mode: strict\n' },
       Date.now(),
     );
     await seedTaskFiles(
@@ -381,7 +381,7 @@ describe('runWorkflowEntry', () => {
     const byId = (id: string) => rows.find((r) => r.task_id === id);
 
     expect(byId('c-full')?.phase).toBe('plan');
-    expect(byId('c-full')?.mode).toBe('full');
+    expect(byId('c-full')?.mode).toBe('strict');
     expect(byId('c-full')?.skill).toBe('plan');
     expect(byId('c-full')?.state_readable).toBe(true);
     // 单技能通道：阶段 plan 归通道技能本人，不得交给 plan 技能
@@ -392,7 +392,7 @@ describe('runWorkflowEntry', () => {
 
     // 中文显示名从阶段表 / 通道表派生（技能不持有映射表）
     expect(byId('c-full')?.phase_label).toBe('提案');
-    expect(byId('c-full')?.mode_label).toBe('完整');
+    expect(byId('c-full')?.mode_label).toBe('严格');
     expect(byId('c-full')?.skill_label).toBe('提案');
     // 通道技能的中文名来自通道表，不是阶段表
     expect(byId('c-tweak')?.mode_label).toBe('简单');

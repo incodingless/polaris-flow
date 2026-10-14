@@ -117,7 +117,7 @@ RTID_EXIT=$?
 候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
 
 ```
-- <task_id> (工作流：完整(full)，阶段：验收(verify)，技能：验收(verify))
+- <task_id> (工作流：严格(strict)，阶段：验收(verify)，技能：验收(verify))
 ```
 
 <!--
@@ -463,7 +463,7 @@ else:  # team
 
 **本步只产出 `score_level`** —— 「规模小但得分低 → 升格」的判定在 Step 9 消费它（不在此处改模式）。
 
-> ⚠️ **`mode` 的来源是 `.polaris/config.yaml` 的 `kind`**（取值 `solo | team`），**不是** `state.yaml` 的 `mode`（取值 `sdd|tweak|normal|bugfix|full`，**永不等于 `solo`**）—— 按它读会永远走 team 分支。
+> ⚠️ **`mode` 的来源是 `.polaris/config.yaml` 的 `kind`**（取值 `solo | team`），**不是** `state.yaml` 的 `mode`（取值 `sdd|tweak|normal|bugfix|strict`，**永不等于 `solo`**）—— 按它读会永远走 team 分支。
 
 ### Step 9：确定 `verify_mode`
 

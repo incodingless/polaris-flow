@@ -67,7 +67,7 @@ RTID_EXIT=$?
 候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
 
 ```
-- <task_id> (工作流：完整(full)，阶段：提案(plan)，技能：提案(plan))
+- <task_id> (工作流：严格(strict)，阶段：提案(plan)，技能：提案(plan))
 ```
 
 #### 1.2 创建流程（仅「零个」时）
@@ -126,14 +126,14 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active --kind coding --skil
 - `task_id` 用 `draft_name`：Step 5.4 finalize 的 `rename-active` 会把它改成正式名。
 - ⚠️ 缺此步 → Step 5.4 的 `finalize`（`rename-active`）会以 **exit 3** 阻断（「未找到 task_id 的 entry」）。
 
-`task-init` 复制的模板默认 `workflow.mode: normal`，而本技能 = **完整链路**，覆盖为 `full`
+`task-init` 复制的模板默认 `workflow.mode: normal`，而本技能 = **严格工作流**，覆盖为 `strict`
 （覆盖写同样幂等）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --task-id "$draft_name" --kind coding --set workflow.mode=full
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --task-id "$draft_name" --kind coding --set workflow.mode=strict
 ```
 
-- `workflow.mode` 三档口径：`tweak`（简单）/ `normal`（常规）/ `full`（完整）；本技能固定 **`full`**。
+- `workflow.mode` 三档口径：`tweak`（简单）/ `normal`（常规）/ `strict`（严格）；本技能固定 **`strict`**。
 - 需求复杂度由**顶层 `complexity_level`** 承载，本技能 Step 5.4.1 即其唯一初判点。
 
 → 新建 / adopt 出的任务阶段恒为 `specify`，无需判阶段，直接进入 Step 2。
@@ -173,7 +173,7 @@ rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
 
 #### 1.5 状态行输出（H8）
 
-输出：`[polaris-flow 开发]澄清需求 - 开始编写(意图)澄清草稿：.polaris/tasks/<task_id>/; mode=full; entry=registered`
+输出：`[polaris-flow 开发]澄清需求 - 开始编写(意图)澄清草稿：.polaris/tasks/<task_id>/; mode=strict; entry=registered`
 
 ### Step 2：加载宪法（注入点 A）
 

@@ -77,7 +77,7 @@ flowchart TD
 - ⇒ 技能 Step 0 **只读 `skill` 字段**，不复制任何表格。
   （该表曾短暂用 policy 文件承载，已废弃 —— 「配置归代码」是本次的裁定。）
 
-- **通道落盘**：`state.yaml` 的 `workflow.mode`，值域 **`tweak | normal | full`**（`full` = 完整链路）。模板默认 `normal`。
+- **通道落盘**：`state.yaml` 的 `workflow.mode`，值域 **`tweak | normal | strict`**（`strict` = 端到端全走）。模板默认 `normal`。
 - **三入口建任务后立即写 `mode`**：`tweak` / `normal` / `specify` 在各自 Step 0/1 落 `append-active`（建游标条目，`phase=specify`）**并**写自己的 `workflow.mode` —— 否则新会话按 `mode` 检索时找不到该任务。
 - **各技能 Step 0 查表转交**：`specify` / `plan` / `design` / `tasks` / `build` / `verify` / `ship` / `tweak` / `normal`
   的 Step 0 一律用 `get-active-changes --kind coding --format full`（**不带 `--phase`**，候选取**全部在途任务**）
@@ -87,12 +87,12 @@ flowchart TD
   ⚠️ 之所以**不能**按 `--phase <本阶段>` 预先过滤：单体通道的 `tweak` / `normal` 会把游标推成
   `plan` / `ship`，预先过滤会让「他阶段的在途任务」被判成「零匹配」而走错分支。
 - **`phase=ship` 一律归 `ship` 技能**（`mode` 不限）：交付阶段三条通道共用，`mode=tweak` 时 `ship` 还要跑产物补齐。
-- **通道迁移改写 `mode`**：`tweak` 升档写 `mode=normal`、`normal` 升档写 `mode=full`、`normal` 降档写 `mode=tweak`
+- **通道迁移改写 `mode`**：`tweak` 升档写 `mode=normal`、`normal` 升档写 `mode=strict`、`normal` 降档写 `mode=tweak`
   —— `mode` 恒等于「当前通道」，分发表才成立；原档由 `workflow.status` + `upgrade_target` / `downgrade_target` 保留。
 - **受理入口 `intake`**：`/psfl:flow` 选开发类 → 进 `intake`；它先做恢复分发（同上），无在途任务时才做需求预检 + 判档 + 路由。
 
 > `intake` 判档值域 = `trivial | standard | critical`（= `complexity_level`，唯一源 `assets/zh/policies/risk-signals.md`），
-> 映射：`trivial → tweak`、`standard → normal`、`critical → specify`（`mode=full`）。
+> 映射：`trivial → tweak`、`standard → normal`、`critical → specify`（`mode=strict`）。
 
 ---
 
@@ -243,7 +243,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     S0["Step 0 设置产物语言<br/>读 .polaris/config.yaml 的 language"]
-    S0 --> S1["Step 1 准备 draft 目录 + workflow entry<br/>在途任务检测（查表（代码））→ 本技能继续 / 他技能转交<br/>task-init → 1.2 append-active → 1.3 写 workflow.mode=full"]
+    S0 --> S1["Step 1 准备 draft 目录 + workflow entry<br/>在途任务检测（查表（代码））→ 本技能继续 / 他技能转交<br/>task-init → 1.2 append-active → 1.3 写 workflow.mode=strict"]
     S1 --> SC1{"存在未完成 draft 时的处置<br/>阻塞点"}
     SC1 -->|"C 丢弃所有后重建"| S1
     SC1 -->|"A 续写最近 / B 指定一个"| S2["Step 2 加载宪法（注入点 A）"]

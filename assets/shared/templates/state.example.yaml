@@ -59,7 +59,7 @@ current_tier: ""
 ####################
 
 workflow:
-  # 工作流，可选值: tweak-简单改动 | normal-常规开发 | full-深度开发。默认 normal
+  # 工作流，可选值: tweak-简单改动 | normal-常规开发 | strict-深度开发。默认 normal
   mode: normal
   
   # 工作流状态，可选值: in_progress-进行中 | completed-完成 | downgraded-已降档 | upgraded-已升档。默认 in_progress
@@ -74,17 +74,17 @@ workflow:
   # 命中的守门/升档信号编号列表
   signals: []
   
-  # 降档原因（仅 mode=full 降档时填写，如 "D1',D3'"）
+  # 降档原因（仅 mode=strict 降档时填写，如 "D1',D3'")
   downgrade_reason: ""
   
-  # 降档目标，可选值: tweak-小修改 | normal-常规 | full-全栈
+  # 降档目标，可选值: tweak-小修改 | normal-常规 | strict-全栈
   downgrade_target: ""
   
   # 升档原因（命中的信号编号，如 "U1,U5" 或 "D2,D4"）
   upgrade_reason: ""
   
   # 升档目标，可选值: normal-需求开发 | design-深度设计
-  # tweak 可升到 normal 或 design；full 只升到 design
+  # tweak 可升到 normal 或 design；strict 只升到 design
   upgrade_target: ""
   
   # 完成时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ

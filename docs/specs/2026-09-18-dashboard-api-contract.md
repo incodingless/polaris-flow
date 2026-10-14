@@ -237,7 +237,7 @@ grep -rnE "writeFile|writeFileSync|\brm\(|rmSync|rename\(|mkdir\(|mkdirSync|unli
 | testcase | `discovery` → `draft` → `refine` → `ship` |
 | prototype | `blueprint` → `build` → `review` → `ship` |
 
-coding 三模式（`tweak` / `normal` / `full`）不改变 phase 名，只决定装配哪些阶段技能。
+coding 三模式（`tweak` / `normal` / `strict`）不改变 phase 名，只决定装配哪些阶段技能。
 
 ### 枚举的真相来源
 

@@ -146,7 +146,7 @@ async function createTask(
 ): Promise<TaskEntryResult> {
   const mode = (rawMode ?? '').trim();
   if (!mode) {
-    return { exitCode: 3, message: '零个在途任务时须用 --mode <tweak|normal|full> 指定工作流' };
+    return { exitCode: 3, message: '零个在途任务时须用 --mode <tweak|normal|strict> 指定工作流' };
   }
   if (!Object.prototype.hasOwnProperty.call(WORKFLOW_MODE_LABELS, mode)) {
     return {
