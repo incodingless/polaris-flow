@@ -46,9 +46,9 @@ EXIT_CODE=$?
 - `EXIT_CODE != 0` → **阻断**，按 stderr 处理
 - `EXIT_CODE == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-按数组长度解读：**唯一匹配**直接取；**多个匹配**按 `./policies/decision-point.md` 列出候选让用户选择；**零匹配**阻断，提示「未找到 draft 阶段的 active change，请先执行 `/psfl{{CMD_SPR}}flow` 的 T01 编写测试用例」。
+按数组长度解读：**唯一匹配**直接取；**多个匹配**按 `./policies/decision-point.md` 列出候选让用户选择；**零匹配**阻断，提示「未找到 draft 阶段的 active change，请先完成 T01 编写测试用例（`polaris{{SKN_SPR}}testing{{SKN_SPR}}discovery`）」。
 
-> 若选择的任务已是 `phase=draft`（中断续跑），从中断点续跑；不得重新筛成「零匹配」。
+> 若选择的任务的 **workflow 游标**已是 `draft`（中断续跑），从中断点续跑；不得重新筛成「零匹配」。
 
 **入口校验**：
 
@@ -70,7 +70,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 **校验项**：
 
-1. `$REPO_ROOT/.polaris/testcases/<task_id>/testcase_plan.md` 存在且**不是 task-init 写入的占位**（须含第 2 章「测试意图清单」与第 3/4 章策略）——否则提示重跑 `/psfl{{CMD_SPR}}flow` 的 T01，终止流程；
+1. `$REPO_ROOT/.polaris/testcases/<task_id>/testcase_plan.md` 存在且**不是 task-init 写入的占位**（须含第 2 章「测试意图清单」与第 3/4 章策略）——否则提示重跑 T01 编写测试用例（`polaris{{SKN_SPR}}testing{{SKN_SPR}}discovery`），终止流程；
 2. 计划中的**范围、粒度、分层、自动化**四项策略齐备（缺失即视为计划未定版，阻断）；
 3. 计划中的**待确认清单**已闭环或已由用户明确转为「后续待跟进」（未闭环的条目**不进入用例设计**）；
 4. 定位定稿 PRD 与验收标准（沿用 discovery 的定位顺序）；报告 `No-Input` 的可选输入清单。
@@ -195,13 +195,7 @@ draft:
 
 **完成后**：
 
-1. 推进 workflow 阶段至 refine
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind testcase --skill draft --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=refine
-```
-
-2. 更新 `state.yaml`：
+1. 更新 `state.yaml`（阶段推进到 `refine` 就在这一步 —— 阶段只有一个存放处）：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
@@ -209,7 +203,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --phase draft --next-phase refine
 ```
 
-3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。先按「自动衔接下一阶段」运行 `state next`，**技能名与括注均取自其输出**（`SKILL` 直填；`NEXT` 为 `manual` → 「建议新开会话」，为 `auto` → 「可同会话继续」），**不得写死**：
+2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。先按「自动衔接下一阶段」运行 `state next`，**技能名与括注均取自其输出**（`SKILL` 直填；`NEXT` 为 `manual` → 「建议新开会话」，为 `auto` → 「可同会话继续」），**不得写死**：
 
 ```text
 [polaris-flow 测试用例] 编写用例集 - 阶段完成，状态已落盘。

@@ -124,7 +124,7 @@ mkdir -p "$REPO_ROOT/.polaris/tasks/<task_id>/reviews"
 
 1. 输出 `[polaris-flow 调试]缺陷修复 - 问题完成修复及验证：问题单号=<task_id>`
 
-2. 推进阶段 —— 见「## 推进与回流」（`complete-phase` + `update-active --set phase=closeout`）
+2. 推进阶段 —— 见「## 推进与回流」（`complete-phase --next-phase closeout`）
 
 
 ## 推进与回流
@@ -135,10 +135,6 @@ mkdir -p "$REPO_ROOT/.polaris/tasks/<task_id>/reviews"
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --repo-root "$REPO_ROOT" --kind debug --task-id "$task_id" \
   --phase patch --next-phase closeout
-
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active \
-  --kind debug --skill patch --repo-root "$REPO_ROOT" \
-  --where-task-id "$task_id" --set phase=closeout
 ```
 
 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
@@ -157,9 +153,8 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active \
 - 用例失败、方案本身不成立 → 回 `debug:diagnose`，并同步在 `regressions[]` 留痕：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active \
-  --kind debug --skill patch --repo-root "$REPO_ROOT" \
-  --where-task-id "$task_id" --set phase=diagnose
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+  --repo-root "$REPO_ROOT" --kind debug --task-id "$task_id" --phase diagnose
 ```
 
 ## 上下文压缩恢复

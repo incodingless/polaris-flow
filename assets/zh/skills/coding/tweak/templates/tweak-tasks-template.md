@@ -1,4 +1,4 @@
-# tasks.md 模板与规则（tweak 快速通道）
+# tasks.md 模板与规则（tweak 快速工作流）
 
 > **重要**：
 > - 本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 4.4 引用；生成前**必须** `read_file` 重读本文件。

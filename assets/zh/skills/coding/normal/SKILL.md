@@ -4,7 +4,7 @@ description: "面向常规功能（normal 档）的单入口开发流程：一�
 version: 0.1
 ---
 
-# Polaris 工作流 - 常规需求通道（normal）
+# Polaris 工作流 - 常规需求工作流（normal）
 
 <HARD-GATE>
 本 skill **仅**负责：在**多模块协作、中等风险**范围内，单入口串行完成「轻量澄清 → 四件套生成 → 双向守门 → 终版细计划 → 合并主审 → 实施 → 出口检查」，然后把 `phase` 推到 `ship`，由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 完成分支收尾与归档。
@@ -22,10 +22,10 @@ version: 0.1
 - **禁止**跳过 5 个 scorer 或伪造分数；**禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 就把 `phase` 推到 ship
 - **禁止**本阶段做分支合并 / PR / `/opsx:archive`（那是 ship）
 - **禁止**未完成出口校验（Step 9）就写 `runtime.build.status` / `runtime.verify.status=completed` 或推进 phase
-- **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]常规通道 - 进入 normal Step <N>: <动作>`
+- **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]常规工作流 - 进入 normal Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]常规通道 - 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}normal 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]常规工作流 - 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}normal 技能。`
 
 ---
 
@@ -55,7 +55,7 @@ normal 是常规档（normal 档）的执行体。它把完整链路的 `specify
 | ID | 在本 skill 的适用方式 |
 |----|---------------------|
 | H8 | 每个 Step 入口输出可见状态行 |
-| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 8.1）或合并主审派发（Step 7.2）时。优先 SessionStart 注入。固定 agent 主审且 `SUPPORTS_SUBAGENT=true` → **不调** probe。需要 `subagent_id` / `task_type` 预筛或从清单选 agent → probe（优先读 `$SUBAGENT_PROBE_CACHE`）或直接读缓存；仅默认通用 → 可 `dispatch(agent=null)`。`inline`/`unsupported` → 不派发。默认 inline 路径不触发本条 |
+| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 8.1）或合并主审派发（Step 7.2）时。**派发前必须**先 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传 `platform`）并等待返回；**不得**以「默认通用」「固定 agent」「已有注入」「已有缓存」为由跳过 probe（缓存由 probe 自己优先读取）。`inline`/`unsupported` → **不派发**，不涉及 probe。默认 inline 路径不触发本条 |
 | H12 | 写 `.polaris/workflow.yaml` 走 `scripts/workflow-entry.sh`（内含 workflow.lock + 写后校验），不自写文件 |
 | H13 | 不调用两个 superpowers 派发驱动器 |
 
@@ -79,7 +79,53 @@ normal 是常规档（normal 档）的执行体。它把完整链路的 `specify
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：环境准备 + draft 初始化
+### Step 0：选任务 → 判阶段 → 初始化
+
+<!--
+本步分**两层**，每层只回答一个问题：
+
+- **第一层 · 选任务**：从在途任务里选出**一个** `task_id`（或一个都没有）。本层**不做**阶段判定，**不做**丢弃 / 新建。
+- **第二层 · 判阶段**：对选定的那个任务，判「它走到哪一步、该谁接手」。
+
+判定所需的 `phase` / `mode` / `skill` 及其中文名**全部由程序算好**（`src/core/config/task-kind-layout.ts`
+的 `skillForModePhase` / `phaseLabel` / `modeLabel` / `skillLabel`），本技能**不复制任何映射表**。
+-->
+
+#### 0.1 第一层 · 选任务（游标枚举）
+
+```bash
+ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
+RTID_EXIT=$?
+```
+
+- ⚠️ **不传 `--phase`** —— 候选须覆盖**全部在途任务**；预先按阶段过滤会把其余阶段的任务误判成「零匹配」。
+- `RTID_EXIT != 0` → **阻断**，按 stderr 处理。
+- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
+  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` /
+  `skill` / `skill_label` / `state_readable`。`phase` 与 `mode` 都取自该行 **`state_path`** 指向的文件
+  —— 游标条目**不含** `phase`。
+
+按 `$ROWS` 长度：
+
+| 长度 | 动作 |
+| ---- | ---- |
+| **零个** | 进入 §0.2 创建流程 |
+| **唯一** | 记下该行 `task_id`，跳 §0.4 |
+| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，跳 §0.4 |
+
+候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
+
+```
+- <task_id> (工作流：常规(normal)，阶段：提案(plan)，技能：常规(normal))
+```
+
+<!--
+- ⚠️ **「零个」不等于没有在途任务**：本命令只读游标，而「目录已建、游标漏 append」的孤儿任务只有 §0.2 的 `task-init` 看得见。
+  所以**创建流程报 `existing` 是这条路的正常分支，不是异常**。
+-->
+- 本层**不做**丢弃 / 新建的选择 —— 那属于 §0.2 与 §0.4。
+
+#### 0.2 创建流程（仅「零个」时）
 
 使用 SessionStart 注入的路径（本 skill 内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
 
@@ -100,14 +146,92 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 
 | `INIT_EXIT` | `status` | 含义 | 后续动作 |
 | ----------- | -------- | ---- | -------- |
-| 0 | `"ok"` | 成功 | 取 `draft_name`，进入 Step 1 |
-| 1 | `"existing"` | 存在未完成 draft | 按决策点协议询问 A/B/C/D（同 specify Step 1） |
+| 0 | `"ok"` | 成功 | 取 `draft_name` → §0.3 |
+| 1 | `"existing"` | 存在未完成 draft | 按决策点协议询问 A/B/C/D（见下） |
 | 2 | —（stderr） | 参数/环境错误 | 按 H12 阻断 |
 | 3 | —（stderr） | workflow 写入失败 | 按 H12 阻断 |
 
-`status="existing"` 时按 `./policies/decision-point.md` 暂停：**A 续写最新** / **B 选择指定** / **C 丢弃后重建** / **D 取消退出**。续写场景沿用现有 `task_id`，不算目录冲突。
+`status="existing"` 时按 `./policies/decision-point.md` 暂停：
+```
+存在临时任务，请选择：
+```
+- **A. 继续最近任务**：`draft_name` = 列表最后一项 → §0.3
+- **B. 选择一个**：列出所有的 `draft_name` 候选让用户选择之后 → §0.3
+- **C. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `task-init.sh`（回到本节表格开头）：
+- **D. 取消退出**：结束本 skill
 
-**状态行（H8）**：`[polaris-flow 开发]常规通道 - 开始轻量澄清：.polaris/tasks/<draft_name>/; workflow: appended entry phase=specify`
+丢弃所有的动作：
+```bash
+for d in <existing 列表>; do
+  rm -rf "$REPO_ROOT/.polaris/tasks/$d"
+  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind coding --skill normal --repo-root "$REPO_ROOT" --where-task-id "$d"
+done
+```
+
+> A / B 两条路 adopt 的是**孤儿 draft**（游标里没有它）。往下必须执行 §0.3，否则它永远进不了游标。
+
+#### 0.3 注册与工作流（新建或 adopt 后**都要**执行）
+
+`task-init` 只建目录、**既不写游标、也不定工作流**。`append-active` 对已存在的 `task_id` 是**幂等**的
+（视为成功、不改动已有条目），所以本步**无条件执行**：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
+  --kind coding --skill normal --repo-root "$REPO_ROOT" \
+  --task-id "$draft_name"
+
+# 工作流显式写（模板默认恰为 normal，但不得依赖默认值）
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$draft_name" --kind coding \
+  --set workflow.mode=normal
+```
+
+- `task_id` 用 `draft_name`：Step 2.2 finalize 的 `rename-active` 会改成正式名。
+- ⚠️ 缺 append → Step 2.2 的 `finalize`（`rename-active`）会以 **exit 3** 阻断；§0.2 的 A / B 两条路同样必须执行本步。
+- ⚠️ 缺 `workflow.mode` → 新会话重进本命令时该任务会被当成完整链路：游标里有条目但工作流为空，
+  恢复分发（`skillForModePhase`）只会给出 `specify`，工作流整个丢失。
+
+→ 新建 / adopt 出的任务阶段恒为 `specify`，无需判阶段，直接进入 Step 1。
+
+#### 0.4 第二层 · 判阶段（选定已有任务时）
+
+**判定顺序固定，不得颠倒**：先看「读得到吗」，再看「是不是本技能」。`skill` 是程序按
+`phase + mode` 算出来的；`phase` 读不到时它是 `null`，顺序反了会把坏行当成「不是本技能」而转交到空技能。
+
+1. **读得到吗** —— 该行 `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。
+   **不得**当成「零个」去新建，也不得猜阶段。
+2. **是不是本技能** —— 读该行 `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
+
+| `skill` | 含义 | 动作 |
+| ------- | ---- | ---- |
+| `== normal` | 任务停在本技能的中断点 | 暂停三选一（见下） |
+| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`，**不建新任务**；本技能结束 |
+| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
+
+`== normal` 时的三个选项（用**字面标签**，避免与 §0.2 的 A/B/C 混淆）：
+
+- **续写** → 沿用该 `task_id`，跳到文末「上下文压缩恢复」表里中断点对应的 Step，**不执行 §0.2 / §0.3**
+- **丢弃并新建** → 执行下面的丢弃动作，然后回到 §0.2
+- **取消** → 结束本 skill
+
+丢弃动作：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind coding --skill normal \
+  --repo-root "$REPO_ROOT" --where-task-id "$task_id"
+rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
+```
+
+- ⚠️ 该行 `worktree_path` **非空** → **阻断，不要执行上面的动作**。任务数据在隔离工作区里，拆除它先要
+  决定其中的提交是留还是丢（属另一件事）。把 `worktree_path` 交给用户，提示其先用
+  `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 收尾或手工拆除。
+- ⚠️ 判定为其他技能时**必须转交**，**不得**「直接往下走（新建）」—— 否则会在已有在途任务时凭空再建一个，原任务失联。
+- 与 §0.2 的 A/B/C/D 不会问同一个对象：本节告的是「**你刚选中的那个**任务」，§0.2 告的是
+  「**别的**孤儿 draft」（第一层看不见的那批）。
+
+#### 0.5 状态行输出（H8）
+
+`[polaris-flow 开发]常规工作流 - 开始轻量澄清：.polaris/tasks/<task_id>/; mode=normal; entry=registered`
 
 ### Step 1：轻量澄清（intention.md）
 
@@ -170,9 +294,9 @@ C. 超出常规需求 — 升到完整链路（specify 起）
 
 | 模板节 | 内容来源 |
 |--------|----------|
-| Reframe 历程 | 填声明行：`- 常规通道（normal）未执行 Reframe Check；原始诉求 <一句话>` |
+| Reframe 历程 | 填声明行：`- 常规工作流（normal）未执行 Reframe Check；原始诉求 <一句话>` |
 | 宪法对齐 | Step 1.3 |
-| 前提 / 前提历史 | 1.4 要素 6（前提）；前提历史填「无（normal 通道未执行 Premise Challenge）」 |
+| 前提 / 前提历史 | 1.4 要素 6（前提）；前提历史填「无（normal 工作流未执行 Premise Challenge）」 |
 | 目标 / 任务范围 | 1.4 要素 1–3 |
 | 结论（架构 + 技术选型） | 1.4 要素 5 |
 | 备选方案 | 勘察中考虑过但未采用的方案 + 拒绝理由；无则写「无」 |
@@ -254,10 +378,10 @@ phase: plan
 同步主仓 workflow.yaml（脚本内含锁 + 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill normal --where-task-id "$task_id" --set phase=plan --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill normal --where-task-id "$task_id" --set worktree-path="$target_path"
 ```
 
-输出：`[polaris-flow 开发]常规通道 - worktree：created at <target_path> on branch <target_branch>`
+输出：`[polaris-flow 开发]常规工作流 - worktree：created at <target_path> on branch <target_branch>`
 
 ### Step 4：四件套生成（proposal → specs → design）
 
@@ -274,7 +398,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" \
 
 确认 `.polaris` 侧已不存在、目标路径存在且非空。**禁止**在 `.polaris` 保留 intention 副本。
 
-输出：`[polaris-flow 开发]常规通道 - 意图：moved to openspec/changes/<task_id>/intention.md（.polaris 无备份）`
+输出：`[polaris-flow 开发]常规工作流 - 意图：moved to openspec/changes/<task_id>/intention.md（.polaris 无备份）`
 
 #### 4.3 生成 `proposal.md` / `specs/` / `design.md`
 
@@ -369,7 +493,7 @@ LINT_EXIT=$?
 
 ```yaml
 workflow:
-  mode: sdd
+  mode: normal
   status: in_progress
   tdd_mode: auto_by_task_type
   build_mode: inline        # 或 subagent_dispatch（仅用户显式要求）
@@ -378,10 +502,9 @@ runtime:
   build:
     status: in_progress
     build_mode: inline
-phase: build
 ```
 
-输出：`[polaris-flow 开发]常规通道: task_id=<task_id> ; worktree=main ; tasks=<N> 顶层任务`
+输出：`[polaris-flow 开发]常规工作流: task_id=<task_id> ; worktree=main ; tasks=<N> 顶层任务`
 
 ### Step 7：合并主审（阻塞点）
 
@@ -401,8 +524,8 @@ normal 档相对 tweak 的核心加法：规格 + 细计划经**一次独立主�
 #### 7.2 派发主审 — `plan-review-agent`
 
 1. **能力**：读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；清单见 `$SUBAGENT_PROBE_CACHE`）。
-   - `PLATFORM_DEGRADATION=inline|unsupported` → 标注并 decision-point：**A 接受跳过主审（记录原因）** / **B 阻断**。不得 inline 假评审。**不调** probe。
-   - `SUPPORTS_SUBAGENT=true` → **不调** probe，直接派发固定 `plan-review-agent`。
+   - `PLATFORM_DEGRADATION=inline|unsupported` → 标注并 decision-point：**A 接受跳过主审（记录原因）** / **B 阻断**。不得 inline 假评审。**不派发 → 不涉及 probe**。
+   - `SUPPORTS_SUBAGENT=true` → **仍须 probe（H10）**：调用 `polaris{{SKN_SPR}}subagent-probe`（传 `platform`），随后派发固定 `plan-review-agent`。
    - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。返回 `inline` / `unsupported` → 同上 decision-point。
 2. **派发**：`plan-review-agent`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。派发执行按平台能力选择形态：
    - **路径引用型**（agent 可自读文件）：`materials` 传路径清单
@@ -449,8 +572,8 @@ runtime:
 
 仅当用户**显式**要求 subagent 时（H10）：
 
-1. 读 SessionStart 注入；若 `PLATFORM_DEGRADATION=inline|unsupported` → 强制 inline，输出原因（**不调** probe）
-2. 若只要默认通用且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ **不调** probe，`subagent-dispatch`（`agent=null`）
+1. 读 SessionStart 注入；若 `PLATFORM_DEGRADATION=inline|unsupported` → 强制 inline，输出原因（**不派发 → 不涉及 probe**）
+2. `SUPPORTS_SUBAGENT=true`（degradation 空）→ **仍须 probe（H10）**，再 `subagent-dispatch`（`agent=null`）
 3. 若要从清单选 agent：优先读 `$SUBAGENT_PROBE_CACHE` 选 id；仅当**缺缓存/缺注入**或需 `task_type`/`subagent_id` 正式过滤时，才 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（probe 优先读缓存），再 dispatch
 4. probe（若调用）返回 `degradation=inline|unsupported` → 强制回退 inline，输出原因
 
@@ -537,17 +660,13 @@ runtime:
     verification_report: "openspec/changes/<task_id>/reviews/verify-report.md"
     scorer_results: { ... }
     finished_at: "<ISO>"
-phase: idle
-```
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill normal --where-task-id "$task_id" --set phase=ship
+phase: ship
 ```
 
 输出：
 
 ```text
-常规通道完成：
+常规工作流完成：
   task_id : <task_id>
   specs     : openspec/changes/<task_id>/{proposal.md, design.md, specs/, tasks.md}（四件套已齐）
   review    : openspec/changes/<task_id>/reviews/plan-review-report.md（合并主审）
@@ -562,7 +681,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 
 ```text
-[polaris-flow 开发]常规通道 - 阶段完成，状态已落盘。
+[polaris-flow 开发]常规工作流 - 阶段完成，状态已落盘。
 下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
 恢复：先读 .polaris/tasks/<task_id>/state.yaml 的 normal.* / plan.* / build.* / verify.* 与 reviews/verify-report.md，再从下一步技能的 Step 0 开始。
 ```

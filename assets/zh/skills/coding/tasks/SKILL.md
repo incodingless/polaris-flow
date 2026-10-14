@@ -68,25 +68,52 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 
 每个阶段的"做什么"在对应 policy 文件，本 SKILL.md 仅承载入口、HARD-GATE 锚点与跨阶段衔接。
 
-### Step 0：定位 任务标识 + 入口校验
+### Step 0：定位任务 + 恢复分发 + 入口校验
 
-用 bash 读取工作流配置中有效变更的`task_id`：
+用 `--format full` 取「任务 + **应执行技能**」（分发表在代码里 —— `src/core/config/task-kind-layout.ts` 的
+`skillForModePhase`；本技能**不复制**该表）：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill tasks --repo-root "$REPO_ROOT" --phase tasks)
+ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
 RTID_EXIT=$?
 ```
 
+- ⚠️ **不传 `--phase`** —— 候选须覆盖**全部在途任务**，由命令解释 `phase`；预先按本阶段过滤会把
+  他阶段的在途任务误判成「零匹配」。
 - `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
+  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` /
+  `skill` / `skill_label` / `state_readable`
 
-按 `$TASK_IDS` 数组长度解读：
+按 `$ROWS` 长度：
 
-- **唯一匹配**：直接读取 `task_id`
-- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 design 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design」
+| 长度 | 动作 |
+| ---- | ---- |
+| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
+| **唯一** | 记下该行 `task_id`，进入下面的判定 |
+| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
 
-> 若 entry 已是 `phase=tasks`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
+
+```
+- <task_id> (工作流：完整(full)，阶段：任务规划(tasks)，技能：任务规划(tasks))
+```
+
+<!--
+**判定顺序固定，不得颠倒**：先看「读得到吗」，再看「是不是本技能」。`skill` 是程序按
+`phase + mode` 算出来的；`phase` 读不到时它是 `null`，顺序反了会把坏行当成「不是本技能」而转交到空技能。
+-->
+
+1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
+2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
+
+| `skill` | 含义 | 动作 |
+| ------- | ---- | ---- |
+| `== tasks`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` 取该行值，跳到文末「上下文压缩恢复」表里对应 Step |
+| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`（**不要求**用户再敲命令）；本技能到此结束，**不得**建任务 / 推进阶段 |
+| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
+
+- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
 
 **入口校验**（失败 → 阻断）：
 
@@ -142,7 +169,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 ```yaml
 runtime:
-  plan:
+  tasks:
     tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
 ```
 
@@ -276,8 +303,8 @@ LINT_EXIT=$?
 #### 6.1 主审
 
 1. **能力**：读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；全量清单在 `$SUBAGENT_PROBE_CACHE`，勿假定 additionalContext 含 agents）。
-   - `PLATFORM_DEGRADATION=inline|unsupported` → **阻断**（计划无独立主审不得进 build；与 design 可跳过主审不同）。不得 inline 假评审。**不调** probe。
-   - `SUPPORTS_SUBAGENT=true`（degradation 空）→ **不调** probe，直接 Step 6.1.2 派发固定 `tasks-review-agent`（可选用缓存核对 id 是否在清单中）。
+   - `PLATFORM_DEGRADATION=inline|unsupported` → **阻断**（计划无独立主审不得进 build；与 design 可跳过主审不同）。不得 inline 假评审。**不派发 → 不涉及 probe**。
+   - `SUPPORTS_SUBAGENT=true`（degradation 空）→ **仍须 probe（H10）**：调用 `polaris{{SKN_SPR}}subagent-probe`（传 `platform`），随后进 Step 6.1.2 派发固定 `tasks-review-agent`。
    - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；**优先读** `$SUBAGENT_PROBE_CACHE`，勿重复扫盘）。`inline` / `unsupported` → 同上阻断。
 2. **解析 StandardsRoot**：本 skill 安装根目录（含 `policies/`、`references/`、`prompts/`）。例：`$PLUGIN_ROOT/tasks`（nested）或项目 skills 下的 `polaris{{SKN_SPR}}flow{{SKN_SPR}}tasks`（flat）。目录缺失 → 阻断，提示 `polaris init/update`。
 3. **派发**：注册名 / `subagent_type` = `tasks-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断。
@@ -358,21 +385,14 @@ LINT_EXIT=$?
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase tasks
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase tasks --next-phase build
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
-  --set runtime.plan.status=completed \
-  --set runtime.plan.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \
-  --set runtime.plan.tasks_path=openspec/changes/<task_id>/tasks.md \
-  --set runtime.plan.review_report=openspec/changes/<task_id>/reviews/tasks-review-report.md \
-  --set "runtime.plan.outside_voice=<ran|skipped:<reason>>" \
-  --set phase=idle
-```
-
-workflow阶段推进至详细构建阶段：
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tasks --where-task-id "$task_id" --set phase=build
+  --set runtime.tasks.status=completed \
+  --set runtime.tasks.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \
+  --set runtime.tasks.tasks_path=openspec/changes/<task_id>/tasks.md \
+  --set runtime.tasks.review_report=openspec/changes/<task_id>/reviews/tasks-review-report.md \
+  --set "runtime.tasks.outside_voice=<ran|skipped:<reason>>"
 ```
 
 输出：

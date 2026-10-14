@@ -27,12 +27,17 @@ async function tmpRepo(): Promise<string> {
   return dir;
 }
 
-/** 向指定 kind 列表追加一条游标 */
+/**
+ * 追加一条游标，并写入该任务的 state.yaml（阶段现在**只**存在 state.yaml 里）。
+ *
+ * @param mtimeMs 任务目录内文件的 mtime；默认 0（全等 → 列表顺序回落游标顺序）
+ */
 async function appendTask(
   repo: string,
   kind: WorkflowTaskKind,
   taskId: string,
   phase: string,
+  mtimeMs = 0,
 ): Promise<void> {
   const result = await runWorkflowEntry({
     op: 'append-active',
@@ -40,10 +45,10 @@ async function appendTask(
     kind,
     repoRoot: repo,
     taskId,
-    phase,
     startedAt: '2026-07-21T00:00:00Z',
   });
   expect(result.exitCode).toBe(0);
+  await seedTaskFiles(repo, kind, taskId, { 'state.yaml': `phase: ${phase}\n` }, mtimeMs);
 }
 
 /**
@@ -75,11 +80,11 @@ describe('applyWorkflowOp', () => {
       skill: 't',
       kind: 'coding',
       taskId: 'draft-1',
-      phase: 'specify',
       worktreePath: '',
       startedAt: '2026-01-01T00:00:00Z',
     });
     expect(r.state.coding_tasks).toHaveLength(1);
+    expect(r.state.coding_tasks[0].worktree_path).toBe('');
     expect(r.state.requirement_tasks).toHaveLength(0);
     expect(r.verify.kind).toBe('has_tid');
 
@@ -88,9 +93,10 @@ describe('applyWorkflowOp', () => {
       skill: 't',
       kind: 'coding',
       whereTaskId: 'draft-1',
-      setPhase: 'plan',
+      setWorktreePath: '/tmp/wt/draft-1',
     });
-    expect(r.state.coding_tasks[0].phase).toBe('plan');
+    expect(r.state.coding_tasks[0].worktree_path).toBe('/tmp/wt/draft-1');
+    expect(r.verify.kind).toBe('entry_worktree');
 
     r = applyWorkflowOp(r.state, {
       op: 'rename-active',
@@ -111,6 +117,23 @@ describe('applyWorkflowOp', () => {
     expect(r.state.coding_tasks).toHaveLength(0);
   });
 
+  it('条目不含 phase 字段（阶段只在 state.yaml 里）', () => {
+    const r = applyWorkflowOp(emptyWorkflowState(), {
+      op: 'append-active',
+      skill: 't',
+      kind: 'coding',
+      taskId: 'draft-1',
+      worktreePath: '',
+      startedAt: '2026-01-01T00:00:00Z',
+    });
+    expect(Object.keys(r.state.coding_tasks[0]).sort()).toEqual([
+      'channel',
+      'started_at',
+      'task_id',
+      'worktree_path',
+    ]);
+  });
+
   it('缺 kind 抛错；异种列表互不干扰', () => {
     const c = emptyWorkflowState();
     expect(() => applyWorkflowOp(c, { op: 'append-active', skill: 't', taskId: 'x' })).toThrow(
@@ -122,7 +145,6 @@ describe('applyWorkflowOp', () => {
       skill: 't',
       kind: 'requirement',
       taskId: 'req-1',
-      phase: 'discovery',
     });
     expect(r.state.requirement_tasks).toHaveLength(1);
     expect(r.state.coding_tasks).toHaveLength(0);
@@ -132,7 +154,6 @@ describe('applyWorkflowOp', () => {
       skill: 't',
       kind: 'testcase',
       taskId: 'tc-1',
-      phase: 'draft',
     });
     expect(r.state.testcase_tasks[0].task_id).toBe('tc-1');
     expect(r.state.requirement_tasks).toHaveLength(1);
@@ -145,23 +166,12 @@ describe('applyWorkflowOp', () => {
       skill: 'blueprint',
       kind: 'prototype',
       taskId: 'proto-1',
-      phase: 'blueprint',
       startedAt: '2026-09-15T00:00:00Z',
     });
     expect(r.state.prototype_tasks).toHaveLength(1);
     expect(r.state.prototype_tasks[0].task_id).toBe('proto-1');
-    expect(r.state.prototype_tasks[0].phase).toBe('blueprint');
     expect(r.state.requirement_tasks).toHaveLength(0);
     expect(r.state.coding_tasks).toHaveLength(0);
-
-    r = applyWorkflowOp(r.state, {
-      op: 'update-active',
-      skill: 'blueprint',
-      kind: 'prototype',
-      whereTaskId: 'proto-1',
-      setPhase: 'build',
-    });
-    expect(r.state.prototype_tasks[0].phase).toBe('build');
 
     r = applyWorkflowOp(r.state, {
       op: 'delete-active',
@@ -185,7 +195,7 @@ describe('parseWorkflowTaskKind', () => {
 });
 
 describe('runWorkflowEntry', () => {
-  it('append-active 写盘并可读回', async () => {
+  it('append-active 写盘并可读回（条目无 phase）', async () => {
     const repo = await tmpRepo();
     const result = await runWorkflowEntry({
       op: 'append-active',
@@ -193,7 +203,6 @@ describe('runWorkflowEntry', () => {
       kind: 'coding',
       repoRoot: repo,
       taskId: 'draft-xyz',
-      phase: 'specify',
       worktreePath: '',
       startedAt: '2026-07-21T00:00:00Z',
     });
@@ -202,11 +211,48 @@ describe('runWorkflowEntry', () => {
     expect(state.coding_tasks).toEqual([
       makeTaskEntry({
         task_id: 'draft-xyz',
-        phase: 'specify',
         worktree_path: '',
         started_at: '2026-07-21T00:00:00Z',
       }),
     ]);
+    // 历史遗留的 phase 键即使写进文件，也不会被读出来（normalize 忽略）
+    expect('phase' in state.coding_tasks[0]).toBe(false);
+  });
+
+  it('append-active 幂等：重复注册同一 task_id 不产生重复条目，也不改动已有条目', async () => {
+    const repo = await tmpRepo();
+    const first = await runWorkflowEntry({
+      op: 'append-active',
+      skill: 'test',
+      kind: 'coding',
+      repoRoot: repo,
+      taskId: 'draft-idem',
+      worktreePath: '/tmp/wt/idem',
+      startedAt: '2026-07-21T00:00:00Z',
+    });
+    expect(first.exitCode).toBe(0);
+
+    // 第二次带上不同的 worktree_path / started_at —— 只应在「不存在」时写入
+    const again = await runWorkflowEntry({
+      op: 'append-active',
+      skill: 'test',
+      kind: 'coding',
+      repoRoot: repo,
+      taskId: 'draft-idem',
+      worktreePath: '/tmp/wt/other',
+      startedAt: '2026-07-22T00:00:00Z',
+    });
+    expect(again.exitCode).toBe(0);
+
+    const state = await loadWorkflowState(repo);
+    expect(state.coding_tasks).toHaveLength(1);
+    expect(state.coding_tasks[0]).toEqual(
+      makeTaskEntry({
+        task_id: 'draft-idem',
+        worktree_path: '/tmp/wt/idem',
+        started_at: '2026-07-21T00:00:00Z',
+      }),
+    );
   });
 
   it('缺 skill → exit 3；缺 kind → exit 3', async () => {
@@ -251,35 +297,11 @@ describe('runWorkflowEntry', () => {
     }
   });
 
-  it('get-active-changes 按 kind+phase 过滤，不串列表', async () => {
+  it('get-active-changes 按 kind+phase 过滤（phase 取自 state.yaml），不串列表', async () => {
     const repo = await tmpRepo();
-    await runWorkflowEntry({
-      op: 'append-active',
-      skill: 'test',
-      kind: 'coding',
-      repoRoot: repo,
-      taskId: 'c1',
-      phase: 'specify',
-      startedAt: '2026-07-21T00:00:00Z',
-    });
-    await runWorkflowEntry({
-      op: 'append-active',
-      skill: 'test',
-      kind: 'coding',
-      repoRoot: repo,
-      taskId: 'p1',
-      phase: 'plan',
-      startedAt: '2026-07-21T01:00:00Z',
-    });
-    await runWorkflowEntry({
-      op: 'append-active',
-      skill: 'test',
-      kind: 'requirement',
-      repoRoot: repo,
-      taskId: 'r1',
-      phase: 'discovery',
-      startedAt: '2026-07-21T02:00:00Z',
-    });
+    await appendTask(repo, 'coding', 'c1', 'specify');
+    await appendTask(repo, 'coding', 'p1', 'plan');
+    await appendTask(repo, 'requirement', 'r1', 'discovery');
 
     const allChange = await runWorkflowEntry({
       op: 'get-active-changes',
@@ -302,7 +324,6 @@ describe('runWorkflowEntry', () => {
     expect(specifyOnly.tasks).toEqual([
       makeTaskEntry({
         task_id: 'c1',
-        phase: 'specify',
         worktree_path: '',
         started_at: '2026-07-21T00:00:00Z',
       }),
@@ -318,35 +339,200 @@ describe('runWorkflowEntry', () => {
     expect(reqs.taskIds).toEqual(['r1']);
   });
 
-  it('get-active-changes --kind prototype 按 phase 过滤（对齐 blueprint/build/ship）', async () => {
+  it('get-active-changes --format full：phase/mode 都取自 state.yaml，含**应执行技能**', async () => {
+    const repo = await tmpRepo();
+    await appendTask(repo, 'coding', 'c-full', 'plan');
+    await appendTask(repo, 'coding', 'c-tweak', 'plan');
+    await appendTask(repo, 'coding', 'c-ship', 'ship');
+
+    // phase 与 mode 同出一个文件：state.yaml
+    await seedTaskFiles(
+      repo,
+      'coding',
+      'c-full',
+      { 'state.yaml': 'phase: plan\nworkflow:\n  mode: full\n' },
+      Date.now(),
+    );
+    await seedTaskFiles(
+      repo,
+      'coding',
+      'c-tweak',
+      { 'state.yaml': 'phase: plan\nworkflow:\n  mode: tweak\n' },
+      Date.now(),
+    );
+    await seedTaskFiles(
+      repo,
+      'coding',
+      'c-ship',
+      { 'state.yaml': 'phase: ship\nworkflow:\n  mode: tweak\n' },
+      Date.now(),
+    );
+
+    const result = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'test',
+      kind: 'coding',
+      repoRoot: repo,
+      format: 'full',
+    });
+
+    expect(result.exitCode).toBe(0);
+    const rows = result.rows ?? [];
+    const byId = (id: string) => rows.find((r) => r.task_id === id);
+
+    expect(byId('c-full')?.phase).toBe('plan');
+    expect(byId('c-full')?.mode).toBe('full');
+    expect(byId('c-full')?.skill).toBe('plan');
+    expect(byId('c-full')?.state_readable).toBe(true);
+    // 单技能通道：阶段 plan 归通道技能本人，不得交给 plan 技能
+    expect(byId('c-tweak')?.mode).toBe('tweak');
+    expect(byId('c-tweak')?.skill).toBe('tweak');
+    // phase=ship 归 ship（mode 不限）
+    expect(byId('c-ship')?.skill).toBe('ship');
+
+    // 中文显示名从阶段表 / 通道表派生（技能不持有映射表）
+    expect(byId('c-full')?.phase_label).toBe('提案');
+    expect(byId('c-full')?.mode_label).toBe('完整');
+    expect(byId('c-full')?.skill_label).toBe('提案');
+    // 通道技能的中文名来自通道表，不是阶段表
+    expect(byId('c-tweak')?.mode_label).toBe('简单');
+    expect(byId('c-tweak')?.skill_label).toBe('简单');
+    expect(byId('c-ship')?.phase_label).toBe('交付');
+    expect(byId('c-ship')?.skill_label).toBe('交付');
+  });
+
+  it('--format full：读不到 state.yaml 的行 label 全为空串（不猜）', async () => {
     const repo = await tmpRepo();
     await runWorkflowEntry({
       op: 'append-active',
-      skill: 'blueprint',
-      kind: 'prototype',
+      skill: 'test',
+      kind: 'coding',
       repoRoot: repo,
-      taskId: 'p-blueprint',
-      phase: 'blueprint',
-      startedAt: '2026-09-15T00:00:00Z',
+      taskId: 'c-nostate',
+      startedAt: '2026-07-21T00:00:00Z',
     });
+
+    const result = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'test',
+      kind: 'coding',
+      repoRoot: repo,
+      format: 'full',
+    });
+    const row = (result.rows ?? [])[0];
+    expect(row?.state_readable).toBe(false);
+    expect(row?.phase).toBe('');
+    expect(row?.phase_label).toBe('');
+    expect(row?.mode_label).toBe('');
+    expect(row?.skill).toBeNull();
+    expect(row?.skill_label).toBe('');
+  });
+
+  it('--format full：worktree 任务从 worktree 内读 state.yaml（主仓副本已改名）', async () => {
+    const repo = await tmpRepo();
+    const wtRepo = await tmpRepo();
+    await appendTask(repo, 'coding', 'c-wt', 'specify');
+    // 模拟 worktree-create：把任务目录搬进 worktree，主仓目录改名为 <id>.snapshot
+    await runWorkflowEntry({
+      op: 'update-active',
+      skill: 'test',
+      kind: 'coding',
+      repoRoot: repo,
+      whereTaskId: 'c-wt',
+      setWorktreePath: wtRepo,
+    });
+    await seedTaskFiles(
+      wtRepo,
+      'coding',
+      'c-wt',
+      { 'state.yaml': 'phase: plan\nworkflow:\n  mode: normal\n' },
+      Date.now(),
+    );
+
+    const result = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'test',
+      kind: 'coding',
+      repoRoot: repo,
+      format: 'full',
+    });
+
+    const row = (result.rows ?? [])[0];
+    expect(row.worktree_path).toBe(wtRepo);
+    expect(row.state_path).toBe(path.join(wtRepo, '.polaris', 'tasks', 'c-wt', 'state.yaml'));
+    expect(row.phase).toBe('plan');
+    expect(row.state_readable).toBe(true);
+    // 关键：游标在 specify，但真实阶段在 state.yaml（plan）→ 应派给 normal 通道
+    expect(row.skill).toBe('normal');
+  });
+
+  it('--format full：state.yaml 读不到 → state_readable=false、skill=null（由调用方阻断）', async () => {
+    const repo = await tmpRepo();
     await runWorkflowEntry({
       op: 'append-active',
-      skill: 'build',
-      kind: 'prototype',
+      skill: 'test',
+      kind: 'coding',
       repoRoot: repo,
-      taskId: 'p-build',
-      phase: 'build',
-      startedAt: '2026-09-15T01:00:00Z',
+      taskId: 'c-ghost',
+      startedAt: '2026-07-21T00:00:00Z',
     });
-    await runWorkflowEntry({
-      op: 'append-active',
-      skill: 'discovery',
-      kind: 'requirement',
+
+    const result = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'test',
+      kind: 'coding',
       repoRoot: repo,
-      taskId: 'r-should-not-leak',
-      phase: 'discovery',
-      startedAt: '2026-09-15T02:00:00Z',
+      format: 'full',
     });
+
+    const row = (result.rows ?? [])[0];
+    expect(row.phase).toBe('');
+    expect(row.skill).toBeNull();
+    expect(row.state_readable).toBe(false);
+  });
+
+  it('get-active-changes 默认格式仍为 task_id 数组（不读 state.yaml、不含 rows）', async () => {
+    const repo = await tmpRepo();
+    await appendTask(repo, 'coding', 'c1', 'build');
+
+    const result = await runWorkflowEntry({
+      op: 'get-active-changes',
+      skill: 'test',
+      kind: 'coding',
+      repoRoot: repo,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.taskIds).toEqual(['c1']);
+    expect(result.rows).toBeUndefined();
+  });
+
+  it('get-active-changes 无需 --skill（只读，不持锁），写 op 仍必填', async () => {
+    const repo = await tmpRepo();
+    await appendTask(repo, 'coding', 'c1', 'plan');
+
+    const readOnly = await runWorkflowEntry({
+      op: 'get-active-changes',
+      kind: 'coding',
+      repoRoot: repo,
+    });
+    expect(readOnly.exitCode).toBe(0);
+
+    const writeOp = await runWorkflowEntry({
+      op: 'update-active',
+      kind: 'coding',
+      repoRoot: repo,
+      whereTaskId: 'c1',
+      setWorktreePath: '/tmp/wt',
+    });
+    expect(writeOp.exitCode).toBe(3);
+  });
+
+  it('get-active-changes --kind prototype 按 state.yaml 的 phase 过滤', async () => {
+    const repo = await tmpRepo();
+    await appendTask(repo, 'prototype', 'p-blueprint', 'blueprint');
+    await appendTask(repo, 'prototype', 'p-build', 'build');
+    await appendTask(repo, 'requirement', 'r-should-not-leak', 'discovery');
 
     const allProto = await runWorkflowEntry({
       op: 'get-active-changes',

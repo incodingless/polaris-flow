@@ -31,7 +31,7 @@
 | 待决问题 | `## 待决问题` | `proposal.md` — Open Questions |
 | 影响面 | `## 下游约束` | 不进四件套；仅用于 capability 命名（§3.2） |
 
-`intention.md` 的 `## 前提历史` 节：轻量通道未做 Premise Challenge，填「无（tweak 轻量通道未执行 Premise Challenge）」。
+`intention.md` 的 `## 前提历史` 节：轻量工作流未做 Premise Challenge，填「无（tweak 轻量工作流未执行 Premise Challenge）」。
 
 ---
 
@@ -44,7 +44,7 @@
 3. `## Reframe 历程` 必须改写为一行说明，不得复制「问题与背景」原文：
 
 ```markdown
-- 轻量通道（tweak）未执行 Reframe Check；原始诉求 X 经升档转入常规链路继续
+- 轻量工作流（tweak）未执行 Reframe Check；原始诉求 X 经升档转入常规链路继续
 ```
 
 4. 写入 `.polaris/tasks/<change_id>/intention.md`
@@ -97,7 +97,7 @@
 补齐生成的 `proposal.md` / `design.md` / `specs/*.md` **首行必须**插入标注，避免被误认为人工设计产物：
 
 ```markdown
-<!-- 由 tweak 快速通道归档前自动补齐，源：openspec/changes/<change_id>/change-brief.md -->
+<!-- 由 tweak 快速工作流归档前自动补齐，源：openspec/changes/<change_id>/change-brief.md -->
 ```
 
 ### 3.4 校验与失败处理

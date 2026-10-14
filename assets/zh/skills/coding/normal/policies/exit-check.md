@@ -1,6 +1,6 @@
 # 出口检查 — normal 收尾校验
 
-> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 9 引用。目标是让常规通道在**不接独立 verify 阶段**的前提下，仍然产出与完整链路同构的证据（metrics + 验证报告），保证 retro 的趋势数据不断档。
+> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 9 引用。目标是让常规工作流在**不接独立 verify 阶段**的前提下，仍然产出与完整链路同构的证据（metrics + 验证报告），保证 retro 的趋势数据不断档。
 >
 > 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` 的差异：`verify_mode` 固定 `light`；不做 detailed-design 深度比对（normal 没有该产物）；C6 对照 **specs 验收场景**（normal 有真实规格，比 tweak 的 change-brief 对照更强）；代码审查已在 Step 8.5 做过，本步不重审。
 
@@ -176,7 +176,7 @@ else:  # team
 报告首行须标注来源：
 
 ```markdown
-> 本报告由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` 出口检查生成（normal 常规通道，verify_mode=light）。
+> 本报告由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` 出口检查生成（normal 常规工作流，verify_mode=light）。
 ```
 
 ---

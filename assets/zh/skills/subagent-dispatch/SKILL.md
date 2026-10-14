@@ -13,7 +13,7 @@ description: Subagent 派发执行技能。接收 platform、已选定的 agent�
 
 调用方技能在以下情况调用本技能：
 
-- 已选定要派发的 agent（经 `subagent-probe`，或跳过 probe 时使用 `agent=null` 默认通用）
+- 已选定要派发的 agent（**必先**经 `subagent-probe` 拿到清单；清单为空、或决定默认通用时用 `agent=null`）
 - 需要让一个独立 LLM context 接手某项工作（代码实现、文档撰写、文档评审、数据分析、信息研究等）
 
 **不适用**：
@@ -28,7 +28,7 @@ description: Subagent 派发执行技能。接收 platform、已选定的 agent�
 
 选定途径：
 - 经 `subagent-probe` 拿到清单后选定某一项；或
-- 按 SessionStart 能力注入跳过 probe：平台已支持且本步只要默认通用 Agent → `agent=null`（**不要求** probe 回执）
+- 平台支持、但清单为空 / 只要默认通用 Agent → `agent=null`（**probe 仍须先执行** —— H10 禁止跳过 probe 直接派发；缓存由 probe 自己优先读取）
 
 调用方准备入参时应包含：
 - `platform`：宿主平台 id（从 SessionStart 注入的 `PLATFORM_ID` 或项目配置读取）
@@ -42,7 +42,7 @@ description: Subagent 派发执行技能。接收 platform、已选定的 agent�
 
 > **agent=null 的场景**：
 > 1. 调用方 probe 后 agents 为空，或决定派默认 subagent / inline
-> 2. **跳过 probe**：SessionStart 已注入 `SUPPORTS_SUBAGENT=true` 且 `PLATFORM_DEGRADATION` 为空，且本步无 `subagent_id`、无 `task_type` 预筛 → 直接本技能 + `agent=null`（合法，不要求 probe 回执）
+> 2. **probe 返回的 `agents` 为空**（或调用方只想要默认通用 Agent）：**仍须先 probe**（H10），再传 `agent=null`
 >
 > 传 `agent=null` 时在 `task_spec.constraints` 中加 `"dispatch_mode_hint: default_subagent | inline"`。本技能按 hint 执行：
 > - `default_subagent` → 派发宿主默认 subagent（不指定 agent 文件），走 D-2 内容注入型
@@ -104,7 +104,7 @@ result:
     - 执行派发（宿主原生 Task / AgentTool）
     - 等待 subagent 回报
 
-[5] 填 result（status / output / concerns），返回完整结构
+[5] 填 result（status / artifact_path / concerns），返回完整结构
 ```
 
 ## references

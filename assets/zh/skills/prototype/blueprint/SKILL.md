@@ -96,7 +96,7 @@ done
 | `task-card.md` 在、`golden-flow.md` 缺 | 进入 **Step 3.2** |
 | `ia.md` 缺 | 进入 **Step 3.3** |
 | `page-list.md` 缺 | 进入 **Step 3.4** |
-| 四份齐全、`blueprint.md` 缺或 `blueprint.status != confirmed` | 进入 **Step 4** |
+| 四份齐全、`blueprint.md` 缺或 `blueprint.status != completed` | 进入 **Step 4** |
 | `phase=build` 或更后 | 提示用户该任务已过蓝图阶段，引导到 `polaris{{SKN_SPR}}prototype{{SKN_SPR}}build` |
 | 无法判定 | 按 `./policies/decision-point.md` 询问用户从哪个步骤继续 |
 
@@ -268,6 +268,8 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 | 模糊回复（「差不多」「可以吧」） | **不算确认** | 必须再问一次明确确认 |
 | 沉默 / 无回复 | **不算确认** | 同上 |
 
+判定为「完成」后，**必须**在 `blueprint.md` 的元信息区写入确认记录行（`> 已确认（<ISO>）task_id=<task_id>｜原型名=<原型名>｜前缀=<前缀>`）——下一环节 `build` 的硬门禁据此放行，**不得**只把确认留在会话里。
+
 **确认即冻结**：此后《原型蓝图》及四份分项文档不得再改写。确认后又发现需求缺口或矛盾，一律标记
 `WEB-DESIGN-CHANGE-XXX`（命名冲突用 `WEB-DESIGN-CHANGE-NAME-XXX`）写入 `blueprint.md` 的待确认区并回报，**不在本环节自行修正**。
 
@@ -275,13 +277,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 用户明确确认后：
 
-1. 推进 workflow 阶段至 build
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind prototype --skill blueprint --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=build
-```
-
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
+1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `build` 就在这一步）：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
@@ -289,7 +285,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --phase blueprint --next-phase build
 ```
 
-3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
    先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
    —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 

@@ -179,6 +179,12 @@ node scripts/scaffold.mjs list <原型.html>   # 页面 / 导航 / 图标 / Toke
 node scripts/scaffold.mjs icons              # 内置 20 个线性图标
 ```
 
+> **原型文件名的确定性绑定（F16）**：`--out` 一律写 **`"$WORK_DIR/$NAME.html"`** ——
+> `$WORK_DIR` / `$NAME` 取自 `.polaris/tasks/<task_id>/state.yaml` 的 `work_dir` / `name`
+> （`blueprint` 确认时写入）。下游（`verify.mjs` 的 `<原型.html>` 参数、`ship` 的归档命名
+> `{前缀}-{原型名}-原型-v1.0.html`）按**同一规则**定位，**不依赖会话记忆**。
+> 用户显式指定了文件名时以用户为准，但仍须把最终路径写回 `state.yaml`。
+
 > 两个脚本共享同一套页面机制约定——`<section id>` 页面容器、`data-goto` 跳转、`<symbol id="i-*">` 图标、`--text-*` Token 命名。**改动任一约定必须同步改两个脚本**，否则会出现「脚本全绿但规范已变」的假通过。完整契约表见 `references/02 §14.1`。
 >
 > **取值可整套替换，命名不可替换。** 换设计规范只换 Token 文件，命名契约不变——`scaffold.mjs` 会校验命名契约与覆盖率（模板用到的变量缺一个就失败），`verify.mjs` 则按同一契约查对比度。这样"规范全绿但什么都没查"的假通过无处发生。
@@ -252,10 +258,9 @@ node scripts/verify.mjs --help                                      # 全部选�
 
 **仅在用户在 Step 5 选择 A（进入交付）后执行**——选 B / C 时不推进阶段、不写任何状态。
 
-1. 推进 workflow 阶段至 ship，并更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`
+1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `ship` 就在这一步）
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind prototype --skill build --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=ship
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind prototype \
   --phase build --next-phase ship

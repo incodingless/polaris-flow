@@ -1,71 +1,62 @@
-# polaris-flow 全局工作流游标
-# 路径：.polaris/workflow.yaml（在init时物化空模板，创建新任务时生成任务配置，过程中由各 skill 维护）
-
-# 职责：
-#   - 列出所有"未delivery 完结"的任务（coding_tasks）
-#   - 仅承载"游标"语义（哪个任务在哪个阶段），不承载单任务的业务档案
-#   - 单任务的业务档案（specify/plan/design/build/verify/delivery 状态）写入
-#     .polaris/tasks/<task_id>/state.yaml
+# polaris-flow 全局在途任务索引
+# 路径：.polaris/workflow.yaml（在init时物化空模板，创建新任务时 append 条目，任务完结时删除条目）
 #
-# 并发安全：每个任务在 coding_tasks 中各占一项，多个 specify 同时进行时
+# 职责：
+#   - 列出所有"未完结"的任务（`*_tasks`）
+#   - **只回答两个问题**：有哪些在途任务、任务在哪（worktree）
+#   - **不记阶段** —— 阶段（"接下来要执行的阶段"）的唯一存放处是任务自己的
+#     `.polaris/tasks/<task_id>/state.yaml` 的顶层 `phase`，位置由本条的
+#     `worktree_path` 决定（空 = 主仓；非空 = worktree 内同名路径）
+#
+# 并发安全：每个任务在各自数组中各占一项，多个 specify 同时进行时
 # 各自只 append 自己的 entry，再各自维护 tasks/<task_id>/state.yaml，互不覆盖。
 # 注：task等同于 Openspec的change概念
 coding_tasks: []
-# 每项结构（共 4 个字段）：
+# 每项结构（4 个字段；**不含 phase**）：
 #   - task_id: refactor-sdk-api-0701c0
-#     phase: design                      # 各 kind 的合法阶段见插件阶段表（写入时原语会校验，非法值被拒并打印合法集合）
-#     worktree_path: ""                  # 空表示该任务仍在主仓；plan 后填 worktree 绝对路径
+#     worktree_path: ""                  # 空表示该任务仍在主仓（state.yaml 也读主仓）；plan 后填 worktree 绝对路径
 #     started_at: 2026-05-25T14:30:00Z   # task 创建时间（specify Step 1）
 
 # 职责：
-#   - 列出所有归档的"需求"任务（requirement_tasks）
-#   - 仅承载"游标"语义（哪个需求任务在哪个阶段），不承载单需求任务的业务档案
-#   - 单需求任务的业务档案（discovery/draft/refine/ship 状态）写入
+#   - 列出所有未完结的「需求」任务（requirement_tasks）
+#   - 同样只回答「有哪些在途任务」「任务在哪」；阶段在
 #     .polaris/tasks/<task_id>/state.yaml（与 coding 同根；靠 state.kind 区分）
 #
 # 并发安全：每个需求任务在 requirement_tasks 中各占一项，多个 discovery 同时进行时
 # 各自只 append 自己的 entry，再各自维护 tasks/<task_id>/state.yaml，互不覆盖。
 requirement_tasks: []
-# 每项结构（共 4 个字段）：
+# 每项结构（4 个字段；**不含 phase**）：
 #   - task_id: refactor-sdk-api-0701c0
-#     phase: draft                      # 各 kind 的合法阶段见插件阶段表（写入时原语会校验，非法值被拒并打印合法集合）
 #     worktree_path: ""                  # 空表示该需求任务仍在主仓；draft 后填 worktree 绝对路径
 #     started_at: 2026-05-25T14:30:00Z   # task 创建时间（discovery Step 1）
 
 testcase_tasks: []
-# 每项结构（共 4 个字段）：
+# 每项结构（4 个字段；**不含 phase**）：
 #   - task_id: refactor-sdk-api-0701c0
-#     phase: discovery                  # 各 kind 的合法阶段见插件阶段表（写入时原语会校验，非法值被拒并打印合法集合）
 #     worktree_path: ""                  # 空表示该测试任务仍在主仓
 #     started_at: 2026-05-25T14:30:00Z   # task 创建时间
 
 
 # 职责：
 #   - 列出所有未完结的「原型」任务（prototype_tasks）
-#   - 仅承载「游标」语义（哪个原型任务在哪个阶段），不承载单任务业务档案
-#   - 单原型任务业务档案（blueprint/build/review/ship）写入
-#     .polaris/tasks/<task_id>/state.yaml（与 coding/requirement 同根；靠 state.kind 区分）
+#   - 阶段在 .polaris/tasks/<task_id>/state.yaml（与 coding/requirement 同根；靠 state.kind 区分）
 #
 # 并发安全：每个原型任务在 prototype_tasks 中各占一项，多个 blueprint 同时进行时
 # 各自只 append 自己的 entry，再各自维护 tasks/<task_id>/state.yaml，互不覆盖。
 prototype_tasks: []
-# 每项结构（共 4 个字段）：
+# 每项结构（4 个字段；**不含 phase**）：
 #   - task_id: contract-review-proto
-#     phase: blueprint                  # 各 kind 的合法阶段见插件阶段表（写入时原语会校验，非法值被拒并打印合法集合）
 #     worktree_path: ""                  # 空表示该原型任务仍在主仓
 #     started_at: 2026-05-25T14:30:00Z   # task 创建时间（blueprint Step 2）
 
 # 职责：
 #   - 列出所有未完结的「缺陷修复」任务（debug_tasks）
-#   - 仅承载「游标」语义（哪个缺陷任务在哪个阶段），不承载单任务业务档案
-#   - 单缺陷任务业务档案（triage/diagnose/prescribe/patch/prove/closeout）写入
-#     .polaris/tasks/<issue_id>/state.yaml（与 coding/requirement/prototype 同根；靠 state.kind 区分）
+#   - 阶段在 .polaris/tasks/<issue_id>/state.yaml（与 coding/requirement/prototype 同根；靠 state.kind 区分）
 #
 # 并发安全：每个缺陷任务在 debug_tasks 中各占一项，互不覆盖。
 debug_tasks: []
-# 每项结构（共 5 个字段）：
+# 每项结构（4 个字段；**不含 phase**）：
 #   - task_id: 2026-09-16-fix-page-500
-#     phase: diagnose                    # 各 kind 的合法阶段见插件阶段表（写入时原语会校验，非法值被拒并打印合法集合）
 #     channel: bugfix                   # bugfix-测试缺陷 | hotfix-生产故障（仅 debug 族有）
 #     worktree_path: ""                  # 空表示该任务仍在主仓
 #     started_at: 2026-05-25T14:30:00Z   # task 创建时间

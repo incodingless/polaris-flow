@@ -39,7 +39,7 @@ export type DeliveryCleanupPlan =
       /** 将被删除的**绝对路径**（只含当前存在的） */
       willDelete: string[];
       /** 将被移出游标的条目；找不到为 null */
-      entry: { kind: WorkflowTaskKind; phase: string } | null;
+      entry: { kind: WorkflowTaskKind } | null;
       kind: WorkflowTaskKind;
     }
   | { ok: false; message: string };
@@ -91,7 +91,7 @@ export async function planDeliveryCleanup(
     ok: true,
     kind: effectiveKind,
     willDelete: candidates.filter((p) => existsSync(p)),
-    entry: entry ? { kind: effectiveKind, phase: entry.phase } : null,
+    entry: entry ? { kind: effectiveKind } : null,
   };
 }
 

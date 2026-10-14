@@ -166,8 +166,8 @@ export type TaskRuntimeState = {
   deepread?: TaskRuntimeDeepreadState;
 };
 
-/** workflow.mode 取值 */
-export type WorkflowMode = 'sdd' | 'tweak' | 'bugfix' | 'full' | string;
+/** workflow.mode 取值：tweak-小修改 | normal-常规 | full-全栈（完整链路）。历史值 sdd/bugfix 仍可读 */
+export type WorkflowMode = 'tweak' | 'normal' | 'full' | string;
 
 /** workflow 容器：通道与升档/降档决策（扁平，mode 是唯一通道开关） */
 export type TaskWorkflowState = {
@@ -177,11 +177,11 @@ export type TaskWorkflowState = {
   tdd_mode?: string;
   build_mode?: string;
   signals?: string[];
-  /** 仅 mode=sdd 降档时填写 */
+  /** 仅 mode=full 降档时填写 */
   downgrade_reason?: string;
   downgrade_target?: string;
   upgrade_reason?: string;
-  /** tweak 可升到 normal 或 design；sdd 只升到 design */
+  /** tweak 可升到 normal 或 design；full 只升到 design */
   upgrade_target?: string;
   finished_at?: string;
 };
@@ -392,13 +392,14 @@ function flattenWorkflow(parsed: Record<string, unknown>, runtime: Record<string
 
   if (picked === 'tweak') {
     foldChannelFields(workflow, tweakPayload);
-    if (!mode || mode === 'sdd') {
+    // 「模板默认值」语义：历史默认 sdd 与现行默认 normal 都算「未决策」
+    if (!mode || mode === 'sdd' || mode === 'normal') {
       workflow.mode = 'tweak';
     }
   } else if (picked === 'normal') {
     foldChannelFields(workflow, normalPayload);
     if (!mode) {
-      workflow.mode = 'sdd';
+      workflow.mode = 'normal';
     }
   }
 

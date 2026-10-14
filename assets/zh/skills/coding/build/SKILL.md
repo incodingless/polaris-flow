@@ -46,23 +46,46 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：定位 任务标识 + 入口校验
+### Step 0：定位任务 + 恢复分发 + 入口校验
+
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill build --repo-root "$REPO_ROOT" --phase build)
+ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
 RTID_EXIT=$?
 ```
 
 - `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
+  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` /
+  `skill` / `skill_label` / `state_readable`
 
-按 `$TASK_IDS` 数组长度解读：
+按 `$ROWS` 长度：
 
-- **唯一匹配**：直接读取 `task_id`
-- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 tasks 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks」
+| 长度 | 动作 |
+| ---- | ---- |
+| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
+| **唯一** | 记下该行 `task_id`，进入下面的判定 |
+| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
 
-> 若 选择的任务已是 `phase=tasks`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
-> 若上次中断在 plan 中（`runtime.tasks.status=in_progress` / apply paused），从中断点续跑；不得因「已是 build」而报零匹配。
+候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
+
+```
+- <task_id> (工作流：完整(full)，阶段：构建(build)，技能：构建(build))
+```
+
+1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
+2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
+
+| `skill` | 含义 | 动作 |
+| ------- | ---- | ---- |
+| `== build`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` 取该行值，跳到文末「上下文压缩恢复」表里对应 Step |
+| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`（**不要求**用户再敲命令）；本技能到此结束，**不得**建任务 / 推进阶段 |
+| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
+
+- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
+
+> 续跑：入口校验通过后**不得**重跑 Step 1 的模式询问原样 —— `runtime.build.build_mode` /
+> `runtime.build.review_mode` 已存在时，展示当前值并问是否沿用（见 Step 1）。
+> 若上次中断在 plan 中（`runtime.tasks.status=in_progress` / apply paused），从中断点续跑。
 
 **入口校验**（失败 → 阻断）：
 
@@ -116,12 +139,12 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 ### Step 2：Subagent Probe（仅 `build_mode=subagent_dispatch`）
 
-若 `build_mode=inline` → 输出 `[polaris-flow 开发]构建 - 第二步: 跳过 probe（inline）`，直接进入 Step 3.3。
+若 `build_mode=inline` → 输出 `[polaris-flow 开发]构建 - 第二步: 不派发（inline，不涉及 probe）`，直接进入 Step 3.3。
 
 若 `build_mode=subagent_dispatch`：
 
-1. 读 SessionStart 注入：`PLATFORM_DEGRADATION=inline|unsupported` → **强制**本会话 inline；输出原因；进入 Step 3.3（**不调** probe）
-2. 若本步只要默认通用且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ **不调** probe，记 `dispatch=default`，进入派发
+1. 读 SessionStart 注入：`PLATFORM_DEGRADATION=inline|unsupported` → **强制**本会话 inline；输出原因；进入 Step 3.3（**不派发 → 不涉及 probe**）
+2. `SUPPORTS_SUBAGENT=true`（degradation 空）→ **仍须 probe（H10）**，记 `dispatch=default`，进入派发
 3. 若要从清单选 agent：优先读 `$SUBAGENT_PROBE_CACHE`；仅当**缺缓存/缺注入**或需 `task_type`/`subagent_id` 过滤时，才 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传入 `platform` / `PLATFORM_ID`；probe 优先读缓存）
 4. 按能力结论或 `subagent-probe` 返回结构消费（`platform_degradation` + `agents`）：
 
@@ -173,7 +196,7 @@ Working directory: <worktree_path 或 main repo root>
 
 #### apply 中途 pause / error
 
-- **paused**：按 apply 给出的原因与选项，用 decision-point 问用户；用户选继续 → 同模式再次 `/opsx:apply`（不要重跑 Step 1，除非用户要求改模式）
+- **paused**：按 apply 给出的原因与选项，用 decision-point 问用户，并把**原因与可选项**写入 `state.yaml` 的 `runtime.build.pause_reason`（恢复清单据此重载，恢复后置空）；用户选继续 → 同模式再次 `/opsx:apply`（不要重跑 Step 1，除非用户要求改模式）
 - **errored**：阻断，报告错误；不写 `runtime.build.status=completed`
 
 ### Step 4：最终代码审查（按 `review_mode`）
@@ -220,13 +243,7 @@ runtime:
     completed_tasks: <N>
     total_tasks: <N>
     finished_at: "<ISO>"
-phase: idle
-```
-
-workflow阶段推进至验收阶段：
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill build --where-task-id "$task_id" --set phase=verify
+phase: verify
 ```
 
 输出：

@@ -28,14 +28,14 @@
 命中任一信号时，按 `./policies/decision-point.md` 暂停，必须列出命中的信号编号与依据：
 
 ```text
-本次变更命中 <N> 项升档信号（详见下方），建议升到常规通道（polaris{{SKN_SPR}}coding{{SKN_SPR}}normal 单入口，含四件套 + 合并主审）。
+本次变更命中 <N> 项升档信号（详见下方），建议升到常规工作流（polaris{{SKN_SPR}}coding{{SKN_SPR}}normal 单入口，含四件套 + 合并主审）。
 
 命中信号：
   · U1 跨模块：<列出模块>
   · U5 触碰核心链路：<列出链路>
 
-A. 升到常规通道 — 把简报转为 intention.md，交 polaris{{SKN_SPR}}coding{{SKN_SPR}}normal 继续（推荐）
-B. 继续 tweak — 记录风险接受后按快速通道执行
+A. 升到常规工作流 — 把简报转为 intention.md，交 polaris{{SKN_SPR}}coding{{SKN_SPR}}normal 继续（推荐）
+B. 继续 tweak — 记录风险接受后按快速工作流执行
 ```
 
 | 选项 | 动作 |
@@ -61,30 +61,31 @@ BRIEF="$REPO_ROOT/openspec/changes/$change_id/change-brief.md"
 
 **强制**：写入前必须 `read_file ./templates/intention-template.md`，按模板节顺序填充，缺节补「无」——不得复制简报原文了事。
 
-### 3.2 推进 workflow
+### 3.2 阶段与工作流（勿读成矛盾）
 
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$change_id" --set phase=plan
-```
-
-> **游标语义（勿读成矛盾）**：`plan` 是**阶段游标**——`intention.md` 已就绪（即 specify 的产物），下一件该做的是 plan，故游标置 `plan`。**接手的不是 `plan` 技能，而是编排通道 `normal`**（见 §3.3），它从该游标处续跑。`normal` 不是合法阶段值，**不得**尝试把它写进游标（会被校验器以退出码 3 拒绝）。
+> `plan` 是**阶段**（写在任务的 `state.yaml` 顶层 `phase`，见 §3.3）——`intention.md` 已就绪（即 specify 的产物），下一件该做的是 plan，故阶段置 `plan`。**接手的不是 `plan` 技能，而是编排工作流 `normal`**（见 §3.3），它从该阶段续跑。`normal` 不是合法阶段值，**不得**尝试把它写进 `phase`（会被校验器以退出码 3 拒绝）。
+>
+> **`mode` 必须一并改写为 `normal`**：恢复分发按 `mode` 决定工作流、按 `phase` 决定技能
+> （判据在 `src/core/config/task-kind-layout.ts` 的 `skillForModePhase`，命令入口
+> `get-active-changes --format full`）。若 `mode` 仍是 `tweak`，`normal` 技能的在途检测会找不到本任务，
+> `plan` 技能又会把它当 tweak 任务拒收 —— 任务就此失联。
 
 ### 3.3 写状态并交接
 
 ```yaml
 workflow:
-  mode: tweak
+  mode: normal                  # 工作流迁移：必须改写为目标工作流（恢复分发判据见 skillForModePhase）
   status: upgraded
   upgrade_reason: "U1,U5"          # 命中的信号编号
   upgrade_target: normal
   finished_at: "<ISO>"
-phase: idle
+phase: plan
 ```
 
 输出：
 
 ```text
-[polaris-flow 开发]快速通道 - 已升档到常规通道：change_id=<change_id>；intention.md 已就绪；命中信号 <U..>
+[polaris-flow 开发]快速工作流 - 已升档到常规工作流：change_id=<change_id>；intention.md 已就绪；命中信号 <U..>
 下一步执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}normal。
 ```
 
@@ -97,7 +98,7 @@ phase: idle
 3. 输出：
 
 ```text
-[polaris-flow 开发]快速通道 - 用户选择继续 tweak：已记录风险接受（信号 <U..>）
+[polaris-flow 开发]快速工作流 - 用户选择继续 tweak：已记录风险接受（信号 <U..>）
 ```
 
 4. 继续 tweak Step 4。**后续 Step 5 / Step 6 不得因同一信号再次询问**——已持久化的决策不重复发问。

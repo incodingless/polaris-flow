@@ -606,13 +606,7 @@ done
 
 用户明确确认后：
 
-1. 推进 workflow 阶段至 draft
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=draft
-```
-
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
+1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `draft` 就在这一步）：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
@@ -620,14 +614,14 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --phase discovery --next-phase draft
 ```
 
-3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
    先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
    —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 
 ```text
 [polaris-flow 需求工程] 需求探索 - 阶段完成，状态已落盘。
 下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
-恢复：先读 .polaris/tasks/<task_id>/req_baseline.md 的「需求唯一标识」与各章完成情况，再从下一步技能的 Step 0 开始。
+恢复：先读 .polaris/tasks/<task_id>/req_baseline.md 的「需求唯一标识」与各章完成情况、req_clarify_summary.md 的「问题闭环明细」，再从下一步技能的 Step 0 开始。
 ```
 
 ---

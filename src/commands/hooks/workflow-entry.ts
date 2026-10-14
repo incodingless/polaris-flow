@@ -4,11 +4,11 @@
 import { runWorkflowEntry, type WorkflowEntryOp } from '../../core/hooks/workflow-entry.js';
 
 export type WorkflowEntryCommandOptions = {
-  skill: string;
+  /** 锁文件写者标识（写 op 必填；get-active-changes 只读，可省） */
+  skill?: string;
   kind?: string;
   repoRoot?: string;
   taskId?: string;
-  phase?: string;
   worktreePath?: string;
   startedAt?: string;
   whereTaskId?: string;
@@ -16,24 +16,25 @@ export type WorkflowEntryCommandOptions = {
   to?: string;
   set?: string[];
   channel?: string;
-  /** 跳过 phase 写入校验（一次性修正存量数据）；会写入 .polaris/overrides.log */
-  forcePhase?: boolean;
+  /** get-active-changes：ids（默认）| full */
+  format?: 'ids' | 'full';
+  /** get-active-changes：按 state.yaml 的阶段过滤 */
+  phase?: string;
 };
 
 /**
- * 解析 --set phase=x / worktree-path=y
+ * 解析 --set worktree-path=y
  */
-function parseSets(sets: string[] | undefined): { setPhase?: string; setWorktreePath?: string } {
-  const out: { setPhase?: string; setWorktreePath?: string } = {};
+function parseSets(sets: string[] | undefined): { setWorktreePath?: string } {
+  const out: { setWorktreePath?: string } = {};
   for (const raw of sets ?? []) {
     const eq = raw.indexOf('=');
     if (eq < 0) continue;
     const k = raw.slice(0, eq).replace(/-/g, '_');
     const v = raw.slice(eq + 1);
-    if (k === 'phase') out.setPhase = v;
-    else if (k === 'worktree_path') out.setWorktreePath = v;
+    if (k === 'worktree_path') out.setWorktreePath = v;
     else {
-      console.error(`[workflow-entry] 阻断：--set 不支持的 key: ${k}`);
+      console.error(`[workflow-entry] 阻断：--set 不支持的 key: ${k}（只支持 worktree-path）`);
       process.exitCode = 3;
       return out;
     }
@@ -59,16 +60,15 @@ export async function workflowEntryCommand(
     kind: options.kind,
     repoRoot: options.repoRoot,
     taskId: options.taskId,
-    phase: options.phase,
     worktreePath: options.worktreePath,
     startedAt: options.startedAt,
     whereTaskId: options.whereTaskId,
     from: options.from,
     to: options.to,
-    setPhase: sets.setPhase,
     setWorktreePath: sets.setWorktreePath,
     channel: options.channel,
-    forcePhase: options.forcePhase,
+    format: options.format,
+    phase: options.phase,
   });
 
   if (result.exitCode !== 0) {

@@ -1,5 +1,42 @@
 # Changelog
 
+## What's Changed [0.1.2] - 2026-10-13
+### Added
+
+- **`task-entry` 原语**: 新增 `polaris-flow task-entry --kind coding --as <技能> --mode <档>`，一次调用返回 `resume` / `handover` / `create` / `select` / `resolve-drafts` / `block` —— 把「选任务 → 判阶段 →（必要时）建任务」收敛成一条命令，判定全部留在代码里；新建时一步完成建目录 + 写 `workflow.mode` + 注册游标。`--mode` **只在新建时被写入**，判定阶段一律用任务**自己** `state.yaml` 里的值（工作流不被入口假设）
+- **共享 policy `assets/zh/policies/task-entry.md`**: coding 三入口技能共用的「进入任务」流程。含刻意不放进命令的破坏性 / 需裁决分支（§5：孤儿 draft 的 A/B/C/D、「丢弃并新建」）
+- **候选列表的中文显示名**: `get-active-changes --format full` 每行新增 `phase_label` / `mode_label` / `skill_label`；中文名由 `phaseLabel` / `modeLabel` / `skillLabel` 从**既有阶段表与工作流表**派生（不新增任何映射表），技能只负责拼成 `中文(英文)`。取不到时为空串，显示层退回只显英文 —— 不猜
+- **`append-active` 幂等**: 同一 `task_id` 已在列表里 → 视为成功且**不改动**已有条目。入口技能的「新建」与「采纳孤儿 draft」两条路因此可以**无条件**注册，不再需要「仅 `status=ok` 才执行」这类分支条件
+- **`buildDispatchRow` 导出**: `--format full` 的单行构造从 `runGetActiveChanges` 抽出，供 `task-entry` 复用，避免第二份「运行态形状」
+
+### Changed
+
+- **`tweak` 的 Step 0 从 154 行压到 23 行**: 编排段改为「引用共享 policy + 一条命令 + 按 `action` 分派」，`mode` 由调用方传入（`--mode tweak`）而非技能自己写死；`resolve-drafts` 与「丢弃并新建」两组分支移入 policy，技能不再各存一份
+- **入口技能的两层重排**: `specify` / `normal` / `tweak` 把「选任务」与「判阶段」显式分层 —— 第一层只枚举游标、选出**一个** `task_id`（零个走创建流程），**不做**丢弃 / 新建；第二层只判「读得到吗 → 是不是本技能」
+- **判定顺序与出口全族统一**: `plan` / `build` / `design` / `tasks` / `verify` / `ship` / `intake` 的 Step 0 统一为「**先判 `state_readable`、再判 `skill`**」，并补上 `skill=null`（旁路阶段 `retro` / 表外未登记阶段）的**阻断**出口 —— 此前这种行会落进「转交」分支去加载一个不存在的技能名
+- **技能 Step 0/1 的写法向 `specify` 收口**: 候选呈现改为单行 `<task_id> (工作流：…，阶段：…，技能：…)`；判定项收敛为「`state_readable` → `skill`」两行；理由段降为 `<!-- -->` 注释；入口技能的「续写 / 丢弃并新建 / 取消」改用**字面标签**，不再与创建流程的 A/B/C/D 撞字母
+- **术语统一：`workflow.mode` 的中文名统一为「工作流」**: 同一字段此前有两个名字（技能正文用「通道」、候选列表用「工作流」）。现把指代 `workflow.mode` 的 26 个文件统一为「工作流」（含 `快速工作流` / `常规工作流` / `工作流技能` / `工作流迁移` / `注册与工作流` 等）。**debug 族的 `channel` 与 SonarQube 的「探测通道」保持原词** —— 它们是另外两个概念，不参与本次统一
+- **阶段只有一个存放处**: `.polaris/workflow.yaml` 的条目**不再承载 `phase`**，收敛为 `task_id` / `worktree_path` / `started_at` / `channel` —— 它只回答「有哪些在途任务」与「任务在哪」；阶段（顶层 `phase`）只存在于任务自己的 `.polaris/tasks/<id>/state.yaml`。读取位置由条目 `worktree_path` 决定（空 = 主仓；非空 = worktree 内同名路径），新增 `resolveTaskStatePath` 作为唯一解析入口
+- **恢复分发改读 state.yaml**: `workflow-entry get-active-changes --format full` 的 `phase` 与 `mode` 现在同出一个文件，行结构新增 `state_path`（定位结果，便于排查）与 `state_readable`；`--phase` 过滤改为按各任务 state.yaml 的阶段过滤（默认 `ids` 格式仍不读 state.yaml，保持低成本）
+- **阶段推进只走一个原语**: 所有技能的游标 phase 写入（`update-active --set phase=` / `append-active --phase=`）删除，阶段推进统一由 `task-state-entry enter-phase / complete-phase --next-phase` 完成
+- **`tweak` / `normal` 的阶段语义与全链路统一**: 进入实施阶段不再写顶层 `phase: build`（进行中的事实由 `runtime.build.status` 承载）；顶层 `phase` 只承载「下一步该谁接手」，三条工作流自此同义
+
+### Fixed
+
+- **入口技能采纳孤儿 draft 后永远进不了游标**: `task-init` 报 `status="existing"` 时选「继续最近 / 选择一个」的两条路都跳过注册，而它采纳的恰恰是**游标里没有**的 draft（这正是它成为孤儿的原因）。后果是该任务既无法被其它技能发现，还会在 `finalize` 的 `rename-active` 处以 exit 3 阻断，且每次重进命令都会再问一遍。现由 `append-active` 幂等 + 无条件注册修掉
+- **采纳时工作流写入被跳过**: 同一分支此前一并跳过 `workflow.mode` 覆盖，会让任务停在模板默认的 `normal`（`tweak` 任务被当成常规工作流）。现与注册一并无条件执行
+- **worktree 任务的阶段与工作流读错文件**: `--format full` 原先一律从主仓路径读 `state.yaml`，而任务目录被 `worktree-create` 搬进 worktree 后（主仓副本改名为 `<id>.snapshot`）该路径并不存在 —— `mode` 读成空串会让 `normal` / `tweak` 任务被误派给 `plan` / `specify` 技能，工作流丢失。现按条目的 `worktree_path` 定位
+- **阶段白名单校验缺口收敛**: 原先绕过 `checkPhaseWrite` 的 5 处 `task-state-entry set --set phase=X` 改为 `complete-phase --next-phase`，阶段写入不再有第二条路径
+- **入口技能的在途任务判定漏掉「恰好 1 个」**: `specify` / `normal` / `tweak` 的判定表把「长度」与「每行 skill」两个维度混在一张表里，单任务时只能靠猜；现统一为 `零个 / 唯一 / 多个` 三段
+- **state.yaml 读不到时的静默降级**: 新增 `state_readable` 标记并写入各技能 Step 0 —— 该行**被选中时**才阻断（把 `state_path` 交给用户人工确认），不得当成「零个」新建
+
+### Tests
+
+- `task-entry.test.ts`（新增，13 项）：`create` 的落盘与注册、`create → resume` 链路闭合、六出口（`resume` / `handover` / `select` / `resolve-drafts` / `block`）判定、`--task-id` 直判、四类参数错误
+- `workflow-entry.test.ts`：新增 worktree 任务按 `worktree_path` 读阶段（含 `state_path` 断言）、`state_readable=false` 时 `skill` 为 `null`、条目不含 `phase`、中文标签三类回归
+- `state-next.test.ts`：新增「state.yaml 读不到 → `NEXT: done`」与「worktree 任务从 worktree 内解析」用例；全部用例的阶段改为写入 state.yaml
+- `dashboard-scan.test.ts` / `dashboard-write.test.ts` / `delivery-cleanup.test.ts`：阶段来源改为 state.yaml 的断言改写；面板「推进阶段」改为写 `state.yaml` 并新增"state 缺失即拒绝"用例
+
 ## What's Changed [0.1.1] - 2026-08-04
 
 ### Added
@@ -59,6 +96,7 @@
 - **testcase 命令定名 `create-testcase`**: `assets/zh/commands/testing/create-testcase.md` 的实际安装命令为 `/polaris:testing:create-testcase`（命令名由文件路径决定），frontmatter `name`/`trigger` 与文件名对齐为 `create-testcase`，`flow.md` T01 行、README-zh、usage-guide 与安装测试同步更正
 - **flow.md 内部矛盾修复**: 快捷路径示例「编号如 P02」更正为 C02（P02 在本文件菜单中是评审原型）；retro 适用范围「P01/P02/P03」更正为 C01/C02/C03；零步范围自相矛盾消除——P01–P02（原型）从「需求内容必须非空」清单移除，与「P01–P02 不进零步」对齐；R02 前置更正为「无硬前置：原始需求即可起步」（与 prd.md 命令及 prd/discovery 技能口径一致，原「需先执行 R01」在 R01 不可用时构成永久阻断）；sdd 命令链尾口径对齐 flow.md（retro 移出阶段链，注明可选不占游标）；tweak / normal / sdd 命令描述去除 brainstorming 等遗留词并改用菜单 C 编号
 - **技能侧清除菜单编号引用**: 落实「菜单编号只存在于命令层」的编号边界约定（已写入 AGENTS.md）——coding 族 4 个 SKILL.md（normal / tweak / ship / plan）、8 个 policies / templates、`skills/README.md` 共约 56 处 P01/P02/P03 全部改为模式名（tweak / normal / 完整链路）或技能名，消除技能对菜单重编号的耦合（M 组重编号曾泄漏污染 13 个技能文件）；状态值 `outside_voice: not_run:p02-compressed` 更名为 `not_run:normal-compressed`（无代码消费方）；`ship` 内部流程概念「P01 快速通道」更名为「tweak 快速通道」（与 `workflow.mode=tweak` 对齐）；豁免 `prototype/blueprint` 的 Page ID 前缀（`<前缀>-P01`，原型页面编号体系，与菜单编号无关）
+- **coding 工作流技能流程图文档**: 新增 `docs/architecture/coding-workflow-flows.md` —— 以 13 张 Mermaid 分图 + 5 张对照表描述 coding 族 10 个技能的组织与流转。总览层：三条通道（tweak / normal / 完整链路）与双向升降档门、完整链路阶段-技能-产物-游标对照。技能层：`tweak`、`normal` 及完整链路 8 个技能（`specify` / `plan` / `design` / `tasks` / `build` / `verify` / `ship` / `retro`）各自的内部 Step 流，逐个标出人工确认阻塞点、决策分支与出口转交（含 `plan` 的 design / tasks 双出口、`retro` 的旁路口径）。附：`verify` 三段验证轨道与 `verify_mode` / `review_mode` / `build_mode` / `risk_level` 取值、阻塞点总览、游标写入点与恢复清单四件、通用约束（H8 / H10 / H12 / H13 与 TDD 逐任务自动标注）。以 `task-kind-layout.ts` 阶段表与各 `SKILL.md` 为权威源，刻意规避把 `state.yaml.phase` 当作进度、把 `retro` 接入游标主序列两类常见误读；全部图形经 mermaid 解析校验通过
 
 ### Tests
 
@@ -75,6 +113,7 @@
 
 ### Changed
 
+- **验收标准清单模板**: `testing/acceptance` 的验收标准清单从技能正文抽出为 `templates/acceptance-criteria-template.md`；Step 4 落盘前必须读取该模板，按其章节与表格写入，避免清单结构散落在技能步骤里
 - **flow 路由表独立入口标注**: `flow.md` 第四步路由表为**所有存在独立命令的行**补注命令名（M01 / M04 / R02 / R03 / T01 / T03，P01 / P02 已在上一轮补），M02 明确标注「无独立入口命令」；`README-zh.md` 的「直达命令」清单同步补齐 `prd` / `prd:readiness` / `prototype` / `prototype:review` / `testcase` / `bugfix` / `testing:review-testcase`（此前只列了开发三项与 hotfix）
 - **测试评审命令改名后的引用对齐**: `assets/zh/commands/testing/review.md` 改名为 `review-testcase.md`（命令名 `/polaris:testing:review-testcase`，技能名仍为 `testing:review`）后，`flow.md` 路由表 / `README-zh.md` / `docs/command-usage-guide.md` 中已失效的 `/polaris:testing:review` 引用同步更正
 - **workflow 扁平**: 通道决策不再拆 `workflow.tweak` / `workflow.normal`，升档、降档和信号都写在同一份 `workflow` 上，用 `mode` 区分通道；默认不再双写字符串 `workflow` 与 `workflow_state`。读取时把旧嵌套段和写错到 `runtime.tweak` / `runtime.normal` 的决策折进扁平对象，避免进行中任务丢字段

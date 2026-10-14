@@ -1,23 +1,24 @@
 /**
  * 任务读写 API（`/api/tasks*`）。
  *
- * 数据源：`.polaris/workflow.yaml` 的 5 个游标数组 + `state.yaml`（运行态）
- * + `openspec/changes/<id>/` 文件树。**phase 取自游标**，不取 `state.yaml.phase`
- * （依据 `docs/specs/2026-09-19-phase-truth-unification-design.md` §1.1）。
+ * 数据源：`.polaris/workflow.yaml` 的 5 个游标数组（"有哪些在途任务" + "任务在哪"）
+ * + 各任务自己的 `state.yaml`（阶段与运行态）+ `openspec/changes/<id>/` 文件树。
+ * **阶段只在 `state.yaml` 里**；游标条目没有 `phase` 字段。
  *
  * 写操作（M3）：**一律经 `src/core/hooks/*` 的原语函数**，本模块不写任何文件
- * —— `advanceTaskPhase` 调 `runWorkflowEntry`（持 `workflow.lock`），并在返回前
- * 回读游标校对。这是设计文档 §5.2 的硬约束：绕过 `.locks/` 的直写路径不许存在。
+ * —— `advanceTaskPhase` 调 `runTaskStateEntry`（持 `task-state-<id>.lock`），并在返回前
+ * 回读 state.yaml 校对。这是设计文档 §5.2 的硬约束：绕过 `.locks/` 的直写路径不许存在。
  */
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { getTaskStorageSegment } from '../../core/assets/polaris-paths.js';
+import { getTaskStorageSegment, resolveTaskStatePath } from '../../core/assets/polaris-paths.js';
 import {
   getKindArtifacts,
   getKindLabel,
   getKindPhases,
   isKnownPhase,
+  normalizePhase,
   phaseGroupOf,
   phaseIndexIn,
 } from '../../core/config/task-kind-layout.js';
@@ -198,11 +199,12 @@ function buildPhaseGroups(
 function toTaskItem(cursor: TaskCursor, projectRoot: string): TaskItem {
   const kind = cursor.kind;
   const archived = cursor.source !== 'cursor';
-  // 归档项没有游标 phase（游标已被清），运行态从归档目录读；phase 用合成值
+  // 阶段来自该任务的 state.yaml（位置由条目的 worktree_path 决定）；
+  // 归档项的阶段是合成值，不参与阶段表判定
   const runtime = kind
-    ? readTaskRuntime(projectRoot, kind, cursor.task_id, archived ? '' : cursor.phase)
+    ? readTaskRuntime(projectRoot, kind, cursor.task_id, archived ? '' : cursor.worktree_path)
     : null;
-  const phase = archived ? 'archived' : (cursor.phase ?? '');
+  const phase = archived ? 'archived' : (runtime?.phase ?? '');
   const checkboxes =
     runtime && !archived && kind ? readTaskCheckboxes(projectRoot, kind, cursor.task_id) : null;
   const planFile = !archived && kind ? findPlanFile(projectRoot, kind, cursor.task_id) : '';
@@ -385,12 +387,12 @@ export type AdvancePhaseResponse =
 /**
  * 推进阶段（M3 写操作之一）。
  *
- * 只写**游标**（`workflow.yaml`），不碰 `state.yaml.phase` —— 后者是只写不读的镜像
- * （phase 真相归一设计 §1.1），面板去维护它只会制造第二个真相。
+ * 只写**任务状态**（`.polaris/tasks/<id>/state.yaml` 的顶层 `phase`，经
+ * `task-state-entry` 的 `enter-phase`，含阶段白名单校验）—— 游标里的条目**没有**
+ * `phase` 字段，面板去维护第二份阶段只会制造第二个真相。
  *
  * 按 D19 **只做推进**：目标阶段必须严格晚于当前；回退需要写 `regressions[]` 留痕，
- * 属独立切片。校验放在传输层是有意的 —— 原语 `update-active` 不校验 phase 取值
- * （原语级白名单属「phase 归一 A 案」），面板若不自守就会把拼错的阶段名写进游标。
+ * 属独立切片。
  */
 export async function advanceTaskPhase(
   projectRoot: string,
@@ -433,7 +435,10 @@ export async function advanceTaskPhase(
     };
   }
 
-  const from = cursor.phase ?? '';
+  // 阶段位置由条目的 worktree_path 决定（任务目录可能已被搬进 worktree）
+  const statePath = resolveTaskStatePath(projectRoot, kind, taskId, cursor.worktree_path);
+  const runtime = readTaskRuntime(projectRoot, kind, taskId, cursor.worktree_path);
+  const from = runtime.phase;
   const fromIdx = phaseIndexIn(kind, from);
   const toIdx = phaseIndexIn(kind, to);
   if (fromIdx < 0) {
@@ -447,27 +452,26 @@ export async function advanceTaskPhase(
     };
   }
 
-  const wf = await runWorkflowEntry({
-    op: 'update-active',
+  const wf = await runTaskStateEntry({
+    op: 'enter-phase',
     skill: 'dashboard',
     kind,
-    repoRoot: projectRoot,
-    whereTaskId: taskId,
-    setPhase: to,
+    statePath,
+    phase: to,
   });
   if (wf.exitCode !== 0) {
     return { error: wf.message || `原语执行失败（exit ${wf.exitCode}）` };
   }
 
-  // 不信原语的自述，回读游标校对 —— 「写了但没写对」比「没写」更难发现
-  const after = findCursor(taskId, kind, await scanTaskList(projectRoot), []);
-  if (!after || after.phase !== to) {
+  // 不信原语的自述，回读 state.yaml 校对 —— 「写了但没写对」比「没写」更难发现
+  const after = readTaskRuntime(projectRoot, kind, taskId, cursor.worktree_path);
+  if (normalizePhase(after.phase) !== normalizePhase(to)) {
     return {
-      error: `写入后回读不一致：期望 phase=${to}，实际 ${after ? after.phase : '(条目已消失)'}`,
+      error: `写入后回读不一致：期望 phase=${to}，实际 ${after.phase || '(空)'}`,
     };
   }
 
-  const item = toTaskItem(after, projectRoot);
+  const item = toTaskItem(cursor, projectRoot);
   return {
     ok: true,
     task_id: taskId,
@@ -594,7 +598,7 @@ export type CleanupResponse =
       /** 将被删除（或已删除）的**绝对路径** */
       will_delete: string[];
       /** 将移出（或已移出）游标的条目 */
-      entry: { kind: WorkflowTaskKind; phase: string } | null;
+      entry: { kind: WorkflowTaskKind } | null;
     }
   | { error: string };
 

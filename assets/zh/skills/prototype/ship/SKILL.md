@@ -82,8 +82,8 @@ RTID_EXIT=$?
 - `platform_degradation=inline/unsupported` → 跳过派发，主代理 inline（见「inline 降级」）
 
 1. **能力**：读 SessionStart。
-   - `PLATFORM_DEGRADATION=inline|unsupported` → **不调** probe，转降级分支。
-   - `SUPPORTS_SUBAGENT=true` 且存在 `$SUBAGENT_PROBE_CACHE`（且 JSON.`platform` 与 `PLATFORM_ID` 一致）→ **不调** probe：读缓存 `agents`，按 `task_type=doc_review` 本地预筛（规则同 `subagent-probe/references/task-type-mapping.md`：`task_types` 含 `doc_review` 的专精在前，空 `task_types` 通用在后）得到 `matched_agents`。
+   - `PLATFORM_DEGRADATION=inline|unsupported` → **不派发 → 不涉及 probe**，转降级分支。
+   - `SUPPORTS_SUBAGENT=true` → **仍须 probe（H10）**：调用 `polaris{{SKN_SPR}}subagent-probe`（`platform` + `task_type: doc_review`；probe 自身优先读 `$SUBAGENT_PROBE_CACHE`），按 `task_type=doc_review` 预筛（规则同 `subagent-probe/references/task-type-mapping.md`：`task_types` 含 `doc_review` 的专精在前，空 `task_types` 通用在后）得到 `matched_agents`。
    - **缺注入或缺缓存** → 调用 `polaris{{SKN_SPR}}subagent-probe`（`platform` + `task_type: doc_review`；probe 仍优先读缓存）。
 2. **选定**：
    - `matched_agents` 非空 → 取首项；

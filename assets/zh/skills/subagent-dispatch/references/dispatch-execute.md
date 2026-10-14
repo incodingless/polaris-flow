@@ -217,7 +217,7 @@ You are executing commands. Run the specified commands. Write the exact command 
 - `materials` 合计 ≤ 300 行 → 走 D-2 内容注入型（主代理 Read 后注入）；
 - **超闸门** → 不注入，直接降级 `inline`（主代理自己读 → 立刻写入产出路径 → 只报路径 → 标注 `inline`）。
 
-> **这是最主要的闸门**：多数编排步骤都用 `agent=null`（`SUPPORTS_SUBAGENT=true` 且只要默认通用 agent 时可跳过 probe），
+> **这是最主要的闸门**：多数编排步骤都用 `agent=null`（**probe 仍须先执行** —— H10 禁止跳过 probe；缓存由 probe 优先读取），
 > 所以「父会话被灌入全文」的主要风险口就在这条分支上。
 
 > 若 task_type 要求特定能力（如 `code_writing` 需写文件），且主代理无法确认默认 subagent 具备该能力，应在 `concerns` 中如实记录，由调用方决定是否改走 inline。

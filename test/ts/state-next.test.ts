@@ -1,5 +1,8 @@
 /**
  * state-next 核心逻辑单元测试（phase→skill 映射、auto_transition 判定、runStateNext 集成）。
+ *
+ * 阶段**不在游标条目里**：每个用例既写游标条目（"有哪些在途任务"），也写该任务的
+ * `state.yaml`（阶段唯一存放处）。`state next` 读的是后者。
  */
 import { mkdir, writeFile } from 'fs/promises';
 import os from 'os';
@@ -13,7 +16,12 @@ import {
   isAutoTransitionEnabled,
   runStateNext,
 } from '../../src/core/hooks/state-next.js';
-import { emptyWorkflowState, saveWorkflowState } from '../../src/core/config/workflow-state.js';
+import {
+  emptyWorkflowState,
+  saveWorkflowState,
+  type WorkflowTaskEntry,
+  type WorkflowTaskKind,
+} from '../../src/core/config/workflow-state.js';
 
 async function tmpRepo(): Promise<string> {
   const dir = await import('fs/promises').then((fs) =>
@@ -23,20 +31,57 @@ async function tmpRepo(): Promise<string> {
   return dir;
 }
 
+/** 任务目录所在的一级段（testcase 用 testcases） */
+function segmentOf(kind: WorkflowTaskKind): string {
+  return kind === 'testcase' ? 'testcases' : 'tasks';
+}
+
+/** 写入任务的 `state.yaml`（阶段只存在这里） */
+async function seedState(
+  repo: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+  phase: string,
+): Promise<void> {
+  const dir = path.join(repo, '.polaris', segmentOf(kind), taskId);
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, 'state.yaml'), `phase: ${phase}\n`, 'utf-8');
+}
+
+/** 写一条游标条目 + 它的 state.yaml */
+async function seedActive(
+  repo: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+  phase: string,
+  extra: Partial<WorkflowTaskEntry> = {},
+): Promise<void> {
+  const state = emptyWorkflowState();
+  const entry: WorkflowTaskEntry = {
+    task_id: taskId,
+    worktree_path: '',
+    started_at: '',
+    ...extra,
+  };
+  if (kind === 'coding') state.coding_tasks = [entry];
+  else if (kind === 'requirement') state.requirement_tasks = [entry];
+  else if (kind === 'testcase') state.testcase_tasks = [entry];
+  else if (kind === 'prototype') state.prototype_tasks = [entry];
+  else state.debug_tasks = [entry];
+  await saveWorkflowState(repo, state);
+  await seedState(repo, kind, taskId, phase);
+}
+
 describe('findEntryByTaskId', () => {
   it('跨四个列表命中，返回对应 kind', () => {
     const state = emptyWorkflowState();
-    state.coding_tasks = [{ task_id: 'c1', phase: 'plan', worktree_path: '', started_at: '' }];
-    state.requirement_tasks = [
-      { task_id: 'r1', phase: 'draft', worktree_path: '', started_at: '' },
-    ];
-    state.prototype_tasks = [
-      { task_id: 'p1', phase: 'blueprint', worktree_path: '', started_at: '' },
-    ];
+    state.coding_tasks = [{ task_id: 'c1', worktree_path: '', started_at: '' }];
+    state.requirement_tasks = [{ task_id: 'r1', worktree_path: '', started_at: '' }];
+    state.prototype_tasks = [{ task_id: 'p1', worktree_path: '', started_at: '' }];
 
     expect(findEntryByTaskId(state, 'c1')).toEqual({
       kind: 'coding',
-      entry: { task_id: 'c1', phase: 'plan', worktree_path: '', started_at: '' },
+      entry: { task_id: 'c1', worktree_path: '', started_at: '' },
     });
     expect(findEntryByTaskId(state, 'r1')?.kind).toBe('requirement');
     expect(findEntryByTaskId(state, 'p1')?.kind).toBe('prototype');
@@ -46,13 +91,12 @@ describe('findEntryByTaskId', () => {
   it('命中 debug_tasks 列表，返回 kind=debug', () => {
     const state = emptyWorkflowState();
     state.debug_tasks = [
-      { task_id: 'd1', phase: 'diagnose', worktree_path: '', started_at: '', channel: 'bugfix' },
+      { task_id: 'd1', worktree_path: '', started_at: '', channel: 'bugfix' },
     ];
     expect(findEntryByTaskId(state, 'd1')).toEqual({
       kind: 'debug',
       entry: {
         task_id: 'd1',
-        phase: 'diagnose',
         worktree_path: '',
         started_at: '',
         channel: 'bugfix',
@@ -152,11 +196,21 @@ describe('runStateNext', () => {
     expect(result.exitCode).toBe(3);
   });
 
-  it('phase=plan 且缺省 → NEXT manual + HINT（出厂 manual）', async () => {
+  it('state.yaml 读不到 → done（不许猜阶段）', async () => {
     const repo = await tmpRepo();
     const state = emptyWorkflowState();
-    state.coding_tasks = [{ task_id: 'feat-1', phase: 'plan', worktree_path: '', started_at: '' }];
+    state.coding_tasks = [{ task_id: 'feat-1', worktree_path: '', started_at: '' }];
     await saveWorkflowState(repo, state);
+
+    const result = await runStateNext({ changeName: 'feat-1', repoRoot: repo });
+    expect(result.exitCode).toBe(0);
+    expect(result.next).toBe('done');
+    expect(result.phase).toBe('');
+  });
+
+  it('phase=plan 且缺省 → NEXT manual + HINT（出厂 manual）', async () => {
+    const repo = await tmpRepo();
+    await seedActive(repo, 'coding', 'feat-1', 'plan');
 
     const result = await runStateNext({ changeName: 'feat-1', repoRoot: repo });
     expect(result.exitCode).toBe(0);
@@ -167,9 +221,7 @@ describe('runStateNext', () => {
 
   it('config auto_transition=off → manual + HINT', async () => {
     const repo = await tmpRepo();
-    const state = emptyWorkflowState();
-    state.coding_tasks = [{ task_id: 'feat-1', phase: 'plan', worktree_path: '', started_at: '' }];
-    await saveWorkflowState(repo, state);
+    await seedActive(repo, 'coding', 'feat-1', 'plan');
     await writeFile(
       path.join(repo, '.polaris', 'config.yaml'),
       "auto_transition: 'off'\n",
@@ -184,11 +236,7 @@ describe('runStateNext', () => {
 
   it('config auto_transition=auto → NEXT auto + SKILL（显式开启连续执行）', async () => {
     const repo = await tmpRepo();
-    const state = emptyWorkflowState();
-    state.coding_tasks = [
-      { task_id: 'feat-2', phase: 'plan', worktree_path: '', started_at: '' },
-    ];
-    await saveWorkflowState(repo, state);
+    await seedActive(repo, 'coding', 'feat-2', 'plan');
     await writeFile(
       path.join(repo, '.polaris', 'config.yaml'),
       "auto_transition: 'auto'\n",
@@ -202,23 +250,26 @@ describe('runStateNext', () => {
 
   it('入口阶段 → done（由入口命令显式进入，不走 state next）', async () => {
     const repo = await tmpRepo();
-    const state = emptyWorkflowState();
-    state.coding_tasks = [
-      { task_id: 'feat-1', phase: 'specify', worktree_path: '', started_at: '' },
-    ];
-    await saveWorkflowState(repo, state);
+    await seedActive(repo, 'coding', 'feat-1', 'specify');
 
     const result = await runStateNext({ changeName: 'feat-1', repoRoot: repo });
     expect(result.next).toBe('done');
   });
 
+  it('worktree 任务：state.yaml 在 worktree 内也能解析', async () => {
+    const repo = await tmpRepo();
+    const wt = await tmpRepo();
+    await seedActive(repo, 'coding', 'feat-wt', 'tasks', { worktree_path: wt });
+    await seedState(wt, 'coding', 'feat-wt', 'tasks');
+
+    const result = await runStateNext({ changeName: 'feat-wt', repoRoot: repo });
+    expect(result.next).toBe('manual');
+    expect(result.skill).toBe('polaris:coding:tasks');
+  });
+
   it('requirement phase=refine → manual + polaris:prd:refine（族名是 prd，不是 kind）', async () => {
     const repo = await tmpRepo();
-    const state = emptyWorkflowState();
-    state.requirement_tasks = [
-      { task_id: 'req-1', phase: 'refine', worktree_path: '', started_at: '' },
-    ];
-    await saveWorkflowState(repo, state);
+    await seedActive(repo, 'requirement', 'req-1', 'refine');
 
     const result = await runStateNext({ changeName: 'req-1', repoRoot: repo });
     expect(result.next).toBe('manual');
@@ -227,9 +278,7 @@ describe('runStateNext', () => {
 
   it('testcase phase=draft → manual + polaris:testing:draft（族名是 testing，不是 kind）', async () => {
     const repo = await tmpRepo();
-    const state = emptyWorkflowState();
-    state.testcase_tasks = [{ task_id: 'tc-1', phase: 'draft', worktree_path: '', started_at: '' }];
-    await saveWorkflowState(repo, state);
+    await seedActive(repo, 'testcase', 'tc-1', 'draft');
 
     const result = await runStateNext({ changeName: 'tc-1', repoRoot: repo });
     expect(result.next).toBe('manual');
@@ -240,46 +289,33 @@ describe('runStateNext', () => {
   describe('偏移一位的回归（2026-09-19 修）', () => {
     async function nextFor(kind: 'prototype' | 'debug', phase: string, channel?: string) {
       const repo = await tmpRepo();
-      const state = emptyWorkflowState();
-      const entry = {
-        task_id: 'x-1',
-        phase,
-        worktree_path: '',
-        started_at: '',
-        ...(channel ? { channel } : {}),
-      };
-      if (kind === 'prototype') {
-        state.prototype_tasks = [entry];
-      } else {
-        state.debug_tasks = [entry];
-      }
-      await saveWorkflowState(repo, state);
+      await seedActive(repo, kind, 'x-1', phase, channel ? { channel } : {});
       return runStateNext({ changeName: 'x-1', repoRoot: repo });
     }
 
-    it('prototype：游标 build → 必须跑 build（旧表返回 ship，跳过 prototype:build）', async () => {
+    it('prototype：阶段 build → 必须跑 build（旧表返回 ship，跳过 prototype:build）', async () => {
       const result = await nextFor('prototype', 'build');
       expect(result.next).toBe('manual');
       expect(result.skill).toBe('polaris:prototype:build');
     });
 
-    it('prototype：游标 review 也是同名（旧表是死键，返回 ship）', async () => {
+    it('prototype：阶段 review 也是同名（旧表是死键，返回 ship）', async () => {
       const result = await nextFor('prototype', 'review');
       expect(result.skill).toBe('polaris:prototype:review');
     });
 
-    it('debug：游标 diagnose 是入口 → done（旧表返回 patch，跳过诊断）', async () => {
+    it('debug：阶段 diagnose 是入口 → done（旧表返回 patch，跳过诊断）', async () => {
       const result = await nextFor('debug', 'diagnose', 'hotfix');
       expect(result.next).toBe('done');
     });
 
-    it('debug：游标 patch → 必须跑 patch（旧表返回 closeout，跳过修复）', async () => {
+    it('debug：阶段 patch → 必须跑 patch（旧表返回 closeout，跳过修复）', async () => {
       const result = await nextFor('debug', 'patch', 'hotfix');
       expect(result.next).toBe('manual');
       expect(result.skill).toBe('polaris:debug:patch');
     });
 
-    it('debug：游标 closeout → 必须跑 closeout（旧表返回 done，跳过关单）', async () => {
+    it('debug：阶段 closeout → 必须跑 closeout（旧表返回 done，跳过关单）', async () => {
       const result = await nextFor('debug', 'closeout', 'bugfix');
       expect(result.next).toBe('manual');
       expect(result.skill).toBe('polaris:debug:closeout');

@@ -110,7 +110,7 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 |---|---|
 | `testcase_plan.md` 仍是 task-init 写入的占位（仅标题 + `<!-- Skill 填充正文 -->`） | 视为**未启动任务**，目录/游标已就绪，直接进入 **Step 3** |
 | `testcase_plan.md` 已有第 2 章「测试意图清单」实质内容 | 从对应未完成章节续写（Step 4 之后） |
-| `phase=draft` 或更后 | 提示该任务已过 discovery，引导到 `polaris{{SKN_SPR}}testing{{SKN_SPR}}draft` |
+| 该任务的 **workflow 游标**已推进到 `draft` 或更后 | 提示该任务已过 discovery，引导到 `polaris{{SKN_SPR}}testing{{SKN_SPR}}draft` |
 | 无法判定 | 按 `./policies/decision-point.md` 询问用户从哪一步继续 |
 
 ### Step 2：初始化任务（仅无活跃任务时）
@@ -284,13 +284,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 用户明确确认《测试计划》后：
 
-1. 推进 workflow 阶段至 draft
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind testcase --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=draft
-```
-
-2. 更新 `state.yaml`：
+1. 更新 `state.yaml`（阶段推进到 `draft` 就在这一步）：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
@@ -298,7 +292,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --phase discovery --next-phase draft
 ```
 
-3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
    先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
    —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 

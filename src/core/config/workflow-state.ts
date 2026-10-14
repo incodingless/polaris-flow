@@ -12,10 +12,16 @@ import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { getWorkflowTemplateYamlSrc } from '../assets/manifest.js';
 import { getWorkflowConfigPath } from '../assets/polaris-paths.js';
 
-/** 任务游标条目（多列表共用结构） */
+/**
+ * 任务游标条目（多列表共用结构）。
+ *
+ * **刻意不含 `phase`**：阶段（"下一步该谁接手"）的唯一存放处是任务的
+ * `.polaris/tasks/<id>/state.yaml`（字段 `phase`），读取位置由本条的 `worktree_path` 决定
+ * —— 空 = 主仓；非空 = worktree 内副本。条目只回答「有哪些在途任务」+「任务在哪」。
+ */
 export type WorkflowTaskEntry = {
   task_id: string;
-  phase: string;
+  /** 任务工作树绝对路径；空表示任务仍在主仓（state.yaml 也就读主仓） */
   worktree_path: string;
   started_at: string;
   /** debug 族通道：bugfix | hotfix；其余 kind 省略或为空串 */
@@ -128,11 +134,10 @@ export function emptyWorkflowCursor(): WorkflowState {
   return emptyWorkflowState();
 }
 
-/** 将原始 YAML 条目规范化为 WorkflowTaskEntry */
+/** 将原始 YAML 条目规范化为 WorkflowTaskEntry（忽略历史遗留的 `phase` 键） */
 function normalizeTaskEntry(raw: Record<string, unknown>): WorkflowTaskEntry {
   return {
     task_id: String(raw.task_id ?? ''),
-    phase: String(raw.phase ?? ''),
     worktree_path: String(raw.worktree_path ?? ''),
     started_at: String(raw.started_at ?? ''),
     channel: String(raw.channel ?? ''),

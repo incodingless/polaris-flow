@@ -7,6 +7,7 @@ import { configGetCommand } from '../commands/config.js';
 import { hostHookCommand, sessionStartCommand } from '../commands/hooks/host-hook.js';
 import { stateNextCommand } from '../commands/hooks/state.js';
 import { workflowEntryCommand } from '../commands/hooks/workflow-entry.js';
+import { taskEntryCommand } from '../commands/hooks/task-entry.js';
 import { taskStateEntryCommand } from '../commands/hooks/task-state-entry.js';
 import {
   constitutionValidityCommand,
@@ -77,22 +78,29 @@ export function registerRuntimeCommands(program: Command): void {
     .command('workflow-entry')
     .description('RMW .polaris/workflow.yaml under workflow.lock (H12)')
     .argument('<op>', 'append-active|update-active|rename-active|delete-active|get-active-changes')
-    .requiredOption('--skill <name>', 'lock writer id')
+    .option(
+      '--skill <name>',
+      'lock writer id（写 op 必填，由核心层校验；get-active-changes 只读不需）',
+    )
     .requiredOption('--kind <kind>', 'task kind: coding|requirement|testcase|prototype|debug')
     .option('--repo-root <path>', 'main repo root')
     .option('--task-id <id>')
-    .option('--phase <phase>')
+    .option('--phase <phase>', 'get-active-changes: 按各任务 state.yaml 的阶段过滤')
     .option('--channel <name>', 'debug 族通道：bugfix|hotfix')
+    .option(
+      '--format <format>',
+      'get-active-changes: ids (default，不读 state.yaml) | full（含 phase / mode / skill）',
+      'ids',
+    )
     .option('--worktree-path <path>')
     .option('--started-at <iso>')
     .option('--where-task-id <id>')
     .option('--from <id>')
     .option('--to <id>')
-    .option('--force-phase', 'skip phase whitelist check (logged to .polaris/overrides.log)')
     .option(...PLATFORM_OPTION)
     .option(
       '--set <kv...>',
-      'phase=... and/or worktree-path=...',
+      'update-active: worktree-path=...',
       (val, prev: string[]) => {
         prev.push(val);
         return prev;
@@ -105,7 +113,6 @@ export function registerRuntimeCommands(program: Command): void {
         kind: options.kind,
         repoRoot: options.repoRoot,
         taskId: options.taskId,
-        phase: options.phase,
         worktreePath: options.worktreePath,
         startedAt: options.startedAt,
         whereTaskId: options.whereTaskId,
@@ -113,7 +120,8 @@ export function registerRuntimeCommands(program: Command): void {
         to: options.to,
         set: options.set,
         channel: options.channel,
-        forcePhase: options.forcePhase,
+        format: options.format,
+        phase: options.phase,
       });
     });
 
@@ -228,6 +236,38 @@ export function registerRuntimeCommands(program: Command): void {
     .action(async (repoRoot: string, options: { kind: string; taskId?: string }) => {
       await taskInitCommand(repoRoot, { kind: options.kind, taskId: options.taskId });
     });
+
+  program
+    .command('task-entry')
+    .description(
+      'Entry primitive for coding entry skills: one call returns resume|handover|create|select|block',
+    )
+    .requiredOption('--kind <kind>', 'task kind: coding|requirement|testcase|prototype|debug')
+    .requiredOption('--as <skill>', 'this skill name (family-relative, e.g. tweak)')
+    .option('--mode <mode>', 'workflow mode; written only when creating (tweak|normal|full)')
+    .option('--task-id <id>', 're-run for a candidate chosen by the user')
+    .option('--started-at <iso>', 'started_at written on create')
+    .option('--repo-root <path>', 'main repo root')
+    .option(...PLATFORM_OPTION)
+    .action(
+      async (options: {
+        kind: string;
+        as: string;
+        mode?: string;
+        taskId?: string;
+        startedAt?: string;
+        repoRoot?: string;
+      }) => {
+        await taskEntryCommand({
+          kind: options.kind,
+          as: options.as,
+          mode: options.mode,
+          taskId: options.taskId,
+          startedAt: options.startedAt,
+          repoRoot: options.repoRoot,
+        });
+      },
+    );
 
   program
     .command('task-finalize')

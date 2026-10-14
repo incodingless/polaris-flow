@@ -49,7 +49,7 @@ async function makeRepo(kind: 'coding' | 'debug' | 'testcase' | 'prototype'): Pr
   const state = emptyWorkflowState() as WorkflowState;
   const key = `${kind}_tasks` as keyof WorkflowState;
   (state[key] as unknown[]) = [
-    { task_id: taskId, phase: 'build', worktree_path: '', started_at: '', channel: '' },
+    { task_id: taskId, worktree_path: '', started_at: '', channel: '' },
   ];
   await saveWorkflowState(root, state);
   return { root, taskId, taskDir };
@@ -133,10 +133,10 @@ describe('runDeliveryCleanup', () => {
     );
     const state = emptyWorkflowState() as WorkflowState;
     state.coding_tasks = [
-      { task_id: taskId, phase: 'build', worktree_path: '', started_at: '', channel: '' },
+      { task_id: taskId, worktree_path: '', started_at: '', channel: '' },
     ];
     state.debug_tasks = [
-      { task_id: taskId, phase: 'diagnose', worktree_path: '', started_at: '', channel: '' },
+      { task_id: taskId, worktree_path: '', started_at: '', channel: '' },
     ];
     await saveWorkflowState(root, state);
 
@@ -176,7 +176,6 @@ describe('planDeliveryCleanup', () => {
       expect(plan.willDelete.length).toBeGreaterThan(0);
       expect(plan.willDelete.every((p) => path.isAbsolute(p))).toBe(true);
       expect(plan.entry?.kind).toBe('coding');
-      expect(plan.entry?.phase).toBe('build');
     }
     // 预演不得改盘
     expect(await exists(repo.taskDir)).toBe(true);

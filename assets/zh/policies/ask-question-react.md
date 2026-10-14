@@ -15,7 +15,7 @@
 
 | platform | 询问工具名 | 单次调用支持多 question | 单 question 选项数上限 | 备注 |
 |---|---|---|---|---|
-| `trae` / `trae-cn` / `claude` / `cursor` / `codebuddy` | `AskUserQuestion` | 支持（`questions` 数组，工具内部串行显示） | **5**（有效 4 +「其他」1） | 见下方「选项数硬上限」 |
+| `trae` / `trae-cn` / `claude` / `cursor` | `AskUserQuestion` | 支持（`questions` 数组，工具内部串行显示） | **5**（有效 4 +「其他」1） | 见下方「选项数硬上限」 |
 | `qoder`       | （无原生结构化询问工具） | — | — | 直接走文本降级模式 |
 | （未登记）      | — | — | — | 直接走文本降级模式 |
 

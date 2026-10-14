@@ -1,4 +1,4 @@
-# tasks.md 模板与规则（normal 常规通道）
+# tasks.md 模板与规则（normal 常规工作流）
 
 > **重要**：
 > - 本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 6 引用；生成前**必须** `read_file` 重读本文件。

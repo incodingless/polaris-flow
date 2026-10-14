@@ -30,6 +30,7 @@ import {
   isWritablePhase,
   phaseGroupOf,
   phaseIndexIn,
+  skillForModePhase,
   skillForPhase,
   writablePhaseList,
   type TaskKindLayout,
@@ -266,6 +267,55 @@ describe('skillForPhase：游标 phase → 技能名（A 案的核心语义）',
   });
 });
 
+describe('skillForModePhase：恢复分发的判据（mode × 游标 phase → 技能）', () => {
+  it('单技能通道：specify / plan 归**通道技能本人**（不得交给同名阶段技能）', () => {
+    expect(skillForModePhase('coding', 'specify', 'tweak')).toBe('tweak');
+    expect(skillForModePhase('coding', 'plan', 'tweak')).toBe('tweak');
+    expect(skillForModePhase('coding', 'specify', 'normal')).toBe('normal');
+    expect(skillForModePhase('coding', 'plan', 'normal')).toBe('normal');
+  });
+
+  it('完整链路与其余阶段：同名回落（**入口阶段也返回同名** —— 与 skillForPhase 的关键差别）', () => {
+    expect(skillForPhase('coding', 'specify')).toBeNull(); // 出口语义：入口阶段无自动衔接
+    expect(skillForModePhase('coding', 'specify', 'full')).toBe('specify'); // 分发语义：要回答「进哪个技能」
+    expect(skillForModePhase('coding', 'plan', 'full')).toBe('plan');
+    expect(skillForModePhase('coding', 'verify', 'full')).toBe('verify');
+    expect(skillForModePhase('coding', 'specify')).toBe('specify'); // mode 缺省同样回落
+  });
+
+  it('phase=ship 归 ship（mode 不限）—— 交付阶段三通道共用', () => {
+    expect(skillForModePhase('coding', 'ship', 'tweak')).toBe('ship');
+    expect(skillForModePhase('coding', 'ship', 'normal')).toBe('ship');
+    expect(skillForModePhase('coding', 'ship', 'full')).toBe('ship');
+  });
+
+  it('升档 / 存量兜底：phase 不在 mode 的覆盖内时按 phase 直连', () => {
+    expect(skillForModePhase('coding', 'design', 'normal')).toBe('design'); // normal 升档后由 design 接手
+    expect(skillForModePhase('coding', 'build', '')).toBe('build'); // 旧数据 mode 为空
+  });
+
+  it('空 / 未知 / 旁路阶段返回 null；历史别名照常归一', () => {
+    expect(skillForModePhase('coding', 'retro', 'full')).toBeNull();
+    expect(skillForModePhase('coding', '', 'full')).toBeNull();
+    expect(skillForModePhase('coding', '  ', 'full')).toBeNull();
+    expect(skillForModePhase('coding', 'nonsense', 'full')).toBeNull();
+    expect(skillForModePhase('coding', 'delivery', 'full')).toBe('ship');
+  });
+
+  it('channelSkill 只登记在 coding 的 specify / plan 上（不留隐性覆盖）', () => {
+    for (const kind of WORKFLOW_TASK_KINDS) {
+      for (const phase of getKindPhases(kind, { includeBypass: true })) {
+        const keys = Object.keys(phase.channelSkill ?? {}).sort();
+        if (kind === 'coding' && (phase.code === 'specify' || phase.code === 'plan')) {
+          expect(keys, `${kind}/${phase.code}`).toEqual(['normal', 'tweak']);
+        } else {
+          expect(keys, `${kind}/${phase.code} 不应登记 channelSkill`).toEqual([]);
+        }
+      }
+    }
+  });
+});
+
 describe('写入白名单（原语校验的依据）', () => {
   it('已登记阶段 + idle + 历史别名都是合法写入值', () => {
     for (const kind of WORKFLOW_TASK_KINDS) {
@@ -323,7 +373,9 @@ describe('state 模板的阶段注释是单一表的镜像（A 案 G4）', () =>
     for (let i = phaseIdx - 1; i >= 0; i--) {
       const line = lines[i]!;
       if (!/^\s*#/.test(line)) continue;
-      const matched = line.match(/^\s*#\s*(?:可选值|当前阶段)\s*[:：]\s*(.+)$/);
+      // 允许 `可选值` 前有前缀 —— 兼容「# 阶段，可选值: …」这类注释合并写法，守卫语义不变
+      // （仍要求：紧邻 `phase:` 上方存在一条列出阶段枚举的注释）。
+      const matched = line.match(/^\s*#.*?(?:可选值|当前阶段)\s*[:：]\s*(.+)$/);
       if (!matched) continue;
       return matched[1]!
         .split('|')

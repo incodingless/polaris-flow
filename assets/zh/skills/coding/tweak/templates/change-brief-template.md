@@ -18,7 +18,7 @@
 
 ## 问题与背景
 
-<!-- → proposal.md 的 Why / Context；intention.md「Reframe 历程」（注明轻量通道未做 Reframe） -->
+<!-- → proposal.md 的 Why / Context；intention.md「Reframe 历程」（注明轻量工作流未做 Reframe） -->
 
 <为什么需要这次变更；当前状态是什么>
 

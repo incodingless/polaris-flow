@@ -116,7 +116,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 读 SessionStart 注入的 `PLATFORM_DEGRADATION` / `SUPPORTS_SUBAGENT` / `$SUBAGENT_PROBE_CACHE`：
 
-- `PLATFORM_DEGRADATION=inline|unsupported` → **跳过 probe**，直接进 6.3 的降级分支
+- `PLATFORM_DEGRADATION=inline|unsupported` → **不派发 → 不涉及 probe**，直接进 6.3 的降级分支
 - `SUPPORTS_SUBAGENT=true` 且 degradation 空，或**缺注入** → 本子步需要 `task_type=doc_review` 预筛 → **必须**调用 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传 `platform` + `task_type: doc_review`）
 - probe 结果：`matched_agents` 非空 → 取 `matched_agents[0]`；`matched_agents` 与 `agents` 均为空 → 记 `agent=null` 并在 `constraints` 加 `"dispatch_mode_hint: default_subagent"`
 
@@ -187,13 +187,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 **出口门禁**：`refine.review_blocking_count=0`，或用户显式选择风险接受（记 override）。**未满足时禁止推进。**
 
-1. 推进 workflow 阶段至 ship
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind testcase --skill refine --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=ship
-```
-
-2. 更新 `state.yaml`：
+1. 更新 `state.yaml`（阶段推进到 `ship` 就在这一步）：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
@@ -201,7 +195,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --phase refine --next-phase ship
 ```
 
-3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。先按「自动衔接下一阶段」运行 `state next`，**技能名与括注均取自其输出**，**不得写死**：
+2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。先按「自动衔接下一阶段」运行 `state next`，**技能名与括注均取自其输出**，**不得写死**：
 
 ```text
 [polaris-flow 测试用例] 完善与独立评审 - 阶段完成，状态已落盘。

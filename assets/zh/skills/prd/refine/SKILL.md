@@ -173,7 +173,7 @@ LANG_EXIT=$?
   > C. 调整（说明需调整的章节或验证级别）
   >
 
-  - A、B 进入 Step 2
+  - A、B 进入 Step 2，并把所选方式写入 `state.yaml` 的 `refine.gen_mode`（`per_chapter` / `all_at_once`）——Step 2 据此执行、恢复时据此还原，不得只留在会话里
   - C 按反馈修订补全清单后重新确认
 
 ### Step 2：补全生成（严格按模板章节顺序）
@@ -301,7 +301,7 @@ LANG_EXIT=$?
 
 #### 4.0 探测可用 subagent（Step 4 入口，一次探测全程复用）
 
-**能力结论优先**：若 SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → **可跳过 probe**，4.1 与 4.2 直接按下方表降级 inline。若注入为支持（`SUPPORTS_SUBAGENT=true` 且 degradation 空）或**缺注入**，因本入口需要 `task_type: doc_review` 预筛 → **必须**调用 probe（不可因「只要通用 Agent」而跳过）。probe 应优先读 `$SUBAGENT_PROBE_CACHE`（勿假定 additionalContext 含全量 agents）。
+**能力结论优先**：若 SessionStart 已注入 `PLATFORM_DEGRADATION=inline|unsupported` → **不派发**（4.1 与 4.2 直接按下方表降级 inline），**不涉及 probe**。若注入为支持（`SUPPORTS_SUBAGENT=true` 且 degradation 空）或**缺注入**，因本入口需要 `task_type: doc_review` 预筛 → **必须**调用 probe（H10 硬约束：**不可**因「只要通用 Agent」「已有注入」或「已有缓存」而跳过）。probe 应优先读 `$SUBAGENT_PROBE_CACHE`（勿假定 additionalContext 含全量 agents）。
 
 **探测方式**：调用 `use_skill("polaris{{SKN_SPR}}subagent-probe")`，传入：
 
@@ -322,7 +322,7 @@ LANG_EXIT=$?
 
 #### 4.1 7维度业务评审（subagent-probe + subagent-dispatch 编排）
 
-**编排方式**（能力结论 → 决策 → dispatch）：本技能为编排方。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose` 启动。须遵守 `subagent-probe` 跳过规则：本步依赖 4.0 的 `task_type` 预筛结果 → 不得自行跳过 probe；选定 agent 后调用 `subagent-dispatch` 派发。
+**编排方式**（能力结论 → 决策 → dispatch）：本技能为编排方。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose` 启动。须遵守 **H10（派发前必先 probe，不设跳过分支）**：本步依赖 4.0 的 `task_type` 预筛结果 → 不得自行跳过 probe；选定 agent 后调用 `subagent-dispatch` 派发。
 
 **general 决策**（本步骤无专用 agent 要求，按能力匹配取通用型）：
 
@@ -538,19 +538,13 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
 ### Step 6：完成 refine 阶段
 
-1. 推进 workflow 阶段至 ship
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind requirement --skill refine --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=ship
-```
-
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
+1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `ship` 就在这一步）：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine --next-phase ship
 ```
 
-3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
    先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
    —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 

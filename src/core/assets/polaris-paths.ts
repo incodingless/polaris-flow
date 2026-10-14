@@ -171,6 +171,24 @@ export function getTaskKindStatePath(
 }
 
 /**
+ * 任务 `state.yaml` 的**实际位置**（恢复分发与面板读取的统一入口）。
+ *
+ * `worktree_path` 来自 `workflow.yaml` 条目：空 = 任务在主仓，非空 = 任务目录已被
+ * `worktree-create` 搬进 worktree（主仓副本改名为 `<id>.snapshot`，见 `hooks/worktree.ts`）。
+ * **不要**用「主仓路径不存在就回退」的写法猜 —— 猜错会把 worktree 里的任务读成"没有状态"，
+ * 那是这条链路上出过的真实故障。位置只有一个来源：条目的 `worktree_path`。
+ */
+export function resolveTaskStatePath(
+  projectRoot: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+  worktreePath?: string,
+): string {
+  const wt = (worktreePath ?? '').trim();
+  return wt ? getTaskKindStatePath(wt, kind, taskId) : getTaskKindStatePath(projectRoot, kind, taskId);
+}
+
+/**
  * 返回相对仓库根的 posix 路径：`.polaris/<segment>/<taskId>/<file>`。
  */
 export function getTaskKindRelPath(

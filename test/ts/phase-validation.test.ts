@@ -7,8 +7,10 @@
  *   1. 合法值放行（含 `idle` 与历史别名 `delivery`/`archive`）
  *   2. 非法值**拦下且不改盘**，报错信息里带合法集合（可照抄）
  *   3. `--force-phase` 显式放行，但**留痕**到 `.polaris/overrides.log`
- *   4. 校验发生在**取锁之前**（参数错了不该去抢锁）
- *   5. kind 未知时不校验（无法确定合法集合，不猜）
+ *   4. kind 未知时不校验（无法确定合法集合，不猜）
+ *
+ * **校验点只有一处**：`task-state-entry` 的 `enter-phase` / `complete-phase`。
+ * `workflow-entry` 已不写阶段（游标条目没有 `phase` 字段），故不再有相关用例。
  */
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
@@ -20,6 +22,7 @@ import { getOverridesLogPath } from '../../src/core/assets/polaris-paths.js';
 import { checkPhaseWrite } from '../../src/core/hooks/phase-validation.js';
 import { runTaskStateEntry } from '../../src/core/hooks/task-state-entry.js';
 import { runWorkflowEntry } from '../../src/core/hooks/workflow-entry.js';
+import { workflowEntryCommand } from '../../src/commands/hooks/workflow-entry.js';
 import {
   emptyWorkflowState,
   loadWorkflowState,
@@ -32,28 +35,17 @@ async function tmpRepo(): Promise<string> {
   return dir;
 }
 
-/** 造一个 coding 任务：游标 phase=specify + state.yaml */
+/** 造一个 coding 任务：游标条目（无 phase）+ state.yaml（阶段唯一存放处） */
 async function seedCoding(repo: string, taskId = 't-1'): Promise<void> {
   const state = emptyWorkflowState();
   state.coding_tasks = [
-    { task_id: taskId, phase: 'specify', worktree_path: '', started_at: '2026-09-01T00:00:00Z' },
+    { task_id: taskId, worktree_path: '', started_at: '2026-09-01T00:00:00Z' },
   ];
   await saveWorkflowState(repo, state);
   const statePath = path.join(repo, '.polaris', 'tasks', taskId, 'state.yaml');
   await mkdir(path.dirname(statePath), { recursive: true });
   await writeFile(statePath, `kind: coding\ntask_id: ${taskId}\nphase: specify\n`, 'utf-8');
 }
-
-const advance = (repo: string, phase: string, extra: Record<string, unknown> = {}) =>
-  runWorkflowEntry({
-    op: 'update-active',
-    skill: 'test',
-    kind: 'coding',
-    repoRoot: repo,
-    whereTaskId: 't-1',
-    setPhase: phase,
-    ...extra,
-  } as never);
 
 describe('checkPhaseWrite', () => {
   let repo: string;
@@ -154,64 +146,92 @@ describe('checkPhaseWrite', () => {
   });
 });
 
-describe('workflow-entry 的校验', () => {
+describe('workflow-entry 不再承载阶段', () => {
   let repo: string;
   beforeEach(async () => {
     repo = await tmpRepo();
     await seedCoding(repo);
   });
 
-  it('update-active 写合法阶段 → 成功落盘', async () => {
-    const res = await advance(repo, 'plan');
+  it('update-active 只写 worktree-path；条目里不出现 phase', async () => {
+    const res = await runWorkflowEntry({
+      op: 'update-active',
+      skill: 'test',
+      kind: 'coding',
+      repoRoot: repo,
+      whereTaskId: 't-1',
+      setWorktreePath: '/tmp/wt/t-1',
+    });
     expect(res.exitCode).toBe(0);
-    expect((await loadWorkflowState(repo)).coding_tasks[0]?.phase).toBe('plan');
+    const entry = (await loadWorkflowState(repo)).coding_tasks[0]!;
+    expect(entry.worktree_path).toBe('/tmp/wt/t-1');
+    expect('phase' in entry).toBe(false);
   });
 
-  it('idle 合法（coding/tasks 与 coding/verify 会写它）', async () => {
-    expect((await advance(repo, 'idle')).exitCode).toBe(0);
+  it('历史遗留的 setPhase 参数不再落盘（原语已无该入参）', async () => {
+    const res = await runWorkflowEntry({
+      op: 'update-active',
+      skill: 'test',
+      kind: 'coding',
+      repoRoot: repo,
+      whereTaskId: 't-1',
+      setPhase: 'plan',
+    } as never);
+    expect(res.exitCode).toBe(0);
+    const entry = (await loadWorkflowState(repo)).coding_tasks[0]!;
+    expect('phase' in entry).toBe(false);
+    // 阶段本身没被动过：state.yaml 仍是 specify
+    expect(
+      await readFile(path.join(repo, '.polaris', 'tasks', 't-1', 'state.yaml'), 'utf-8'),
+    ).toContain('phase: specify');
   });
 
-  it('update-active 写错阶段 → exit 3，且游标不被改动', async () => {
-    const res = await advance(repo, 'buiild');
-    expect(res.exitCode).toBe(3);
-    expect(res.message).toContain('未知阶段');
-    expect((await loadWorkflowState(repo)).coding_tasks[0]?.phase).toBe('specify');
+  it('命令层拒绝 --set phase=（旧写法必须显式失败，不能静默忽略）', async () => {
+    const prev = process.exitCode;
+    try {
+      process.exitCode = undefined;
+      await workflowEntryCommand('update-active', {
+        skill: 'test',
+        kind: 'coding',
+        repoRoot: repo,
+        whereTaskId: 't-1',
+        set: ['phase=plan'],
+      });
+      expect(process.exitCode).toBe(3);
+    } finally {
+      process.exitCode = prev;
+    }
   });
 
-  it('append-active 的初始 phase 同样受校验（建任务时写错同样致命）', async () => {
-    const bad = await runWorkflowEntry({
+  it('命令层仍接受 --set worktree-path=', async () => {
+    const prev = process.exitCode;
+    try {
+      process.exitCode = undefined;
+      await workflowEntryCommand('update-active', {
+        skill: 'test',
+        kind: 'coding',
+        repoRoot: repo,
+        whereTaskId: 't-1',
+        set: ['worktree-path=/tmp/wt/x'],
+      });
+      expect(process.exitCode).toBeUndefined();
+      expect((await loadWorkflowState(repo)).coding_tasks[0]!.worktree_path).toBe('/tmp/wt/x');
+    } finally {
+      process.exitCode = prev;
+    }
+  });
+
+  it('append-active 不再接阶段（阶段由 task-state-entry 校验）', async () => {
+    const res = await runWorkflowEntry({
       op: 'append-active',
       skill: 'test',
       kind: 'prototype',
       repoRoot: repo,
       taskId: 'p-9',
-      phase: 'blueprintx',
-    } as never);
-    expect(bad.exitCode).toBe(3);
-    expect((await loadWorkflowState(repo)).prototype_tasks).toHaveLength(0);
-
-    const ok = await runWorkflowEntry({
-      op: 'append-active',
-      skill: 'test',
-      kind: 'prototype',
-      repoRoot: repo,
-      taskId: 'p-9',
-      phase: 'blueprint',
-    } as never);
-    expect(ok.exitCode).toBe(0);
-  });
-
-  it('--force-phase 放行并留痕', async () => {
-    const res = await advance(repo, 'legacy-phase', { forcePhase: true });
+    });
     expect(res.exitCode).toBe(0);
-    expect((await loadWorkflowState(repo)).coding_tasks[0]?.phase).toBe('legacy-phase');
-    expect(await readFile(getOverridesLogPath(repo), 'utf-8')).toContain('legacy-phase');
-  });
-
-  it('校验发生在取锁之前：非法阶段不会留下锁文件', async () => {
-    await advance(repo, 'bogus');
-    const { getWorkflowLockPath } = await import('../../src/core/hooks/workflow-lock.js');
-    expect(existsSync(getWorkflowLockPath(repo))).toBe(false);
+    const entry = (await loadWorkflowState(repo)).prototype_tasks[0]!;
+    expect('phase' in entry).toBe(false);
   });
 });
 

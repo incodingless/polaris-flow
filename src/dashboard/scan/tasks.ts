@@ -5,9 +5,9 @@
  * 定位：本模块只做「读 core → 组形状」，不做路径拼装 —— 游标读取一律走
  * `core/config/workflow-state.ts`，归档路径走 `core/assets/polaris-paths.ts`。
  *
- * 关于 `phase`：权威值来自游标项（`workflow.yaml` 的 `<kind>_tasks[].phase`），
- * **不是** `state.yaml.phase`。依据见
- * `docs/specs/2026-09-19-phase-truth-unification-design.md` §1.1。
+ * 关于 `phase`：**不在这里**。阶段是任务的运行态，唯一存放处是
+ * `.polaris/tasks/<id>/state.yaml`，由 `scan/state.ts` 的 `readTaskRuntime` 读取
+ * （位置由条目的 `worktree_path` 决定）。本模块只产出「有哪些在途任务」+「任务在哪」。
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -31,8 +31,6 @@ export type TaskCursor = {
    * 读不到时为 `null`（**不猜**，由上层显示为「未知类型」）。
    */
   kind: WorkflowTaskKind | null;
-  /** 权威 phase：游标项的 phase */
-  phase: string;
   /** 通道；仅 debug 族有 */
   channel: string;
   worktree_path: string;
@@ -47,7 +45,6 @@ function emptyCursor(over: Partial<TaskCursor> = {}): TaskCursor {
   return {
     task_id: '',
     kind: null,
-    phase: '',
     channel: '',
     worktree_path: '',
     started_at: '',
@@ -73,7 +70,6 @@ export async function scanTaskList(projectRoot: string): Promise<TaskCursor[]> {
         emptyCursor({
           task_id: taskId,
           kind,
-          phase: entry.phase ?? '',
           channel: entry.channel ?? '',
           worktree_path: entry.worktree_path ?? '',
           started_at: entry.started_at ?? '',
@@ -169,7 +165,6 @@ export function scanArchivedTasks(projectRoot: string): TaskCursor[] {
       emptyCursor({
         task_id: id,
         kind: readKindFromArchive(dir),
-        phase: 'archived',
         source: 'archive',
         archived_at: dirMtime(dir),
       }),
@@ -197,7 +192,6 @@ export function scanArchivedTasks(projectRoot: string): TaskCursor[] {
         emptyCursor({
           task_id: id,
           kind: 'debug',
-          phase: 'archived',
           source: 'troubleshooting',
           archived_at: index.get(id) || dirMtime(dir),
         }),

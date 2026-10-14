@@ -22,7 +22,8 @@ version: 0.1
 
 ## 前置条件
 
-- 无活跃 change，或用户希望创建新 change
+- 无在途的 coding 任务，或用户希望新建 / 续写一个 change
+- 已有在途任务时**不阻断**：Step 1 会读回它在途状态，决定**接手**（本技能正是它该跑的阶段）还是**转交**给正确的技能
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
@@ -30,9 +31,46 @@ version: 0.1
 
 读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）。无配置时回退到当前用户请求语言。
 
-本阶段所有提问、澄清摘要、`intention.md` 均以该语言为主语言。OpenSpec 三件套语言由后续 plan 阶段继承同一配置，**本阶段不创建**那些文件。
+本阶段所有提问、澄清摘要、`intention.md` 均以该语言为主语言。
 
-### Step 1：准备 draft 目录 + workflow entry
+### Step 1：选任务 → 判阶段
+
+<!--
+本步分**两层**，每层只回答一个问题：
+
+- **第一层 · 选任务**：从在途任务里选出**一个** `task_id`（或一个都没有）。本层**不做**阶段判定，**不做**丢弃 / 新建。
+- **第二层 · 判阶段**：对选定的那个任务，判「它走到哪一步、该谁接手」。
+
+判定所需的 `phase` / `mode` / `skill` 及其中文名**全部由程序算好**（`src/core/config/task-kind-layout.ts`
+的 `skillForModePhase` / `phaseLabel` / `modeLabel` / `skillLabel`），本技能**不复制任何映射表**。
+-->
+
+#### 1.1 第一层 · 选任务（游标枚举）
+
+```bash
+ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
+RTID_EXIT=$?
+```
+
+- `RTID_EXIT != 0` → **阻断**，按 stderr 处理。
+- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
+  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` / `skill` / `skill_label` / `state_readable`。`phase` 与 `mode` 都取自该行 **`state_path`** 指向的文件
+
+按 `$ROWS` 长度：
+
+| 长度 | 动作 |
+| ---- | ---- |
+| **零个** | 进入 §1.2 创建流程 |
+| **唯一** | 记下该行 `task_id`，跳 §1.4 |
+| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，跳 §1.4 |
+
+候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
+
+```
+- <task_id> (工作流：完整(full)，阶段：提案(plan)，技能：提案(plan))
+```
+
+#### 1.2 创建流程（仅「零个」时）
 
 使用 SessionStart 注入的路径（本 skill 内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
 
@@ -55,17 +93,21 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 
 | `INIT_EXIT` | `status` | 含义 | 后续动作 |
 | ----------- | -------- | ---- | -------- |
-| 0 | `"ok"` | 成功 | 取 `draft_name`，进入 Step 1.5 |
-| 1 | `"existing"` | 存在未完成 draft | 按决策点协议询问 A/B/C（见下） |
+| 0 | `"ok"` | 成功 | 取 `draft_name` → §1.3 |
+| 1 | `"existing"` | 存在未完成 draft | 按决策点协议询问 A/B/C/D（见下） |
 | 2 | —（stderr）  | 参数/环境错误     | 按 H12 阻断 |
 | 3 | —（stderr）  | workflow 写入失败 | 按 H12 阻断 |
 
-`status="existing"` 时且 `existing` 含已有 draft 目录列表，**必须**按 `./policies/decision-point.md` 暂停询问：
+`status="existing"` 时 `existing` 含已有 draft 目录列表，**必须**按 `./policies/decision-point.md` 暂停询问：
+```
+存在临时任务，请选择：
+```
+- **A. 继续最近任务**：`draft_name` = 列表最后一项 → §1.3
+- **B. 选择一个**：列出所有的 `draft_name` 候选让用户选择之后 → §1.3
+- **C. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `task-init.sh`（回到本节表格开头）：
+- **D. 取消退出**：结束本 skill
 
-- **A. 继续最近任务**：`draft_name` = 列表最后一项 → 进入 Step 2
-- **B. 选择一个**：列出所有的 `draft_name` 候选让用户选择之后，再进入 Step 2
-- **C. 丢弃所有**：对每个 dir 执行下列命令后，**重新**调用 `task-init.sh`，再进入 Step 1.5：
-
+丢弃所有的动作：
 ```bash
 for d in <existing 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
@@ -73,11 +115,65 @@ for d in <existing 列表>; do
 done
 ```
 
-- **D. 取消退出**：结束本 skill
+> A / B 两条路 adopt 的是**孤儿 draft**（游标里没有它）。往下必须执行 §1.3，否则它永远进不了游标。
+
+#### 1.3 注册与工作流（新建或 adopt 后**都要**执行）
+
+```bash
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active --kind coding --skill specify --repo-root "$REPO_ROOT" --task-id "$draft_name"
+```
+
+- `task_id` 用 `draft_name`：Step 5.4 finalize 的 `rename-active` 会把它改成正式名。
+- ⚠️ 缺此步 → Step 5.4 的 `finalize`（`rename-active`）会以 **exit 3** 阻断（「未找到 task_id 的 entry」）。
+
+`task-init` 复制的模板默认 `workflow.mode: normal`，而本技能 = **完整链路**，覆盖为 `full`
+（覆盖写同样幂等）：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --task-id "$draft_name" --kind coding --set workflow.mode=full
+```
+
+- `workflow.mode` 三档口径：`tweak`（简单）/ `normal`（常规）/ `full`（完整）；本技能固定 **`full`**。
+- 需求复杂度由**顶层 `complexity_level`** 承载，本技能 Step 5.4.1 即其唯一初判点。
+
+→ 新建 / adopt 出的任务阶段恒为 `specify`，无需判阶段，直接进入 Step 2。
+
+#### 1.4 第二层 · 判阶段（选定已有任务时）
+
+<!--
+**判定顺序固定，不得颠倒**：先看「读得到吗」，再看「是不是本技能」。`skill` 是程序按
+`phase + mode` 算出来的；`phase` 读不到时它是 `null`，顺序反了会把坏行当成「不是本技能」而转交到空技能。
+-->
+
+1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
+2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
+
+| `skill` | 含义 | 动作 |
+| ------- | ---- | ---- |
+| `== specify` | 任务停在本技能的中断点 | 暂停三选一（见下） |
+| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`，**不建新任务**；本技能结束 |
+| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
+
+`== specify` 时的三个选项（用字面标签，避免与 §1.2 的 A/B/C/D 混淆）：
+
+- **续写** → 沿用该 `task_id`，跳到文末「上下文压缩恢复」表里中断点对应的 Step，**不执行 §1.2 / §1.3**
+- **丢弃并新建** → 执行下面的丢弃动作，然后回到 §1.2
+- **取消** → 结束本 skill
+
+丢弃动作：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind coding --skill specify --repo-root "$REPO_ROOT" --where-task-id "$task_id"
+rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
+```
+
+- ⚠️ 该行 `worktree_path` **非空** → **阻断，不要执行上面的动作**。任务数据在隔离工作区里，拆除它先要决定其中的提交是留还是丢（属另一件事）。把 `worktree_path` 交给用户，提示其先用`polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 收尾或手工拆除。
+- ⚠️ 判定为其他技能时**必须转交**，不得提示用户「请用 X 技能」后原地退出（那要求用户再敲一次命令），更不得「直接往下走（新建）」。
+- 与 §1.2 的 A/B/C/D 不会问同一个对象：本节告的是「**你刚选中的那个**任务」，§1.2 告的是「**别的**孤儿 draft」（第一层看不见的那批）。
 
 #### 1.5 状态行输出（H8）
 
-输出：`[polaris-flow 开发]澄清需求 - 开始编写(意图)澄清草稿：.polaris/tasks/<draft_name>/; workflow: appended entry phase=specify`
+输出：`[polaris-flow 开发]澄清需求 - 开始编写(意图)澄清草稿：.polaris/tasks/<task_id>/; mode=full; entry=registered`
 
 ### Step 2：加载宪法（注入点 A）
 
@@ -240,18 +336,18 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 - 档位定义与方向见 `./policies/risk-signals.md` §1；信号见 §4（需求侧重点 `D2` / `D6` / `D7`）；合成见 §6
 - `current_tier = max(complexity_level, risk_level)`（升档门优先）
-- **只初判不代决**：本步只落档位；需要用户拍板的仍是 `normal` Step 5 的通道决策点，本步不得代选
+- **只初判不代决**：本步只落档位；需要用户拍板的仍是 `normal` Step 5 的工作流决策点，本步不得代选
 - 输出判定依据（命中信号编号，如 `D6,D7`），随 5.6 状态行一并呈现
 
-#### 5.5 推进 workflow 游标
+#### 5.5 推进阶段
 
-`finalize` 只做目录与 entry 的改名（`rename-active` **保留原 phase**），游标此刻仍停在 `specify`。
-本步把它推进到 `plan` —— 与 normal / tweak 在 finalize 之后的动作一致，也是本技能
+阶段只有一个存放处：`.polaris/tasks/<task_id>/state.yaml` 的顶层 `phase`。本步把它从
+`specify` 改到 `plan` —— 与 normal / tweak 在 finalize 之后的动作一致，也是本技能
 「自动衔接下一阶段」能取到 `plan` 的前提：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill specify \
-  --where-task-id "$task_id" --set phase=plan
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase specify --next-phase plan
 ```
 
 非 0 退出 → 按 H12 阻断，不得进入 5.6。
@@ -284,13 +380,14 @@ polaris-flow state next <change-name>
 ## 上下文压缩恢复
 
 重载：`draft_name`（`.polaris/tasks/` 下的 `draft-*`）、`intention.md` 是否已落盘及其**首行的 `task_id`**、
-`state.yaml`（含分级三字段 `complexity_level` / `risk_level` / `current_tier`）、workflow 游标、本技能停在哪个 Step。
+`state.yaml`（顶层 `phase` + 分级三字段 `complexity_level` / `risk_level` / `current_tier`）、
+该任务在游标里的 `task_id` / `worktree_path`、本技能停在哪个 Step。
 
 - **名称的恢复**：`task_id` 从 `intention.md` 首行读（4.2 已写入真值）；首行缺失或文件未落盘 → 回 **4.1** 重新确认名称
 - 停在 **Step 3.x** → 从 3.0 自检续做（澄清摘要未达「≥3 问 / ≥3 类」时继续提问，不得跳过）
 - 停在 **4.2 之后、5.4 之前** → 从 **5.1** 续（产物已在 draft 目录，不必重写）
 - 停在 **5.4（finalize）** → 按 5.4 的恢复路径重跑；`mv` 失败按该步的退出码表处理
 - 停在 **5.4.1（分级初判）** → 三个字段已有值则直接用，**勿重判**；只缺部分字段则补齐缺失项（`current_tier` 须与两轴取高一致）
-- 停在 **5.5（游标未推进）** → 只补执行 5.5 的 `update-active`，**勿重跑 finalize**（目录已改名，重跑会撞 `FINAL_EXIT=1`）
+- 停在 **5.5（阶段未推进）** → 只补执行 5.5 的 `complete-phase`，**勿重跑 finalize**（目录已改名，重跑会撞 `FINAL_EXIT=1`）
 - 恢复依据是**落盘产物**（首行 `task_id` + draft 目录），不依赖会话记忆
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」

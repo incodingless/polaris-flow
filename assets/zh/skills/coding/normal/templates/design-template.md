@@ -1,4 +1,4 @@
-# design-template.md 模板与规则（polaris-flow 工作流 · normal 常规通道）
+# design-template.md 模板与规则（polaris-flow 工作流 · normal 常规工作流）
 
 > **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 4.3 引用，生成 OpenSpec 四件套中的 `design.md`。
 >

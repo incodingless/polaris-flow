@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose
-description: "缺陷修复通道的「诊断与方案」阶段（合并了原定性 + 定位 + 方案三步）：把用户口述的缺陷/故障变成可核对的证据并分流场景，确认根因、产出 RCA 报告，再确定修复方案与 tasks.md。支持 Jira 问题单接入（优先 Jira MCP 读取，失败则手动补充；issue_id 直接用 Jira 单号）。测试通道完成四要素校验、稳定复现、根因分析、修复方案；生产通道完成现场保全、时间线/影响面/变更清单三对齐（复现可选）、止血确认、根因分析、含回退路径的修复方案。产物：diagnose-brief.md（过程档案）+ rca-report.md（九节 RCA）+ tasks.md。用户要求：复现某个缺陷、确认某个报错、帮我复现测试环境的异常、定位 bug 根因、分析报错调用链、设计修复方案、评估影响面、线上故障先保全现场、按 Jira 单号处理缺陷，或从 `/psfl{{CMD_SPR}}maintance{{CMD_SPR}}bugfix` / `/psfl{{CMD_SPR}}maintance{{CMD_SPR}}hotfix` 入口进入时使用——本技能是缺陷修复的**唯一入口与起点**，两条通道由本技能的场景分流步判定。不触发：改代码与独立验证（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}patch）、收尾归档（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}closeout）。"
+description: "缺陷修复通道的「诊断与方案」阶段（合并了原定性 + 定位 + 方案三步）：把用户口述的缺陷/故障变成可核对的证据并分流场景，确认根因、产出 RCA 报告，再确定修复方案与 tasks.md。支持 Jira 问题单接入（优先 Jira MCP 读取，失败则手动补充；issue_id 直接用 Jira 单号）。测试通道完成四要素校验、稳定复现、根因分析、修复方案；生产通道完成现场保全、时间线/影响面/变更清单三对齐（复现可选）、止血确认、根因分析、含回退路径的修复方案。产物：diagnose-brief.md（过程档案）+ rca-report.md（九节 RCA）+ tasks.md。用户要求：复现某个缺陷、确认某个报错、帮我复现测试环境的异常、定位 bug 根因、分析报错调用链、设计修复方案、评估影响面、线上故障先保全现场、按 Jira 单号处理缺陷，或从缺陷修复入口命令（maintance 的 `bugfix` / `hotfix`）进入时使用——本技能是缺陷修复的**唯一入口与起点**，两条通道由本技能的场景分流步判定。不触发：改代码与独立验证（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}patch）、收尾归档（走 polaris{{SKN_SPR}}debug{{SKN_SPR}}closeout）。"
 ---
 
 # 诊断与方案 · 缺陷修复通道 · diagnose
@@ -77,6 +77,20 @@ done
 
 - **D. 取消退出**：结束本 skill
 
+### Step 1.5: 读取任务进展，继续执行任务
+
+读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml` 与任务目录下已落盘的产物，按**落盘产物**判定当前进展并进入对应步骤（**产物即状态**，不靠 `state.yaml.phase` 回推）：
+
+| 判断依据（任务目录下已落盘产物） | 进入步骤 |
+|---|---|
+| `diagnose-brief.md` 缺失 | **Step 2**（问题单接入 / 运行态初始化尚未完成；目录已建，不重复建目录） |
+| `diagnose-brief.md` 已落盘、`reviews/rca-report.md` 缺失 | **Step 5**（根因分析；先确认 Step 3 工作区已就绪） |
+| `reviews/rca-report.md` 已落盘、`tasks.md` 缺失 | **Step 6**（设计修复方案 + `tasks-lint`） |
+| `tasks.md` 已落盘且过 `tasks-lint` | **推进与回流**（本阶段已完成，执行阶段推进） |
+| 无法判定 | 按 `./policies/decision-point.md` 询问用户从哪一步继续 |
+
+> 进度以落盘产物为准；本表与文末「上下文压缩恢复」的续跑表同源，`state.yaml` 只记身份与指针、不记进度。
+
 ### Step 2：收集问题单 + 初始化任务
 
 #### Step 2.1 问题单接入（Jira 优先，手动兜底）
@@ -130,7 +144,7 @@ done
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind debug --task-id "$issue_id"
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active --kind debug --skill <channel> --channel <channel> --task-id "$issue_id" --phase diagnose --repo-root "$REPO_ROOT"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active --kind debug --skill <channel> --channel <channel> --task-id "$issue_id" --repo-root "$REPO_ROOT"
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" --set channel=<channel>
 ```
 
@@ -178,10 +192,10 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$issue_id" --kind debug --phase diagnose
 ```
 
-同步主仓 workflow.yaml（脚本内含锁 / 写后校验，见 H12）：
+同步主仓 workflow.yaml 的 worktree 路径（脚本内含锁 / 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind debug --skill diagnose --where-task-id "$issue_id" --set phase=diagnose --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind debug --skill diagnose --where-task-id "$issue_id" --set worktree-path="$target_path"
 ```
 
 输出 `[polaris-flow 调试]缺陷修复 - 隔离工作区已创建，基础分支：<target_branch>，工作区路径：<target_path>`。
@@ -198,12 +212,6 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$issue_id" --kind debug --phase diagnose
-```
-
-同步 workflow.yaml：
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind debug --skill diagnose --where-task-id "$issue_id" --set phase=diagnose
 ```
 
 输出 `[polaris-flow 调试]缺陷修复 - 未创建隔离工作区，用户选择留在主仓库。工作路径为: $REPO_ROOT`。
@@ -286,6 +294,8 @@ HF_EXIT=$?
 
 **技能自证 + 人确认**：报错点 ≠ 根因 + 解释全部现象 + ≥1 排除记录 + 报告中每项结论可在档案中找到对应证据；然后**暂停等用户确认「根因正确」**（选项：A 正确进入方案 / B 存疑回 Step 5 补证据 / C 场景有误改走其他通道）。**此点无条件必停。**
 
+用户回复后**回填** `diagnose-brief.md` 的「根因确认」段（`A 正确:<ISO>` / `B 存疑:<理由>` / `C 场景有误:<通道>`）——恢复清单据此判断门禁是否已过，**不得**只留在会话记忆里。
+
 
 ### Step 6：设计修复方案
 
@@ -320,6 +330,8 @@ bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" ".polaris/tasks/<issue_id>/tasks.md"
 
 **技能自证 + 人确认（仅分叉时）**：方案符合最小变更 + 影响面与回归范围已列 + tasks-lint 通过。存在分叉时**暂停等用户确认「方案可接受」**（A 开始修复 / B 换方案 / C 范围过大转 normal）；唯一路径时跳过。
 
+用户回复后**回填** `diagnose-brief.md` 的「方案确认」段（`A 可接受:<ISO>` / `B 换方案:<理由>` / `C 转 normal`；唯一路径跳过时写 `auto:<ISO>`）。
+
 ## 推进与回流
 
 过门禁后推进到 patch：
@@ -328,10 +340,6 @@ bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" ".polaris/tasks/<issue_id>/tasks.md"
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" \
   --phase diagnose --next-phase patch
-
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active \
-  --kind debug --skill diagnose --repo-root "$REPO_ROOT" \
-  --where-task-id "$issue_id" --set phase=patch
 ```
 
 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
@@ -350,7 +358,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active \
 ## 上下文压缩恢复
 
 重载：`issue_id`（= `task_id`）、`channel`（`bugfix` / `hotfix`）、`worktree_path`、任务目录下已落盘的产出
-（`diagnose-brief.md` / `rca-report.md` / `tasks.md` / 保全与止血回填）、`state.yaml` 的 `runtime.diagnose`、停在哪一步。
+（`diagnose-brief.md` / `rca-report.md` / `tasks.md` / 保全、止血与**门禁确认**回填）、`state.yaml` 的 `runtime.diagnose`、停在哪一步。
 
 - **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
 - 停在 **Step 1–2（存量检查 / 收集问题单 + 初始化）** → 已建任务按 Step 1 的存量分支续跑，不重复建目录

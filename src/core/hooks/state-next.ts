@@ -20,9 +20,10 @@
  */
 import path from 'path';
 
+import { resolveTaskStatePath } from '../assets/polaris-paths.js';
 import { skillForPhase } from '../config/task-kind-layout.js';
 import { loadPolarisConfig, type ProjectPolarisConfig } from '../config/polaris-project-config.js';
-import { loadTaskState, type TaskState } from '../config/task-state.js';
+import { loadTaskStateFromFile, type TaskState } from '../config/task-state.js';
 import {
   loadWorkflowState,
   type WorkflowState,
@@ -178,14 +179,18 @@ export async function runStateNext(args: StateNextArgs): Promise<StateNextResult
     return { exitCode: 0, next: 'done' };
   }
 
-  const skill = skillForPhase(hit.kind, hit.entry.phase);
+  // 阶段不在游标里：读该任务的 state.yaml（位置由条目的 worktree_path 决定）。
+  const statePath = resolveTaskStatePath(repoRoot, hit.kind, taskId, hit.entry.worktree_path);
+  const taskState = await loadTaskStateFromFile(statePath);
+  const phase = String(taskState?.phase ?? '');
+
+  const skill = skillForPhase(hit.kind, phase);
   if (!skill) {
-    // 入口阶段 / 旁路阶段 / 未登记值 → 无自动衔接，视为完成。
-    return { exitCode: 0, next: 'done', phase: hit.entry.phase, kind: hit.kind };
+    // 入口阶段 / 旁路阶段 / 未登记值 / state 读不到 → 无自动衔接，视为完成。
+    return { exitCode: 0, next: 'done', phase, kind: hit.kind };
   }
 
   const config = await loadPolarisConfig(repoRoot);
-  const taskState = await loadTaskState(repoRoot, taskId);
   const auto = isAutoTransitionEnabled(config, taskState);
 
   const separator = await resolveSkillNameSeparator(repoRoot);
@@ -197,7 +202,7 @@ export async function runStateNext(args: StateNextArgs): Promise<StateNextResult
       exitCode: 0,
       next: 'auto',
       skill: fullName,
-      phase: hit.entry.phase,
+      phase,
       kind: hit.kind,
     };
   }
@@ -207,7 +212,7 @@ export async function runStateNext(args: StateNextArgs): Promise<StateNextResult
     next: 'manual',
     skill: fullName,
     hint: `请新开会话并执行 /${fullName}（当前为手动衔接模式）`,
-    phase: hit.entry.phase,
+    phase,
     kind: hit.kind,
   };
 }

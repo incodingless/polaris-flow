@@ -2,14 +2,14 @@
 
 > `change-brief.md` 的节结构是刻意按四件套的关系设计的，因此两条下游路径都只做**格式转换**，不补内容：
 >
-> - **§2 升档路径**：brief → `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal`（normal 常规通道，由 `upgrade-check.md` §3.1 调用）
+> - **§2 升档路径**：brief → `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal`（normal 常规工作流，由 `upgrade-check.md` §3.1 调用）
 > - **§3 归档路径**：brief → 四件套，供 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 归档前调用
 >
 > **硬规则**：brief 每一节必须自洽完整。下游禁止新增简报里没有的需求、模块或验收标准。
 
 > **同名副本说明**（本文件在 `tweak/` 与 `ship/` 各有一份，随各自技能落盘，**不共享**）：
 >
-> - **本（tweak）副本**：§2 升档路径由 `upgrade-check.md` §3 调用，升档目标为**常规通道 `normal`**
+> - **本（tweak）副本**：§2 升档路径由 `upgrade-check.md` §3 调用，升档目标为**常规工作流 `normal`**
 > - **`ship` 副本**：其流程只消费 **§3 归档路径**（`ship/SKILL.md` Step 4.5），§2 在 ship 侧无调用方
 > - 两副本在 §2 的目标技能与校验步骤上存在分叉，按上述对应关系理解；**改动其一须同步另一**（正式收敛为单一来源另案处理）
 
@@ -31,7 +31,7 @@
 | 待决问题 | `## 待决问题` | `proposal.md` — Open Questions |
 | 影响面 | `## 下游约束` | 不进四件套；仅用于 capability 命名（§3.2） |
 
-`intention.md` 的 `## 前提历史` 节：轻量通道未做 Premise Challenge，填「无（tweak 轻量通道未执行 Premise Challenge）」。
+`intention.md` 的 `## 前提历史` 节：轻量工作流未做 Premise Challenge，填「无（tweak 轻量工作流未执行 Premise Challenge）」。
 
 ---
 
@@ -44,7 +44,7 @@
 3. `## Reframe 历程` 必须改写为一行说明，不得复制「问题与背景」原文：
 
 ```markdown
-- 轻量通道（tweak）未执行 Reframe Check；原始诉求 X 经升档转入常规链路继续
+- 轻量工作流（tweak）未执行 Reframe Check；原始诉求 X 经升档转入常规链路继续
 ```
 
 4. 写入 `.polaris/tasks/<change_id>/intention.md`
@@ -97,7 +97,7 @@
 补齐生成的 `proposal.md` / `design.md` / `specs/*.md` **首行必须**插入标注，避免被误认为人工设计产物：
 
 ```markdown
-<!-- 由 tweak 快速通道归档前自动补齐，源：openspec/changes/<change_id>/change-brief.md -->
+<!-- 由 tweak 快速工作流归档前自动补齐，源：openspec/changes/<change_id>/change-brief.md -->
 ```
 
 ### 3.4 校验与失败处理

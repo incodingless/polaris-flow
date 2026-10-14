@@ -112,8 +112,8 @@ openspec/changes/<change_id>/
 
 | 结果 | 动作 |
 |------|------|
-| `PLATFORM_DEGRADATION=inline\|unsupported` | 标注原因；decision-point：A 接受跳过本批反思循环（记入摘要，**不计**为审查轮次）/ B 阻断。**禁止**主代理 inline 假评审。**不调** probe |
-| `SUPPORTS_SUBAGENT=true` | **不调** probe，继续 4.2 派发固定 `plan-review-agent` |
+| `PLATFORM_DEGRADATION=inline\|unsupported` | 标注原因；decision-point：A 接受跳过本批反思循环（记入摘要，**不计**为审查轮次）/ B 阻断。**禁止**主代理 inline 假评审。**不派发 → 不涉及 probe** |
+| `SUPPORTS_SUBAGENT=true` | **仍须 probe（H10）**：调用 `polaris{{SKN_SPR}}subagent-probe`（传 `platform`），随后继续 4.2 派发固定 `plan-review-agent` |
 | 缺注入 | 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。`inline` / `unsupported` → 同上 decision-point；可用 → 继续 4.2 |
 
 ### 4.2 派发批内审查者（计一轮）

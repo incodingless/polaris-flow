@@ -1,5 +1,19 @@
 # phase 真相归一设计（枚举 + 转移）
 
+> ## ⚠️ 2026-10-13 后续变更（本文 §1.1 的权威结论已被推翻）
+>
+> §1.1 的判定「**权威是 `workflow.yaml` 的游标**、`state.yaml.phase` 是非权威副本」**不再成立**。
+> 现行为：**阶段的唯一存放处是 `state.yaml` 的顶层 `phase`**；`workflow.yaml` 的条目只保留
+> `task_id` / `worktree_path` / `started_at` / `channel`，**不含 `phase`**。读取位置由条目
+> 的 `worktree_path` 决定（`resolveTaskStatePath`）。
+>
+> 推翻的**实测依据**：本文当时的实测（「coding 族从不调用 `task-state-entry enter/complete-phase`」）
+> 已随各技能改为 `enter-phase`/`complete-phase` 而失效；且 `tweak`/`normal` 一度把**内部进度**
+> （`build`）写进顶层 `phase`，使两个文件的 `phase` 语义不同 —— 以游标为权威会让单技能通道
+> 的阶段判定与技能实际状态错位。详见 `CHANGELOG.md` [0.1.2]。
+>
+> 本文 §1.2（枚举归一）与 §1.3 起的结论仍然有效。
+
 日期：2026-09-19（A 案实施：2026-09-20）
 状态：**A 案已实施** —— D12–D16 全部已决并落地，执行记录见 §八；C 案仍立为后续独立里程碑
 触发：M2 实施期发现「kind → 阶段」在仓内有 12 处枚举、6 处转移声明，且 `state.yaml.phase` 与 `workflow.yaml` 游标是**两个字段**；进一步核实发现 `state-next` 的四张转移表里**两张偏移一位**（会跳阶段）

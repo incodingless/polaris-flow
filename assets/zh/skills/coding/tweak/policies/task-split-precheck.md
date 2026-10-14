@@ -151,7 +151,7 @@
 ```
 
 - 用户选择后，**仅**推进该 change 进入 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`
-- 其他 change 保持 active，稍后通过 `/psfl{{CMD_SPR}}flow` 恢复
+- 其他 change 保持 active，稍后**重新进入本工作流技能**即可恢复（按 `workflow.mode` 定工作流 + 任务 `state.yaml` 的 `phase` 定技能）
 
 ---
 

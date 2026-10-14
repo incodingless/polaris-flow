@@ -56,6 +56,19 @@ export type KindPhaseDef = {
    *   - **旁路阶段**：coding `retro` —— 可出现在 state.yaml，但不属推进游标的主序列
    */
   skill?: string | null;
+  /**
+   * **单技能通道**下该阶段的执行者（仅 coding 的 `specify` / `plan` 登记）。
+   *
+   * 语义：`channelSkill[mode]` 命中时**优先于** `skill` / 同名默认。
+   *
+   * 原因：`tweak` / `normal` 把 `specify → tasks → build → verify` 压在**一个技能内部**完成，
+   * 游标只经过 `specify → plan → ship` 三处 ⇒ 这两个阶段在这两条通道下由**通道技能本人**执行，
+   * 不能交给同名的 `specify` / `plan` 技能。
+   *
+   * 只在「恢复分发」的派生函数 `skillForModePhase` 里生效；
+   * `skillForPhase`（服务出口的 `state next`）**不看**本字段 —— 通道迁移由 `mode` 改写保证一致。
+   */
+  channelSkill?: Record<string, string>;
 };
 
 /** 产物定义 */
@@ -118,8 +131,20 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     usesDraft: true,
     bootstrapFiles: [],
     phases: [
-      { code: 'specify', name: '澄清', group: '澄清与方案', skill: null },
-      { code: 'plan', name: '提案', group: '澄清与方案' },
+      {
+        code: 'specify',
+        name: '澄清',
+        group: '澄清与方案',
+        skill: null,
+        // 单技能通道下由通道技能本人执行（见 KindPhaseDef.channelSkill）
+        channelSkill: { tweak: 'tweak', normal: 'normal' },
+      },
+      {
+        code: 'plan',
+        name: '提案',
+        group: '澄清与方案',
+        channelSkill: { tweak: 'tweak', normal: 'normal' },
+      },
       { code: 'design', name: '深度设计', group: '澄清与方案', optional: true },
       { code: 'tasks', name: '任务规划', group: '实现' },
       { code: 'build', name: '构建', group: '实现' },
@@ -398,6 +423,78 @@ export function skillForPhase(kind: WorkflowTaskKind, phase: string): string | n
   if (!def) return null;
   if (def.skill === null) return null;
   return def.skill ?? def.code;
+}
+
+/**
+ * **恢复分发**用：游标 `phase` + `workflow.mode` → 应执行的技能名（族内相对名）。
+ *
+ * 与 `skillForPhase` 的两点差别（**不可互相替代**）：
+ *   1. **入口阶段**：本函数返回同名技能（coding `specify` → `specify`）——「该进哪个技能」
+ *      正是它要回答的问题；`skillForPhase` 对入口阶段返回 `null`（语义是「无下一段可自动衔接」，
+ *      服务于出口的 `state next`）。
+ *   2. **`mode`**：命中阶段表的 `channelSkill[mode]` 时优先返回它 —— 单技能通道
+ *      （coding `tweak` / `normal`）的 `specify` / `plan` 由通道技能本人执行。
+ *
+ * 返回 `null`：空 / 未知阶段、旁路阶段（coding `retro`）。
+ * 消费方：`workflow-entry get-active-changes --format full`（技能 Step 0 的分发判据）。
+ */
+export function skillForModePhase(
+  kind: WorkflowTaskKind,
+  phase: string,
+  mode?: string,
+): string | null {
+  const code = normalizePhase(phase);
+  if (!code) return null;
+  const def = TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === code);
+  if (!def || def.bypass) return null;
+  const byMode = mode ? def.channelSkill?.[mode] : undefined;
+  if (byMode) return byMode;
+  return def.skill ?? def.code;
+}
+
+/**
+ * 通道（`state.yaml.workflow.mode`）的中文显示名。
+ *
+ * 取值沿用 assets 里既有的中文口径（`coding/normal` 标题「常规需求通道」、
+ * `coding/tweak` 正文「简单档」、`full` 通称「完整链路」），**不另造词**。
+ * 未登记 / 空值返回空串 —— 显示层据此退回「只显英文」，不猜。
+ */
+export const WORKFLOW_MODE_LABELS: Record<string, string> = {
+  tweak: '简单',
+  normal: '常规',
+  full: '完整',
+};
+
+/** 通道中文名；未登记返回空串 */
+export function modeLabel(mode: string): string {
+  return WORKFLOW_MODE_LABELS[(mode ?? '').trim()] ?? '';
+}
+
+/**
+ * 阶段中文显示名（= 阶段表 `KindPhaseDef.name`）。
+ * 未登记阶段、历史别名、空值返回空串 —— 不猜。
+ */
+export function phaseLabel(kind: WorkflowTaskKind, phase: string): string {
+  const code = normalizePhase(phase);
+  if (!code) return '';
+  return TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === code)?.name ?? '';
+}
+
+/**
+ * **技能**的中文显示名，供候选列表显示成 `中文(英文)`。
+ *
+ * 来源只有两处、都用既有表，**不新增映射**：
+ *   1. 技能名命中该 kind 的阶段码 → 取该阶段中文名
+ *      （`specify`→澄清、`plan`→提案、`build`→构建、`design`→深度设计 …）
+ *   2. 否则命中通道名 → 取通道中文名（单技能通道：`tweak`→简单、`normal`→常规）
+ *
+ * 都未命中返回空串（显示层退回只显英文），**不猜**。
+ */
+export function skillLabel(kind: WorkflowTaskKind, skill: string): string {
+  const name = (skill ?? '').trim();
+  if (!name) return '';
+  const byPhase = TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === name)?.name;
+  return byPhase ?? modeLabel(name);
 }
 
 /**

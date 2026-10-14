@@ -5,14 +5,17 @@
 ## 术语区分
 
 「阶段推进」由**各阶段技能在自己的出口完成** —— 技能内联调用
-`workflow-entry update-active --set phase=<下一阶段>`，持 `.polaris/.locks/workflow.lock`。
-这一步**始终发生**，与 `auto_transition` 无关。本协议的「自动衔接」决定**衔接方式**：
-manual 停下并请用户新开会话，auto 则先压缩上下文再执行下一个 skill（见下方两节）。
+`task-state-entry enter-phase / complete-phase`（写任务自己的 `state.yaml`），持
+`.polaris/.locks/task-state-<id>.lock`。这一步**始终发生**，与 `auto_transition` 无关。
+本协议的「自动衔接」决定**衔接方式**：manual 停下并请用户新开会话，auto 则先压缩上下文
+再执行下一个 skill（见下方两节）。
 
 > 推进机制只有这一条路径，**不存在** guard 之类的中间层。
 
-**进度判据：`workflow.yaml` 的游标是唯一权威** —— 语义是「接下来要执行的阶段」。
-`state.yaml` 的 `phase` 是**只写不读的镜像**（`src/` 内零读取方；coding 族从不调用`enter-phase/complete-phase`，其值长期停在建任务时写的入口阶段），**不得**用它判断进度。
+**进度判据：任务的 `state.yaml` 顶层 `phase` 是唯一存放处**（语义 =「接下来要执行的阶段」）。
+`.polaris/workflow.yaml` 的条目**只有** `task_id` / `worktree_path` / `started_at` / `channel`
+—— 它回答「有哪些在途任务」与「任务在哪」，**不记阶段**。位置由 `worktree_path` 决定：
+空 = 主仓 `.polaris/tasks/<id>/state.yaml`；非空 = worktree 内同名路径。
 
 ## 执行方式
 
@@ -26,8 +29,8 @@ polaris-flow state next <change-name>
 
 | 判定值 | 来源 |
 |---|---|
-| `phase` | `.polaris/workflow.yaml` 中该任务条目的 `phase` —— 即上文所说的**游标**（唯一权威） |
-| `kind` | 同一条目的 `kind`，决定映射到哪个族的技能（coding / prd / prototype / debug） |
+| `phase` | 该任务 `state.yaml` 的顶层 `phase`（唯一存放处；位置由游标条目的 `worktree_path` 决定） |
+| `kind` | 该 `task_id` 落在哪个列表（`coding_tasks` / `requirement_tasks` / …），据此映射到族技能（coding / prd / testing / prototype / debug） |
 | `auto_transition` | `.polaris/config.yaml` **与** `.polaris/tasks/<task_id>/state.yaml`；任一为 `off` / `false` 即 manual |
 
 输出确定性的下一步：
@@ -36,8 +39,8 @@ polaris-flow state next <change-name>
 - `NEXT: manual` → **不要**调用下一 skill；输出提示语，要求用户**新开会话并输入该技能名**（见下「manual 模式」）
 - `NEXT: done` → 流程已完成，无需继续
 
-约定只有一条：**游标 phase = 接下来要执行的阶段 ⇒ 同名映射**（游标是 `build` 就跑
-`build` 技能）。例外（入口阶段、旁路阶段、技能名与阶段码未对齐的族）登记在阶段表的
+约定只有一条：**`state.yaml` 的 `phase` = 接下来要执行的阶段 ⇒ 同名映射**（`phase` 是 `build`
+就跑 `build` 技能）。例外（入口阶段、旁路阶段、技能名与阶段码未对齐的族）登记在阶段表的
 `skill` 字段上，不在本文件里另立清单。
 
 ### manual 模式
@@ -90,7 +93,7 @@ polaris-flow state next <change-name>
 |---|---|---|---|
 | **A 步骤级** | 单个 Step 收尾 | 本步操作**已完成** **且** 产出**已落盘** | 可选的不阻塞提示（下模板） |
 | **B 委派级** | 需要大段读取 / 调研 / 派发时 | 见 `subagent-dispatch/references/dispatch-execute.md` 的 D-0.1 / D-0.2 | `materials` 只给路径；回报只给状态 + 产物路径 + 短列表 |
-| **C 阶段级** | `complete-phase` / `update-active` 成功后 | 退出条件已满足 | **必发**的不阻塞提示（下模板） |
+| **C 阶段级** | `enter-phase` / `complete-phase` 成功后 | 退出条件已满足 | **必发**的不阻塞提示（下模板） |
 
 ### 层级 A 提示语模板
 
@@ -129,7 +132,8 @@ polaris-flow state next <change-name>
 ## 阶段名的合法值
 
 **写入前请确认取值合法 —— 原语会校验**：
-`workflow-entry update-active --set phase=X`、`append-active --phase=X`、`task-state-entry enter-phase/complete-phase --phase|--next-phase` 都会拒绝未知阶段、打印合法集合并以退出码 3 中止。
+`task-state-entry enter-phase / complete-phase` 的 `--phase` / `--next-phase` 会拒绝未知阶段、
+打印合法集合并以退出码 3 中止。（`workflow-entry` 已不写阶段，故不再有该校验。）
 
 - 合法值 = 该 kind 阶段表已登记阶段 ∪ `idle` ∪ 历史别名 `delivery`/`archive`
 - `idle` 不是阶段（「无阶段」空值），不占进度分母，但**允许写入**（存量数据与 initPatches 都写它）

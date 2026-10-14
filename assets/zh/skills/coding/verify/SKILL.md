@@ -83,25 +83,54 @@ description: "对 build 产出做验证并按证据落盘：编译闸门 → 意
 
 **边界**：「先机器后人工」**不是**「人工接机器剩下的全部」。机械性残留（环境没起、需手工跑一条命令）走 `No-Verification`，**不占人工注意力**。
 
-### Step 0：定位任务ID + 入口校验
+### Step 0：定位任务 + 恢复分发 + 入口校验
 
-用 bash 读取工作流配置中有效变更的`task_id`：
+用 `--format full` 取「任务 + **应执行技能**」（分发表在代码里 —— `src/core/config/task-kind-layout.ts` 的
+`skillForModePhase`；本技能**不复制**该表）：
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill verify --repo-root "$REPO_ROOT" --phase verify)
+ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
 RTID_EXIT=$?
 ```
 
+- ⚠️ **不传 `--phase`** —— 候选须覆盖**全部在途任务**，由命令解释 `phase`；预先按本阶段过滤会把
+  他阶段的在途任务误判成「零匹配」。
 - `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
+  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` /
+  `skill` / `skill_label` / `state_readable`
 
-按 `$TASK_IDS` 数组长度解读：
+按 `$ROWS` 长度：
 
-- **唯一匹配**：直接读取 `task_id`
-- **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到构建(build)阶段的活动任务，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}build」
+| 长度 | 动作 |
+| ---- | ---- |
+| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
+| **唯一** | 记下该行 `task_id`，进入下面的判定 |
+| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
 
-> **中断续跑**：entry 停在 `phase=build` 或 `runtime.verify.status=in_progress` 时从中断点续跑，**不得**判成「零匹配」。
+候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
+
+```
+- <task_id> (工作流：完整(full)，阶段：验收(verify)，技能：验收(verify))
+```
+
+<!--
+**判定顺序固定，不得颠倒**：先看「读得到吗」，再看「是不是本技能」。`skill` 是程序按
+`phase + mode` 算出来的；`phase` 读不到时它是 `null`，顺序反了会把坏行当成「不是本技能」而转交到空技能。
+-->
+
+1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
+2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
+
+| `skill` | 含义 | 动作 |
+| ------- | ---- | ---- |
+| `== verify`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` 取该行值，跳到文末「上下文压缩恢复」表里对应 Step |
+| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`（**不要求**用户再敲命令）；本技能到此结束，**不得**建任务 / 推进阶段 |
+| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
+
+- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
+
+> **中断续跑**：`runtime.verify.status=in_progress` 时从中断点续跑，**不得**判成「零匹配」。
 
 **入口校验**（失败 → 阻断）：
 
@@ -635,7 +664,7 @@ done
 #### 14.1 能力探测（H10）
 
 1. 读 SessionStart 注入：`PLATFORM_DEGRADATION=inline|unsupported` → **直接进入「降级决策」**（不派发、不探测）
-2. 若本步只要默认通用 agent 且 `SUPPORTS_SUBAGENT=true`（degradation 空）→ **不调** probe，记 `agent=null`，进 `14.2`
+2. `SUPPORTS_SUBAGENT=true`（degradation 空）→ **仍须 probe（H10）**，记 `agent=null`，进 `14.2`
 3. 否则 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传 `platform` / `PLATFORM_ID`），按返回结构取 `agents`；`agents=[]` 且平台支持默认 subagent → `agent=null`；`agents=[]` 且平台不支持 → 进入「降级决策」
 
 **禁止**在缺能力结论时假设宿主有独立 subagent。
@@ -804,7 +833,7 @@ sonarqube: { enabled: true, gate_rule: "<quality_gate | blocker_critical | new_o
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase verify
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase verify --next-phase ship
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.verify.constitution_valid=<true|false> \
@@ -819,18 +848,12 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --set runtime.verify.test_command=<探测/确认后的单测命令，如 "mvn -B test"> \
   --set runtime.verify.test_result=<passed|failed|no_verification> \
   --set runtime.verify.test_slots=<实际执行的槽位，逗号分隔，如 unit,contract,integration> \
-  --set runtime.verify.semantics_review=<confirmed|skipped_by_user> \
-  --set phase=idle
+  --set runtime.verify.semantics_review=<confirmed|skipped_by_user>
 # scorer_results 等复杂对象可用 get-json 读出后由 Agent 合并，或多次 --set 扁平键
 # semantics_review=skipped_by_user 时另记 runtime.verify.semantics_skip_reason=<原因>
 ```
 
-3. 推进：
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill verify --where-task-id "$task_id" --set phase=ship
-```
-
-4. 输出：
+3. 输出：
 
 ```
 验证阶段完成：

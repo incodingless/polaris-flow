@@ -30,7 +30,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 | OpenSpec 变更（可选叙事） | `openspec/changes/<task_id>/` 或 `openspec/changes/archive/*-<task_id>/` |
 | 配置 | `.polaris/config.yaml`（`mode` 等） |
 
-> **链路位置**：`specify → … → verify → ship` 之后的**旁路复盘**，不占用 phase 游标、不推进阶段。  
+> **链路位置**：`specify → … → verify → ship` 之后的**旁路复盘**，不进阶段序列、不推进阶段。  
 > verify 写入 metrics；ship 把 worktree 内 metrics / overrides 合回主仓顶层；retro 只读聚合。
 >
 > **入口口径**：**显式入口**（用户触发 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}retro`）——阶段表登记 `skill: null`，

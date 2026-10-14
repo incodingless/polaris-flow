@@ -2,9 +2,9 @@
  * Dashboard 扫描层单测（游标 / 运行态 / 文件树）。
  *
  * 覆盖：
- * 1. `scanTaskList`：5 类 kind 的游标条目摊平，字段与 kind 归属正确
- * 2. **反例**：`state.yaml.phase` 与游标 phase 不一致时，运行态返回**游标值**
- *    （护栏：防「把 state.yaml.phase 当权威」那类失误复发）
+ * 1. `scanTaskList`：5 类 kind 的游标条目摊平，字段与 kind 归属正确。
+ *    **游标条目没有 `phase`** —— 阶段只在任务自己的 `state.yaml` 里
+ * 2. `readTaskRuntime`：阶段与运行态都从 `state.yaml` 读，位置由 `worktree_path` 决定
  * 3. `title` 三级兜底：state 名字字段 → 产物文档首标题 → task_id
  * 4. `listTaskFiles`：两个来源合并、只收 .md/.yaml、路径为项目根相对 posix
  * 5. `readTaskCheckboxes`：复选框进度；无文件/无复选框返回 null
@@ -35,7 +35,7 @@ async function put(root: string, rel: string, content: string): Promise<void> {
   await writeFile(abs, content, 'utf-8');
 }
 
-/** 造一份 5 类 kind 都有条目的游标 */
+/** 造一份 5 类 kind 都有条目的游标（阶段不在其中） */
 async function writeWorkflow(root: string): Promise<void> {
   await put(
     root,
@@ -43,27 +43,22 @@ async function writeWorkflow(root: string): Promise<void> {
     [
       'coding_tasks:',
       '  - task_id: c-1',
-      '    phase: build',
       '    worktree_path: /tmp/wt/c-1',
       '    started_at: 2026-09-01T00:00:00.000Z',
       'requirement_tasks:',
       '  - task_id: r-1',
-      '    phase: draft',
       '    worktree_path: ""',
       '    started_at: 2026-09-02T00:00:00.000Z',
       'testcase_tasks:',
       '  - task_id: t-1',
-      '    phase: refine',
       '    worktree_path: ""',
       '    started_at: 2026-09-03T00:00:00.000Z',
       'prototype_tasks:',
       '  - task_id: p-1',
-      '    phase: review',
       '    worktree_path: ""',
       '    started_at: 2026-09-04T00:00:00.000Z',
       'debug_tasks:',
       '  - task_id: d-1',
-      '    phase: patch',
       '    channel: hotfix',
       '    worktree_path: ""',
       '    started_at: 2026-09-05T00:00:00.000Z',
@@ -73,7 +68,7 @@ async function writeWorkflow(root: string): Promise<void> {
 }
 
 describe('scanTaskList', () => {
-  it('摊平 5 个数组，kind 由所在数组决定，字段完整', async () => {
+  it('摊平 5 个数组，kind 由所在数组决定，字段完整（无 phase）', async () => {
     const root = await tmpProject();
     await writeWorkflow(root);
 
@@ -86,8 +81,15 @@ describe('scanTaskList', () => {
       'prototype',
       'debug',
     ]);
-    expect(list.map((t) => t.phase)).toEqual(['build', 'draft', 'refine', 'review', 'patch']);
-    expect(list.every((t) => t.source === 'cursor')).toBe(true);
+    expect(list.map((t) => t.source)).toEqual([
+      'cursor',
+      'cursor',
+      'cursor',
+      'cursor',
+      'cursor',
+    ]);
+    // 阶段不在游标里：扫描结果不得携带该字段
+    expect(list.every((t) => !('phase' in t))).toBe(true);
 
     const coding = list[0]!;
     expect(coding.worktree_path).toBe('/tmp/wt/c-1');
@@ -101,7 +103,7 @@ describe('scanTaskList', () => {
     await expect(scanTaskList(root)).resolves.toEqual([]);
   });
 
-  it('没有 task_id 的条目被跳过', async () => {
+  it('没有 task_id 的条目被跳过（历史遗留 phase 键被忽略）', async () => {
     const root = await tmpProject();
     await put(
       root,
@@ -110,11 +112,12 @@ describe('scanTaskList', () => {
     );
     const list = await scanTaskList(root);
     expect(list.map((t) => t.task_id)).toEqual(['ok-1']);
+    expect('phase' in list[0]!).toBe(false);
   });
 });
 
 describe('readTaskRuntime', () => {
-  it('phase 取游标值 —— 即使 state.yaml.phase 是另一个值（反例护栏）', async () => {
+  it('phase 取自 state.yaml（阶段只有一个来源）', async () => {
     const root = await tmpProject();
     await put(
       root,
@@ -122,21 +125,31 @@ describe('readTaskRuntime', () => {
       ['kind: coding', 'task_id: c-1', 'phase: specify', 'workflow:', '  mode: sdd', ''].join('\n'),
     );
 
-    const runtime = readTaskRuntime(root, 'coding', 'c-1', 'build');
-    expect(runtime.phase).toBe('build');
+    const runtime = readTaskRuntime(root, 'coding', 'c-1');
+    expect(runtime.phase).toBe('specify');
     expect(runtime.stateMissing).toBe(false);
     expect(runtime.mode).toBe('sdd');
     expect(runtime.updatedAt).not.toBe('');
   });
 
+  it('worktree_path 非空时读 worktree 内的副本（主仓副本已被改名）', async () => {
+    const root = await tmpProject();
+    const wt = await tmpProject();
+    await put(root, '.polaris/tasks/c-1/state.yaml', 'kind: coding\nphase: specify\n');
+    await put(wt, '.polaris/tasks/c-1/state.yaml', 'kind: coding\nphase: tasks\n');
+
+    const runtime = readTaskRuntime(root, 'coding', 'c-1', wt);
+    expect(runtime.phase).toBe('tasks');
+  });
+
   it('state.yaml 缺失：stateMissing 为 true，title 回落产物文档标题或 task_id', async () => {
     const root = await tmpProject();
-    const missing = readTaskRuntime(root, 'coding', 'c-1', 'specify');
+    const missing = readTaskRuntime(root, 'coding', 'c-1');
     expect(missing.stateMissing).toBe(true);
     expect(missing.title).toBe('c-1');
 
     await put(root, '.polaris/tasks/c-1/intention.md', '# 我的意图\n\n正文\n');
-    const withDoc = readTaskRuntime(root, 'coding', 'c-1', 'specify');
+    const withDoc = readTaskRuntime(root, 'coding', 'c-1');
     expect(withDoc.title).toBe('我的意图');
   });
 
@@ -145,13 +158,13 @@ describe('readTaskRuntime', () => {
     await put(
       root,
       '.polaris/tasks/r-1/state.yaml',
-      ['kind: requirement', 'task_id: r-1', 'req_name: order-export', 'phase: idle', ''].join(
+      ['kind: requirement', 'task_id: r-1', 'req_name: order-export', 'phase: draft', ''].join(
         '\n',
       ),
     );
     await put(root, '.polaris/tasks/r-1/req_baseline.md', '# 订单导出需求基线\n');
 
-    const runtime = readTaskRuntime(root, 'requirement', 'r-1', 'draft');
+    const runtime = readTaskRuntime(root, 'requirement', 'r-1');
     expect(runtime.title).toBe('order-export');
     expect(runtime.phase).toBe('draft');
   });
@@ -161,30 +174,31 @@ describe('readTaskRuntime', () => {
     await put(
       root,
       '.polaris/tasks/d-1/state.yaml',
-      ['kind: debug', 'task_id: d-1', 'channel: bugfix', 'phase: idle', 'worktree:', '  path: /tmp/wt/d-1', ''].join(
+      ['kind: debug', 'task_id: d-1', 'channel: bugfix', 'phase: diagnose', 'worktree:', '  path: /tmp/wt/d-1', ''].join(
         '\n',
       ),
     );
-    const debug = readTaskRuntime(root, 'debug', 'd-1', 'diagnose');
+    const debug = readTaskRuntime(root, 'debug', 'd-1');
     expect(debug.channel).toBe('bugfix');
     expect(debug.worktreePath).toBe('/tmp/wt/d-1');
+    expect(debug.phase).toBe('diagnose');
 
     await put(root, '.polaris/testcases/t-1/state.yaml', 'kind: testcase\ntask_id: t-1\n');
-    const testcase = readTaskRuntime(root, 'testcase', 't-1', 'draft');
+    const testcase = readTaskRuntime(root, 'testcase', 't-1');
     expect(testcase.stateMissing).toBe(false);
   });
 
-  it('state.yaml 损坏时不抛错，title 回落', async () => {
+  it('state.yaml 损坏时不抛错，phase 与 title 回落', async () => {
     const root = await tmpProject();
     await put(root, '.polaris/tasks/c-2/state.yaml', 'kind: coding\n\tphase: [broken\n');
-    const runtime = readTaskRuntime(root, 'coding', 'c-2', 'plan');
-    expect(runtime.phase).toBe('plan');
+    const runtime = readTaskRuntime(root, 'coding', 'c-2');
+    expect(runtime.phase).toBe('');
     expect(runtime.title).toBe('c-2');
   });
 
-  it('游标 phase 为空串时原样返回（不猜）', async () => {
+  it('缺 state.yaml 时 phase 为空串（不猜）', async () => {
     const root = await tmpProject();
-    const runtime = readTaskRuntime(root, 'coding', 'c-3', '');
+    const runtime = readTaskRuntime(root, 'coding', 'c-3');
     expect(runtime.phase).toBe('');
   });
 });
@@ -239,7 +253,7 @@ describe('复选框进度', () => {
 });
 
 describe('scanArchivedTasks', () => {
-  it('.polaris/archive：kind 从归档内的 state.yaml 读，phase 标 archived', async () => {
+  it('.polaris/archive：kind 从归档内的 state.yaml 读（归档项不带阶段）', async () => {
     const root = await tmpProject();
     await put(root, '.polaris/archive/c-9/state.yaml', 'kind: coding\ntask_id: c-9\n');
     await put(root, '.polaris/archive/r-9/state.yaml', 'kind: requirement\ntask_id: r-9\n');
@@ -249,7 +263,8 @@ describe('scanArchivedTasks', () => {
     expect(byId.get('c-9')?.kind).toBe('coding');
     expect(byId.get('r-9')?.kind).toBe('requirement');
     expect(byId.get('c-9')?.source).toBe('archive');
-    expect(byId.get('c-9')?.phase).toBe('archived');
+    // 归档项的「阶段」是展示层合成值（`toTaskItem` 置 `archived`），扫描层不携带
+    expect(archived.every((t) => !('phase' in t))).toBe(true);
   });
 
   it('归档里读不到 kind 时给 null（不猜成 coding）', async () => {

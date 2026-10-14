@@ -32,41 +32,57 @@ version: 0.1
 
 ## 流程（按顺序执行，每一步未完成不得进入下一步）
 
-### Step 0：定位任务标识
+### Step 0：设置产物语言
 
-读取task标识列表：
+读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）。无配置时回退到当前用户请求语言。
 
+本阶段均以该语言为主语言。
+
+### Step 1：定位任务 + 恢复分发
+
+#### 1.1 选任务（游标枚举）
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill plan --repo-root "$REPO_ROOT" --phase plan)
+ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
 RTID_EXIT=$?
-# 存量兼容：升级前创建的变更，其 specify 出口未推进游标，phase 仍停在 specify
-if [ "$RTID_EXIT" = "0" ] && [ "$TASK_IDS" = "[]" ]; then
-  TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill plan --repo-root "$REPO_ROOT" --phase specify)
-  RTID_EXIT=$?
-fi
 ```
 
 - `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`）
 
-按 `$TASK_IDS` 数组长度解读：
+按 `$ROWS` 长度：
 
-- **唯一匹配**（恰好 1 个 id）→ 直接取该 `task_id`
-- **多个匹配** → 按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配** → 阻断，提示「未找到待接手的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}specify」（其 5.5 会把游标推进到 `plan`）
+| 长度 | 动作 |
+| ---- | ---- |
+| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
+| **唯一** | 记下该行 `task_id`，进入下面的判定 |
+| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
 
-> **本步为何按 `phase plan` 筛**：游标语义是「接下来要执行的阶段」；specify 5.5 已把自己推进到 `plan`，
-> 故本步与 design / tasks / build / verify 一致，按**自己的阶段名**筛选。
+候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
 
-### Step 1：Worktree 决策（提示性，非阻断）
+```
+- <task_id> (工作流：完整(full)，阶段：提案(plan)，技能：提案(plan))
+```
 
-#### 1.1 前置自检
+1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
+2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
+
+| `skill` | 含义 | 动作 |
+| ------- | ---- | ---- |
+| `== plan`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` 取该行值，跳到文末「上下文压缩恢复」表里对应 Step |
+| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`（**不要求**用户再敲命令）；本技能到此结束，**不得**建任务 / 推进阶段 |
+| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
+
+- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
+
+### Step 2：Worktree 决策（提示性，非阻断）
+
+#### 2.1 前置自检
 读 `.polaris/tasks/<task_id>/state.yaml` 的 `worktree.created_by_polaris_flow`。
 
 - 字段**已存在**（`true` 或 `false`）→ 跳过本步，输出 `[polaris-flow 开发]提案 - worktree：已决策（<true|false>），跳过本次询问。` 后进入 Step 2
-- 字段缺失 / 空 → 继续 1.2
+- 字段缺失 / 空 → 继续 2.2
 
-#### 1.2 询问用户
+#### 2.2 询问用户
 
 按 `./policies/decision-point.md` 协议：
 
@@ -80,7 +96,7 @@ fi
 - 需要并行开发，或当前分支有未提交工作 → 推荐 **A**
 - 变更预计很小（例如 ≤ 3 个文件）、无并行需求 → 推荐 **B**
 
-#### 1.3.A 用户选 A — 创建 worktree
+#### 2.3.A 用户选 A — 创建 worktree
 
 ```bash
 WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-create.sh" "$task_id" "$REPO_ROOT")
@@ -99,7 +115,7 @@ WT_EXIT=$?
 同步主仓 workflow.yaml（脚本内含锁 / 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set phase=plan --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set worktree-path="$target_path"
 ```
 
 在 `.polaris/tasks/<task_id>/state.yaml`（worktree 内路径优先）写入：
@@ -108,7 +124,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 输出 `[polaris-flow 开发]提案 - worktree：created at <target_path> on branch <target_branch>`。
 
-#### 1.3.B 用户选 B — 留在主仓库
+#### 2.3.B 用户选 B — 留在主仓库
 
 不动 git。更新主仓 `.polaris/tasks/<task_id>/state.yaml`：
 
@@ -116,24 +132,18 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 - `runtime.plan.worktree_decision: declined`
 - `phase: plan`
 
-同步 workflow.yaml（phase 切到 plan，worktree_path 仍为空）：
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set phase=plan
-```
-
 输出 `[polaris-flow 开发]提案 - worktree：用户选择留在主仓库，工作区未创建。工作路径为: $REPO_ROOT`。
 
-### Step 2：定位并校验 `intention.md`
+### Step 3：定位并校验 `intention.md`
 
-##### 2.1 定位（按优先级）
+##### 3.1 定位（按优先级）
 
-1. 若 `openspec/changes/<task_id>/intention.md` 已存在 → 视为已迁入；本步仅确认可读，后续若四件套已齐可从中断点续跑到 Step 3.5/4/5
+1. 若 `openspec/changes/<task_id>/intention.md` 已存在 → 视为已迁入；本步仅确认可读，后续若四件套已齐可从中断点续跑到 Step 4.5/4/5
 2. 否则读暂存：
-   - worktree 模式（1.3.A）：`<target_path>/.polaris/tasks/<task_id>/intention.md`
-   - 主仓模式（1.3.B）：`<main_repo_root>/.polaris/tasks/<task_id>/intention.md`
+   - worktree 模式（2.3.A）：`<target_path>/.polaris/tasks/<task_id>/intention.md`
+   - 主仓模式（2.3.B）：`<main_repo_root>/.polaris/tasks/<task_id>/intention.md`
 
-#### 2.2 检查文件存在性 + 完整性
+#### 3.2 检查文件存在性 + 完整性
 
 检查`intention.md`内容，根据情况处理：
 | 情况 | 处理 |
@@ -141,18 +151,18 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 | **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`（或 `/plan`）时的原始消息作为 plan 输入；输出 `[polaris-flow 开发]提案 - 未找到 intention.md，使用用户原始 prompt 作为 plan 输入。` 后跳到 Step 3.2 |
 | **文件存在**（暂存或已迁入） | 逐节检查**必含节**均存在且非空：目标 / 任务范围 / 验收场景及标准 / 宪法对齐 / 前提 / 结论（架构 + 技术选型）/ 待决问题 / 备选方案。缺节 → **阻断**，列出缺失节名，提示回到 specify 补全 |
 
-#### 2.3 用户最终确认
-按 `./policies/ask-question-react.md` 询问 `A. 确认 / B. 暂停回到 specify`，仅 A 进入 Step 3。
+#### 3.3 用户最终确认
+按 `./policies/ask-question-react.md` 询问 `A. 确认 / B. 暂停回到 specify`，仅 A 进入 Step 4。
 
-### Step 3：创建 Change 结构 + 初始化状态
+### Step 4：创建 Change 结构 + 初始化状态
 
-#### 3.1 创建 Change 结构
+#### 4.1 创建 Change 结构
 
 **立即执行：** 使用 Skill 工具加载 `opsx:new` / `openspec-new-change` 技能。禁止跳过此步骤。
 技能加载后，按其指引创建 change 骨架；
 change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全部生成后再写 `.polaris/workflow.yaml`。
 
-#### 3.2 组装输入
+#### 4.2 组装输入
 
 `read_file` `.polaris/tasks/<task_id>/intention.md`
 
@@ -172,13 +182,13 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 
 `tasks.md` 严格按 `./templates/tasks-template.md` 规则生成;
 
-#### 3.3 审查模式选择（阻塞）
+#### 4.3 审查模式选择（阻塞）
 
-##### 3.3.1 先判定推荐（不得代选）
+##### 4.3.1 先判定推荐（不得代选）
 
 在发问前，基于已读的 `intention.md`（或 fallback 原始 prompt）与 `state.yaml` 的**分级三字段**（`complexity_level` / `risk_level` / `current_tier`）做一次**推荐判定**，并在决策点中写明建议与依据。
 
-> 三字段由 `specify` Step 5.4.1 落盘（**必有**，不再是「若有」）；缺失（老任务 / 非 specify 入口）→ 按 `standard` 兜底并在决策点标注。信号表唯一源：`./policies/risk-signals.md`。
+> 三字段由 `specify` Step 6.4.1 落盘（**必有**，不再是「若有」）；缺失（老任务 / 非 specify 入口）→ 按 `standard` 兜底并在决策点标注。信号表唯一源：`./policies/risk-signals.md`。
 **禁止**用推荐直接写入 `artifact_review_mode` 或跳过询问。
 
 **推荐 A（`per_batch`）— 每批生成后立即审查**，满足任一即倾向 A：
@@ -209,9 +219,9 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 依据: <1–3 条命中信号>
 ```
 
-##### 3.3.2 用户决策点
+##### 4.3.2 用户决策点
 
-按 `./policies/decision-point.md` 暂停，询问（须带上 3.3.1 的推荐）：
+按 `./policies/decision-point.md` 暂停，询问（须带上 4.3.1 的推荐）：
 
 ```text
 即将按批次创建 OpenSpec 制品（顺序：proposal → specs → design → tasks）。
@@ -220,34 +230,34 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 建议: <A 或 B>（依据见上方）
 
 A. 是 — 每批生成后立即审查并冻结，再生成下一批（per_batch）
-B. 否 — 四件套全部生成完毕后，再在 Step 4.2 统一整体主审（after_all）
+B. 否 — 四件套全部生成完毕后，再在 Step 5.2 统一整体主审（after_all）
 ```
 
 | 选项 | 写入 `state.yaml` | 后续 |
 |------|-------------------|------|
-| A | `artifact_review_mode: per_batch` | Step 3.4 走 policy Mode A（§3+§4）→ 3.5 → 4.1 机械终检 → **仍进** Step 4.2 齐套主审 |
-| B | `artifact_review_mode: after_all` | Step 3.4 走 policy Mode B（仅 §3，**跳过 §4**）→ 3.5 → 4.1 机械终检 → Step 4.2 为**唯一**制品主审 |
+| A | `artifact_review_mode: per_batch` | Step 4.4 走 policy Mode A（§3+§4）→ 4.5 → 5.1 机械终检 → **仍进** Step 5.2 齐套主审 |
+| B | `artifact_review_mode: after_all` | Step 4.4 走 policy Mode B（仅 §3，**跳过 §4**）→ 4.5 → 5.1 机械终检 → Step 5.2 为**唯一**制品主审 |
 
 写入 `.polaris/tasks/<task_id>/state.yaml` 顶层 `artifact_review_mode`。
 
 同步在 `state.yaml` 写入：
 
-- `runtime.plan.review_round: 0`  （plan 主审轮次，从 0 起；每次 4.2 落盘后 +1）
+- `runtime.plan.review_round: 0`  （plan 主审轮次，从 0 起；每次 5.2 落盘后 +1）
 - `runtime.plan.review_log_file`：
   - 选 A → `openspec/changes/<task_id>/review-log.md`（Mode A 批内日志路径）
   - 选 B → `skipped:after_all`（无批内日志）
 
-#### 3.4 按模式执行分批生成
+#### 4.4 按模式执行分批生成
 
-`read_file ./policies/artifact-batch-generation.md`，按 3.3 已选模式执行（勿在本 skill 内另写一套循环)
+`read_file ./policies/artifact-batch-generation.md`，按 4.3 已选模式执行（勿在本 skill 内另写一套循环)
 
 执行后（无论 ok / failed）在 `.polaris/tasks/<task_id>/state.yaml` 写入：
 
 - `runtime.propose.opsx_propose_status`: `<ok|failed>`（四件套全部生成并通过本步校验为 `ok`，任一失败为 `failed`；如本步未执行写 `n/a`）
 
-#### 3.5 迁入 `intention.md`（唯一真相）
+#### 4.5 迁入 `intention.md`（唯一真相）
 
-Step 3.4 生成完成（Mode A 含批内审查）后执行。**禁止**在 `.polaris` 保留 intention 副本。
+Step 4.4 生成完成（Mode A 含批内审查）后执行。**禁止**在 `.polaris` 保留 intention 副本。
 
 1. 确认 `openspec/changes/<task_id>/` 目录存在。
 2. 若 `.polaris/tasks/<task_id>/intention.md` 存在：
@@ -264,13 +274,13 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 
 输出：`[polaris-flow 开发]提案 - 意图：moved to openspec/changes/<task_id>/intention.md（.polaris 无备份）`
 
-### Step 4：机械终检 + 提案整体评审（阻塞点）
+### Step 5：机械终检 + 提案整体评审（阻塞点）
 
-#### 4.1 机械终检（两种模式共用）
+#### 5.1 机械终检（两种模式共用）
 
-四件套已按 Step 3.4 落盘后（Mode A 另须批内 §4/冻结流程结束），做机械校验（**禁止脑补替代**）。通过后方可进入 4.2。
+四件套已按 Step 4.4 落盘后（Mode A 另须批内 §4/冻结流程结束），做机械校验（**禁止脑补替代**）。通过后方可进入 4.2。
 
-1. **四件套存在且非空**：`proposal.md`、`design.md`、`tasks.md` 非空；`specs/` 为目录且含至少一个非空文件。任一失败 → 回 Step 3.4 / policy §3 补齐，不得进入 4.2
+1. **四件套存在且非空**：`proposal.md`、`design.md`、`tasks.md` 非空；`specs/` 为目录且含至少一个非空文件。任一失败 → 回 Step 4.4 / policy §3 补齐，不得进入 5.2
 2. **`proposal.md`**：含问题背景、目标、范围、非目标
 3. **`design.md`**：含高层架构决策、方案选型，且含  
    `## Constitution Alignment`、`## Alternatives`、`## Premises`
@@ -285,7 +295,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 
 > **fallback**（无 intention、仅用户原始 prompt）：若 proposal/design 缺第 2/3 项部分节，可放宽不阻断，仅在摘要标 `(fallback)`；**四件套存在性与 `tasks-lint` 仍必须通过**。
 
-#### 4.2 主审 — `plan-review-agent`
+#### 5.2 主审 — `plan-review-agent`
 
 本步派发主审 subagent。评审对象是**四件套 + intention**；禁止内联重写评审标准。
 
@@ -293,8 +303,8 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 - **Mode B**：本步为**唯一**制品主审出口（policy 未跑 §4）。
 
 1. **能力**：读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；清单见 `$SUBAGENT_PROBE_CACHE`）。
-   - `PLATFORM_DEGRADATION=inline|unsupported` → 标注并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。**不调** probe。
-   - `SUPPORTS_SUBAGENT=true` → **不调** probe，直接派发固定 `plan-review-agent`。
+   - `PLATFORM_DEGRADATION=inline|unsupported` → 标注并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。**不派发 → 不涉及 probe**。
+   - `SUPPORTS_SUBAGENT=true` → **仍须 probe（H10）**：调用 `polaris{{SKN_SPR}}subagent-probe`（传 `platform`），随后派发固定 `plan-review-agent`。
    - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。`inline` / `unsupported` → 同上 decision-point。
 2. **派发**：`plan-review-agent`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。
 
@@ -325,7 +335,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 
 - `runtime.plan.review_round`：`runtime.plan.review_round + 1`（本次主审轮次；4.4 中重跑 4.2 时继续 +1）
 
-#### 4.3 Outside Voice（询问后可选）
+#### 5.3 Outside Voice（询问后可选）
 
 主审已落盘（未整步跳过）后：
 
@@ -351,34 +361,35 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 4. 通过可信度门禁后写入 `openspec/changes/<task_id>/reviews/openspec-review-report.md`。
 5. 宿主无 subagent → 按协议跳过 OV 并标注。
 
-#### 4.4 消化
+#### 5.4 消化
 
-1. 主审 `Verdict`：`BLOCK` / 未消化 Critical → **禁止**进 Step 5；修订四件套（必要时回 Step 3.4）→ **重跑 4.2**（最多 3 轮）；修订后若动过四件套须先重跑 **4.1** 机械终检。
+1. 主审 `Verdict`：`BLOCK` / 未消化 Critical → **禁止**进 Step 6；修订四件套（必要时回 Step 4.4）→ **重跑 5.2**（最多 3 轮）；修订后若动过四件套须先重跑 **4.1** 机械终检。
 2. `APPROVE_WITH_CONCERNS` → decision-point 确认或修订。
 3. OV tension / P0/P1 → 按 outside-voice 用户主权逐条决策；**禁止**自动改四件套。
 4. 主审重跑后再询 OV。
 
-### Step 5：完成 plan 阶段
+### Step 6：完成 plan 阶段
 
-校验通过、Step 3.5 完成、Step 4.1 机械终检通过、且 Step 4.2 已派发主审（或用户接受 SKIPPED）且无未消化 Critical → 更新 `state.yaml`：
+校验通过、Step 4.5 完成、Step 5.1 机械终检通过、且 Step 5.2 已派发主审（或用户接受 SKIPPED）且无未消化 Critical → 用脚本更新 `state.yaml`（`complete-phase` 写入 `runtime.plan.status=completed` 与 `runtime.plan.finished_at`）：
 
-```yaml
-runtime:
-  plan:
-    status: completed
-    worktree_decision: "<created|reused|declined>"           # Step 1.3 末写入
-    opsx_propose_status: "<ok|failed>"                      # Step 3.4 末写入
-    review_round: <N>                                       # Step 3.3.2 初始化为 0，Step 4.2 每轮 +1
-    review_log_file: "<path>|skipped:after_all"             # Step 3.3.2 按模式写入
-    review_report: openspec/changes/<task_id>/reviews/plan-review-report.md  # 或 skipped:<reason>
-    outside_voice: ran | skipped:<reason> | not_run:<reason>
-    outside_voice_report: openspec/changes/<task_id>/reviews/openspec-review-report.md  # 若 ran
-    finished_at: "<ISO>"
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase plan
+
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set "runtime.plan.worktree_decision=<created|reused|declined>" \
+  --set "runtime.plan.opsx_propose_status=<ok|failed>" \
+  --set "runtime.plan.review_round=<N>" \
+  --set "runtime.plan.review_log_file=<path|skipped:after_all>" \
+  --set runtime.plan.review_report=openspec/changes/<task_id>/reviews/plan-review-report.md \
+  --set "runtime.plan.outside_voice=<ran|skipped:<reason>|not_run:<reason>>" \
+  --set runtime.plan.outside_voice_report=openspec/changes/<task_id>/reviews/openspec-review-report.md
 ```
 
 任一项不满足 → 阻断并输出失败原因。
 
-#### 5.1 深化设计决策点（阻塞）
+#### 6.1 深化设计决策点（阻塞）
 
 plan 完成后，深度设计（design）是**可选**衔接阶段：只有完整链路（full，specify 起）在此决策；tweak / normal 不经过本 skill，天然无此决策。
 
@@ -395,12 +406,13 @@ B. 否 — 跳过深化，直接进入 plan（四件套已足够指导细计划�
 
 **风险轴闸门（`risk_level=critical` 时）**：本决策点**只保留 A**，不呈现 B —— 高危变更必须深化设计，不得跳过。发问时须写明依据（如 `risk_level=critical（命中 D4 破坏性契约变更）`）。降档须先由用户按 `./policies/decision-point.md` 显式下调 `risk_level`（两轴复核只升不降，`./policies/risk-signals.md` §6）。
 
-#### 5.2 按决策推进 phase
+#### 6.2 按决策推进阶段
 
-**A（深化）** → 推进 design 阶段：
+**A（深化）** → 推进 design 阶段（`complete-phase` 已由 Step 6 执行，此处复跑并带 `--next-phase` 前移舞台；表内外阶段均受同一白名单校验）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set phase=design
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase plan --next-phase design
 ```
 
 输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 覆写）。`
@@ -415,7 +427,8 @@ runtime:
 ```
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set phase=tasks
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase plan --next-phase tasks
 ```
 
 输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入；已跳过深度设计（runtime.design.status=skipped，tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 覆写）。`
@@ -432,19 +445,19 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ## 退出条件
 
-- 四件套存在且 Step 4.1 机械终检通过（含 `tasks-lint`）
-- Step 3.5 intention 已迁入或合法跳过
-- Step 4.2 主审已派发（或用户接受 SKIPPED）且无未消化 Critical
+- 四件套存在且 Step 5.1 机械终检通过（含 `tasks-lint`）
+- Step 4.5 intention 已迁入或合法跳过
+- Step 5.2 主审已派发（或用户接受 SKIPPED）且无未消化 Critical
 - Outside Voice 已询问并完成（ran / 用户跳过 / 宿主无法运行已标注）
-- Step 5.1 深化设计决策点已问询并记录
+- Step 6.1 深化设计决策点已问询并记录
 - `phase=design`（深化）或 `phase=tasks` 且 `runtime.design.status=skipped`（跳过深化）
 
 ## 上下文压缩恢复
 
 重载：`task_id`、`artifact_review_mode`、四件套路径、`review-log.md`（若有）、`reviews/plan-review-report.md`、`reviews/openspec-review-report.md`（若有）、停在哪一步。
-若停在 4.2/4.4 未消化 → 先完成评审消化，勿无故重跑 `/opsx:propose` 或整段 3.4。
-若停在 4.1 未通过 → 先补齐四件套 / 修 lint，再进 4.2。
-若停在 5.1 决策点 → 完成深化设计决策（A 深化 / B 跳过）后再按 5.2 推进 phase。
+若停在 5.2/5.4 未消化 → 先完成评审消化，勿无故重跑 `/opsx:propose` 或整段 5.4。
+若停在 5.1 未通过 → 先补齐四件套 / 修 lint，再进 5.2。
+若停在 6.1 决策点 → 完成深化设计决策（A 深化 / B 跳过）后再按 6.2 推进 phase。
 
 ## 自动衔接下一阶段
 

@@ -40,6 +40,8 @@ read openspec/memory/constitution.md
 | II | Library-First | ✅ / ❌ | {{DETAIL}} |
 ```
 
+**落盘**：违规清单作为**调用方报告的一节**嵌入 —— `verify` / `normal` / `tweak` 均写入各自的 `openspec/changes/<change_id>/reviews/verify-report.md` 的 Constitution 摘要节；独立调用时由调用方给定路径，未指定则仅会话输出（**无恢复点**）。
+
 ### 4. 违规处理
 
 若有任何 Critical 或 Major 违规：

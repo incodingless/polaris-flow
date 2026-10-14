@@ -10,7 +10,7 @@
 
 ## Reframe 历程
 <!-- 来自 normal Step 1.4，固定声明行 -->
-- 常规通道（normal）未执行 Reframe Check；原始诉求 <一句话>
+- 常规工作流（normal）未执行 Reframe Check；原始诉求 <一句话>
 
 ## 宪法对齐
 <!-- 来自 normal Step 1.3（加载宪法），逐条对齐 Core Principle -->
@@ -25,7 +25,7 @@
 
 ## 前提历史
 <!-- normal 未执行 Premise Challenge，固定声明行 -->
-- 无（normal 常规通道未执行 Premise Challenge）
+- 无（normal 常规工作流未执行 Premise Challenge）
 
 ## 目标
 <!-- 任务的需要达成的目标概述 -->

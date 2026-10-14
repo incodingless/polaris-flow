@@ -1,6 +1,6 @@
 # 出口检查 — tweak 收尾校验
 
-> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 6 引用。目标是让快速通道在**不接独立 verify 阶段**的前提下，仍然产出与完整链路同构的证据（metrics + 验证报告），保证 retro 的趋势数据不断档。
+> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 6 引用。目标是让快速工作流在**不接独立 verify 阶段**的前提下，仍然产出与完整链路同构的证据（metrics + 验证报告），保证 retro 的趋势数据不断档。
 >
 > 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` 的差异：`verify_mode` 固定 `light`；把 7 项完整验证压到 6 项；不做 detailed-design 深度比对（tweak 没有该产物）；代码审查已在 Step 5.5 做过，本步不重审。
 
@@ -155,7 +155,7 @@ else:  # team
 | 全部修复 | 回 tweak Step 5.3 重新 `/opsx:apply`（用户确认后）；本轮先写 `runtime.verify.status: failed` 与失败原因，**不**推进 phase |
 | 逐项处理 | Critical / Major 必须修；Minor / Nit 可接受偏差但须写入报告；存在任一 Critical / Major 时禁止「全部接受」 |
 | 接受偏差（仅非 blocking） | 记 `.polaris/overrides.log` + `verify-report.md`；team blocking 场景除外 |
-| 升到常规通道 | 命中新升档信号时可选；按 `./upgrade-check.md` §3 转交 normal |
+| 升到常规工作流 | 命中新升档信号时可选；按 `./upgrade-check.md` §3 转交 normal |
 
 ### 4.3 重试上限
 
@@ -177,7 +177,7 @@ else:  # team
 报告首行须标注来源：
 
 ```markdown
-> 本报告由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` 出口检查生成（tweak 快速通道，verify_mode=light）。
+> 本报告由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` 出口检查生成（tweak 快速工作流，verify_mode=light）。
 ```
 
 ---

@@ -4,7 +4,7 @@ description: "面向简单需求的单入口开发流程：一次会话内串行
 version: 0.1
 ---
 
-# Polaris 工作流 - 简单需求快速通道（tweak）
+# Polaris 工作流 - 简单需求快速工作流（tweak）
 
 <HARD-GATE>
 本 skill **仅**负责：在**单模块 / 单文件级、低风险**范围内，一次会话内串行完成「轻量澄清 → tasks 生成 → 实施 → 出口检查」，然后把 `phase` 推到 `ship`，由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 完成分支收尾与归档。
@@ -19,10 +19,10 @@ version: 0.1
 - **禁止**跳过 5 个 scorer 或伪造分数；**禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 就把 `phase` 推到 ship
 - **禁止**本阶段做分支合并 / PR / `/opsx:archive`（那是 ship）
 - **禁止**未完成出口校验（Step 6）就写 `runtime.build.status` / `runtime.verify.status=completed` 或推进 phase
-- **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]快速通道 - 进入 tweak Step <N>: <动作>`
+- **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]快速工作流 - 进入 tweak Step <N>: <动作>`
 </HARD-GATE>
 
-**启动时必须先输出**：`[polaris-flow 开发]快速通道 - 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak 技能。`
+**启动时必须先输出**：`[polaris-flow 开发]快速工作流 - 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak 技能。`
 
 ---
 
@@ -70,35 +70,28 @@ tweak 是简单档（tweak 档）的执行体。它把完整链路的 `specify �
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：环境准备 + draft 初始化
+### Step 0：进入任务
 
-使用 SessionStart 注入的路径（本 skill 内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
-
-- 优先：环境变量 `$PLUGIN_ROOT` / `$REPO_ROOT`
-- 兜底：source `.polaris/.cache/runtime-env`
-- 仍无 `$PLUGIN_ROOT` → 停止并报告阻塞原因（SessionStart 未注入环境变量），提示用户重启会话以触发 SessionStart
+见 `./policies/task-entry.md`（coding 三入口共用的一份流程）。
 
 ```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/task-init.sh" ]; then
-  echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
-  exit 2
-fi
-
-INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind coding)
-INIT_EXIT=$?
-echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
+ENTRY=$(bash "$PLUGIN_ROOT/scripts/task-entry.sh" \
+  --kind coding --as tweak --mode tweak --repo-root "$REPO_ROOT")
+ENTRY_EXIT=$?
 ```
 
-| `INIT_EXIT` | `status` | 含义 | 后续动作 |
-| ----------- | -------- | ---- | -------- |
-| 0 | `"ok"` | 成功 | 取 `draft_name`，进入 Step 1 |
-| 1 | `"existing"` | 存在未完成 draft | 按决策点协议询问 A/B/C/D（同 specify Step 1） |
-| 2 | —（stderr） | 参数/环境错误 | 停止并报告阻塞原因（按 stderr） |
-| 3 | —（stderr） | workflow 写入失败 | 按 H12 阻断 |
+`ENTRY_EXIT != 0` → **阻断**，按 stderr 处理。否则按返回的 `action` 分派（动作表见 policy §2）：
 
-`status="existing"` 时按 `./policies/decision-point.md` 暂停：**A 续写最新** / **B 选择指定** / **C 丢弃后重建** / **D 取消退出**。
+- `resume` → 跳到文末「上下文压缩恢复」表里中断点对应的 Step；用户不想续写时按 policy §5.2 处理
+- `handover` → **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`，**不建新任务**；本技能结束
+- `create` → `task_id` 已建好并注册（`mode=tweak` 已落盘）；**进入 Step 1**
+- `select` → 按 policy §3 列候选请用户选 1 个，再带 `--task-id <选中>` **重跑本节**
+- `resolve-drafts` → 按 policy §5.1 裁决后**重跑本节**
+- `block` → 把 `reason` / `state_path` / `phase` 交给用户人工确认，**停下**
 
-**状态行（H8）**：`[polaris-flow 开发]快速通道 - 开始编写变更简报：.polaris/tasks/<draft_name>/; workflow: appended entry phase=specify`
+本技能固定 **`mode=tweak`**（`task-entry` 只在新建时写入它；判定阶段一律用任务自己 state 里的值）。
+
+状态行（H8）：`[polaris-flow 开发]快速工作流 - 进入 tweak Step 0: 进入任务（<action>）`
 
 ### Step 1：轻量澄清（一次确认）
 
@@ -138,7 +131,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```text
 A. 确认 — 按此摘要推进，生成变更简报
 B. 需要修正 — 请直接说明要改哪一项（可自由输入）
-C. 超出简单需求 — 升到常规通道（normal）
+C. 超出简单需求 — 升到常规工作流（normal）
 ```
 
 | 用户选择 | 动作 |
@@ -281,10 +274,10 @@ phase: plan
 同步主仓 workflow.yaml（脚本内含锁 + 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$task_id" --set phase=plan --set worktree-path="$target_path"
+bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$task_id" --set worktree-path="$target_path"
 ```
 
-输出：`[polaris-flow 开发]快速通道 - worktree：created at <target_path> on branch <target_branch>`。
+输出：`[polaris-flow 开发]快速工作流 - worktree：created at <target_path> on branch <target_branch>`。
 
 #### 4.2 创建 change 骨架
 
@@ -301,7 +294,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/change-brief.md" \
 
 确认 `.polaris` 侧已不存在、目标路径存在且非空。**禁止**在 `.polaris` 保留简报副本。
 
-输出：`[polaris-flow 开发]快速通道 - 简报：moved to openspec/changes/<task_id>/change-brief.md（.polaris 无备份）`
+输出：`[polaris-flow 开发]快速工作流 - 简报：moved to openspec/changes/<task_id>/change-brief.md（.polaris 无备份）`
 
 #### 4.4 生成 `tasks.md`
 
@@ -334,10 +327,9 @@ runtime:
   build:
     status: in_progress
     build_mode: inline
-phase: build
 ```
 
-输出：`[polaris-flow 开发]快速通道: task_id=<task_id> ; worktree=main ; tasks=<N> 顶层任务`
+输出：`[polaris-flow 开发]快速工作流: task_id=<task_id> ; worktree=main ; tasks=<N> 顶层任务`
 
 ### Step 5：实施
 
@@ -429,17 +421,13 @@ runtime:
     verification_report: "openspec/changes/<task_id>/reviews/verify-report.md"
     scorer_results: { ... }
     finished_at: "<ISO>"
-phase: idle
-```
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill tweak --where-task-id "$task_id" --set phase=ship
+phase: ship
 ```
 
 输出：
 
 ```text
-快速通道完成：
+快速工作流完成：
   task_id : <task_id>
   tasks.md  : openspec/changes/<task_id>/tasks.md（全部 [x]）
   score     : <overall_score> (<score_level>)
@@ -453,7 +441,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 
 ```text
-[polaris-flow 开发]快速通道 - 阶段完成，状态已落盘。
+[polaris-flow 开发]快速工作流 - 阶段完成，状态已落盘。
 下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
 恢复：先读 openspec/changes/<task_id>/tasks.md 与 .polaris/tasks/<task_id>/state.yaml 的 tweak.* / build.* / verify.*，再从下一步技能的 Step 0 开始。
 ```
@@ -476,6 +464,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 | 中断位置 | 恢复动作 |
 |----------|----------|
+| 仅建了任务、未进入 Step 1 | 从 Step 1 续 |
 | Step 1.4 / 2.1 / 2.3 | 从该决策点续，不得跳过确认 |
 | Step 3 | 重跑升档判定（简报内容未变则结论不变） |
 | Step 4.5 lint 失败 | 修 `tasks.md` 后重跑 lint，勿重生成整份 |

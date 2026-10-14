@@ -1,22 +1,20 @@
 /**
  * 运行态读取：按 kind 定位并读取 `.polaris/<segment>/<taskId>/state.yaml`。
  *
- * **`phase` 不从这里取。** 权威 phase 是 `workflow.yaml` 游标项的值，由调用方传入
- * （见 `scan/tasks.ts` 的 `scanTaskList`）。原因是 `state.yaml.phase` 在 src/ 内
- * 零读取方，且 coding 族从不调用 `enter/complete-phase`，其值会长期停在建任务时写入的
- * `specify` —— 读它会让面板显示一个停住的错误阶段。
- * 依据：`docs/specs/2026-09-19-phase-truth-unification-design.md` §1.1。
+ * **`phase` 就在这里** —— 任务阶段（"下一步该谁接手"）的唯一存放处是 `state.yaml` 的顶层
+ * `phase`；游标（`workflow.yaml`）只回答"有哪些在途任务"和"任务在哪"（`worktree_path`）。
+ * 读取位置一律走 `resolveTaskStatePath`：`worktree_path` 非空 = 任务目录已搬进 worktree。
  */
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
-import { getTaskKindDir, getTaskKindStatePath } from '../../core/assets/polaris-paths.js';
+import { getTaskKindDir, resolveTaskStatePath } from '../../core/assets/polaris-paths.js';
 import { getKindArtifacts } from '../../core/config/task-kind-layout.js';
 import type { WorkflowTaskKind } from '../../core/config/workflow-state.js';
 
 export type TaskRuntime = {
-  /** 权威 phase（游标值），由调用方传入；缺失时为空串 */
+  /** `state.yaml` 的顶层 `phase`（语义 = 接下来要执行的阶段）；读不到时为空串 */
   phase: string;
   /** 通道；仅 debug 族有 */
   channel: string;
@@ -145,17 +143,17 @@ function modeFromState(state: Record<string, unknown>): string {
 /**
  * 读取任务运行态。
  *
- * @param cursorPhase 权威 phase，来自 `workflow.yaml` 游标项
+ * @param worktreePath 游标条目的 `worktree_path`；非空表示任务目录在 worktree 内
  */
 export function readTaskRuntime(
   projectRoot: string,
   kind: WorkflowTaskKind,
   taskId: string,
-  cursorPhase: string,
+  worktreePath = '',
 ): TaskRuntime {
-  const statePath = getTaskKindStatePath(projectRoot, kind, taskId);
+  const statePath = resolveTaskStatePath(projectRoot, kind, taskId, worktreePath);
   const base: TaskRuntime = {
-    phase: cursorPhase ?? '',
+    phase: '',
     channel: '',
     mode: '',
     title: '',
@@ -187,6 +185,7 @@ export function readTaskRuntime(
   }
 
   base.channel = typeof state.channel === 'string' ? state.channel : '';
+  base.phase = typeof state.phase === 'string' ? state.phase : '';
   base.mode = modeFromState(state);
   base.phaseStatuses = collectPhaseStatuses(state);
   base.title =

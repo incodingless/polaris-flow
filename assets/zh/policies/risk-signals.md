@@ -1,4 +1,4 @@
-# 变更分级信号表（跨通道唯一源）
+# 变更分级信号表（跨工作流唯一源）
 
 > **唯一源** —— 本表被三个消费点各取一片，任何地方**不得**再内联副本（`normal` 侧原表已改为引用本文件）。
 > 两轴 = **复杂度**（做多深）+ **风险**（做不做）；最终值 `current_tier = max(两轴)`。
@@ -16,7 +16,7 @@
 
 | 消费点 | 取哪片 | 回答 |
 |--------|--------|------|
-| `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 5 | §3 + §4 全表 | **通道**：tweak / normal / design |
+| `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 5 | §3 + §4 全表 | **工作流**：tweak / normal / design |
 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` Step 5.4 | §4 需求侧切片 + §6 合成 | **初判** `complexity_level` / `risk_level` |
 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 8 | §4 实现侧切片 + §5 glob | **复核** `risk_level`（只升不降） |
 
@@ -70,9 +70,9 @@
 
 > 与 `prd/discovery/policies/complexity-assessment-policy.md` §4「高危场景强制升档（一票否决）」**同构** —— 复用既有约定，不新造机制。
 
-## 7. 通道决策与分级的分工
+## 7. 工作流决策与分级的分工
 
 同一张表回答两个不同的问题，**不是**「同一件事两处判定」：
 
-- **通道**（`normal` Step 5）：问「这活儿该走哪条链路」→ 命降档门 → tweak；命升档门 → design
+- **工作流**（`normal` Step 5）：问「这活儿该走哪条链路」→ 命降档门 → tweak；命升档门 → design
 - **分级**（`specify` / `verify`）：问「要验多深、要不要卡」→ 两轴 → `current_tier`

@@ -39,6 +39,8 @@
 - [ ] 其他受影响文档
 ```
 
+**落盘**：报告写入 `openspec/memory/constitution-amend-<YYYYMMDD>.md`（与宪法同目录，作修正留痕）；纯咨询性试算（用户最终未确认修改）可不落盘。
+
 ### 4. 用户确认后执行
 
 - 更新 constitution.md

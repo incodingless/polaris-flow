@@ -182,10 +182,10 @@ draft:
    - 自检 A 编写规则(`./policies/writting-rules.md`)：检查是否混入技术代码、表名、接口名，有则改写为产品语言或者标记待确认；**检查模糊主观表述、技术指令性表述、未明确的逻辑判断条件、术语不统一；统一采用「用户故事+业务规则」格式**；
    - 自检 B 重点项管理(`./policies/key-points-management.md`)：取出本章关联的全部重点项，比对草稿，生成本章重点校验表格；
    - 自检 C 重点优化：核心结论是否用重点摘要区块/加粗突出；重大风险/验收标准是否高亮；不同优先级功能点是否用分隔线分开；标注不过度；
-3. **直接写入** `$REPO_ROOT/.polaris/tasks/<task_id>/draft/sessions/xx-章节名.md`（草稿态，全文仅此一次输出，避免二次消耗 Token）；
+3. **直接写入** `$REPO_ROOT/.polaris/tasks/<task_id>/draft/sessions/xx-章节名.md`（草稿态，全文仅此一次输出，避免二次消耗 Token）；同时在 `draft/sessions/chapter_state.md` 的该章名下记状态「已生成待确认」（首章生成前创建该文件，逐章更新）——中断恢复以它为准；
 4. 会话中只输出【本章要点摘要 + 本章重点校验表 + 章节文件路径（引导用户预览确认）】，不粘贴全文；
 5. 等待用户反馈（按 `./policies/decision-point.md` 暂停确认）：
-   - 用户确认 OK：标记该章 confirmed；进入下一章节；
+   - 用户确认 OK：把 `draft/sessions/chapter_state.md` 中该章状态由「已生成待确认」置为「已确认」（该文件是中断恢复判断续跑位置的**唯一依据**）；进入下一章节；
    - 用户提出修改意见：用增量编辑修改已落盘文件，重新自检，再次输出【摘要+校验表】，重复直到确认通过。
 
 #### 各章内容标准（融入最佳实践，6 章文件名不变）
@@ -258,13 +258,7 @@ draft:
 
 ### Step 6：完成 draft 阶段
 
-1. 推进 workflow 阶段至 refine
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind requirement --skill draft --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=refine
-```
-
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
+1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `refine` 就在这一步）：
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
@@ -272,22 +266,22 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --phase draft --next-phase refine
 ```
 
-3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
    先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
    —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 
 ```text
 [polaris-flow 需求工程] 编写初稿 - 阶段完成，状态已落盘。
 下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
-恢复：先读 .polaris/tasks/<task_id>/draft/prd-draft-v1.0.md 与 req_baseline.md，再从下一步技能的 Step 0 开始。
+恢复：先读 .polaris/tasks/<task_id>/draft/prd-draft-v1.0.md、draft/sessions/chapter_state.md 与 req_baseline.md，再从下一步技能的 Step 0 开始。
 ```
 
 ## 上下文压缩恢复
 
-重载：`task_id`、`draft/` 与 `sessions/` 下已落盘的产物、`state.yaml` 的 `draft.status`（`draft.gate` 已写入即表示初稿门禁已过）、本技能停在哪个 Step。
+重载：`task_id`、`draft/` 与 `sessions/` 下已落盘的产物、`draft/sessions/chapter_state.md`（逐章续跑的**唯一依据**）、`state.yaml` 的 `draft.status`（`draft.gate` 已写入即表示初稿门禁已过）、本技能停在哪个 Step。
 
 - **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
-- 停在 **Step 3（逐章生成）** → 读 `sessions/` 下各章节文件，识别已确认的章节，从**未确认的第一章继续**，不需要从头全部重写
+- 停在 **Step 3（逐章生成）** → 先读 `draft/sessions/chapter_state.md` 识别各章状态（**不靠回读章节文件推断**），从**未确认的第一章继续**，不需要从头全部重写
 - 停在 **Step 4（交叉验证）** → 直接重建覆盖矩阵（`baseline_index.json` 已落盘，无需重扫 Baseline）
 - 停在 **Step 5（质量自检 / 交付归档）** → 只补未完成的校验与初稿合并，**不重做** Step 3/4
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」

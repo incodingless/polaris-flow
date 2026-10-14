@@ -41,25 +41,42 @@ description: "把 plan 的高层 design.md 深化为可实施的详细技术设�
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：定位 任务标识 + 入口校验
-
-用 bash 读取工作流配置中有效变更的`task_id`：
+### Step 0：定位任务 + 恢复分发 + 入口校验
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --skill design --repo-root "$REPO_ROOT" --phase design)
+ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
 RTID_EXIT=$?
 ```
 
 - `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
+  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` /
+  `skill` / `skill_label` / `state_readable`
 
-按 `$TASK_IDS` 数组长度解读：
+按 `$ROWS` 长度：
 
-- **唯一匹配**（恰好 1 个 id）→ 直接取该 `task_id`
-- **多个匹配** → 按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配** → 阻断，提示「未找到 specify 阶段的 active change，请先执行 /polaris{{SKN_SPR}}coding{{SKN_SPR}}specify」
+| 长度 | 动作 |
+| ---- | ---- |
+| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
+| **唯一** | 记下该行 `task_id`，进入下面的判定 |
+| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
 
-> 若 entry 已是 `phase=design`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
+候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
+
+```
+- <task_id> (工作流：完整(full)，阶段：深度设计(design)，技能：深度设计(design))
+```
+
+1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
+2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
+
+| `skill` | 含义 | 动作 |
+| ------- | ---- | ---- |
+| `== design`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` 取该行值，跳到文末「上下文压缩恢复」表里对应 Step |
+| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`（**不要求**用户再敲命令）；本技能到此结束，**不得**建任务 / 推进阶段 |
+| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
+
+- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
 
 **入口校验**（失败 → 阻断）：
 
@@ -69,13 +86,7 @@ RTID_EXIT=$?
 | 提案评审 | 若存在 `reviews/plan-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 plan |
 | 尚未锁定 | 若 `runtime.design.status=completed` 且 `detailed-design.md` 已存在 → 询问 A 续写修订 / B 退出（禁止静默覆盖） |
 
-通过后：
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill design --where-task-id "$task_id" --set phase=design
-```
-
-更新 `state.yaml`：`phase: design`，`runtime.design.status: in_progress`。
+通过后更新 `state.yaml`：`phase: design`，`runtime.design.status: in_progress`。
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
@@ -180,8 +191,8 @@ canonical_spec: openspec
 #### 4.1 主审 — `design-review-agent`
 
 1. **能力**：读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；清单见 `$SUBAGENT_PROBE_CACHE`）。
-   - `PLATFORM_DEGRADATION=inline|unsupported` → 标注跳过并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。**不调** probe。
-   - `SUPPORTS_SUBAGENT=true` → **不调** probe，直接派发固定 `design-review-agent`。
+   - `PLATFORM_DEGRADATION=inline|unsupported` → 标注跳过并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。**不派发 → 不涉及 probe**。
+   - `SUPPORTS_SUBAGENT=true` → **仍须 probe（H10）**：调用 `polaris{{SKN_SPR}}subagent-probe`（传 `platform`），随后派发固定 `design-review-agent`。
    - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。`inline` / `unsupported` → 同上 decision-point。
 2. **派发**：注册名 / `subagent_type` = `design-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断，提示先 `polaris-flow init/update`。
 
@@ -239,19 +250,13 @@ canonical_spec: openspec
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase design
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase design --next-phase tasks
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.design.path=openspec/changes/<task_id>/detailed-design.md \
   --set runtime.design.review_report=openspec/changes/<task_id>/reviews/design-review-report.md \
   --set "runtime.design.outside_voice=<ran|skipped:<reason>|not_run:<reason>>" \
   --set runtime.design.outside_voice_report=openspec/changes/<task_id>/reviews/openspec-review-report.md
-```
-
-workflow阶段推进至规划阶段：
-
-```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill design --where-task-id "$task_id" --set phase=tasks
 ```
 
 输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<task_id>/detailed-design.md 已锁定。`
