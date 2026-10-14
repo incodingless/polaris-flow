@@ -9,7 +9,7 @@
 
 > **同名副本说明**（本文件在 `ship/` 与 `tweak/` 各有一份，随各自技能落盘，**不共享**）：
 >
-> - **本（ship）副本**：流程只消费 **§3 归档路径**（`ship/SKILL.md` Step 4.5）；**§2 在本侧无调用方**
+> - **本（ship）副本**：流程只消费 **§3 归档路径**（`ship/SKILL.md` Step 5.5）；**§2 在本侧无调用方**
 > - **`tweak` 副本**：额外承载 **§2 升档路径**（由 `upgrade-check.md` §3 调用，升档目标 `normal`）。本副本 §2 写的是 `plan`，与之不一致 —— **以 tweak 侧为准**
 > - 两副本在 §2 的目标技能与校验步骤上存在分叉，按上述对应关系理解；**改动其一须同步另一**（正式收敛为单一来源另案处理）
 
@@ -61,7 +61,7 @@
 
 ### 3.1 触发条件
 
-`polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` Step 5（归档询问）之前，满足**任一**即触发：
+`polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` Step 6（归档询问）之前，满足**任一**即触发：
 
 - `openspec/changes/<change_id>/change-brief.md` 存在，且 `proposal.md` / `design.md` / `specs/` 任一缺失
 - `state.yaml` 中 `workflow.mode == "tweak"`
@@ -108,7 +108,7 @@
 - `proposal.md` 含问题背景、目标、范围、非目标
 - `design.md` 含架构决策、方案选型，且含 `## Constitution Alignment` / `## Alternatives` / `## Premises`
 
-**失败处理**：不阻断交付。按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 现有规则处置——`runtime.ship.archive=failed`，写入 `archive_error`，`openspec/changes/<change_id>/` 保持原位，照常进入 Step 6.1 清游标。用户可事后手动补齐并运行 `openspec-cn archive <change_id>`。
+**失败处理**：不阻断交付。按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 现有规则处置——`runtime.ship.archive=failed`，写入 `archive_error`，`openspec/changes/<change_id>/` 保持原位，照常进入 Step 7.1 清游标。用户可事后手动补齐并运行 `openspec-cn archive <change_id>`。
 
 **禁止**：因补齐失败而回滚已完成的分支合并与 worktree 合回。
 

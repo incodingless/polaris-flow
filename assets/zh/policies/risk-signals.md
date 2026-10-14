@@ -16,9 +16,9 @@
 
 | 消费点 | 取哪片 | 回答 |
 |--------|--------|------|
-| `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 5 | §3 + §4 全表 | **工作流**：tweak / normal / design |
+| `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 6 | §3 + §4 全表 | **工作流**：tweak / normal / design |
 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` Step 5.4 | §4 需求侧切片 + §6 合成 | **初判** `complexity_level` / `risk_level` |
-| `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 8 | §4 实现侧切片 + §5 glob | **复核** `risk_level`（只升不降） |
+| `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 9 | §4 实现侧切片 + §5 glob | **复核** `risk_level`（只升不降） |
 
 > 「一次判定 ≠ 两次判定」：表唯一，判定点两个（`specify` 初判 / `verify` 复核），**职责正交**。
 
@@ -74,5 +74,5 @@
 
 同一张表回答两个不同的问题，**不是**「同一件事两处判定」：
 
-- **工作流**（`normal` Step 5）：问「这活儿该走哪条链路」→ 命降档门 → tweak；命升档门 → design
+- **工作流**（`normal` Step 6）：问「这活儿该走哪条链路」→ 命降档门 → tweak；命升档门 → design
 - **分级**（`specify` / `verify`）：问「要验多深、要不要卡」→ 两轴 → `current_tier`

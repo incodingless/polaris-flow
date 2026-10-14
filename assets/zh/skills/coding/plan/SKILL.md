@@ -34,9 +34,9 @@ version: 0.1
 
 ### Step 0：设置产物语言
 
-读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）。无配置时回退到当前用户请求语言。
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
-本阶段均以该语言为主语言。
+本阶段均以 `$LANG` 为主语言。
 
 ### Step 1：定位任务 + 恢复分发
 
@@ -188,7 +188,7 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 
 在发问前，基于已读的 `intention.md`（或 fallback 原始 prompt）与 `state.yaml` 的**分级三字段**（`complexity_level` / `risk_level` / `current_tier`）做一次**推荐判定**，并在决策点中写明建议与依据。
 
-> 三字段由 `specify` Step 6.4.1 落盘（**必有**，不再是「若有」）；缺失（老任务 / 非 specify 入口）→ 按 `standard` 兜底并在决策点标注。信号表唯一源：`./policies/risk-signals.md`。
+> 三字段由 `specify` Step 5.4.1 落盘（**必有**，不再是「若有」）；缺失（老任务 / 非 specify 入口）→ 按 `standard` 兜底并在决策点标注。信号表唯一源：`./policies/risk-signals.md`。
 **禁止**用推荐直接写入 `artifact_review_mode` 或跳过询问。
 
 **推荐 A（`per_batch`）— 每批生成后立即审查**，满足任一即倾向 A：

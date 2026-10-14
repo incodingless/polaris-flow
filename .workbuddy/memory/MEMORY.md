@@ -82,6 +82,21 @@
 - 大范围审计可并行 subagent 分族深读，但**必须逐条回验**。
 - ⚠️ 用户会用 **Typora** 打开 docs 下 md：外部变更后会**静默覆盖 AI 写入**。写前 `lsof` 查占用；写后复查 size/mtime 稳定。
 
+## 配置读写契约（2026-10-14 整改，勿回退）
+
+- **写 `state.yaml` 一律走 `scripts/task-state-entry.sh`**，**禁止**在技能里给 ```yaml``` 块让执行者直写
+  （直写绕过「锁 + 写后校验 + phase 校验」三者）。已整改落点：`coding/ship` Step 4/4.5、
+  `prototype/build` 的 `work_dir`（`set-identity --work-dir`）、`coding/{tweak,normal}/policies/exit-check.md`
+  的 `runtime.verify.*`、`tier-gate.md` / `upgrade-check.md` 的 `workflow.signals`。
+- **`task-state-entry set` 现校验顶层 `phase`**（走 `checkPhaseWrite`；非法阶段名 → exit 3）。
+  **`set` 亦支持 JSON 字面量**：`--set 'workflow.signals=["D1","D3"]'` 写**数组**（此前只当字符串写）。
+- **`config get <key>` 现支持点路径**（`platform` / `test.commands.unit` / `scorer.weights` …）；
+  `language` 保持原契约（输出 `zh`/`en`，供 `get-language-name.sh` 消费）。**`config set` 不存在**
+  （唯一消费者 verify 的 `test.*` 写入涉 `detect-test-command.sh` 契约，未做）。
+- **`language` 读取统一**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出**显示名** `中文`/`English`，非 ID）。
+- **`task-finalize` 的 state 写入持 `task-state-<id>.lock`**（此前无锁，与并发写者有竞态）。
+- 全文：`zh-skills-config-io-audit.md`（含「八、整改落盘」）。
+
 ## 流程约定
 - 双语言：技能先写中文，用户确认后再同步英文；**中英文未同步前不写 Changelog**。
 - `task-init` 只建目录 + `state.yaml`，**不写 workflow 游标**（`append-active` 是独立 op）。

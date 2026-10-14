@@ -13,8 +13,8 @@ description: "把 plan 的高层 design.md 深化为可实施的详细技术设�
 - **禁止**未按 `./policies/decision-point.md` 获得用户对设计方案的明确确认，就落盘 `detailed-design.md`
 - **禁止**重写 OpenSpec `proposal.md` / 高层 `design.md` / `tasks.md` 的结构或范围（深化 ≠ 替代）
 - **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<task_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
-- **禁止**跳过 Step 4 主审：必须派发 `design-review-agent`（评审逻辑在 agent 内，禁止在本 skill 内联重写或主代理自审冒充）
-- **禁止**跳过 Step 4 Outside Voice **询问**（按 `.polaris/policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
+- **禁止**跳过 Step 5 主审：必须派发 `design-review-agent`（评审逻辑在 agent 内，禁止在本 skill 内联重写或主代理自审冒充）
+- **禁止**跳过 Step 5 Outside Voice **询问**（按 `.polaris/policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
 - **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks`；写代码是 build）
 - **禁止**把本 skill 当成 tasks 主审：不派 `tasks-review-agent`、不写 `tasks-review-report.md`
 - **禁止**将专项设计写成 `design.md` 或放入任何子目录；专项必须为变更根目录下的 `<slug>-design.md`
@@ -30,7 +30,7 @@ description: "把 plan 的高层 design.md 深化为可实施的详细技术设�
 - 意图（只读）：`openspec/changes/<task_id>/intention.md`（plan 已迁入）
 - 深度设计产物：`openspec/changes/<task_id>/detailed-design.md`
 - 专项设计（可选，扁平）：`openspec/changes/<task_id>/<slug>-design.md`
-- 设计主审报告：`openspec/changes/<task_id>/reviews/design-review-report.md`（由 Step 4 落盘）
+- 设计主审报告：`openspec/changes/<task_id>/reviews/design-review-report.md`（由 Step 5 落盘）
 - Outside Voice 报告（若运行）：`openspec/changes/<task_id>/reviews/openspec-review-report.md`
 - 澄清检查点：`openspec/changes/<task_id>/brainstorm-summary.md`
 - OpenSpec 四件套：`openspec/changes/<task_id>/`
@@ -41,7 +41,13 @@ description: "把 plan 的高层 design.md 深化为可实施的详细技术设�
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：定位任务 + 恢复分发 + 入口校验
+### Step 0：设置产物语言
+
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+
+本阶段均以 `$LANG` 为主语言。
+
+### Step 1：定位任务 + 恢复分发 + 入口校验
 
 ```bash
 ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
@@ -94,7 +100,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 ```
 输出：`[polaris-flow 开发]设计: task_id=<task_id> ; phase=design`
 
-### Step 1：读取上游事实源
+### Step 2：读取上游事实源
 
 - `openspec/changes/<task_id>/proposal.md`
 - `openspec/changes/<task_id>/design.md`
@@ -102,17 +108,13 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 - `openspec/changes/<task_id>/specs/*/spec.md`
 - 若存在：`openspec/changes/<task_id>/intention.md`（只读）
 
-### Step 2：Brainstorming（带上下文）
+### Step 3：Brainstorming（带上下文）
 
-#### 2.1 加载 Superpowers `brainstorming`
+#### 3.1 加载 Superpowers `brainstorming`
 
 **立即执行：** 使用 Skill 工具加载 Superpowers `brainstorming`。禁止跳过。
 
-```bash
-LANGUAGE="$(cat "$REPO_ROOT/.polaris/config.yaml" | grep "language" | awk -F'"' '{print $2}')"
-```
-
-ARGUMENTS 必须含 `Language: $LANGUAGE`。
+ARGUMENTS 必须含 `Language: $LANG`（Step 0 已设）。
 
 加载后上下文：
 
@@ -127,18 +129,18 @@ OpenSpec Context: openspec/changes/<task_id>/*.md
 
 技能不可用 → 停止并提示安装。对话产出方案，**不**落盘 Design Doc。
 
-#### 2.2 增量更新 `brainstorm-summary.md`
+#### 3.2 增量更新 `brainstorm-summary.md`
 
 路径：`openspec/changes/<task_id>/brainstorm-summary.md`  
 未确认内容标「待确认」/「候选」。非 Design Doc，不替代 2.3。
 
-#### 2.3 用户确认设计方案（阻塞点）
+#### 3.3 用户确认设计方案（阻塞点）
 
-按 `./policies/decision-point.md` 暂停，展示技术方案 / 取舍风险 / 测试策略 / Spec Patch（如有）。确认前禁止落盘 `detailed-design.md`。确认 → Step 3；调整 → 回 2.1。
+按 `./policies/decision-point.md` 暂停，展示技术方案 / 取舍风险 / 测试策略 / Spec Patch（如有）。确认前禁止落盘 `detailed-design.md`。确认 → Step 4；调整 → 回 2.1。
 
-### Step 3：落盘深度设计
+### Step 4：落盘深度设计
 
-#### 3.1 写入 `detailed-design.md`
+#### 4.1 写入 `detailed-design.md`
 
 路径：`openspec/changes/<task_id>/detailed-design.md`
 
@@ -154,9 +156,9 @@ canonical_spec: openspec
 有 Spec Patch 则同时改 `specs/*/spec.md`。  
 输出：`[polaris-flow 开发]深度设计: wrote openspec/changes/<task_id>/detailed-design.md`
 
-#### 3.2 专项设计补充预检 + 落盘（阻塞点）
+#### 4.2 专项设计补充预检 + 落盘（阻塞点）
 
-**前置**：Step 3.1 的 `detailed-design.md` 已成功落盘。
+**前置**：Step 4.1 的 `detailed-design.md` 已成功落盘。
 
 `read_file ./policies/detailed-design-precheck.md` 并按其执行：
 
@@ -177,21 +179,21 @@ canonical_spec: openspec
 
 **禁止**：文件名 `design.md`（与四件套冲突）；写入 `design/` 或任何子目录；在 3.1 完成前跑本预检；确认后再发明另一套专项菜单。
 
-#### 3.3 主动式上下文压缩
+#### 4.3 主动式上下文压缩
 若配置 `context-compression: beta`，且在 **`detailed-design.md`、专项设计（若有）、状态证据均已成功持久化落盘后** 考虑主动式压缩。这样压缩后可从文件恢复，不会丢失尚未写入的设计判断。
 
-- 上下文窗口确有压力且存在可调用的原生压缩机制时触发一次，并按 `./policies/auto-transition.md` 的**层级 A 提示语模板**给出落盘产物与恢复点（`task_id`、Step 3 完成、`detailed-design.md` / `*-design.md`（若有）/ `brainstorm-summary.md` / OpenSpec 四件套）。然后进入 Step 4。
+- 上下文窗口确有压力且存在可调用的原生压缩机制时触发一次，并按 `./policies/auto-transition.md` 的**层级 A 提示语模板**给出落盘产物与恢复点（`task_id`、Step 4 完成、`detailed-design.md` / `*-design.md`（若有）/ `brainstorm-summary.md` / OpenSpec 四件套）。然后进入 Step 5。
 - 压缩只能由用户手动触发时，给出一次非阻塞建议并继续；**不得阻塞**、不得额外制造确认点
 - **不得**用 shell 命令或摘要伪造压缩 —— 「压缩上下文」与「新开会话」两词、两个提示语模板均以 `./policies/auto-transition.md` 的「压缩时机与恢复清单」为唯一来源
 
-### Step 4：设计评审（阻塞点）
+### Step 5：设计评审（阻塞点）
 
 本步派发主审 subagent，再按 Outside Voice 协议询问是否交叉评审；禁止在本 skill 内联重写评审标准。
 
-#### 4.1 主审 — `design-review-agent`
+#### 5.1 主审 — `design-review-agent`
 
 1. **能力**：读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；清单见 `$SUBAGENT_PROBE_CACHE`）。
-   - `PLATFORM_DEGRADATION=inline|unsupported` → 标注跳过并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。**不派发 → 不涉及 probe**。
+   - `PLATFORM_DEGRADATION=inline|unsupported` → 标注跳过并 decision-point：A 接受跳过进 Step 6 / B 阻断。不得 inline 假评审。**不派发 → 不涉及 probe**。
    - `SUPPORTS_SUBAGENT=true` → **仍须 probe（H10）**：调用 `polaris{{SKN_SPR}}subagent-probe`（传 `platform`），随后派发固定 `design-review-agent`。
    - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。`inline` / `unsupported` → 同上 decision-point。
 2. **派发**：注册名 / `subagent_type` = `design-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断，提示先 `polaris-flow init/update`。
@@ -212,7 +214,7 @@ canonical_spec: openspec
 
 3. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；将完整 **Design Review Report** 写入 `openspec/changes/<task_id>/reviews/design-review-report.md`。
 
-#### 4.2 Outside Voice（询问后可选）
+#### 5.2 Outside Voice（询问后可选）
 
 主审已落盘（未因无 subagent 整步跳过）后：
 
@@ -238,13 +240,13 @@ canonical_spec: openspec
 4. 通过可信度门禁后写入 `openspec/changes/<task_id>/reviews/openspec-review-report.md`；失败则标注 OV 作废并告知用户。
 5. 宿主无 subagent → 按协议自动跳过 OV 并标注（主审已在 4.1 处理）。
 
-#### 4.3 消化
+#### 5.3 消化
 
 1. 主审 `Verdict`：`BLOCK` / 未消化 Critical → 不得完成；`APPROVE_WITH_CONCERNS` → decision-point 确认或修订。
 2. 若有 OV：与主审 tension / P0/P1 按 outside-voice 用户主权逐条决策；**禁止**自动改设计。
 3. 修订 `detailed-design.md` / 专项后 → 重跑 4.1（最多 3 轮）；主审重跑后再询 OV。
 
-### Step 5：完成 design 阶段
+### Step 6：完成 design 阶段
 
 更新 `state.yaml`：
 
@@ -274,8 +276,8 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 ## 退出条件
 
 - `detailed-design.md` 已落盘且 frontmatter 合法
-- Step 2.3 用户已确认方案
-- Step 4 主审已派发（或用户接受主审 SKIPPED）且无未消化 Critical
+- Step 3.3 用户已确认方案
+- Step 5 主审已派发（或用户接受主审 SKIPPED）且无未消化 Critical
 - Outside Voice 已询问并完成（ran / 用户跳过 / 宿主无法运行已标注）
 - `phase=tasks`
 
@@ -285,11 +287,11 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 `reviews/design-review-report.md`、`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
 
 - **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
-- 停在 **Step 2.3** → 从决策点续；**不得**因为「`brainstorm-summary.md` 已写」自行判定为已确认
-- 停在 **Step 3.2（专项预检决策）** → 从决策点续，已确认过的专项不再重问
-- 停在 **Step 3.3（主动式压缩）** → 产物已落盘，直接进 Step 4
-- 停在 **Step 4.1 / 4.2** → 先完成 4.3 消化（未消化 Critical 不得完成）
-- 停在 **Step 5** → 只补状态写入与阶段推进，**不重做** Step 3
+- 停在 **Step 3.3** → 从决策点续；**不得**因为「`brainstorm-summary.md` 已写」自行判定为已确认
+- 停在 **Step 4.2（专项预检决策）** → 从决策点续，已确认过的专项不再重问
+- 停在 **Step 4.3（主动式压缩）** → 产物已落盘，直接进 Step 5
+- 停在 **Step 5.1 / 5.2** → 先完成 4.3 消化（未消化 Critical 不得完成）
+- 停在 **Step 6** → 只补状态写入与阶段推进，**不重做** Step 4
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
 
 ## 自动衔接下一阶段

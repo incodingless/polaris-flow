@@ -29,9 +29,9 @@ version: 0.1
 
 ### Step 0：设置产物语言
 
-读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）。无配置时回退到当前用户请求语言。
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
-本阶段所有提问、澄清摘要、`intention.md` 均以该语言为主语言。
+本阶段所有提问、澄清摘要、`intention.md` 均以 `$LANG` 为主语言。
 
 ### Step 1：选任务 → 判阶段
 
@@ -336,7 +336,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 - 档位定义与方向见 `./policies/risk-signals.md` §1；信号见 §4（需求侧重点 `D2` / `D6` / `D7`）；合成见 §6
 - `current_tier = max(complexity_level, risk_level)`（升档门优先）
-- **只初判不代决**：本步只落档位；需要用户拍板的仍是 `normal` Step 5 的工作流决策点，本步不得代选
+- **只初判不代决**：本步只落档位；需要用户拍板的仍是 `normal` Step 6 的工作流决策点，本步不得代选
 - 输出判定依据（命中信号编号，如 `D6,D7`），随 5.6 状态行一并呈现
 
 #### 5.5 推进阶段

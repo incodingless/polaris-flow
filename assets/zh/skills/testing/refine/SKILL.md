@@ -17,7 +17,7 @@ version: 0.1
 
 **启动时必须先输出**：`[polaris-flow 测试用例] 进入阶段: 完善与独立评审 — 使用 polaris{{SKN_SPR}}testing{{SKN_SPR}}refine 技能。`
 
-> **本技能与 `review` 的关系**：`review` 是**服务型技能**——不进相位表、不占游标，由本技能 **Step 6 以 subagent 派发**（主路径），也可由用户**独立触发**去评审既有用例集。二者关系与 `polaris{{SKN_SPR}}prd{{SKN_SPR}}refine` ↔ `polaris{{SKN_SPR}}prd{{SKN_SPR}}review`、`polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 14 完全同构。
+> **本技能与 `review` 的关系**：`review` 是**服务型技能**——不进相位表、不占游标，由本技能 **Step 6 以 subagent 派发**（主路径），也可由用户**独立触发**去评审既有用例集。二者关系与 `polaris{{SKN_SPR}}prd{{SKN_SPR}}refine` ↔ `polaris{{SKN_SPR}}prd{{SKN_SPR}}review`、`polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 15 完全同构。
 
 ## 判据（唯一源，本技能不复制）
 
@@ -110,7 +110,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 ### Step 6：派发独立评审（必走子步）
 
-> **本子步是「内嵌的独立评审」，不是阶段** —— 不占游标、不写 `phase`。形态对齐 `polaris{{SKN_SPR}}prd{{SKN_SPR}}refine` Step 4 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 14。
+> **本子步是「内嵌的独立评审」，不是阶段** —— 不占游标、不写 `phase`。形态对齐 `polaris{{SKN_SPR}}prd{{SKN_SPR}}refine` Step 4 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 15。
 
 #### 6.0 能力探测（一次探测，全程复用）
 

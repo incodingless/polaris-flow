@@ -1,6 +1,6 @@
 # 变更简报: <change_id>
 
-> **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` skill Step 2.2 引用。主代理读取本模板后按节顺序填充，不得删节、不得改节顺序。
+> **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` skill Step 3.2 引用。主代理读取本模板后按节顺序填充，不得删节、不得改节顺序。
 >
 > 各节的 `→` 行内注释标注了该节在两处下游的映射去向：
 > 1. **升档转交**：生成符合 `intention-template.md` 结构的 `intention.md`，交 `polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`（见 `policies/artifact-backfill.md` §2）
@@ -72,7 +72,7 @@
 
 **风险**（可为空）：<已知风险与缓解方式>
 
-**风险接受记录**（仅 Step 3 选 B 继续 tweak 时追加）：
+**风险接受记录**（仅 Step 4 选 B 继续 tweak 时追加）：
 
 - 命中升档信号：<U1 / U3 / ...>
 - 用户决策：继续 tweak
@@ -100,7 +100,7 @@
 
 ## 影响面
 
-<!-- → 不进四件套；仅作 Step 3 升档判定与 artifact-backfill 的 capability 命名输入 -->
+<!-- → 不进四件套；仅作 Step 4 升档判定与 artifact-backfill 的 capability 命名输入 -->
 
 - **涉及模块**：<模块 / 子系统清单，逐项列出>
 - **涉及文件**：<预计改动的文件路径清单>

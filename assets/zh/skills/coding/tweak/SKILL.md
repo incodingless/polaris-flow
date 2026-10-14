@@ -9,8 +9,8 @@ version: 0.1
 <HARD-GATE>
 本 skill **仅**负责：在**单模块 / 单文件级、低风险**范围内，一次会话内串行完成「轻量澄清 → tasks 生成 → 实施 → 出口检查」，然后把 `phase` 推到 `ship`，由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 完成分支收尾与归档。
 
-- **禁止**在 Step 3 升档检查完成前生成 `tasks.md` 或写任何 OpenSpec 制品
-- **禁止**跳过 `change-brief.md` 的用户整体确认（Step 2.3）就 finalize 目录名 / 生成制品
+- **禁止**在 Step 4 升档检查完成前生成 `tasks.md` 或写任何 OpenSpec 制品
+- **禁止**跳过 `change-brief.md` 的用户整体确认（Step 3.3）就 finalize 目录名 / 生成制品
 - **禁止**生成 `tasks.md` 前未 `read_file ./templates/tweak-tasks-template.md`
 - **禁止**跳过 `tasks-lint.sh` 或用脑补核对代替
 - **禁止**未按 `tweak-tasks-template.md` 的任务类型规则自动标注 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->`；**禁止**用全局开关把「新功能 / Bug 修复 / 含分支逻辑」类任务标成非 TDD（Test-First 是 Constitution NON-NEGOTIABLE）
@@ -18,7 +18,7 @@ version: 0.1
 - **禁止**调用 superpowers 的两个派发驱动器（H13，规则见 `./policies/hard-stops.md`）
 - **禁止**跳过 5 个 scorer 或伪造分数；**禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 就把 `phase` 推到 ship
 - **禁止**本阶段做分支合并 / PR / `/opsx:archive`（那是 ship）
-- **禁止**未完成出口校验（Step 6）就写 `runtime.build.status` / `runtime.verify.status=completed` 或推进 phase
+- **禁止**未完成出口校验（Step 7）就写 `runtime.build.status` / `runtime.verify.status=completed` 或推进 phase
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]快速工作流 - 进入 tweak Step <N>: <动作>`
 </HARD-GATE>
 
@@ -48,7 +48,7 @@ tweak 是简单档（tweak 档）的执行体。它把完整链路的 `specify �
 | ID | 在本 skill 的适用方式 |
 |----|---------------------|
 | H8 | 每个 Step 入口输出可见状态行 |
-| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 5.1）时。派发前**必须**先 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传 `platform`）并等待返回；**不得**以「默认通用」「已有注入」或「已有缓存」为由跳过 probe。默认 inline 路径不触发本条 |
+| H10 | **条件适用**：仅当用户显式要求 subagent 派发（Step 6.1）时。派发前**必须**先 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传 `platform`）并等待返回；**不得**以「默认通用」「已有注入」或「已有缓存」为由跳过 probe。默认 inline 路径不触发本条 |
 | H12 | 写 `.polaris/workflow.yaml` 走 `scripts/workflow-entry.sh`（内含 workflow.lock + 写后校验），不自写文件 |
 | H13 | 不调用两个 superpowers 派发驱动器 |
 
@@ -56,7 +56,7 @@ tweak 是简单档（tweak 档）的执行体。它把完整链路的 `specify �
 
 | 项 | 路径 / 值 |
 |----|-----------|
-| 变更简报（唯一真相） | `openspec/changes/<task_id>/change-brief.md`（Step 4.3 迁入前在 `.polaris/tasks/<task_id>/`） |
+| 变更简报（唯一真相） | `openspec/changes/<task_id>/change-brief.md`（Step 5.3 迁入前在 `.polaris/tasks/<task_id>/`） |
 | 实施计划 | `openspec/changes/<task_id>/tasks.md` |
 | 运行态 | `.polaris/tasks/<task_id>/state.yaml` |
 | 验证报告 | `openspec/changes/<task_id>/reviews/verify-report.md` |
@@ -70,7 +70,13 @@ tweak 是简单档（tweak 档）的执行体。它把完整链路的 `specify �
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：进入任务
+### Step 0：设置产物语言
+
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+
+本技能所有提问与产出物均采用 `$LANG`。
+
+### Step 1：进入任务
 
 见 `./policies/task-entry.md`（coding 三入口共用的一份流程）。
 
@@ -84,22 +90,22 @@ ENTRY_EXIT=$?
 
 - `resume` → 跳到文末「上下文压缩恢复」表里中断点对应的 Step；用户不想续写时按 policy §5.2 处理
 - `handover` → **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`，**不建新任务**；本技能结束
-- `create` → `task_id` 已建好并注册（`mode=tweak` 已落盘）；**进入 Step 1**
+- `create` → `task_id` 已建好并注册（`mode=tweak` 已落盘）；**进入 Step 2**
 - `select` → 按 policy §3 列候选请用户选 1 个，再带 `--task-id <选中>` **重跑本节**
 - `resolve-drafts` → 按 policy §5.1 裁决后**重跑本节**
 - `block` → 把 `reason` / `state_path` / `phase` 交给用户人工确认，**停下**
 
 本技能固定 **`mode=tweak`**（`task-entry` 只在新建时写入它；判定阶段一律用任务自己 state 里的值）。
 
-状态行（H8）：`[polaris-flow 开发]快速工作流 - 进入 tweak Step 0: 进入任务（<action>）`
+状态行（H8）：`[polaris-flow 开发]快速工作流 - 进入 tweak Step 1: 进入任务（<action>）`
 
-### Step 1：轻量澄清（一次确认）
+### Step 2：轻量澄清（一次确认）
 
-#### 1.1 消费附加上下文
+#### 2.1 消费附加上下文
 
 `/flow` 路由交接的 `附加上下文` 若为文件 / 目录 / 文字说明，**必须先完整读取**再进入 1.2。读取失败或内容与诉求明显无关 → 先回报用户再决定是否继续，不得静默跳过。
 
-#### 1.2 现场勘察
+#### 2.2 现场勘察
 
 在提问（或起草摘要）之前先做一次最小勘察，避免问出用户一句话就能答的问题：
 
@@ -107,11 +113,11 @@ ENTRY_EXIT=$?
 - 确认改动落点是否集中在单一模块
 - 结果记入后续简报的「影响面」节
 
-#### 1.3 加载宪法（注入点 A）
+#### 2.3 加载宪法（注入点 A）
 
-读取 `openspec/memory/constitution.md`（若存在且无占位符），供简报「宪法对齐」节与 Step 5/6 的注入点 C/D 使用。
+读取 `openspec/memory/constitution.md`（若存在且无占位符），供简报「宪法对齐」节与 Step 6/7 的注入点 C/D 使用。
 
-#### 1.4 一次理解确认（阻塞点）
+#### 2.4 一次理解确认（阻塞点）
 
 基于 1.1 + 1.2 + 用户原始诉求，先输出**理解摘要**（不走多轮追问），然后按 `./policies/decision-point.md` 暂停。
 
@@ -137,12 +143,12 @@ C. 超出简单需求 — 升到常规工作流（normal）
 | 用户选择 | 动作 |
 |----------|------|
 | A | 进入 1.5 |
-| B | 修改摘要后**重新发问**；修正轮次 > 2 → 视为需求不稳，进入 Step 3 升档检查 |
-| C | 直接进入 Step 3 升档（此刻无任何制品，转交成本为零） |
+| B | 修改摘要后**重新发问**；修正轮次 > 2 → 视为需求不稳，进入 Step 4 升档检查 |
+| C | 直接进入 Step 4 升档（此刻无任何制品，转交成本为零） |
 
 **信息不足时**：若用户诉求模糊到无法形成上述 6 项（例如只说「优化一下这个模块」），**不得臆测填充**——改为一次聚焦追问（最多 1 轮，合并成一条消息），拿到答复后再发理解确认。
 
-#### 1.5 拆分预检
+#### 2.5 拆分预检
 
 `read_file ./policies/task-split-precheck.md`，按 **§1 唯一判定门**判定。仅当**全部**满足才可跳过预检：
 
@@ -151,11 +157,11 @@ C. 超出简单需求 — 升到常规工作流（normal）
 - 预计产出 ≤ 1 个 delta spec 且 ≤ 3 个大任务
 - 不存在分阶段里程碑
 
-**不满足** → 进入 Step 3 升档检查（此时仍未生成任何制品）。
+**不满足** → 进入 Step 4 升档检查（此时仍未生成任何制品）。
 
-### Step 2：任务名 + 简报定稿
+### Step 3：任务名 + 简报定稿
 
-#### 2.1 任务名确认（阻塞点）→ 得到 `task_id`
+#### 3.1 任务名确认（阻塞点）→ 得到 `task_id`
 
 按 `./policies/decision-point.md` 暂停，让用户决定任务名（即后续目录名 / `task_id`）。**禁止**静默推断或自动落盘。
 
@@ -169,7 +175,7 @@ C. 超出简单需求 — 升到常规工作流（normal）
 
 名称与已有 `$REPO_ROOT/.polaris/tasks/` 目录冲突时，报告冲突并请用户另选。确认后**立即把 `task_id` 回填进 `change-brief.md` 首行** —— 该文件是名称的**唯一落盘载体**，**禁止**只留在会话上下文（会话丢失后无从恢复）。此时**尚未** `mv` 目录。
 
-#### 2.2 写入 `change-brief.md`（仍在 draft 目录）
+#### 3.2 写入 `change-brief.md`（仍在 draft 目录）
 
 落盘路径：`$REPO_ROOT/.polaris/tasks/<draft_name>/change-brief.md`
 
@@ -182,17 +188,17 @@ C. 超出简单需求 — 升到常规工作流（normal）
 | 一句话目标 / 问题与背景 / 范围 | 1.4 理解摘要要素 1–3 |
 | 验收标准 | 1.4 要素 4 |
 | 方案 | 1.4 要素 5 |
-| 宪法对齐 | Step 1.3 |
+| 宪法对齐 | Step 2.3 |
 | 前提与风险 | 1.4 要素 6 |
 | 备选方案 | 勘察中考虑过但未采用的方案 + 拒绝理由；无则写「无」 |
 | 待决问题 | 未关闭项；无则写「无」 |
-| 影响面 | Step 1.2 勘察结果（模块清单 / 文件清单 / 是否触碰数据实体 / 是否触碰核心链路） |
+| 影响面 | Step 2.2 勘察结果（模块清单 / 文件清单 / 是否触碰数据实体 / 是否触碰核心链路） |
 
-首行任务标识暂用占位 `# 变更简报: <TBD>`，Step 2.4 回填为真实 `task_id`。
+首行任务标识暂用占位 `# 变更简报: <TBD>`，Step 3.4 回填为真实 `task_id`。
 
-> 「影响面」节不是装饰——它是 Step 3 升档判定的唯一输入。
+> 「影响面」节不是装饰——它是 Step 4 升档判定的唯一输入。
 
-#### 2.3 用户整体确认 `change-brief.md`（阻塞点）
+#### 3.3 用户整体确认 `change-brief.md`（阻塞点）
 
 按 `./policies/decision-point.md` 暂停：
 
@@ -207,9 +213,9 @@ C. 超出简单需求 — 升到常规工作流（normal）
 | 模糊回复（「差不多」「可以吧」） | **不算确认** | 必须再问一次明确确认 |
 | 沉默 / 无回复 | **不算确认** | 同上 |
 
-**禁止**把 Step 1.4 的「确认」当作本步整体确认。
+**禁止**把 Step 2.4 的「确认」当作本步整体确认。
 
-#### 2.4 敲定目录名并更新 state（finalize）
+#### 3.4 敲定目录名并更新 state（finalize）
 
 > **会话丢失后的恢复**：`task_id` 从 `change-brief.md` 首行读（2.1 已回填真值）；`draft_name` 从 `.polaris/tasks/` 下的 `draft-*` 目录推断 —— **两者都不依赖会话记忆**，本步因此可在新会话中执行。
 
@@ -221,25 +227,25 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 
 | `FINAL_EXIT` | 含义 | 后续动作 |
 | ------------ | ---- | -------- |
-| 0 | 成功 | 进入 Step 3 |
+| 0 | 成功 | 进入 Step 4 |
 | 1 | 目标目录已存在 | 停止并报告阻塞原因（提示用户改名或清理后重试） |
 | 2 | 参数/环境错误 | 停止并报告阻塞原因（按 stderr） |
 | 3 | workflow rename 失败 | 按 H12 阻断 |
 
 回填 `change-brief.md` 首行为真实 `task_id`。
 
-### Step 3：升档检查（阻塞点）
+### Step 4：升档检查（阻塞点）
 
 `read_file ./policies/upgrade-check.md`，按其中的信号表对简报做一次判定。这是 tweak 唯一的「规模守门」，位置刻意放在 **brief 定稿之后、tasks 生成之前**——此前转交成本为零。
 
 - **命中任一信号** → 按 `./policies/decision-point.md` 暂停：**A 升到 normal** / **B 继续 tweak 并记录风险**
   - A → 按 `upgrade-check.md` 的转交动作执行，本 skill 结束
-  - B → 把命中信号写入 `state.yaml: workflow.signals[]`，在简报「前提与风险」节追加风险接受记录，进入 Step 4
-- **未命中** → 直接进入 Step 4
+  - B → 把命中信号写入 `state.yaml: workflow.signals[]`，在简报「前提与风险」节追加风险接受记录，进入 Step 5
+- **未命中** → 直接进入 Step 5
 
-### Step 4：生成 `tasks.md`
+### Step 5：生成 `tasks.md`
 
-#### 4.1 worktree（默认不创建）
+#### 5.1 worktree（默认不创建）
 
 tweak 默认留在主仓库，不询问。写入 `.polaris/tasks/<task_id>/state.yaml`：
 
@@ -249,7 +255,7 @@ worktree:
 phase: plan
 ```
 
-用户**显式**要求 worktree 时，按以下步骤创建并同步元信息（等价 plan 的 worktree 创建流程；此时 ship 的 Step 3 合回逻辑照常生效）：
+用户**显式**要求 worktree 时，按以下步骤创建并同步元信息（等价 plan 的 worktree 创建流程；此时 ship 的 Step 4 合回逻辑照常生效）：
 
 ```bash
 WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-create.sh" "$task_id" "$REPO_ROOT")
@@ -279,13 +285,13 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 输出：`[polaris-flow 开发]快速工作流 - worktree：created at <target_path> on branch <target_branch>`。
 
-#### 4.2 创建 change 骨架
+#### 5.2 创建 change 骨架
 
 **立即执行：** 使用 Skill 工具加载 `opsx:new` / `openspec-new-change`。禁止跳过此步骤。
 
 > 必须创建骨架——否则 `openspec/changes/<task_id>/` 目录不合法，ship 的 `openspec-cn archive` 会失败。
 
-#### 4.3 迁入 `change-brief.md`（唯一真相）
+#### 5.3 迁入 `change-brief.md`（唯一真相）
 
 ```bash
 mv "$REPO_ROOT/.polaris/tasks/$task_id/change-brief.md" \
@@ -296,15 +302,15 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/change-brief.md" \
 
 输出：`[polaris-flow 开发]快速工作流 - 简报：moved to openspec/changes/<task_id>/change-brief.md（.polaris 无备份）`
 
-#### 4.4 生成 `tasks.md`
+#### 5.4 生成 `tasks.md`
 
 **强制前置**：`read_file ./templates/tweak-tasks-template.md`，按其节顺序填充。
 
 与完整链路的关键差异：plan 产出的是**粗骨架**（等 tasks 覆写），tweak **没有 tasks 阶段**，因此必须一次写成**可执行细计划**——含 Files / Interfaces / 可直接复制的验证命令。
 
-规模硬约束：**顶层任务 ≤ 3**（文档同步组不计入）。推导过程中发现需要 > 3 个顶层任务 → 停止生成，回到 Step 3 升档。
+规模硬约束：**顶层任务 ≤ 3**（文档同步组不计入）。推导过程中发现需要 > 3 个顶层任务 → 停止生成，回到 Step 4 升档。
 
-#### 4.5 tasks lint
+#### 5.5 tasks lint
 
 ```bash
 LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
@@ -314,7 +320,7 @@ LINT_EXIT=$?
 - exit 0 → 通过
 - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑
 
-#### 4.6 状态写入
+#### 5.6 状态写入
 
 ```yaml
 workflow:
@@ -322,7 +328,7 @@ workflow:
   status: in_progress
   tdd_mode: auto_by_task_type
   build_mode: inline        # 或 subagent_dispatch（仅用户显式要求）
-  signals: []               # 命中的升档信号（Step 3 选 B 时记录）
+  signals: []               # 命中的升档信号（Step 4 选 B 时记录）
 runtime:
   build:
     status: in_progress
@@ -331,9 +337,9 @@ runtime:
 
 输出：`[polaris-flow 开发]快速工作流: task_id=<task_id> ; worktree=main ; tasks=<N> 顶层任务`
 
-### Step 5：实施
+### Step 6：实施
 
-#### 5.1 执行方式（默认 inline，不询问）
+#### 6.1 执行方式（默认 inline，不询问）
 
 默认 `build_mode=inline`：主代理在本会话内执行 `/opsx:apply`。**不发起询问**（简单需求问执行方式属于过度确认）。
 
@@ -344,7 +350,7 @@ runtime:
 3. 若只要默认通用（`SUPPORTS_SUBAGENT=true` 且 degradation 空）→ `subagent-dispatch`（`agent=null`）
 4. 若要从清单选 agent：读 probe 返回的 `agents`（或 `$SUBAGENT_PROBE_CACHE`）选 id，再 dispatch
 
-#### 5.2 Constitution 注入点 C
+#### 6.2 Constitution 注入点 C
 
 在每个 task 的实施动作**之前**，必须输出一行：
 
@@ -354,7 +360,7 @@ runtime:
 
 inline 与 subagent 分支同样适用（subagent 分支须写入启动 prompt）。
 
-#### 5.3 执行 apply
+#### 6.3 执行 apply
 
 调用 `/opsx:apply <task_id>`。
 
@@ -362,22 +368,22 @@ inline 与 subagent 分支同样适用（subagent 分支须写入启动 prompt�
 - **禁止**用全局开关覆盖 `tasks.md` 内的 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->` 标注
 - **禁止**借机重写 `change-brief.md` 的目标与范围结论；发现计划缺陷 → 暂停回报用户，不静默改 Scope
 
-#### 5.4 apply 中途 pause / error
+#### 6.4 apply 中途 pause / error
 
 - **paused**：按 apply 给出的原因与选项，用 decision-point 问用户；用户选继续 → 再次 `/opsx:apply`
 - **errored**：阻断，报告错误；不写 `runtime.build.status=completed`
 
-#### 5.5 轻量代码审查（固定 `standard`，不询问）
+#### 6.5 轻量代码审查（固定 `standard`，不询问）
 
 apply 完成后跑**一次** `superpowers:requesting-code-review`，范围 = 本次 diff + `tasks.md` + 测试结果，只查正确性 / 安全 / 边界。
 
 | 发现级别 | 处理 |
 |----------|------|
 | Critical | **阻断**，回 5.3 修复 |
-| Major | 不阻断本步，但必须记入 `reviews/verify-report.md`，并在 Step 6.4 由用户逐条决策 |
+| Major | 不阻断本步，但必须记入 `reviews/verify-report.md`，并在 Step 7.4 由用户逐条决策 |
 | 技能不可用 | 标注跳过原因，记入报告；不阻断 |
 
-### Step 6：出口检查
+### Step 7：出口检查
 
 `read_file ./policies/exit-check.md` 并按其执行，包含四部分：
 
@@ -394,7 +400,7 @@ apply 完成后跑**一次** `superpowers:requesting-code-review`，范围 = 本
 
 失败决策的严重程度判定、重试上限（3 轮后收敛为两选项）、不确定性原则（宁可标轻）均按 `exit-check.md` 执行，与 verify 保持一致。
 
-### Step 7：状态批量补写 + 推进 ship
+### Step 8：状态批量补写 + 推进 ship
 
 出口校验全部通过后，**一次性**完成所有状态写入——这是 tweak 与完整链路的第二个关键差异：中间不推 phase，全程只有这一 workflow 写。
 
@@ -456,7 +462,7 @@ phase: ship
 - 配置修改 / 重命名 / 文档更新 / 依赖升级 / 构建脚本 / 脚手架 → `<!-- 非 TDD 任务 -->`（3 步）
 - 无法判定 → **默认 TDD**
 
-理由：Constitution 里 Test-First 是 `NON-NEGOTIABLE`。若用全局开关把小新功能标成非 TDD，会在 Step 6 的 Constitution 审计上直接撞 Critical。tweak 的「省事」来自**少切换、少确认**，不是来自降低测试纪律；而 ≤ 3 个顶层任务的规模上限保证了 TDD 成本可控。
+理由：Constitution 里 Test-First 是 `NON-NEGOTIABLE`。若用全局开关把小新功能标成非 TDD，会在 Step 7 的 Constitution 审计上直接撞 Critical。tweak 的「省事」来自**少切换、少确认**，不是来自降低测试纪律；而 ≤ 3 个顶层任务的规模上限保证了 TDD 成本可控。
 
 ## 上下文压缩恢复
 
@@ -464,13 +470,13 @@ phase: ship
 
 | 中断位置 | 恢复动作 |
 |----------|----------|
-| 仅建了任务、未进入 Step 1 | 从 Step 1 续 |
-| Step 1.4 / 2.1 / 2.3 | 从该决策点续，不得跳过确认 |
-| Step 3 | 重跑升档判定（简报内容未变则结论不变） |
-| Step 4.5 lint 失败 | 修 `tasks.md` 后重跑 lint，勿重生成整份 |
-| Step 5.3 apply pause | 从 5.3 续，勿重选模式 |
-| Step 6 失败决策 | 从决策点续，勿重跑已通过的检查项 |
-| Step 7 之后 | 只补 ship 交接，勿重跑 apply |
+| 仅建了任务、未进入 Step 2 | 从 Step 2 续 |
+| Step 2.4 / 3.1 / 3.3 | 从该决策点续，不得跳过确认 |
+| Step 4 | 重跑升档判定（简报内容未变则结论不变） |
+| Step 5.5 lint 失败 | 修 `tasks.md` 后重跑 lint，勿重生成整份 |
+| Step 6.3 apply pause | 从 5.3 续，勿重选模式 |
+| Step 7 失败决策 | 从决策点续，勿重跑已通过的检查项 |
+| Step 8 之后 | 只补 ship 交接，勿重跑 apply |
 
 ## 退出条件
 

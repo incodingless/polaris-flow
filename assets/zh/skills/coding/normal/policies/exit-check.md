@@ -1,8 +1,8 @@
 # 出口检查 — normal 收尾校验
 
-> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 9 引用。目标是让常规工作流在**不接独立 verify 阶段**的前提下，仍然产出与完整链路同构的证据（metrics + 验证报告），保证 retro 的趋势数据不断档。
+> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 10 引用。目标是让常规工作流在**不接独立 verify 阶段**的前提下，仍然产出与完整链路同构的证据（metrics + 验证报告），保证 retro 的趋势数据不断档。
 >
-> 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` 的差异：`verify_mode` 固定 `light`；不做 detailed-design 深度比对（normal 没有该产物）；C6 对照 **specs 验收场景**（normal 有真实规格，比 tweak 的 change-brief 对照更强）；代码审查已在 Step 8.5 做过，本步不重审。
+> 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` 的差异：`verify_mode` 固定 `light`；不做 detailed-design 深度比对（normal 没有该产物）；C6 对照 **specs 验收场景**（normal 有真实规格，比 tweak 的 change-brief 对照更强）；代码审查已在 Step 9.5 做过，本步不重审。
 
 ## 执行顺序
 
@@ -54,7 +54,13 @@ bash "$PLUGIN_ROOT/scripts/constitution-validity.sh"   # 0=有效 / 1=无效 / 2
 
 输出格式照 `constitution-audit.md` §3。累计的 Critical + Major 条数记为 metrics 的 `audit.violations`，核对项总数记为 `audit.total_checks`（无明确分母时填 1）。
 
-写入 `state.yaml`：`runtime.verify.constitution_valid: <true|false>`。
+写入 `state.yaml`（**走脚本**，勿直接编辑文件——它持锁且写完校验）：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.verify.constitution_valid=<true|false>
+```
 
 ---
 
@@ -82,7 +88,7 @@ TS=$(date -u +%Y%m%d-%H%M%S)
 # 写入 .polaris/metrics/${TS}-metrics.json
 ```
 
-结构与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 7.2 **完全一致**——这是 retro 能统一聚合的前提：
+结构与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 8.2 **完全一致**——这是 retro 能统一聚合的前提：
 
 ```json
 {
@@ -114,7 +120,14 @@ overall_score = round( Σ(score_i × w_i) / Σ(w_i) )
 - `w_i = 0` → 不参与 overall，但仍写入 `scorers[]`
 - `Σ(w_i) = 0` → `overall_score = 0`，reason 注明「所有 scorer 权重为 0」
 
-写入 `state.yaml`：`runtime.verify.overall_score`、`runtime.verify.scorer_results`。
+写入 `state.yaml`（**走脚本**）：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.verify.overall_score=<N> \
+  --set 'runtime.verify.scorer_results=[{"scorer":"…","score":N,"weight":N,"reason":"…"}]'
+```
 
 ### 3.4 Mode 分发
 
@@ -150,7 +163,7 @@ else:  # team
 
 | 选择 | 动作 |
 |------|------|
-| 全部修复 | 回 normal Step 8.3 重新 `/opsx:apply`（用户确认后）；本轮先写 `runtime.verify.status: failed` 与失败原因，**不**推进 phase |
+| 全部修复 | 回 normal Step 9.3 重新 `/opsx:apply`（用户确认后）；本轮先写 `runtime.verify.status: failed` 与失败原因，**不**推进 phase |
 | 逐项处理 | Critical / Major 必须修；Minor / Nit 可接受偏差但须写入报告；存在任一 Critical / Major 时禁止「全部接受」 |
 | 接受偏差（仅非 blocking） | 记 `.polaris/overrides.log` + `verify-report.md`；team blocking 场景除外 |
 | 升到完整链路 | 命中升档信号（`./tier-gate.md` §2）时可选；按其 §2.3 转交 design |
@@ -169,8 +182,8 @@ else:  # team
 2. Constitution 审计摘要（核对项、violations、Critical / Major 分级）
 3. `overall_score` 与 `score_level`
 4. 5 个 scorer 的逐项 score + reason
-5. Step 8.5 代码审查的 Major 项及其处置结论
-6. Step 7 合并主审的遗留 concerns 及其处置结论
+5. Step 9.5 代码审查的 Major 项及其处置结论
+6. Step 8 合并主审的遗留 concerns 及其处置结论
 7. 接受的偏差（若有）及原因
 
 报告首行须标注来源：

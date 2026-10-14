@@ -18,8 +18,8 @@
 | **U4** | 数据实体变更 | 「新增或变更数据实体」为「有」（表结构 / schema / 迁移脚本） |
 | **U5** | 触碰核心链路 | 「触碰核心链路」为「有」（鉴权 / 支付 / 权限 / 对外 API 契约 / 数据一致性） |
 | **U6** | 待决问题未关闭 | 「待决问题」节非空，且该问题会影响方案选择 |
-| **U7** | 需求不稳 | Step 1.4 的理解确认修正轮次 > 2（由主代理在调用本 policy 时传入） |
-| **U8** | 拆分预检未过 | Step 1.5 未满足 `task-split-precheck.md` §1 唯一判定门 |
+| **U7** | 需求不稳 | Step 2.4 的理解确认修正轮次 > 2（由主代理在调用本 policy 时传入） |
+| **U8** | 拆分预检未过 | Step 2.5 未满足 `task-split-precheck.md` §1 唯一判定门 |
 
 **未命中任何信号** → 直接继续 tweak，无需询问。
 
@@ -41,11 +41,11 @@ B. 继续 tweak — 记录风险接受后按快速工作流执行
 | 选项 | 动作 |
 |------|------|
 | **A** | 执行 §3 转交动作，本 skill 结束 |
-| **B** | 执行 §4 风险接受记录，继续 tweak Step 4 |
+| **B** | 执行 §4 风险接受记录，继续 tweak Step 5 |
 
 ## 3. 转交动作（用户选 A）
 
-目标：让 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` 拿到结构完整的 `intention.md`，直接进入其 Step 1.5 写入（映射改写到位即一次通过，无需 fallback）。
+目标：让 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` 拿到结构完整的 `intention.md`，直接进入其 Step 2.5 写入（映射改写到位即一次通过，无需 fallback）。
 
 ### 3.1 生成 `intention.md`
 
@@ -93,7 +93,12 @@ phase: plan
 
 ## 4. 风险接受记录（用户选 B）
 
-1. `state.yaml` 写入 `workflow.signals: ["U1","U5"]`（命中编号列表）
+1. 用脚本记录信号（勿直接编辑 `state.yaml`；编号按实际命中替换）：
+   ```bash
+   bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+     --repo-root "$REPO_ROOT" --task-id "$change_id" --kind coding \
+     --set 'workflow.signals=["U1","U5"]'
+   ```
 2. 在 `change-brief.md`「前提与风险」节追加「风险接受记录」三行（命中信号 / 用户决策 / 日期）——模板已预留该结构
 3. 输出：
 
@@ -101,7 +106,7 @@ phase: plan
 [polaris-flow 开发]快速工作流 - 用户选择继续 tweak：已记录风险接受（信号 <U..>）
 ```
 
-4. 继续 tweak Step 4。**后续 Step 5 / Step 6 不得因同一信号再次询问**——已持久化的决策不重复发问。
+4. 继续 tweak Step 5。**后续 Step 6 / Step 7 不得因同一信号再次询问**——已持久化的决策不重复发问。
 
 ## 5. 断点恢复
 

@@ -1,7 +1,7 @@
 # tasks.md 模板与规则（tweak 快速工作流）
 
 > **重要**：
-> - 本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 4.4 引用；生成前**必须** `read_file` 重读本文件。
+> - 本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 5.4 引用；生成前**必须** `read_file` 重读本文件。
 > - **tweak 没有 tasks 阶段**，不会有人再来覆写。因此本模板产出的是**终版可执行细计划**，不是 plan 那种等 tasks 覆写的粗骨架。
 > - 与 `polaris{{SKN_SPR}}coding{{SKN_SPR}}plan` 的任务模板（`tasks-template.md`）的差异：顶层任务数有硬上限（≤ 3）、TDD 类型改为自动判定（不询问用户）、文档同步组改为同步 `change-brief.md`（无 proposal/design/specs）。
 
@@ -10,8 +10,8 @@
 ```markdown
 # {{CHANGE_ID}} — 实施任务计划（tweak）
 
-> **执行入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 5 通过 `/opsx:apply` 在当前会话内逐 task 执行。
-> **规划入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 4 生成，**不经过 tasks 阶段覆写**。
+> **执行入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 6 通过 `/opsx:apply` 在当前会话内逐 task 执行。
+> **规划入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 5 生成，**不经过 tasks 阶段覆写**。
 
 **目标**：{{GOAL_ONE_SENTENCE}}
 
@@ -84,7 +84,7 @@
 ### 3. 规模硬上限
 
 - **顶层任务组 ≤ 3**（文档同步组不计入）
-- 推导中发现需要 > 3 个顶层任务 → **停止生成**，回到 tweak Step 3 走升档检查
+- 推导中发现需要 > 3 个顶层任务 → **停止生成**，回到 tweak Step 4 走升档检查
 - 单个顶层任务的工作量参照「约 20 分钟量级」
 
 ### 4. 文件、接口与命令必须可执行
@@ -118,7 +118,7 @@
 
 | 上游 / 下游 | 期待本文件提供什么 |
 |-------------|-------------------|
-| `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 4.5 | 可被 `tasks-lint.sh` 校验的结构化任务清单 |
-| `/opsx:apply`（Step 5.3） | 按顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
-| Step 6 出口检查 | 逐条核对「改动文件与 tasks 描述一致」「验收标准可追溯」 |
+| `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` Step 5.5 | 可被 `tasks-lint.sh` 校验的结构化任务清单 |
+| `/opsx:apply`（Step 6.3） | 按顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
+| Step 7 出口检查 | 逐条核对「改动文件与 tasks 描述一致」「验收标准可追溯」 |
 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` | 归档前按 `policies/artifact-backfill.md` 补齐四件套时，`tasks.md` 保持原样不动 |

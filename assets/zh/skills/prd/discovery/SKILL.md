@@ -67,7 +67,7 @@ version: 0.7
 
 ### Step 0: 设置产物语言
 
-读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）；未配置时回退到当前用户请求语言。本阶段所有提问与澄清摘要均采用该语言。
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本阶段所有提问与澄清摘要均采用 `$LANG`。
 
 ### Step 1: 初始化任务
 

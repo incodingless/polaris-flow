@@ -13,7 +13,7 @@ version: 3.7.0
 
 ## 标识约定
 
-产物一律落 `$REPO_ROOT/.polaris/tasks/$task_id/`；用户显式指定输出目录时以用户为准（并把最终路径写进 `state.yaml` 的 `work_dir`）。
+产物一律落 `$REPO_ROOT/.polaris/tasks/$task_id/`；用户显式指定输出目录时以用户为准（并用 `task-state-entry set-identity --work-dir` 落盘，见 Step 4.1）。
 
 | 项 | 文件 | 说明 |
 |---|---|---|
@@ -184,6 +184,14 @@ node scripts/scaffold.mjs icons              # 内置 20 个线性图标
 > （`blueprint` 确认时写入）。下游（`verify.mjs` 的 `<原型.html>` 参数、`ship` 的归档命名
 > `{前缀}-{原型名}-原型-v1.0.html`）按**同一规则**定位，**不依赖会话记忆**。
 > 用户显式指定了文件名时以用户为准，但仍须把最终路径写回 `state.yaml`。
+
+**写回 `work_dir` 走脚本**（持锁 + 写后校验；**禁止**直接编辑 `state.yaml`）。**仅在用户显式指定输出目录 / 文件名时**才需要——默认值已由 `blueprint` 的 `set-identity --work-dir` 写入：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind prototype \
+  --work-dir "<最终输出目录的绝对路径>"
+```
 
 > 两个脚本共享同一套页面机制约定——`<section id>` 页面容器、`data-goto` 跳转、`<symbol id="i-*">` 图标、`--text-*` Token 命名。**改动任一约定必须同步改两个脚本**，否则会出现「脚本全绿但规范已变」的假通过。完整契约表见 `references/02 §14.1`。
 >

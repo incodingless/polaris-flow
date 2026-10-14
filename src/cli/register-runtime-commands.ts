@@ -37,7 +37,7 @@ export function registerRuntimeCommands(program: Command): void {
 
   configProgram
     .command('get <key>')
-    .description('Get a config value (currently supports: language)')
+    .description('Get a config value by dot path (language / platform / test.commands.unit …)')
     .argument('[path]', 'project root', process.cwd())
     .option('--json', 'output JSON (language includes language_name)')
     .action(async (key: string, path: string, options: { json?: boolean }) => {

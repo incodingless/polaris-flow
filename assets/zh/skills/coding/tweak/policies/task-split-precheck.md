@@ -188,4 +188,4 @@
 - 仍有未 open 的拆分项 → 继续 §5.1 逐个创建
 - 全部 open 完成 → 执行 §5.3 暂停，等待用户选择 design 起点
 
-**硬门**：本步骤未完成（含批量模式下全部拆分项 open 未完成）前，禁止进入 Reframe Check、Premise Challenge 及 Step 4 产出。
+**硬门**：本步骤未完成（含批量模式下全部拆分项 open 未完成）前，禁止进入 Reframe Check、Premise Challenge 及 Step 5 产出。

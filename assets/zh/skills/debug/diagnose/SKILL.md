@@ -29,7 +29,7 @@ description: "缺陷修复通道的「诊断与方案」阶段（合并了原定
 
 ### Step 0: 设置产物语言
 
-读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）；未配置时回退到当前用户请求语言。本技能所有提问与产出物均采用该语言。
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本技能所有提问与产出物均采用 `$LANG`。
 
 ### Step 1: 检查存量任务
 

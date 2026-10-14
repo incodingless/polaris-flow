@@ -10,8 +10,8 @@ version: 0.1
 本 skill **仅**负责：**恢复分发 → 需求预检 → 复杂度判档 → 路由**，然后把执行交给对应工作流技能。
 **不产出**任何需求、设计、代码或测试产物（那是被路由技能的事）。
 
-- **禁止**跳过 Step 0 的在途任务检测直接新建
-- **禁止**在 Step 1 需求三要素未满足时进入 Step 2
+- **禁止**跳过 Step 1 的在途任务检测直接新建
+- **禁止**在 Step 2 需求三要素未满足时进入 Step 3
 - **禁止**用脑补代替 `./policies/risk-signals.md` 的信号表判档
 - **禁止**在本技能内执行 `task-init`（建任务是工作流技能的事）
 - **禁止**代写 `workflow.mode`（工作流技能建任务后自行写）
@@ -37,7 +37,13 @@ version: 0.1
 **`mode` 定工作流、`phase` 定技能** —— 判据由**代码**给出：`get-active-changes --format full` 的
 `skill` 字段（`src/core/config/task-kind-layout.ts` 的 `skillForModePhase`）。本技能**不内联**任何分发表。
 
-## Step 0：恢复分发（在途任务优先）
+### Step 0：设置产物语言
+
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+
+本技能所有提问与输出均采用 `$LANG`。
+
+## Step 1：恢复分发（在途任务优先）
 
 ```bash
 ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
@@ -50,7 +56,7 @@ RTID_EXIT=$?
 
 | 情形 | 动作 |
 |---|---|
-| **零个**在途任务 | 进入 Step 1（新建） |
+| **零个**在途任务 | 进入 Step 2（新建） |
 | **多个**在途任务 | 列出候选（格式见下）让用户选 **1 个**，再按下面两行处理 |
 | **1 个**在途任务 | 按 `./policies/decision-point.md` 暂停：**A 继续该任务** / **B 新建** / **C 取消** |
 
@@ -61,16 +67,16 @@ RTID_EXIT=$?
 ```
 
 选 **A 继续** → **转交**：读该行的 `skill`，**同会话内加载** `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`
-（**不**进 Step 1、**不**建任务）；由目标技能自己的 Step 0 接手并从其恢复表对应 Step 续跑。
+（**不**进 Step 2、**不**建任务）；由目标技能自己的 Step 1 接手并从其恢复表对应 Step 续跑。
 
 - ⚠️ 该行 `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认，不得猜。
 - ⚠️ 该行 `skill` 为 `null`（旁路阶段 `retro` / 表外未登记阶段）→ **阻断**：没有可路由的技能，
   把 `phase` / `state_path` 交给用户。
 - ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注。
 
-选 **B 新建** → 进入 Step 1（旧任务保持 active，不自动删除）。
+选 **B 新建** → 进入 Step 2（旧任务保持 active，不自动删除）。
 
-## Step 1：需求预检（开发类强制）
+## Step 2：需求预检（开发类强制）
 
 **目的**：开发类是产物生成路径，无需求进入会产出与意图**错位**的产物。
 
@@ -88,7 +94,7 @@ RTID_EXIT=$?
 
 未命中 → **必须**要求用户补充（附文件/目录 或 文字说明），最多 2 轮；仍为空则按 `critical` 处理并提示补细节。
 
-## Step 2：复杂度判档
+## Step 3：复杂度判档
 
 按 `./policies/risk-signals.md` 的 **§1 档位定义 + §3 降档门 + §4 升档信号**，对**需求侧**做一次判定：
 
@@ -110,7 +116,7 @@ RTID_EXIT=$?
 
 用户反对时可**上调**一档（**不得下调**）；用户明确否认 `critical` 时按其选择路由，但须记录理由。
 
-## Step 3：路由
+## Step 4：路由
 
 | 判档 | 加载技能 |
 |---|---|
@@ -118,7 +124,7 @@ RTID_EXIT=$?
 | `standard` | `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` |
 | `critical` | `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` |
 
-**用户已明确复杂度时**（如直接说「这是简单需求」）→ **跳过 Step 2**，按其选择直接路由。
+**用户已明确复杂度时**（如直接说「这是简单需求」）→ **跳过 Step 3**，按其选择直接路由。
 
 ### 交接约定
 
@@ -128,4 +134,4 @@ RTID_EXIT=$?
 2. 读取失败 / 内容与诉求明显无关 → 先回报用户再决定，不得静默跳过
 3. 后续产物以上下文为准绳；冲突时以用户提供的上下文优先
 
-⚠️ 工作流技能在 Step 0/1 建任务后会**自行**写 `workflow.mode` 并落 `append-active`；本技能**不代写**。
+⚠️ 工作流技能在 Step 1/2 建任务后会**自行**写 `workflow.mode` 并落 `append-active`；本技能**不代写**。

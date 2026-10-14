@@ -1,10 +1,10 @@
 # design-template.md 模板与规则（polaris-flow 工作流 · normal 常规工作流）
 
-> **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 4.3 引用，生成 OpenSpec 四件套中的 `design.md`。
+> **使用约定**：本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 5.3 引用，生成 OpenSpec 四件套中的 `design.md`。
 >
-> **normal 档深度边界**：包含架构决策、模块 / 领域划分、**模块间接口契约**、数据流；**禁止**深化到 `detailed-design.md` / `<slug>-design.md` 专项设计级别——发现需要时记录信号，交 Step 5 升档门判定。
+> **normal 档深度边界**：包含架构决策、模块 / 领域划分、**模块间接口契约**、数据流；**禁止**深化到 `detailed-design.md` / `<slug>-design.md` 专项设计级别——发现需要时记录信号，交 Step 6 升档门判定。
 >
-> **节名约定**：`## Premises`、`## Constitution Alignment`、`## Alternatives` 三个节名**必须原样保留英文**（Step 7.1 机械终检按英文节名校验）。
+> **节名约定**：`## Premises`、`## Constitution Alignment`、`## Alternatives` 三个节名**必须原样保留英文**（Step 8.1 机械终检按英文节名校验）。
 
 ## 模板正文
 
@@ -77,7 +77,7 @@ flowchart TD
 ### 4.10 异常、并发、事务处理策略
 
 ### 4.11 风险与降级方案
-<!-- Step 5 守门选 B 时的「风险接受记录」追加在本节 -->
+<!-- Step 6 守门选 B 时的「风险接受记录」追加在本节 -->
 
 ## 5. Alternatives
 {{ALTERNATIVES}}
@@ -87,7 +87,7 @@ flowchart TD
 
 ## 强制规则
 
-1. **必含节**：`## Premises`、`## Constitution Alignment`、`## Alternatives`（英文节名原样保留，缺任一 → Step 7.1 机械终检阻断）
+1. **必含节**：`## Premises`、`## Constitution Alignment`、`## Alternatives`（英文节名原样保留，缺任一 → Step 8.1 机械终检阻断）
 2. **模块间接口契约**（4.5）与**模块 / 领域划分**（4.4）是 normal 档的差异化核心节：多模块协作的契约写在这里，`tasks.md` 的跨模块任务以此为依据
 3. **深度上限**：接口写到契约级（谁调谁、传什么、什么时序），不写实现级伪码；需要实现级设计 → 升档信号 D2
 4. 路径中如出现模板变量，必须显式写成 `{{...}}` 并在生成时替换为真实值

@@ -8,11 +8,11 @@ description: "verify 通过后做终验、分支收尾、worktree 产物合回�
 <HARD-GATE>
 本 skill **仅**负责：在 **verify 已完成** 的前提下，做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清理 workflow 游标。
 
-- **禁止**跳过 Step 0（ship lock）进入后续步骤（H11）
-- **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 3.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
+- **禁止**跳过 Step 1（ship lock）进入后续步骤（H11）
+- **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 4.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
 - **禁止**未按 `./policies/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
-- **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 6.1
-- **tweak 快速工作流**：`workflow.mode=tweak` 时**必须**执行 Step 4.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
+- **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 7.1
+- **tweak 快速工作流**：`workflow.mode=tweak` 时**必须**执行 Step 5.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
 - **禁止**本阶段编写业务实现代码；终验失败 → 回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（必要时再回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`）
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]交付 - 进入Step <N>: <动作>`
 </HARD-GATE>
@@ -41,7 +41,9 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 > **链路**：`specify → plan → (design 可选) → tasks → build → verify → **ship**`（tweak 快速工作流为 `tweak → **ship**`）。
 > 本阶段交付与归档；不再做 Constitution / scorer（那是 verify / tweak 出口检查）。
 >
-> **tweak 档差异**：tweak 只产出 `change-brief.md` + `tasks.md`，没有 proposal / design / specs。归档前必须由本阶段按 `./policies/artifact-backfill.md` 补齐四件套（Step 4.5），否则 `openspec-cn archive` 会失败。
+> **tweak 档差异**：tweak 只产出 `change-brief.md` + `tasks.md`，没有 proposal / design / specs。归档前必须由本阶段按 `./policies/artifact-backfill.md` 补齐四件套（Step 5.5），否则 `openspec-cn archive` 会失败。
+
+
 
 ## 输入与恢复分发
 
@@ -98,13 +100,19 @@ RTID_EXIT=$?
 |------|------|----------|
 | verify 已完成 | `runtime.verify.status=completed` | 阻断，提示先 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` |
 | 未阻塞 | `runtime.verify.blocked != true`（或已合法 override） | 阻断，提示回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` 处理 |
-| worktree 合回分支 | `worktree.created_by_polaris_flow == true` | 触发本 skill Step 3；否则 Step 3 整段跳过 |
+| worktree 合回分支 | `worktree.created_by_polaris_flow == true` | 触发本 skill Step 4；否则 Step 4 整段跳过 |
 
 通过后更新：`phase: ship`。
 
 ## 流程
 
-### Step 0：获取 ship lock（串行保护）
+### Step 0：设置产物语言
+
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+
+本技能所有提问与产出物均采用 `$LANG`。
+
+### Step 1：获取 ship lock（串行保护）
 
 `read_file "./policies/ship-lock.md"`，按其规定在主仓 `.polaris/.locks/ship.lock` 上获取互斥锁；失败即阻断。
 
@@ -112,27 +120,27 @@ RTID_EXIT=$?
 
 输出：`[polaris-flow 开发]交付 - ship lock 已获取：task_id=<task_id> pid=<PID>`
 
-### Step 1：终验
+### Step 2：终验
 
 在 verify 已通过的前提下，再跑一轮 `superpowers:verification-before-completion` 作为交付前冒烟（构建/测试等宿主检查）。
 
-- 全部通过 → Step 2
+- 全部通过 → Step 3
 - 任一失败 → **阻断**；提示修复后重新触发 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`，通过后再回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}ship`。本阶段不写业务修复代码。
 
-### Step 2：分支管理（核心）
+### Step 3：分支管理（核心）
 
-调用 `superpowers:finishing-a-development-branch`，呈现 PR / merge / cleanup 等选项给用户，等待其返回后再进入 Step 3。
+调用 `superpowers:finishing-a-development-branch`，呈现 PR / merge / cleanup 等选项给用户，等待其返回后再进入 Step 4。
 
-### Step 3：worktree 产物合回 + 清理（仅本流程创建过 worktree 时）
+### Step 4：worktree 产物合回 + 清理（仅本流程创建过 worktree 时）
 
 **条件**：`state.yaml: worktree.created_by_polaris_flow == true`。
 **顺序不可调换**：3.1–3.4 判定合并状态 → 3.5 先 sync 再 remove →（或 3.6 保留）。
 
-#### 3.1 读取 worktree 元信息
+#### 4.1 读取 worktree 元信息
 
 从 `worktree` 块取 `path`、`branch`、`origin_repo`。
 
-#### 3.2 脏检查 + 合并状态
+#### 4.2 脏检查 + 合并状态
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/worktree-merge-status.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$BRANCH"
@@ -144,7 +152,7 @@ case $? in
 esac
 ```
 
-#### 3.3 若未合并：询问用户
+#### 4.3 若未合并：询问用户
 
 **必须**按 `./policies/decision-point.md` 询问：worktree 路径/分支，三选项：
 
@@ -152,7 +160,7 @@ esac
 - **B**：本地 rebase 到主干后 fast-forward 合入
 - **C**：暂不处理，保留 worktree
 
-#### 3.4 选项 B：本地 rebase + ff 合入
+#### 4.4 选项 B：本地 rebase + ff 合入
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/worktree-rebase-ff.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$BRANCH"
@@ -160,7 +168,7 @@ bash "$PLUGIN_ROOT/scripts/worktree-rebase-ff.sh" "$WORKTREE_PATH" "$ORIGIN_REPO
 # 2=ff merge 失败 / 3=环境异常
 ```
 
-#### 3.5 产物合回 → 清理 worktree（A/B 共用；不可拆分）
+#### 4.5 产物合回 → 清理 worktree（A/B 共用；不可拆分）
 
 **C 跳过本步**（见 3.6）。必须同一步内先 sync 再 remove：
 
@@ -190,7 +198,7 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 - `state.yaml` → `.polaris/archive/<task_id>/`（运行态快照）
 - 叙事文档（intention / detailed-design / `*-design.md` / `reviews/*`）已在 `openspec/changes/<task_id>/`，随后续 `/opsx:archive` 一并归档；**本步不要求**再把 detailed-design 拷进 `.polaris/archive/`
 
-#### 3.6 选项 C：保留 worktree
+#### 4.6 选项 C：保留 worktree
 
 不执行 3.5。写入：
 
@@ -199,31 +207,32 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 
 提醒用户：后续清理前须先手动合回 `.polaris/` 产物。
 
-### Step 4：状态写入
+### Step 5：状态写入
 
-更新 `.polaris/tasks/<task_id>/state.yaml`（worktree 仍在则写 worktree 内；已 remove 则写主仓；**本步不删目录**——Step 5/6 仍需 `task_id`）：
+写入 `.polaris/tasks/<task_id>/state.yaml`（worktree 仍在则写 worktree 内；已 remove 则写主仓；**本步不删目录**——Step 6/7 仍需 `task_id`）。**走脚本**（持 `task-state-<id>.lock` + 写后校验；**禁止**直接编辑该文件）：
 
-```yaml
-runtime:
-  ship:
-    status: "delivered"
-    finished_at: "<ISO>"
-    merge_strategy: "<rebase-ff|pr-only|abandoned|n/a>"
-    harness_sync: "<synced|partial_failure|skipped_no_source|skipped_worktree_retained|deferred_archive_conflict|n/a>"
-    archive_dir: ".polaris/archive/<task_id>"   # 仅 harness_sync ∈ {synced, partial_failure} 时有值
-    archive: ""            # Step 5 回填
-    archive_path: ""
-    archive_error: ""
-worktree:
-  status: "<merged|abandoned>"   # 仅 created_by_polaris_flow=true 时更新
-phase: ship
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.ship.status=delivered \
+  --set "runtime.ship.finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --set "runtime.ship.merge_strategy=<rebase-ff|pr-only|abandoned|n/a>" \
+  --set "runtime.ship.harness_sync=<synced|partial_failure|skipped_no_source|skipped_worktree_retained|deferred_archive_conflict|n/a>" \
+  --set "runtime.ship.archive_dir=<.polaris/archive/<task_id>|空串>" \
+  --set runtime.ship.archive= \
+  --set runtime.ship.archive_path= \
+  --set runtime.ship.archive_error= \
+  --set "worktree.status=<merged|abandoned>" \
+  --set phase=ship
 ```
 
-`harness_sync = "n/a"`：本次未创建 worktree，无需合回。
+- `harness_sync = "n/a"`：本次未创建 worktree，无需合回。
+- `runtime.ship.archive_dir` 仅 `harness_sync ∈ {synced, partial_failure}` 时给路径，否则传空串。
+- `worktree.status` 仅 `created_by_polaris_flow=true` 时更新；否则该 `--set` 可省。
 
-> Step 4 在 archive **之前**写入 `runtime.ship.status=delivered`，确保 archive 跳过/失败时分支与合回结果不丢失。
+> Step 5 在 archive **之前**写入 `runtime.ship.status=delivered`，确保 archive 跳过/失败时分支与合回结果不丢失。
 
-### Step 4.5：tweak 产物补齐（条件执行）
+### Step 5.5：tweak 产物补齐（条件执行）
 
 **触发条件**（满足任一即执行，否则整步跳过）：
 
@@ -238,21 +247,21 @@ phase: ship
 - **禁止**删除 `change-brief.md`（补齐的源，随 openspec 一并归档）
 - **禁止**新增简报中不存在的目标、模块、验收场景或设计决策——补齐只是格式转换
 
-写状态：
+写状态（走脚本，勿直接编辑 `state.yaml`）：
 
-```yaml
-runtime:
-  ship:
-    backfill: "<done|skipped:no_need|failed:<reason>>"
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set "runtime.ship.backfill=<done|skipped:no_need|failed:<reason>>"
 ```
 
 输出：`[polaris-flow 开发]交付 - 产物补齐：<done | 无需补齐 | 失败：<reason>>（源：change-brief.md）`
 
-**失败处理**：不阻断交付收尾。记录 `backfill=failed:<reason>`，照常进入 Step 5——用户可在归档询问时选择「暂不归档（B）」，事后手动补齐再跑 `openspec-cn archive <task_id>`。
+**失败处理**：不阻断交付收尾。记录 `backfill=failed:<reason>`，照常进入 Step 6——用户可在归档询问时选择「暂不归档（B）」，事后手动补齐再跑 `openspec-cn archive <task_id>`。
 
-### Step 5：OpenSpec 归档（强制询问，主代理执行）
+### Step 6：OpenSpec 归档（强制询问，主代理执行）
 
-#### 5.1 询问是否归档
+#### 6.1 询问是否归档
 
 按 decision-point 呈现 `task_id` 与 `runtime.ship.status=delivered`，三选项：
 
@@ -260,7 +269,7 @@ runtime:
 - **B**：暂不归档（PR 仍在 review / 稍后手动）
 - **C**：跳过归档（实验性变更）
 
-#### 5.2 用户选 A
+#### 6.2 用户选 A
 
 ```bash
 openspec-cn archive "$task_id" --yes
@@ -268,19 +277,19 @@ openspec-cn archive "$task_id" --yes
 
 | 结果 | 处理 |
 |------|------|
-| 成功（含 warnings） | `runtime.ship.archive=archived`，写入 `archive_path`；warnings 追加到 Step 6 摘要 |
+| 成功（含 warnings） | `runtime.ship.archive=archived`，写入 `archive_path`；warnings 追加到 Step 7 摘要 |
 | exit ≠ 0 | **不做归档**：保持 `openspec/changes/<task_id>/` 原位；`runtime.ship.archive=failed`，写入 `archive_error`；摘要注明失败原因。不阻断交付收尾 |
 
-无论成功或失败，进入 Step 6（含 6.1）。用户若要事后补归档，可手动 `openspec-cn archive <task_id>`。
+无论成功或失败，进入 Step 7（含 6.1）。用户若要事后补归档，可手动 `openspec-cn archive <task_id>`。
 
-#### 5.3 用户选 B / C
+#### 6.3 用户选 B / C
 
 - **B** → `runtime.ship.archive=deferred`；提示稍后手动 `openspec-cn archive <task_id>` 或 `/opsx:archive`
 - **C** → `runtime.ship.archive=skipped`
 
-然后进入 Step 6（含 6.1）。
+然后进入 Step 7（含 6.1）。
 
-### Step 6：交付摘要
+### Step 7：交付摘要
 
 ```
 交付完成：
@@ -299,10 +308,10 @@ openspec-cn archive "$task_id" --yes
 下一个变更 /polaris{{SKN_SPR}}coding{{SKN_SPR}}specify 或 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan；
 度量回顾 /polaris{{SKN_SPR}}coding{{SKN_SPR}}retro
 
-恢复：本技能是链路终点。若会话中断，先读 .polaris/tasks/<task_id>/state.yaml 的 runtime.ship.* 与 openspec/changes/<task_id>/reviews/verify-report.md 判断落点（Step 6.1 未执行时先补），再从本技能对应 Step 续跑。
+恢复：本技能是链路终点。若会话中断，先读 .polaris/tasks/<task_id>/state.yaml 的 runtime.ship.* 与 openspec/changes/<task_id>/reviews/verify-report.md 判断落点（Step 7.1 未执行时先补），再从本技能对应 Step 续跑。
 ```
 
-#### 6.1 主仓游标重置 + 清理
+#### 7.1 主仓游标重置 + 清理
 
 **必做**（含 `runtime.ship.archive=failed`：OpenSpec 目录仍在原位，仅清 polaris 游标与 tasks 档案）。
 
@@ -321,18 +330,18 @@ bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$task_id" "$ORIGIN_REPO" || exit 1
 - ship lock 已获取并在流程结束时由 trap 释放
 - `runtime.ship.status=delivered` 已写入
 - 若 `created_by_polaris_flow`：已完成 3.5，或用户选 C 且已标注 abandoned
-- Step 4.5 已处理（补齐 done / 无需补齐 / 失败已记录）
+- Step 5.5 已处理（补齐 done / 无需补齐 / 失败已记录）
 - archive 已询问；选 A 成功则为 archived，失败则为 failed（**未**移动 openspec）
-- Step 6.1 已成功
+- Step 7.1 已成功
 
 ## 上下文压缩恢复
 
 重载：`task_id`、`worktree_path`、`verify.*`（status / blocked / overall_score）、`ship.*`、`worktree.*`、本 skill 停在哪一步。
 
 - **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
-- 停在 Step 0 → 重新获取 lock（注意 stale）
-- 停在 Step 3.5 中途（sync 完、remove 未完）→ **禁止**直接 remove；先确认 sync 状态再续
-- 停在 Step 5 之后、6.1 之前 → 只补 6.1，勿重做分支合并；archive=failed 时勿假装已归档
-- 停在 Step 4.5 补齐失败 → 不阻断；照常进入 Step 5，建议用户选 B 暂不归档
-- 勿重新跑 verify 全流程，除非 Step 1 终验失败
+- 停在 Step 1 → 重新获取 lock（注意 stale）
+- 停在 Step 4.5 中途（sync 完、remove 未完）→ **禁止**直接 remove；先确认 sync 状态再续
+- 停在 Step 6 之后、6.1 之前 → 只补 6.1，勿重做分支合并；archive=failed 时勿假装已归档
+- 停在 Step 5.5 补齐失败 → 不阻断；照常进入 Step 6，建议用户选 B 暂不归档
+- 勿重新跑 verify 全流程，除非 Step 2 终验失败
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」

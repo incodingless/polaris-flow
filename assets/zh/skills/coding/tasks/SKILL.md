@@ -14,12 +14,12 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 - **禁止**主代理在覆写 `tasks.md` 前未 `read_file templates/tasks-template.md`
 - **禁止**另写 `docs/superpowers/plans/*.md` 或 `.polaris/tasks/*/implementation-plan.md` 作为主产物——**唯一**实施计划是 `openspec/changes/<task_id>/tasks.md`（覆写，不是并列第二份）
 - **禁止**跳过 `tasks-lint.sh` 或脑补核对
-- **禁止**跳过 Step 6 主审：必须派发 `tasks-review-agent`，并注入本 skill 的 `StandardsRoot`（agent 须读完 `policies/` + `references/` 标准文档；禁止主代理自审冒充；**主审不可跳过**）
-- **禁止**跳过 Step 6 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
+- **禁止**跳过 Step 7 主审：必须派发 `tasks-review-agent`，并注入本 skill 的 `StandardsRoot`（agent 须读完 `policies/` + `references/` 标准文档；禁止主代理自审冒充；**主审不可跳过**）
+- **禁止**跳过 Step 7 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
 - **禁止**在本阶段编写业务实现代码 / 调用 `/opsx:apply`（那是 build）
 - **禁止**借机重写 `proposal.md` / 高层 `design.md` 的范围与架构结论；缺口只进 review 消化或回 design，不在 plan 静默改 Scope
 - **禁止**写出规划依据中不存在的需求 / 模块 / 验收场景（YAGNI；多出来的任务 = 失败）
-- **禁止**未按 `./policies/decision-point.md` 获得用户对 **TDD 策略**（Step 2）的明确选择，就进入 Step 4 覆写 `tasks.md`
+- **禁止**未按 `./policies/decision-point.md` 获得用户对 **TDD 策略**（Step 3）的明确选择，就进入 Step 5 覆写 `tasks.md`
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow 开发]任务规划- 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 技能。`
@@ -42,7 +42,7 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 
 - 设计评审（只读，若有）：`openspec/changes/<task_id>/reviews/design-review-report.md`
 - **主产物（覆写）**：`openspec/changes/<task_id>/tasks.md`
-- 计划主审报告：`openspec/changes/<task_id>/reviews/tasks-review-report.md`（由 Step 6 落盘）
+- 计划主审报告：`openspec/changes/<task_id>/reviews/tasks-review-report.md`（由 Step 7 落盘）
 - Outside Voice 报告（若运行）：`openspec/changes/<task_id>/reviews/openspec-review-report.md`
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`）
 - 运行态：`.polaris/tasks/<task_id>/state.yaml`
@@ -66,9 +66,15 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
+### Step 0：设置产物语言
+
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+
+本技能所有提问与产出物均采用 `$LANG`。
+
 每个阶段的"做什么"在对应 policy 文件，本 SKILL.md 仅承载入口、HARD-GATE 锚点与跨阶段衔接。
 
-### Step 0：定位任务 + 恢复分发 + 入口校验
+### Step 1：定位任务 + 恢复分发 + 入口校验
 
 用 `--format full` 取「任务 + **应执行技能**」（分发表在代码里 —— `src/core/config/task-kind-layout.ts` 的
 `skillForModePhase`；本技能**不复制**该表）：
@@ -132,9 +138,9 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 ```
 输出：`[polaris-flow 开发]任务规划: task_id=<task_id> ; phase=tasks`
 
-### Step 1：读取规划依据（OpenSpec 四件套 + detailed-design 若有）
+### Step 2：读取规划依据（OpenSpec 四件套 + detailed-design 若有）
 
-**必读全文**（勿用摘要替代；读完再进入 Step 2）：
+**必读全文**（勿用摘要替代；读完再进入 Step 3）：
 
 1. `openspec/changes/<task_id>/proposal.md`
 2. `openspec/changes/<task_id>/design.md`
@@ -152,10 +158,10 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 - `openspec/changes/<task_id>/*-design.md`（专项设计，如有；排除四件套 `design.md`）
 - `openspec/changes/<task_id>/intention.md`（冲突以四件套 + detailed-design 若有为准）
 
-### Step 2：TDD 策略（用户决策点）
+### Step 3：TDD 策略（用户决策点）
 
 在加载 `writing-plans`、拆任务、覆写 `tasks.md` **之前**，必须按 `./policies/decision-point.md` 暂停，询问本次 change 的 TDD 策略。  
-**推荐只能说明，不能代选。** 选定前禁止进入 Step 3。
+**推荐只能说明，不能代选。** 选定前禁止进入 Step 4。
 
 向用户说明：TDD 决定的是 **tasks.md 里每条顶层任务的子步骤形态**（TDD=用例清单 + 5 步 / 非 TDD=3 步），不是 build 阶段再选的全局开关；build 将严格按标注执行。
 
@@ -175,13 +181,13 @@ runtime:
 
 输出：`[polaris-flow 开发]任务规划: tdd_policy=<值>`
 
-**续跑**：若 `runtime.tasks.tdd_policy` 已存在 → 展示当前值，按 decision-point 问是否沿用；沿用则跳过改写，不沿用则更新后再进 Step 3。
+**续跑**：若 `runtime.tasks.tdd_policy` 已存在 → 展示当前值，按 decision-point 问是否沿用；沿用则跳过改写，不沿用则更新后再进 Step 4。
 
-> 用户若要改**个别**任务的 TDD/非 TDD：在本步选 A/B/C 定总策略后，可在 Step 4 覆写前用 decision-point 追加例外清单；例外必须写进 tasks 标注，并在自审中可追溯。禁止留到 build 再改策略。
+> 用户若要改**个别**任务的 TDD/非 TDD：在本步选 A/B/C 定总策略后，可在 Step 5 覆写前用 decision-point 追加例外清单；例外必须写进 tasks 标注，并在自审中可追溯。禁止留到 build 再改策略。
 
-### Step 3：加载 writing-plans + tasks 模板
+### Step 4：加载 writing-plans + tasks 模板
 
-#### 3.1 Superpowers `writing-plans`
+#### 4.1 Superpowers `writing-plans`
 
 **立即执行：** 加载 Superpowers `writing-plans`。不可用 → 阻断并提示安装 superpowers。
 
@@ -199,9 +205,9 @@ runtime:
 | TDD 五步节奏 | **保留**（当 `tdd_policy` 允许该任务为 TDD 时），映射为 `<!-- TDD 任务 -->` 的 1.x.1–1.x.5；用例清单作为内容块前置，不在子步骤编号内 |
 | 配置/文档类 | 映射为 `<!-- 非 TDD 任务 -->` 三步，勿伪造成 RED/GREEN |
 
-骨架模式须服从 Step 2 的 `tdd_policy`：`prefer_direct` 下不得把配置类以外的任务强行全部打成 TDD；`require_tdd` 下不得把含行为变更的任务标成非 TDD。
+骨架模式须服从 Step 3 的 `tdd_policy`：`prefer_direct` 下不得把配置类以外的任务强行全部打成 TDD；`require_tdd` 下不得把含行为变更的任务标成非 TDD。
 
-#### 3.2 强制重读模板
+#### 4.2 强制重读模板
 
 ```text
 read_file ./templates/tasks-template.md
@@ -209,9 +215,9 @@ read_file ./templates/tasks-template.md
 
 输出：`[polaris-flow plan] 已读取任务模板(tasks-template.md)`
 
-### Step 4：文件地图 → 任务分解 → 覆写 tasks.md
+### Step 5：文件地图 → 任务分解 → 覆写 tasks.md
 
-#### 4.1 从规划依据推导（先覆盖，再拆步）
+#### 5.1 从规划依据推导（先覆盖，再拆步）
 
 写 checkbox 前必须完成覆盖表（可写在对话中，不必落盘）：
 
@@ -224,13 +230,13 @@ read_file ./templates/tasks-template.md
 
 任一 spec 需求或 detailed-design 必做模块（若有）无对应任务 → 先补行，再写 tasks.md。
 
-#### 4.2 文件结构地图
+#### 5.2 文件结构地图
 
 在覆盖表之后，锁定：
 
 - 将创建 / 修改 / 测试的**精确路径**（优先采用 detailed-design 已点名的路径；`skipped` 时以四件套 `design.md` 为准）
 - 模块边界与依赖方向（与 detailed-design（若有）+ 高层 design.md 一致）
-- 哪些任务 TDD、哪些非 TDD——**必须服从 Step 2 的 `tdd_policy`**（见下表）；用户声明的例外优先于默认规则
+- 哪些任务 TDD、哪些非 TDD——**必须服从 Step 3 的 `tdd_policy`**（见下表）；用户声明的例外优先于默认规则
 
 | `tdd_policy` | 标注规则 |
 |--------------|----------|
@@ -238,7 +244,7 @@ read_file ./templates/tasks-template.md
 | `require_tdd` | 含行为或接口变更 → **必须 TDD**；仅纯文档/文案 → 非 TDD |
 | `prefer_direct` | **默认非 TDD**；仅 detailed-design 测试策略点名（若已深化）或用户例外清单中的任务 → TDD |
 
-#### 4.3 任务粒度
+#### 5.3 任务粒度
 
 沿用 writing-plans 的 Task Right-Sizing：
 
@@ -247,7 +253,7 @@ read_file ./templates/tasks-template.md
 - 子步骤：TDD=用例清单 + 5 步 / 非 TDD=3 步（见模板）；每步约 2–5 分钟量级的**一个动作**
 - **不要**按 plan 粗骨架原样加细——粗骨架可拆可并，以 specs + detailed-design（若有）覆盖为准
 
-#### 4.4 每条顶层任务必须含
+#### 5.4 每条顶层任务必须含
 
 ```markdown
 - [ ] N.M {{TASK_NAME}}  <!-- TDD 任务 | 非 TDD 任务 -->
@@ -270,15 +276,15 @@ read_file ./templates/tasks-template.md
 - 「补充适当错误处理」「写测试覆盖上述内容」（无具体路径与命令）
 - 引用从未在任何任务 Produces 中出现的类型 / 函数名
 
-#### 4.5 覆写落盘
+#### 5.5 覆写落盘
 
 将完整计划写入（**覆写**）`openspec/changes/<task_id>/tasks.md`。  
 最后一组必须是 Documentation Sync（见模板）。  
 输出：`[polaris-flow 开发]任务规划: 已写 openspec/changes/<task_id>/tasks.md`
 
-### Step 5：自审 + tasks-lint
+### Step 6：自审 + tasks-lint
 
-#### 5.1 自审（主代理，writing-plans Self-Review）
+#### 6.1 自审（主代理，writing-plans Self-Review）
 
 1. **规划依据覆盖**：`proposal` Scope、每条 `specs` 需求/场景、`detailed-design` 实现模块与测试策略（若已深化）——能否指出对应任务？非目标是否被误写入？缺口列出并补任务。
 2. **占位符扫描**：全文搜失败标志，清零。
@@ -286,7 +292,7 @@ read_file ./templates/tasks-template.md
 4. **TDD 标注**：每条顶层任务有且仅有一种 HTML 注释类型；标注与 `runtime.tasks.tdd_policy` + 例外清单一致（`require_tdd` 下不得把行为变更标成非 TDD；`prefer_direct` 下不得无依据地把任务全打成 TDD）。
 5. **用例清单覆盖**：每个 TDD 任务含 6 大类场景的用例清单（内容块，按 `./references/test-case-checklist.md`），枚举维度与被测对象类型匹配（纯函数至少 正常/边界/异常）；P0 覆盖全部核心路径与核心异常。
 
-#### 5.2 脚本校验（禁止脑补）
+#### 6.2 脚本校验（禁止脑补）
 
 ```bash
 LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
@@ -296,15 +302,15 @@ LINT_EXIT=$?
 - exit 0 → 通过
 - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑本步
 
-### Step 6：独立主审 — `tasks-review-agent`（阻塞点）
+### Step 7：独立主审 — `tasks-review-agent`（阻塞点）
 
 本步**只负责派发**主审 subagent；评审标准在 `tasks-review-agent` 内。**禁止**主代理用「自检清单」冒充。**主审不可跳过。**
 
-#### 6.1 主审
+#### 7.1 主审
 
 1. **能力**：读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；全量清单在 `$SUBAGENT_PROBE_CACHE`，勿假定 additionalContext 含 agents）。
    - `PLATFORM_DEGRADATION=inline|unsupported` → **阻断**（计划无独立主审不得进 build；与 design 可跳过主审不同）。不得 inline 假评审。**不派发 → 不涉及 probe**。
-   - `SUPPORTS_SUBAGENT=true`（degradation 空）→ **仍须 probe（H10）**：调用 `polaris{{SKN_SPR}}subagent-probe`（传 `platform`），随后进 Step 6.1.2 派发固定 `tasks-review-agent`。
+   - `SUPPORTS_SUBAGENT=true`（degradation 空）→ **仍须 probe（H10）**：调用 `polaris{{SKN_SPR}}subagent-probe`（传 `platform`），随后进 Step 7.1.2 派发固定 `tasks-review-agent`。
    - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；**优先读** `$SUBAGENT_PROBE_CACHE`，勿重复扫盘）。`inline` / `unsupported` → 同上阻断。
 2. **解析 StandardsRoot**：本 skill 安装根目录（含 `policies/`、`references/`、`prompts/`）。例：`$PLUGIN_ROOT/tasks`（nested）或项目 skills 下的 `polaris{{SKN_SPR}}flow{{SKN_SPR}}tasks`（flat）。目录缺失 → 阻断，提示 `polaris init/update`。
 3. **派发**：注册名 / `subagent_type` = `tasks-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断。
@@ -338,7 +344,7 @@ LINT_EXIT=$?
 
 输出：`[polaris-flow 开发]任务规划: tasks-review-agent 已完成，报告已落盘`
 
-#### 6.2 Outside Voice（询问后可选）
+#### 7.2 Outside Voice（询问后可选）
 
 1. `read_file` `./policies/outside-voice.md` 并按其执行。
 2. 按复杂度给出建议，decision-point：**A 启动** / **B 跳过**（AI 不得代决）。
@@ -363,15 +369,15 @@ LINT_EXIT=$?
 4. 通过可信度门禁后写入 `openspec/changes/<task_id>/reviews/openspec-review-report.md`。
 5. 宿主无 subagent 时主审已在 6.1 阻断，不会到达本步的「无 subagent 自动跳过 OV」。
 
-### Step 7：消化评审结论
+### Step 8：消化评审结论
 
 读取 `reviews/tasks-review-report.md` 的 **STATUS**：
 
 | STATUS | 处理 |
 |--------|------|
-| `DONE` | 处理 OV（若有）后进 Step 8 |
-| `DONE_WITH_CONCERNS` | decision-point 逐条决策；需改 tasks → 改写 → 5.2 lint →（触及测试/依赖）重跑 Step 6.1，再询 OV |
-| `BLOCKED` / `NEEDS_CONTEXT` | **禁止**进 Step 8。按 Failure modes / 测试缺口改 `tasks.md` → 5.2 → **必须重跑 6.1**（最多 3 轮；第 3 轮仍 BLOCKED → 升级用户：回 design 或缩 Scope） |
+| `DONE` | 处理 OV（若有）后进 Step 9 |
+| `DONE_WITH_CONCERNS` | decision-point 逐条决策；需改 tasks → 改写 → 5.2 lint →（触及测试/依赖）重跑 Step 7.1，再询 OV |
+| `BLOCKED` / `NEEDS_CONTEXT` | **禁止**进 Step 9。按 Failure modes / 测试缺口改 `tasks.md` → 5.2 → **必须重跑 6.1**（最多 3 轮；第 3 轮仍 BLOCKED → 升级用户：回 design 或缩 Scope） |
 
 报告中「建议加入 tasks 的测试缺口」：**由本 skill 写入 `tasks.md`**，再 lint；TDD/非 TDD 仍服从 `tdd_policy`。
 
@@ -379,7 +385,7 @@ LINT_EXIT=$?
 
 未消化的 Critical / Important → 不得标记 plan 完成。
 
-### Step 8：完成 tasks 阶段
+### Step 9：完成 tasks 阶段
 
 更新 `state.yaml`：
 
@@ -421,7 +427,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 ## 退出条件
 
-- 用户已明确选择 `runtime.tasks.tdd_policy`（Step 2）
+- 用户已明确选择 `runtime.tasks.tdd_policy`（Step 3）
 - `tasks.md` 已按模板覆写，含与 `tdd_policy` 一致的 TDD/非TDD 标注、Files、Interfaces、可复制验证命令
 - `tasks-lint.sh` exit 0
 - `tasks-review-agent` 已跑完且 STATUS 为 `DONE` 或用户已消化完的 `DONE_WITH_CONCERNS`
@@ -432,8 +438,8 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 重载：`task_id`、`runtime.tasks.tdd_policy`、`detailed-design.md`（若有）、当前 `tasks.md`、`reviews/tasks-review-report.md`、`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
 - **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
-- 停在 **Step 2 未选定** → 先完成 TDD 策略再写 tasks。  
-- 停在 **`runtime.tasks.status=in_progress` 且 tasks 已写未评审** → 从 Step 5.2 / Step 6 续，勿无故重写全部任务（除非用户要求改 `tdd_policy`，则须重跑 Step 2→4）。
+- 停在 **Step 3 未选定** → 先完成 TDD 策略再写 tasks。  
+- 停在 **`runtime.tasks.status=in_progress` 且 tasks 已写未评审** → 从 Step 6.2 / Step 7 续，勿无故重写全部任务（除非用户要求改 `tdd_policy`，则须重跑 Step 3→4）。
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
 
 ## 自动衔接下一阶段

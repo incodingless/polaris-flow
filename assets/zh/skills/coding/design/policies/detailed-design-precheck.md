@@ -21,7 +21,7 @@
 | `openspec/changes/<change_id>/intention.md` | 若有 | 选型与下游约束 |
 | 已有 `openspec/changes/<change_id>/*-design.md` | 若有 | 避免重复建议；可建议修订而非新建 |
 
-`detailed-design.md` 不存在 → **阻断本预检**，先完成 SKILL Step 3.1。
+`detailed-design.md` 不存在 → **阻断本预检**，先完成 SKILL Step 4.1。
 
 ---
 

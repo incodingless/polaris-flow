@@ -138,6 +138,15 @@ export function parseSetValue(raw: string): unknown {
     const n = Number(raw);
     if (!Number.isNaN(n)) return n;
   }
+  // JSON 字面量（数组 / 对象）：`--set 'workflow.signals=["D1","D3"]'`。
+  // 缺此分支时数组只会被当字符串写入 —— 读端拿到 `'["D1","D3"]'` 而非数组。
+  if ((raw.startsWith('[') && raw.endsWith(']')) || (raw.startsWith('{') && raw.endsWith('}'))) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      // 非法 JSON：继续按普通字符串处理（仍有下面的引号剥离）
+    }
+  }
   // 去掉一层引号
   if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
     return raw.slice(1, -1);
@@ -419,6 +428,35 @@ export async function runTaskStateEntry(args: TaskStateEntryArgs): Promise<TaskS
         skill: args.skill || args.op,
         taskId: lockId,
         op: `${args.op} ${label}`,
+        force: args.forcePhase,
+      });
+      if (!check.ok) {
+        console.error(`[task-state-entry] 阻断：${check.message}`);
+        return { exitCode: 3, message: check.message };
+      }
+    }
+  }
+
+  // `set` 同样能写顶层 `phase`（技能用 `--set phase=<下一阶段>` 推进镜像）。若不在这里一并校验，
+  // 它就绕过上面 enter/complete-phase 的合法性判定 —— 写成 `buiild` 这类笔误会静默落盘，
+  // 正是 phase-validation 要防的场景。值域判定仍复用同一处 checkPhaseWrite。
+  if (args.op === 'set' && args.sets?.length) {
+    for (const raw of args.sets) {
+      let path0: string;
+      let value: unknown;
+      try {
+        ({ path: path0, value } = parseSetAssignment(raw));
+      } catch {
+        continue; // 非法 path=value 交给 runWriteOp 统一报错
+      }
+      if (path0.trim() !== 'phase') continue;
+      const check = await checkPhaseWrite({
+        repoRoot: lockRepo,
+        kind,
+        phase: typeof value === 'string' ? value : String(value ?? ''),
+        skill: args.skill || args.op,
+        taskId: lockId,
+        op: 'set phase',
         force: args.forcePhase,
       });
       if (!check.ok) {

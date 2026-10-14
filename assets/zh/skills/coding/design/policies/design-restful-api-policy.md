@@ -1,6 +1,6 @@
 # RESTful API 专项生成策略
 
-> **调用方**：design skill Step 3.2（用户已勾选「Rest API」专项后）。  
+> **调用方**：design skill Step 4.2（用户已勾选「Rest API」专项后）。  
 > **产物**：`openspec/changes/<change_id>/restful-api-design.md`（变更根目录扁平；禁止 `design/` 子目录）。  
 > **定位**：前后端联调用的 **HTTP 契约**。写资源、方法、权限、请求/响应、错误码。**不写** Controller、框架代码、SDK、DDL。
 
@@ -29,7 +29,7 @@
 
 | 优先级 | 路径 | 要求 |
 |--------|------|------|
-| 1 | `openspec/changes/<change_id>/detailed-design.md` | **必读全文**；接口能力来源。缺失 → **阻断**，回 skill Step 3.1 |
+| 1 | `openspec/changes/<change_id>/detailed-design.md` | **必读全文**；接口能力来源。缺失 → **阻断**，回 skill Step 4.1 |
 | 2 | `./templates/restful-api-design-template.md` | **必读**；输出结构以此为准 |
 | 3 | `openspec/changes/<change_id>/domain-model-design.md` | 若有则必读；资源与聚合/实体同名或写明映射 |
 | 4 | `proposal.md` / `design.md` / `specs/*/spec.md` | 边界、Non-goals、验收场景 |
@@ -99,6 +99,6 @@
 
 ## 4. 完成后
 
-- 本 policy **不**单独派发审查 subagent（忽略任何「openspec-reviewer / 分批冻结 / design-rest-api.md」旧指令）；专项与 `detailed-design.md` 一并进入 skill **Step 4**（`design-review-agent` / Outside Voice）
+- 本 policy **不**单独派发审查 subagent（忽略任何「openspec-reviewer / 分批冻结 / design-rest-api.md」旧指令）；专项与 `detailed-design.md` 一并进入 skill **Step 5**（`design-review-agent` / Outside Voice）
 - 文首可列预检范围内外，避免评审按全模板苛责
 - 修订时：先读现有 `restful-api-design.md` + 最新 `detailed-design.md`（及 `domain-model-design.md` 若有），再局部更新

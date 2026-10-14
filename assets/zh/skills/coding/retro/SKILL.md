@@ -9,7 +9,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 本 skill **仅**负责：聚合主仓 `.polaris/metrics/` 与 `.polaris/overrides.log`，输出可追溯的回顾报告与改进建议。
 
 - **禁止**凭空捏造分数、违规数、override 条数或趋势；无文件则明确告知，不得生成「空壳成功报告」
-- **禁止**跳过 Step 1 的数据盘点直接写结论
+- **禁止**跳过 Step 2 的数据盘点直接写结论
 - **禁止**把 archive 下的文件当作跨 change 趋势的主数据源（跨 change **只** glob 顶层 `.polaris/metrics/`）
 - **禁止**清理或移动顶层 `.polaris/metrics/`（会破坏跨 change 趋势）
 - **禁止**本阶段编写业务实现、改 specs、推进 `workflow.yaml` 的 phase
@@ -36,7 +36,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 > **入口口径**：**显式入口**（用户触发 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}retro`）——阶段表登记 `skill: null`，
 > 不由任何技能的「自动衔接下一阶段」进入，也不进入任何技能的下游，**不调用** `state next`。
 > **前置**：主仓顶层 `.polaris/metrics/` 至少有一个文件（即至少一个 change 跑完 verify，
-> 且若在 worktree 内验证则该 change 已 ship 合回）；不满足时的处理见 Step 1。
+> 且若在 worktree 内验证则该 change 已 ship 合回）；不满足时的处理见 Step 2。
 > 可重复执行，只读聚合、无副作用。
 
 ## 触发与范围
@@ -47,7 +47,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 | `/polaris{{SKN_SPR}}coding{{SKN_SPR}}retro monthly` 或「月度回顾」 | **monthly**：`timestamp`（或文件名时间戳）落在**当前 UTC 自然月**内的记录 |
 | 用户指定 `task_id` / 「回顾某次变更」 | **by-change**：顶层 metrics 中 `task_id` 等于该值的记录；可辅读 `tasks/` 或 `archive/` 的 state |
 
-用户未说明时默认 overview。多种意图并存时按 decision-point 确认范围，再进入 Step 1。
+用户未说明时默认 overview。多种意图并存时按 decision-point 确认范围，再进入 Step 2。
 
 ## 数据源
 
@@ -72,7 +72,13 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：解析范围 + 工作目录
+### Step 0：设置产物语言
+
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+
+本技能所有提问与产出物均采用 `$LANG`。
+
+### Step 1：解析范围 + 工作目录
 
 输出：`[polaris-flow 复盘] 0.确定复盘范围`
 
@@ -82,7 +88,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 
 不写 `workflow.yaml`，不改任何 phase。
 
-### Step 1：数据盘点（空则退出）
+### Step 2：数据盘点（空则退出）
 
 输出：`[polaris-flow 复盘] 1.数据盘点`
 
@@ -101,7 +107,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 盘点输出须含：`[MACHINE_VERIFIED]` 文件数、时间跨度（最早/最晚 timestamp）、范围内 task_id 桶列表。
 
-### Step 2：聚合 Scorer 与 Constitution
+### Step 3：聚合 Scorer 与 Constitution
 
 输出：`[polaris-flow 复盘] 2.聚合评分`
 
@@ -110,11 +116,11 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 1. **Overall**：按时间序列列出 `overall_score`（overview 默认最近 N 次）  
 2. **分 scorer 趋势**：对 5 个标准名分别取最近 N 次 `score`（`audit-violation-rate` / `constitution-violation-count` / `test-coverage` / `complexity` / `doc-sync`；JSON 里名称以实际 `scorer` 字段为准）  
 3. **Constitution**：汇总 `audit.violations` 与 `audit.total_checks`；按 task_id 分桶  
-4. **低分项**：`overall_score` 或任一 scorer 持续偏低（相对同范围均值或显式阈值）的条目，供 Step 4 使用  
+4. **低分项**：`overall_score` 或任一 scorer 持续偏低（相对同范围均值或显式阈值）的条目，供 Step 5 使用  
 
 全部表格与数字标记 `[MACHINE_VERIFIED]`。缺字段写「字段缺失」，不得默认 0 除非 JSON 里真是 0。
 
-### Step 3：综合分析
+### Step 4：综合分析
 
 输出：`[polaris-flow 复盘] 3.综合分析`
 
@@ -126,17 +132,17 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 无可靠「响应时间」「阻塞时长」字段时：**不要**输出假的团队响应 SLA。team 模式下可额外统计 override 条数与低分 blocking 相关叙述（仅基于已读到的行 + metrics 的 `mode`/`score`），仍标 `[MACHINE_VERIFIED]` 或标明样本不足。
 
-### Step 4：改进建议
+### Step 5：改进建议
 
 输出：`[polaris-flow 复盘] 4.改进建议`
 
-基于 Step 2–3 给出 **2–3 条**可操作建议，标记 `[LLM_SELF_CHECK]`：
+基于 Step 3–4 给出 **2–3 条**可操作建议，标记 `[LLM_SELF_CHECK]`：
 
 - 必须能指回具体低分 scorer、违规计数或 override 聚类  
 - 禁止与数据矛盾的空话（如数据全绿却写「测试覆盖急需提升」）  
 - 建议指向流程动作时用现行命令：`/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`、`/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`、`/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 等
 
-### Step 5：输出报告
+### Step 6：输出报告
 
 输出：`[polaris-flow 复盘] 5.输出复盘报告`
 

@@ -1,7 +1,7 @@
 # tasks.md 模板与规则（normal 常规工作流）
 
 > **重要**：
-> - 本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 6 引用；生成前**必须** `read_file` 重读本文件。
+> - 本模板由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 7 引用；生成前**必须** `read_file` 重读本文件。
 > - **normal 没有 tasks 阶段**，不会有人再来覆写。因此本模板产出的是**终版可执行细计划**，不是 plan 那种等 tasks 覆写的粗骨架。
 > - 与 tweak 任务模板的差异：顶层任务上限放宽到 **≤ 8**；跨模块任务必须写明接口依赖（Consumes / Produces，来源 = `design.md` 的模块间接口契约）；文档同步组覆盖**四件套**（非 change-brief）。
 > - TDD 类型按任务性质**自动判定**（不询问用户）。
@@ -11,8 +11,8 @@
 ```markdown
 # {{CHANGE_ID}} — 实施任务计划（normal）
 
-> **执行入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 8 通过 `/opsx:apply` 逐 task 执行。
-> **规划入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 6 生成，**不经过 tasks 阶段覆写**。
+> **执行入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 9 通过 `/opsx:apply` 逐 task 执行。
+> **规划入口**：本计划由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 7 生成，**不经过 tasks 阶段覆写**。
 
 **目标**：{{GOAL_ONE_SENTENCE}}
 
@@ -93,7 +93,7 @@
 ### 3. 规模硬上限
 
 - **顶层任务 ≤ 8**（文档同步组不计入）
-- 推导中发现需要 > 8 个顶层任务 → **停止生成**，回到 normal Step 5 走升档门（信号 D5）
+- 推导中发现需要 > 8 个顶层任务 → **停止生成**，回到 normal Step 6 走升档门（信号 D5）
 - 单个顶层任务的工作量参照「约 20 分钟量级」
 - 任务组划分建议对齐 `design.md` 的模块 / 领域划分，一组聚焦一个模块
 
@@ -128,8 +128,8 @@
 
 | 上游 / 下游 | 期待本文件提供什么 |
 |-------------|-------------------|
-| `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 6.3 | 可被 `tasks-lint.sh` 校验的结构化任务清单 |
-| Step 7.2 合并主审（plan-review-agent） | 终版细计划（与四件套 + intention 一并送审） |
-| `/opsx:apply`（Step 8.3） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
-| Step 9 出口检查 | 逐条核对「改动文件与 tasks 描述一致」「specs 验收场景可追溯」 |
+| `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 7.3 | 可被 `tasks-lint.sh` 校验的结构化任务清单 |
+| Step 8.2 合并主审（plan-review-agent） | 终版细计划（与四件套 + intention 一并送审） |
+| `/opsx:apply`（Step 9.3） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
+| Step 10 出口检查 | 逐条核对「改动文件与 tasks 描述一致」「specs 验收场景可追溯」 |
 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` | 四件套已齐，**无需** artifact-backfill；`tasks.md` 保持原样归档 |

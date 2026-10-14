@@ -1,6 +1,6 @@
 # 数据模型专项生成策略
 
-> **调用方**：design skill Step 3.2（用户已勾选「数据模型」专项后）。  
+> **调用方**：design skill Step 4.2（用户已勾选「数据模型」专项后）。  
 > **产物**：`openspec/changes/<change_id>/data-model-design.md`（变更根目录扁平；禁止 `design/` 子目录）。  
 > **定位**：仓储持久化单元的**具体存储形状**（表/集合、字段、索引、引用完整性、迁移）。**不写** HTTP 契约、仓储接口、领域行为。
 
@@ -31,7 +31,7 @@
 
 | 优先级 | 路径 | 要求 |
 |--------|------|------|
-| 1 | `openspec/changes/<change_id>/detailed-design.md` | **必读全文**；存储技术、容量、迁移动机。缺失 → **阻断**，回 skill Step 3.1 |
+| 1 | `openspec/changes/<change_id>/detailed-design.md` | **必读全文**；存储技术、容量、迁移动机。缺失 → **阻断**，回 skill Step 4.1 |
 | 2 | `./templates/data-model-design-template.md` | **必读** |
 | 3 | `openspec/changes/<change_id>/repository-design.md` | 若有则必读；§7 持久化单元 = 本专项表/集合清单 |
 | 4 | `openspec/changes/<change_id>/domain-model-design.md` | 若有则必读；字段含义与不变式 |
@@ -98,6 +98,6 @@
 
 ## 4. 完成后
 
-- 本 policy **不**单独派发审查 subagent（忽略任何「openspec-reviewer / 分批冻结 / design-data-model.md」旧指令）；专项与 `detailed-design.md` 一并进入 skill **Step 4**（`design-review-agent` / Outside Voice）
+- 本 policy **不**单独派发审查 subagent（忽略任何「openspec-reviewer / 分批冻结 / design-data-model.md」旧指令）；专项与 `detailed-design.md` 一并进入 skill **Step 5**（`design-review-agent` / Outside Voice）
 - 文首可列预检范围内外
 - 修订时：先读现有 `data-model-design.md` + 最新 `detailed-design.md`（及 `repository-design.md` / `domain-model-design.md` 若有），再局部更新

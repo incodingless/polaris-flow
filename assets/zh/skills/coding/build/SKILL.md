@@ -8,11 +8,11 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 <HARD-GATE>
 本 skill **仅**负责：在 **plan 已完成** 的前提下，按 `openspec/changes/<task_id>/tasks.md` 调用 `/opsx:apply` 完成实现，并做出口校验与阶段推进。
 
-- **禁止**在 Step 2（能力结论 / 可选 `subagent-probe`，且仅当 `build_mode=subagent_dispatch`）完成之前调用 `/opsx:apply`
+- **禁止**在 Step 3（能力结论 / 可选 `subagent-probe`，且仅当 `build_mode=subagent_dispatch`）完成之前调用 `/opsx:apply`
 - **禁止**跳过 Constitution 注入点 C（subagent 启动 prompt 必须含 C；inline 时由主代理按 task 输出 C）
 - **禁止**主代理在 `/opsx:apply` 之外直接编写业务实现代码（补丁、新模块、改 API 等）
 - **禁止**调用 superpowers 的两个派发驱动器（H13，规则见 `./policies/hard-stops.md`）
-- **禁止**未完成出口校验（Step 5）就写 `runtime.build.status: completed` 或把 `phase` 推到 verify
+- **禁止**未完成出口校验（Step 6）就写 `runtime.build.status: completed` 或把 `phase` 推到 verify
 - **禁止**本阶段强制 `git commit`（提交策略交 ship；apply 过程产生的未提交改动保留在工作区 / worktree）
 - **禁止**重写 `proposal.md` / 高层 `design.md` / `detailed-design.md` / 覆写整份 `tasks.md` 范围；发现计划缺陷 → pause 回 plan，不在 build 静默改 Scope
 - **禁止**用全局开关覆盖 tasks.md 内已有的 `<!-- TDD 任务 -->` / `<!-- 非 TDD 任务 -->` 标注（要改标注回 plan）
@@ -43,10 +43,15 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 - Design Doc 已创建（阶段 2 完成）
 - 活跃 change 存在
 
-
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
-### Step 0：定位任务 + 恢复分发 + 入口校验
+### Step 0：设置产物语言
+
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+
+本技能所有提问与产出物均采用 `$LANG`。
+
+### Step 1：定位任务 + 恢复分发 + 入口校验
 
 ```bash
 ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
@@ -83,8 +88,8 @@ RTID_EXIT=$?
 
 - ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
 
-> 续跑：入口校验通过后**不得**重跑 Step 1 的模式询问原样 —— `runtime.build.build_mode` /
-> `runtime.build.review_mode` 已存在时，展示当前值并问是否沿用（见 Step 1）。
+> 续跑：入口校验通过后**不得**重跑 Step 2 的模式询问原样 —— `runtime.build.build_mode` /
+> `runtime.build.review_mode` 已存在时，展示当前值并问是否沿用（见 Step 2）。
 > 若上次中断在 plan 中（`runtime.tasks.status=in_progress` / apply paused），从中断点续跑。
 
 **入口校验**（失败 → 阻断）：
@@ -103,11 +108,11 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 ```
 输出：`[polaris-flow 开发]构建: task_id=<task_id> ; worktree=<path|main>`
 
-### Step 1：选择执行方式与审查模式（用户决策点）
+### Step 2：选择执行方式与审查模式（用户决策点）
 
 **一次性**按 `./policies/decision-point.md` 询问两项（可同一轮多问）。推荐规则**只能说明，不能代选**。
 
-#### 1.1 执行方式 `build_mode`
+#### 2.1 执行方式 `build_mode`
 
 | 选项 | 值 | 含义 |
 |------|-----|------|
@@ -122,11 +127,11 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 写入 `state.yaml`：`runtime.build.build_mode: <subagent_dispatch|inline>`。
 
-#### 1.2 代码审查模式 `review_mode`
+#### 2.2 代码审查模式 `review_mode`
 
 | 选项 | 含义 | 适用 |
 |------|------|------|
-| `off` | Step 4 不自动做代码审查 | 文档、配置、文案、低风险小改 |
+| `off` | Step 5 不自动做代码审查 | 文档、配置、文案、低风险小改 |
 | `standard`（默认推荐） | apply 全部完成后做**一次**轻量最终审查（正确性 / 安全 / 边界） | 大多数普通改动 |
 | `thorough` | apply 全部完成后做**一次**完整最终审查（覆盖面更宽：含与 tasks/spec 一致性关注点） | 高风险、多模块、架构或安全相关 |
 
@@ -137,13 +142,13 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 若续跑且 `runtime.build.build_mode` / `runtime.build.review_mode` 已存在 → 展示当前值，问是否沿用（沿用则跳过写入）。
 
-### Step 2：Subagent Probe（仅 `build_mode=subagent_dispatch`）
+### Step 3：Subagent Probe（仅 `build_mode=subagent_dispatch`）
 
-若 `build_mode=inline` → 输出 `[polaris-flow 开发]构建 - 第二步: 不派发（inline，不涉及 probe）`，直接进入 Step 3.3。
+若 `build_mode=inline` → 输出 `[polaris-flow 开发]构建 - 第二步: 不派发（inline，不涉及 probe）`，直接进入 Step 4.3。
 
 若 `build_mode=subagent_dispatch`：
 
-1. 读 SessionStart 注入：`PLATFORM_DEGRADATION=inline|unsupported` → **强制**本会话 inline；输出原因；进入 Step 3.3（**不派发 → 不涉及 probe**）
+1. 读 SessionStart 注入：`PLATFORM_DEGRADATION=inline|unsupported` → **强制**本会话 inline；输出原因；进入 Step 4.3（**不派发 → 不涉及 probe**）
 2. `SUPPORTS_SUBAGENT=true`（degradation 空）→ **仍须 probe（H10）**，记 `dispatch=default`，进入派发
 3. 若要从清单选 agent：优先读 `$SUBAGENT_PROBE_CACHE`；仅当**缺缓存/缺注入**或需 `task_type`/`subagent_id` 过滤时，才 `use_skill("polaris{{SKN_SPR}}subagent-probe")`（传入 `platform` / `PLATFORM_ID`；probe 优先读缓存）
 4. 按能力结论或 `subagent-probe` 返回结构消费（`platform_degradation` + `agents`）：
@@ -152,16 +157,16 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 |---------------|------|
 | `platform_degradation=null` 且 `agents` 非空（缓存或 probe） | 从 `agents` 选一项：路径型 → 记 `dispatch=path` + `subagent_path`；builtin → 记 `dispatch=builtin` + `subagent_type=id`。多项时按 decision-point 让用户选，或取第一项并告知用户 |
 | `platform_degradation=null` 且 `agents=[]` | 记 `dispatch=default`（宿主默认 subagent，不绑 path） |
-| `platform_degradation=inline` / `unsupported` | **强制**改为本会话 inline 执行 apply；输出原因；进入 Step 3.3（不违反 HARD-GATE 例外） |
+| `platform_degradation=inline` / `unsupported` | **强制**改为本会话 inline 执行 apply；输出原因；进入 Step 4.3（不违反 HARD-GATE 例外） |
 
 禁止在缺能力结论时假设宿主有某 agent。禁止回退到 superpowers 派发驱动器。
 
-### Step 3：执行 `/opsx:apply`
+### Step 4：执行 `/opsx:apply`
 
 **组装启动 prompt**（subagent 分支必做；inline 可把同一约束当作自检清单）：
 
 1. `read_file "./assets/implementer-prompt.md"`
-2. 将 `<task_id 或省略>` 替换为 Step 0 的 `task_id`（方括号命令写成 `/opsx:apply <task_id>`）
+2. 将 `<task_id 或省略>` 替换为 Step 1 的 `task_id`（方括号命令写成 `/opsx:apply <task_id>`）
 3. 运行时自填占位符（如 `<N.M>`）**保持原样**
 4. 在 prompt 末尾追加（若模板未含）：
 
@@ -173,19 +178,19 @@ Review mode (final, by parent): <off|standard|thorough> — 你不必在 apply �
 Working directory: <worktree_path 或 main repo root>
 ```
 
-#### 3.1 — `dispatch=path`
+#### 4.1 — `dispatch=path`
 
 主代理用宿主 Task / AgentTool：`subagent_path` = 选定 path，`prompt` = 组装结果。  
 运行期间**不得干预**，只收最终汇报。
 
-#### 3.2 — `dispatch=builtin` 或 `dispatch=default`
+#### 4.2 — `dispatch=builtin` 或 `dispatch=default`
 
 - builtin：`subagent_type` = 选定 `id`，`prompt` = 组装结果  
 - default：不指定 path / 不绑项目 agent 文件，`prompt` = 组装结果  
 
 运行期间**不得干预**，只收最终汇报。
 
-#### 3.3 — inline（用户选 B，或 probe 退化）
+#### 4.3 — inline（用户选 B，或 probe 退化）
 
 主代理在本会话：
 
@@ -196,12 +201,12 @@ Working directory: <worktree_path 或 main repo root>
 
 #### apply 中途 pause / error
 
-- **paused**：按 apply 给出的原因与选项，用 decision-point 问用户，并把**原因与可选项**写入 `state.yaml` 的 `runtime.build.pause_reason`（恢复清单据此重载，恢复后置空）；用户选继续 → 同模式再次 `/opsx:apply`（不要重跑 Step 1，除非用户要求改模式）
+- **paused**：按 apply 给出的原因与选项，用 decision-point 问用户，并把**原因与可选项**写入 `state.yaml` 的 `runtime.build.pause_reason`（恢复清单据此重载，恢复后置空）；用户选继续 → 同模式再次 `/opsx:apply`（不要重跑 Step 2，除非用户要求改模式）
 - **errored**：阻断，报告错误；不写 `runtime.build.status=completed`
 
-### Step 4：最终代码审查（按 `review_mode`）
+### Step 5：最终代码审查（按 `review_mode`）
 
-仅当 Step 3 汇报状态为 **completed**（或 inline apply 正常结束）后执行：
+仅当 Step 4 汇报状态为 **completed**（或 inline apply 正常结束）后执行：
 
 | `review_mode` | 动作 |
 |---------------|------|
@@ -209,19 +214,19 @@ Working directory: <worktree_path 或 main repo root>
 | `standard` | 加载 Superpowers `requesting-code-review`，范围：本次 diff + `tasks.md` + 必要测试结果；只查正确性 / 安全 / 边界 |
 | `thorough` | 同上，并额外要求对照 `tasks.md` 与相关 specs 做覆盖与一致性关注（仍是一次最终审查，不是每任务审查） |
 
-- 审查发现 **Critical / Major** → **阻断**完成；decision-point：A 回 Step 3 修复 / B 用户接受风险并记录 override（须显式确认） / C 放弃
+- 审查发现 **Critical / Major** → **阻断**完成；decision-point：A 回 Step 4 修复 / B 用户接受风险并记录 override（须显式确认） / C 放弃
 - `requesting-code-review` 不可用 → 标注跳过原因，decision-point：A 接受跳过 / B 阻断
 
 > 与 verify 去重：本步已审过且未再改动的 diff，verify 侧应聚焦「是否符合 spec/tasks」与「build 之后新增改动」，避免整份重审。
 
-### Step 5：出口校验 + 推进阶段
+### Step 6：出口校验 + 推进阶段
 
 校验（全部通过才能完成）：
 
 1. `tasks.md` 中**不存在** `- [ ]`（任意未勾选 → 未完成）
 2. apply 输出含 `Implementation Complete` 类摘要（或 subagent 汇报 `status=completed` 且完成数 = 总数）
 3. 未违反 HARD-GATE（未在 apply 外手写实现；`subagent_dispatch` 时已做过 probe，除非已退化 inline）
-4. Step 4 已处理（执行完毕 / 合法跳过 / 用户已确认接受风险）
+4. Step 5 已处理（执行完毕 / 合法跳过 / 用户已确认接受风险）
 
 **硬阻断**：
 
@@ -277,14 +282,14 @@ phase: verify
 - `tasks.md` 全部 checkbox 为 `- [x]`
 - apply 已 completed（非 pause/error 未解决）
 - `runtime.build.status=completed`，且 `phase=verify`
-- Step 4 审查已按 `review_mode` 处理完毕
+- Step 5 审查已按 `review_mode` 处理完毕
 
 ## 上下文压缩恢复
 
 重载：`task_id`、`worktree_path`、`runtime.build.build_mode` / `runtime.build.review_mode`、当前 `tasks.md` 勾选进度、apply 上次 pause 原因（若有）、本 skill 停在哪一步。  
 - **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
-- 停在 apply pause → 从 Step 3 续，勿重选模式（除非用户要求）  
-- 停在 Step 4 审查未完成 → 从 Step 4 续  
+- 停在 apply pause → 从 Step 4 续，勿重选模式（除非用户要求）  
+- 停在 Step 5 审查未完成 → 从 Step 5 续  
 - 勿重新跑 plan / 勿调用 `writing-plans`
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
 

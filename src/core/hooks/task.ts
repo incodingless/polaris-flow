@@ -18,6 +18,7 @@ import {
   getTaskKindDir,
   getTaskKindRelPath,
   getTaskKindStatePath,
+  getTaskStateLockPath,
   getTaskStatePath,
 } from '../assets/polaris-paths.js';
 import {
@@ -32,6 +33,7 @@ import { fileExists } from '../../utils/file-system.js';
 import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { runDraftCreate } from './draft-create.js';
 import { runWorkflowEntry } from './workflow-entry.js';
+import { acquireExclusiveLock, WorkflowLockError } from './workflow-lock.js';
 
 export type InitResult = {
   exitCode: number;
@@ -300,18 +302,33 @@ export async function finalize(
   await rename(draftDir, targetDir);
 
   const intentionRel = getTaskIntentionRelPath(changeId);
-  await patchTaskStateFile(stateYaml, {
-    change_id: changeId,
-    task_id: changeId,
-    phase: 'specify',
-    runtime: {
-      specify: {
-        intention_path: intentionRel,
-        status: 'completed',
-        finished_at: new Date().toISOString(),
+  // state 写入与 `task-state-entry` 的写 op 共用同一把 `task-state-<id>.lock` —— 此前这里
+  // 直接 patchTaskStateFile（无锁），与并发写者（技能的 set / complete-phase）存在覆盖窗口。
+  let stateLock;
+  try {
+    stateLock = await acquireExclusiveLock(getTaskStateLockPath(root, changeId), 'task-finalize');
+  } catch (err) {
+    if (err instanceof WorkflowLockError) {
+      return { exitCode: 1, message: err.message };
+    }
+    throw err;
+  }
+  try {
+    await patchTaskStateFile(stateYaml, {
+      change_id: changeId,
+      task_id: changeId,
+      phase: 'specify',
+      runtime: {
+        specify: {
+          intention_path: intentionRel,
+          status: 'completed',
+          finished_at: new Date().toISOString(),
+        },
       },
-    },
-  });
+    });
+  } finally {
+    stateLock.release();
+  }
 
   if (await fileExists(intention)) {
     let body = await readFile(intention, 'utf-8');

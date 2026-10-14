@@ -285,3 +285,135 @@
 - **P0**：① `coding/ship` 状态写入改走脚本 ② `set` 写 phase 纳入校验（顺带把 5 处两段式合并为 `complete-phase --next-phase`）③ `prototype/build` 补 `set-identity --work-dir`
 - **P1**：④ `config get` 泛化为通用点路径 + 补受控 `config set` ⑤ `task-finalize` 改持锁路径
 - **P2**：language 读取统一走 `get-language-name.sh`、`state.yaml` 读取统一走 `get --path`、`finalize` phase 语义修正、`policies/` 下的 state 写入补脚本
+
+---
+
+## 八、整改落盘（2026-10-14）
+
+### 8.1 范围重裁：`b3c39a1` 已修掉一部分
+
+用户在 `b3c39a1`（2026-10-14 10:03:59「优化技能的断点恢复和工作流恢复」）的一次提交改动了 7 个本报告涉及的文件。**整改前逐项复核当前 HEAD**，结果：
+
+| 本报告项 | 当前 HEAD |
+|---|---|
+| **P0-②** 技能侧 5 处 `set --set phase=` | ✅ **已解决** —— `grep --set phase= assets/zh` **零命中**（阶段推进已迁移；`workflow-entry update-active --set phase=` 亦被 CLI 拒绝，有测试 `phase-validation.test.ts:189` 守护） |
+| **P2** 「`state.yaml` 读取统一走 `get`」 | ✅ **大部分自动解决** —— coding 各技能 Step 0 已改调 `task-entry` / `get-active-changes --format full`，读端由原语统一，技能不再自己判读 |
+| **P2-c** `finalize` 写 `phase: 'specify'` 语义 | ⚠️ **撤回，原判有误** —— `finalize` 运行在 specify 技能**内部**（Step 2.2），此刻任务确实还在 specify 阶段（游标由 specify Step 5.5 才推进），写 `specify` 与游标**一致**。「应为 plan」是误判 |
+| P0-① / P0-③ / P1-④ / P1-⑤ / P2-a / P2-b | ❌ 仍成立 → 见 8.2 |
+
+### 8.2 本次改动（17 处，跨 11 个文件）
+
+| # | 文件 | 改动 |
+|---|---|---|
+| 1 | `assets/zh/skills/coding/ship/SKILL.md` | Step 4（11 字段）/ Step 4.5（`backfill`）的 ```yaml``` 块 → `task-state-entry.sh set`（持锁 + 写后校验） |
+| 2 | `assets/zh/skills/prototype/build/SKILL.md` | 补 `set-identity --work-dir`（F16 块）；标识约定改为指向该脚本 |
+| 3 | `src/core/hooks/task-state-entry.ts` | ① `set` 的顶层 `phase` 写入纳入 `checkPhaseWrite`（补 2.1 护栏）② `parseSetValue` 支持 **JSON 字面量**（数组 / 对象） |
+| 4 | `src/core/hooks/task.ts` | `finalize` 的 state 写入纳入 `task-state-<id>.lock`（补 2.3-b 竞态） |
+| 5 | `src/commands/config.ts` | `config get` 泛化为**点路径读取**（`language` 保持既有契约）；新增导出 `getConfigByPath` |
+| 6 | `src/cli/register-runtime-commands.ts` | `config get` description 更新 |
+| 7-8 | `coding/{tweak,normal}/policies/exit-check.md` | 各 2 处 `runtime.verify.*` 写入 → `set` 脚本 |
+| 9 | `coding/normal/policies/tier-gate.md` | 2 处 `workflow.signals` 写入 → `set` 脚本（用 `printf` 构造 JSON 数组） |
+| 10 | `coding/tweak/policies/upgrade-check.md` | 1 处 `workflow.signals` → `set` 脚本 |
+| 11-17 | `coding/{design,specify,plan}`、`debug/diagnose`、`prototype/blueprint`、`testing/discovery`、`prd/discovery` | `language` 读取统一走 `scripts/get-language-name.sh`（含 `design:112` 的内联 `cat\|grep\|awk`） |
+
+### 8.3 未做项及理由
+
+| 项 | 理由 |
+|---|---|
+| **`config set`**（P1-④ 的后半） | 唯一消费者是 `verify:227` 的 `test.*` 写入，而其**读端**是 `scripts/detect-test-command.sh` —— 新增写命令必须同时对齐该脚本的契约，属独立工作量。**当前无脚本消费者即新增命令**违反仓库「不为推测场景新增抽象」的约定 → 只做读侧泛化 |
+| **「`state.yaml` 读取统一」** | 已被 `task-entry` / `--format full` 接管（见 8.1） |
+| **`finalize` phase 语义** | 撤回（见 8.1） |
+
+### 8.4 验证
+
+| 项 | 结果 |
+|---|---|
+| `npx tsc` | 通过（无错误输出） |
+| `vitest run config-command / task-state-entry / phase-validation / task-state / workflow-entry / task-kind-phases` | **6 文件全通过**（EXIT=0） |
+| `vitest run skills-install -t "当前 zh 技能资产无跨技能…"` | **通过**（9.8s） |
+| `--set phase=` 遗留调用 | 零（新增护栏不会误伤现有调用） |
+
+---
+
+## 九、语言步骤补齐（2026-10-14）
+
+### 9.1 发现：11 个 coding 技能里只有 3 个有「设置产物语言」步骤
+
+审计时用 `grep get-language-name|设置产物语言` 扫全族，结果：
+
+| 技能 | 补齐前 |
+|---|---|
+| `specify` / `plan` | ✅ 有（`### Step 0：设置产物语言`，含失败回退语义） |
+| `design` | ⚠️ 有，但位置在 **Step 2.1（brainstorming 时）**，晚于它的 Step 0/1 |
+| **`build` / `tasks` / `verify` / `ship` / `normal` / `tweak` / `retro` / `intake`** | ❌ **完全没有** —— 这些技能会产出 `tasks.md` / 报告 / 交付摘要，却从不读语言配置，只能靠会话默认 |
+
+⇒ 同一族内「语言从哪来」有两种行为，且缺的那 8 个是**产出文档最多**的几个。
+
+### 9.2 补充（8 处）
+
+**形态（2026-10-14 二次修订，用户定稿）**：`Step 0` 已被 `task-entry` 恢复分发占用，另起 `Step 0` 会顺延后续全部 `Step N`。用户定的写法是 —— **语言段放在 `## 流程` 标题下、`### Step 0` 之前**，作为「流程第 1 步」且**不占编号**：
+
+```
+## 流程（按顺序执行；任一步未完成不得进入下一步）
+
+**先设置产物语言**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本技能所有提问与产出物均采用 `$LANG`。
+
+### Step 0：定位任务 + 恢复分发 + 入口校验   ← 标题保持原样
+```
+
+> 我最初的写法是把「设置产物语言」**并进 `Step 0` 标题**（`### Step 0：设置产物语言 + 定位任务 …`）。用户的写法更好：`Step 0` 标题保持**单一职责**，语言段独立成「流程第 1 步」—— 既不占编号，也不污染 Step 语义。已按此形态统一全部 7 个（`build` 由用户先改，其余 6 个照此跟进）+ 上轮已改的 `normal` / `tweak`。
+
+| 技能 | 语言段落点 |
+|---|---|
+| `build` / `tasks` / `verify` / `normal` / `tweak` / `ship` / `retro` | `## 流程` 标题下、`### Step 0` 之前 |
+| `intake` | `## 恢复判据` 节之后、`## Step 0` 之前（本技能无 `## 流程` 标题；措辞为「提问与**输出**」，因它不落盘产物） |
+
+### 9.3 覆盖验证
+
+`grep get-language-name assets/zh/skills/coding` → **11/11 命中**（10 个用 `LANG=`，`design` 用 `LANGUAGE=`）。
+`vitest run skills-install -t "当前 zh 技能资产无跨技能…"` → **通过**（9.3s）。
+
+### 9.4 遗留（待裁定）
+
+- **`specify` / `plan` 仍是 `### Step 0：设置产物语言`（占编号）** —— 它们的语言步骤**就是**首个动作（无其他动作占 `Step 0`），标为 `Step 0` 本身是准确的；但与「不占编号」的通用偏好不一致。三选项：**(甲)** 保持现状；**(乙)** 移出为流程首段、保留后续编号（会出现「无 Step 0」）；**(丙)** 移出并把 `Step 1→0`、`2→1`…（完全统一，但编号顺延，正文交叉引用需一并改）。
+- **`design` 的语言步骤仍在 Step 2.1** —— 它「有」故未补，时机晚于 Step 0/1。
+
+### 9.5 最终形态（三次修订，2026-10-14）—— 本节**取代 9.2 / 9.3 / 9.4**
+
+用户最终裁定：**「设置产物语言」= `Step 0`，其余步骤从 `1` 起顺延**（即全族统一到 `specify` / `plan` 原有的形态）。
+
+**执行**（脚本化 + 逐处复核；回滚过一次，因首版漏处理「范围/斜杠组」）：
+
+| 范围 | 改动 |
+|---|---|
+| 9 个技能 `SKILL.md`（build / tasks / verify / ship / normal / tweak / retro / intake / design） | 语言段升格为 `### Step 0：设置产物语言`；原 `Step 0..N` → `Step 1..N+1`；`#### N.M` → `#### N+1.M`；正文引用同步 —— **含 `Step N–M`、`Step N / M / K` 这类范围与斜杠组**（整组 +1）。共 标题 +75、子步 +99、引用行 +237 |
+| 23 个 `policies/` + `templates/`（coding 内） | 跨文件引用同步（`normal Step 5`→`6`、`verify Step 7.2`→`8.2`、`tweak Step 2.2`→`3.2` …）。共 87 行 |
+| 跨族引用 **21 处** | `codereview` / `testing:refine` 引用 `verify Step 14`→`15`；`flow.md` 引用 `intake Step 1/2`→`2/3`；`risk-signals.md` 引用 `normal Step 5`→`6`、`verify Step 8`→`9`；`response-posture.md` 引用 `design Step 4.1`→`5.1`；`hard-stops.md` 的 H9/H11/H14；`coding/specify:339` 引用 `normal Step 5`→`6` |
+| `design` | 语言段原在 `Step 2.1` 内（`LANGUAGE=...`）→ 提升为 `Step 0`；`Step 2.1` 改为引用 `$LANG` |
+| **`tasks` 4 个文件（排除）** | `scope-challenge.md` / `four-section-review.md` / `test-review-methodology.md` / `main-review-summary.tmpl.md` —— 其 `Step N` 是**文档自身的内部编号**（评审 7 步 / 范围挑战子节），与 SKILL 的 Step 无关，**不得**随 SKILL 偏移 |
+
+**顺带修掉一处存量错误**：`plan/SKILL.md:191` 的悬空引用 `specify Step 6.4.1` → **`5.4.1`**（specify 最大只有 `Step 5`）。
+
+**验证**
+
+| 项 | 结果 |
+|---|---|
+| 各技能 Step 序列连续性 | **11/11 OK**（无缺号） |
+| `Step 0` = 设置产物语言 | **11/11 ✓** |
+| 越界引用 / 范围右端越界扫描 | **0** |
+| `skills-install -t "当前 zh 技能资产无跨技能"` | 单独跑**通过**（9.4s） |
+| 合并跑 `skills-install + commands-install` | 9 项失败**全为环境超时 / `broker.sock` ECONNREFUSED**（零断言失败），单跑即过 |
+
+**最终形态**（全族一致）：
+
+```
+## 流程（按顺序执行；任一步未完成不得进入下一步）
+
+### Step 0：设置产物语言
+
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+
+本技能所有提问与产出物均采用 `$LANG`。
+
+### Step 1：<原 Step 0 的动作>
+```
