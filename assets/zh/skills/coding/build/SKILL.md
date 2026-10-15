@@ -38,11 +38,6 @@ description: "按已评审的实施计划 tasks.md 完成编码实现。当用�
 > 本阶段不写计划、不审设计；只执行已评审的 `tasks.md`。  
 > 若本阶段落盘代码评审报告，写入 `openspec/changes/<task_id>/reviews/code-review-report.md`（无流程则不强造）。
 
-## 前置条件
-
-- Design Doc 已创建（阶段 2 完成）
-- 活跃 change 存在
-
 ## 流程（按顺序执行；任一步未完成不得进入下一步）
 
 ### Step 0：设置产物语言
@@ -253,9 +248,9 @@ phase: verify
 
 ## Constitution 注入点 C
 
-- **subagent（3.1 / 3.2）**：约束已在启动 prompt 中；implementer 在**每个** task 实施前必须输出  
+- **subagent（4.1 / 4.2）**：约束已在启动 prompt 中；implementer 在**每个** task 实施前必须输出  
   `[Constitution C] Task <N.M>: 适用原则 = ...`
-- **inline（3.3）**：主代理在 apply 前输出原则清单，并在每个 task 前补输同上格式
+- **inline（4.3）**：主代理在 apply 前输出原则清单，并在每个 task 前补输同上格式
 - 原则来源：`openspec/memory/constitution.md`（若项目约定路径不同，以仓库内 constitution 为准）
 
 ## 退出条件

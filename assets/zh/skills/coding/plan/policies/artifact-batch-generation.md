@@ -119,7 +119,7 @@ openspec/changes/<change_id>/
 ### 4.2 派发批内审查者（计一轮）
 
 - Agent：`plan-review-agent`（须已安装；缺失 → 阻断，提示 `polaris-flow init/update`）
-- 按 `subagent-delegate-policy.md`：D-0 → D-1 / D-2
+- 调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 派发（D-0 → D-1 / D-2，见该技能 `references/dispatch-execute.md`）
 
 **调用时必须告知审查者：**
 

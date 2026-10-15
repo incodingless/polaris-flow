@@ -104,11 +104,11 @@ OpenSpec Context: openspec/changes/<task_id>/*.md
 #### 3.2 增量更新 `brainstorm-summary.md`
 
 路径：`openspec/changes/<task_id>/brainstorm-summary.md`  
-未确认内容标「待确认」/「候选」。非 Design Doc，不替代 2.3。
+未确认内容标「待确认」/「候选」。非 Design Doc，不替代 Step 4 的 detailed-design.md 落盘。
 
 #### 3.3 用户确认设计方案（阻塞点）
 
-按 `./policies/decision-point.md` 暂停，展示技术方案 / 取舍风险 / 测试策略 / Spec Patch（如有）。确认前禁止落盘 `detailed-design.md`。确认 → Step 4；调整 → 回 2.1。
+按 `./policies/decision-point.md` 暂停，展示技术方案 / 取舍风险 / 测试策略 / Spec Patch（如有）。确认前禁止落盘 `detailed-design.md`。确认 → Step 4；调整 → 回 3.1。
 
 ### Step 4：落盘深度设计
 
@@ -138,7 +138,7 @@ canonical_spec: openspec
 2. 按 policy §4 输出预检结论与建议专项清单
 3. 按 policy §5 + `./policies/decision-point.md` **阻塞等待**：将推荐项的「范围内/范围外」逐条呈现给用户多选（强烈建议/建议默认勾选；可选默认不勾）；也可选「不补充」或「自定义」
 
-- 用户确认清单为空或不补充 → 跳过专项落盘，进 3.3
+- 用户确认清单为空或不补充 → 跳过专项落盘，进 4.3
 - 清单非空 → 按用户勾选的文件名与范围内外写入变更**根目录**（扁平，禁止子目录），模板见 policy §3
 
 | 专项（预检推荐名）| 生成策略 | 文件名 |
@@ -149,7 +149,7 @@ canonical_spec: openspec
 | Rest API | `./policies/design-restful-api-policy.md` | `restful-api-design.md` |
 | 其他 | - |用户确认英文 kebab `slug` → `<slug>-design.md` |
 
-**禁止**：文件名 `design.md`（与四件套冲突）；写入 `design/` 或任何子目录；在 3.1 完成前跑本预检；确认后再发明另一套专项菜单。
+**禁止**：文件名 `design.md`（与四件套冲突）；写入 `design/` 或任何子目录；在 4.1 完成前跑本预检；确认后再发明另一套专项菜单。
 
 #### 4.3 主动式上下文压缩
 若配置 `context-compression: beta`，且在 **`detailed-design.md`、专项设计（若有）、状态证据均已成功持久化落盘后** 考虑主动式压缩。这样压缩后可从文件恢复，不会丢失尚未写入的设计判断。
@@ -170,9 +170,10 @@ canonical_spec: openspec
    - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。`inline` / `unsupported` → 同上 decision-point。
 2. **派发**：注册名 / `subagent_type` = `design-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断，提示先 `polaris-flow init/update`。
 
-   **按 `subagent-delegate-policy.md` 执行派发**（D-0 工具可用性判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
+   调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 执行派发（D-0 工具判定 → D-1 路径引用型 / D-2 内容注入型，见该技能 `references/dispatch-execute.md`）。传入 `platform`、`agent`（probe 结果中 `id=design-review-agent` 的项）、`task_spec`：
 
-   - `stage_fields`:（无）
+   - `task_type`: `doc_review`
+   - `task_description`: 对 detailed-design 与各专项设计做独立评审；评审标准在 `design-review-agent` 定义内（frontmatter 已载入）。
    - `materials`（按以下顺序构造）：
      1. `openspec/changes/<task_id>/detailed-design.md`（必审）
      2. `openspec/changes/<task_id>/*-design.md`（有则必审的专项；排除四件套 `design.md`）
@@ -181,8 +182,10 @@ canonical_spec: openspec
      5. `openspec/changes/<task_id>/specs/**/*.md`（对照只读，每个非空文件）
      6. `openspec/changes/<task_id>/tasks.md`（对照只读）
      7. 若有：`openspec/changes/<task_id>/intention.md`
-
-   D-1 下 agent 按 `design-review-agent.md`「输入」节自读上述路径；D-2 下主代理 Read 全部全文拼入 `Materials:` 段。评审标准在 agent 内（frontmatter 已载入）。
+   - `constraints`:
+     - `output_path: openspec/changes/<task_id>/reviews/design-review-report.md`（报告写入该文件后只回报路径）
+     - 只评审，**禁止**修改任何文件
+   - `language`: 跟随主会话语言
 
 3. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；将完整 **Design Review Report** 写入 `openspec/changes/<task_id>/reviews/design-review-report.md`。
 
@@ -194,29 +197,34 @@ canonical_spec: openspec
 2. 按复杂度给出建议，decision-point：**A 启动** / **B 跳过**（AI 不得代决）。
 3. 用户选 A → 填充 `./templates/outside-voice-prompt.tmpl.md`，派发 `openspec-review-agent`。
 
-   **按 `subagent-delegate-policy.md` 执行派发**（D-0 判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
+   调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 执行派发（D-0 判定 → D-1 路径引用型 / D-2 内容注入型，见该技能 `references/dispatch-execute.md`）。传入 `platform`、`agent`（probe 结果中 `id=openspec-review-agent` 的项）、`task_spec`：
 
-   - `stage_fields`:
+   - `task_type`: `doc_review`
+   - `task_description`:
      ```text
      Stage: design
      ```
    - `materials`:
-     1. `openspec/changes/<task_id>/reviews/design-review-report.md`（即 PrimaryReport，D-2 下全文拼入）
+     1. `openspec/changes/<task_id>/reviews/design-review-report.md`（即 PrimaryReport）
      2. `openspec/changes/<task_id>/detailed-design.md`
      3. `openspec/changes/<task_id>/*-design.md`（有则列，排除四件套 `design.md`）
      4. `openspec/changes/<task_id>/proposal.md`
      5. `openspec/changes/<task_id>/design.md`
      6. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
      7. `openspec/changes/<task_id>/tasks.md`
+   - `constraints`:
+     - `output_path: openspec/changes/<task_id>/reviews/openspec-review-report.md`（报告写入该文件后只回报路径）
+     - 只评审，**禁止**修改任何文件
+   - `language`: 跟随主会话语言
 
 4. 通过可信度门禁后写入 `openspec/changes/<task_id>/reviews/openspec-review-report.md`；失败则标注 OV 作废并告知用户。
-5. 宿主无 subagent → 按协议自动跳过 OV 并标注（主审已在 4.1 处理）。
+5. 宿主无 subagent → 按协议自动跳过 OV 并标注（主审已在 5.1 处理）。
 
 #### 5.3 消化
 
 1. 主审 `Verdict`：`BLOCK` / 未消化 Critical → 不得完成；`APPROVE_WITH_CONCERNS` → decision-point 确认或修订。
 2. 若有 OV：与主审 tension / P0/P1 按 outside-voice 用户主权逐条决策；**禁止**自动改设计。
-3. 修订 `detailed-design.md` / 专项后 → 重跑 4.1（最多 3 轮）；主审重跑后再询 OV。
+3. 修订 `detailed-design.md` / 专项后 → 重跑 5.1（最多 3 轮）；主审重跑后再询 OV。
 
 ### Step 6：完成 design 阶段
 
@@ -262,7 +270,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 - 停在 **Step 3.3** → 从决策点续；**不得**因为「`brainstorm-summary.md` 已写」自行判定为已确认
 - 停在 **Step 4.2（专项预检决策）** → 从决策点续，已确认过的专项不再重问
 - 停在 **Step 4.3（主动式压缩）** → 产物已落盘，直接进 Step 5
-- 停在 **Step 5.1 / 5.2** → 先完成 4.3 消化（未消化 Critical 不得完成）
+- 停在 **Step 5.1 / 5.2** → 先完成 5.3 消化（未消化 Critical 不得完成）
 - 停在 **Step 6** → 只补状态写入与阶段推进，**不重做** Step 4
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
 

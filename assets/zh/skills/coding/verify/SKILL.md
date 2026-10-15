@@ -49,11 +49,6 @@ description: "验证 build 产出并落盘测试证据：编译检查、需求�
 > Step 1–17 **按顺序执行，任一步未完成不得进入下一步**；两道硬闸门（Step 2 的 dirty 处置、Step 4 的编译闸门）不过即停。
 > Step 15（独立代码评审）与 Step 16（人工验证）是内嵌的**子步，不是阶段** —— 不占游标、不写 `phase`。
 
-## 前置条件
-
-- 代码已提交（阶段 3 完成）
-- tasks.md 全部任务已完成
-
 ## Metrics 存储约定
 
 - 目录：`.polaris/metrics/`（**当前工作目录**的 `.polaris/`——若在 worktree 内即 worktree 的 metrics；ship 合回主仓）
@@ -124,7 +119,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --t
 
 ### Step 2：处理dirty worktree（硬闸门）
 
-验证开始前检查未提交改动（目标协议：`./policies/dirty-worktree.md`；若文件尚未安装，按下表内联执行）：
+验证开始前检查未提交改动（按下表执行）：
 
 | 情况 | 动作 |
 |------|------|

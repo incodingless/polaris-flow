@@ -92,7 +92,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 ### Step 4：worktree 产物合回 + 清理（仅本流程创建过 worktree 时）
 
 **条件**：`state.yaml: worktree.created_by_polaris_flow == true`。
-**顺序不可调换**：3.1–3.4 判定合并状态 → 3.5 先 sync 再 remove →（或 3.6 保留）。
+**顺序不可调换**：4.1–4.4 判定合并状态 → 4.5 先 sync 再 remove →（或 4.6 保留）。
 
 #### 4.1 读取 worktree 元信息
 
@@ -103,8 +103,8 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 ```bash
 bash "$PLUGIN_ROOT/scripts/worktree-merge-status.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$BRANCH"
 case $? in
-  0) ALREADY_MERGED=1 ;;       # 干净 + 已合并 → 跳到 3.5
-  1) ALREADY_MERGED=0 ;;       # 干净 + 未合并 → 进 3.3
+  0) ALREADY_MERGED=1 ;;       # 干净 + 已合并 → 跳到 4.5
+  1) ALREADY_MERGED=0 ;;       # 干净 + 未合并 → 进 4.3
   2) exit 1 ;;                 # 脏 → stderr 已含阻断话术
   *) exit 1 ;;                 # 参数/环境异常
 esac
@@ -122,13 +122,13 @@ esac
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/worktree-rebase-ff.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$BRANCH"
-# 0=成功 / 1=rebase 冲突（worktree 留中间态；用户手动 git rebase --continue 后重跑 /polaris{{SKN_SPR}}flow{{SKN_SPR}}ship）
+# 0=成功 / 1=rebase 冲突（worktree 留中间态；用户手动 git rebase --continue 后重跑 /polaris{{SKN_SPR}}coding{{SKN_SPR}}ship）
 # 2=ff merge 失败 / 3=环境异常
 ```
 
 #### 4.5 产物合回 → 清理 worktree（A/B 共用；不可拆分）
 
-**C 跳过本步**（见 3.6）。必须同一步内先 sync 再 remove：
+**C 跳过本步**（见 4.6）。必须同一步内先 sync 再 remove：
 
 ```bash
 # ━━━ 第一步：polaris-sync（合回产物到主仓 .polaris/）━━━
@@ -158,7 +158,7 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 
 #### 4.6 选项 C：保留 worktree
 
-不执行 3.5。写入：
+不执行 4.5。写入：
 
 - `worktree.status: abandoned`
 - `runtime.ship.harness_sync: skipped_worktree_retained`（字段名沿用模板；语义=产物未合回）
@@ -287,7 +287,7 @@ bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$task_id" "$ORIGIN_REPO" || exit 1
 
 - ship lock 已获取并在流程结束时由 trap 释放
 - `runtime.ship.status=delivered` 已写入
-- 若 `created_by_polaris_flow`：已完成 3.5，或用户选 C 且已标注 abandoned
+- 若 `created_by_polaris_flow`：已完成 4.5，或用户选 C 且已标注 abandoned
 - Step 5.5 已处理（补齐 done / 无需补齐 / 失败已记录）
 - archive 已询问；选 A 成功则为 archived，失败则为 failed（**未**移动 openspec）
 - Step 7.1 已成功

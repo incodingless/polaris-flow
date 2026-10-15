@@ -111,7 +111,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 
 ##### 3.1 定位（按优先级）
 
-1. 若 `openspec/changes/<task_id>/intention.md` 已存在 → 视为已迁入；本步仅确认可读，后续若四件套已齐可从中断点续跑到 Step 4.5/4/5
+1. 若 `openspec/changes/<task_id>/intention.md` 已存在 → 视为已迁入；本步仅确认可读，后续若四件套已齐可从中断点续跑到 Step 5
 2. 否则读暂存：
    - worktree 模式（2.3.A）：`<target_path>/.polaris/tasks/<task_id>/intention.md`
    - 主仓模式（2.3.B）：`<main_repo_root>/.polaris/tasks/<task_id>/intention.md`
@@ -251,7 +251,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 
 #### 5.1 机械终检（两种模式共用）
 
-四件套已按 Step 4.4 落盘后（Mode A 另须批内 §4/冻结流程结束），做机械校验（**禁止脑补替代**）。通过后方可进入 4.2。
+四件套已按 Step 4.4 落盘后（Mode A 另须批内 §4/冻结流程结束），做机械校验（**禁止脑补替代**）。通过后方可进入 5.2。
 
 1. **四件套存在且非空**：`proposal.md`、`design.md`、`tasks.md` 非空；`specs/` 为目录且含至少一个非空文件。任一失败 → 回 Step 4.4 / policy §3 补齐，不得进入 5.2
 2. **`proposal.md`**：含问题背景、目标、范围、非目标
@@ -281,9 +281,10 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
    - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。`inline` / `unsupported` → 同上 decision-point。
 2. **派发**：`plan-review-agent`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。
 
-   **按 `subagent-delegate-policy.md` 执行派发**（D-0 工具可用性判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
+   调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 执行派发（D-0 工具判定 → D-1 路径引用型 / D-2 内容注入型，见该技能 `references/dispatch-execute.md`）。传入 `platform`、`agent`（probe 结果中 `id=plan-review-agent` 的项）、`task_spec`：
 
-   - `stage_fields`:
+   - `task_type`: `doc_review`
+   - `task_description`:
      ```text
      Change: <task_id>
      Batch: all
@@ -297,8 +298,10 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
      4. `openspec/changes/<task_id>/tasks.md`（粗骨架）
      5. 若有：`openspec/changes/<task_id>/intention.md`
      6. 若有（Mode A 常见）：`openspec/changes/<task_id>/review-log.md`
-
-   D-1 下 agent 按 `plan-review-agent.md` 自读上述路径；D-2 下主代理 Read 全部全文拼入 `Materials:` 段。
+   - `constraints`:
+     - `output_path: openspec/changes/<task_id>/reviews/plan-review-report.md`（报告写入该文件后只回报路径）
+     - 只评审，**禁止**修改任何文件；评审标准在 `plan-review-agent` 定义内（frontmatter 已载入）
+   - `language`: 跟随主会话语言
 
 3. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；写入 `openspec/changes/<task_id>/reviews/plan-review-report.md`。
 
@@ -316,27 +319,32 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 2. 复杂度建议 + decision-point：**A 启动** / **B 跳过**。
 3. 选 A → 填充 `./templates/outside-voice-prompt.tmpl.md`，派发 `openspec-review-agent`。
 
-   **按 `subagent-delegate-policy.md` 执行派发**（D-0 判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
+   调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 执行派发（D-0 判定 → D-1 路径引用型 / D-2 内容注入型，见该技能 `references/dispatch-execute.md`）。传入 `platform`、`agent`（probe 结果中 `id=openspec-review-agent` 的项）、`task_spec`：
 
-   - `stage_fields`:
+   - `task_type`: `doc_review`
+   - `task_description`:
      ```text
      Change: <task_id>
      Stage: plan
      ```
    - `materials`:
-     1. `openspec/changes/<task_id>/reviews/plan-review-report.md`（即 PrimaryReport，D-2 下全文拼入）
+     1. `openspec/changes/<task_id>/reviews/plan-review-report.md`（即 PrimaryReport）
      2. `openspec/changes/<task_id>/proposal.md`
      3. `openspec/changes/<task_id>/design.md`
      4. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
      5. `openspec/changes/<task_id>/tasks.md`
      6. 若有：`openspec/changes/<task_id>/intention.md`
+   - `constraints`:
+     - `output_path: openspec/changes/<task_id>/reviews/openspec-review-report.md`（报告写入该文件后只回报路径）
+     - 只评审，**禁止**修改任何文件
+   - `language`: 跟随主会话语言
 
 4. 通过可信度门禁后写入 `openspec/changes/<task_id>/reviews/openspec-review-report.md`。
 5. 宿主无 subagent → 按协议跳过 OV 并标注。
 
 #### 5.4 消化
 
-1. 主审 `Verdict`：`BLOCK` / 未消化 Critical → **禁止**进 Step 6；修订四件套（必要时回 Step 4.4）→ **重跑 5.2**（最多 3 轮）；修订后若动过四件套须先重跑 **4.1** 机械终检。
+1. 主审 `Verdict`：`BLOCK` / 未消化 Critical → **禁止**进 Step 6；修订四件套（必要时回 Step 4.4）→ **重跑 5.2**（最多 3 轮）；修订后若动过四件套须先重跑 **5.1** 机械终检。
 2. `APPROVE_WITH_CONCERNS` → decision-point 确认或修订。
 3. OV tension / P0/P1 → 按 outside-voice 用户主权逐条决策；**禁止**自动改四件套。
 4. 主审重跑后再询 OV。

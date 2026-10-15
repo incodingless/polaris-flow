@@ -323,9 +323,10 @@ LINT_EXIT=$?
 2. **解析 StandardsRoot**：本 skill 安装根目录（含 `policies/`、`references/`、`prompts/`）。例：`$PLUGIN_ROOT/tasks`（nested）或项目 skills 下的 `polaris{{SKN_SPR}}flow{{SKN_SPR}}tasks`（flat）。目录缺失 → 阻断，提示 `polaris init/update`。
 3. **派发**：注册名 / `subagent_type` = `tasks-review-agent`（init 已装到 `.<platform>/agents/`）。文件缺失 → 阻断。
 
-   **按 `subagent-delegate-policy.md` 执行派发**（D-0 工具可用性判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
+   调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 执行派发（D-0 工具判定 → D-1 路径引用型 / D-2 内容注入型，见该技能 `references/dispatch-execute.md`）。传入 `platform`、`agent`（probe 结果中 `id=tasks-review-agent` 的项）、`task_spec`：
 
-   - `stage_fields`:
+   - `task_type`: `doc_review`
+   - `task_description`:
      ```text
      tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
      StandardsRoot: <本 skill 安装绝对或仓库相对根路径>
@@ -345,8 +346,10 @@ LINT_EXIT=$?
      12. 若有：`openspec/changes/<task_id>/reviews/design-review-report.md`
      13. 若有：`openspec/changes/<task_id>/*-design.md`（专项设计；排除四件套 `design.md`）
      14. 若有：`openspec/changes/<task_id>/intention.md`
-
-   D-1 下 agent 自读上述路径；D-2 下主代理 Read 全部全文（含五份标准文档）拼入 `Materials:` 段；`StandardsRoot` 在 D-2 下仅作溯源标注用。
+   - `constraints`:
+     - `output_path: openspec/changes/<task_id>/reviews/tasks-review-report.md`（报告写入该文件后只回报路径）
+     - 只评审，**禁止**修改任何文件
+   - `language`: 跟随主会话语言
 
 4. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；将完整 **Plan Review Report** 写入 `openspec/changes/<task_id>/reviews/tasks-review-report.md`。
 
@@ -358,19 +361,24 @@ LINT_EXIT=$?
 2. 按复杂度给出建议，decision-point：**A 启动** / **B 跳过**（AI 不得代决）。
 3. 用户选 A → 填充本 skill 的 `prompts/main-review-summary.tmpl.md`，派发 `openspec-review-agent`。
 
-   **按 `subagent-delegate-policy.md` 执行派发**（D-0 判定 → D-1 路径引用型 / D-2 内容注入型）。传入参数：
+   调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 执行派发（D-0 判定 → D-1 路径引用型 / D-2 内容注入型，见该技能 `references/dispatch-execute.md`）。传入 `platform`、`agent`（probe 结果中 `id=openspec-review-agent` 的项）、`task_spec`：
 
-   - `stage_fields`:
+   - `task_type`: `doc_review`
+   - `task_description`:
      ```text
      Stage: plan
      ```
    - `materials`:
-     1. `openspec/changes/<task_id>/reviews/tasks-review-report.md`（即 PrimaryReport，D-2 下全文拼入）
+     1. `openspec/changes/<task_id>/reviews/tasks-review-report.md`（即 PrimaryReport）
      2. `openspec/changes/<task_id>/proposal.md`
      3. `openspec/changes/<task_id>/design.md`
      4. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
      5. `openspec/changes/<task_id>/tasks.md`
      6. 若有（`runtime.design.status=completed`）：`openspec/changes/<task_id>/detailed-design.md`
+   - `constraints`:
+     - `output_path: openspec/changes/<task_id>/reviews/openspec-review-report.md`（报告写入该文件后只回报路径）
+     - 只评审，**禁止**修改任何文件
+   - `language`: 跟随主会话语言
 
    （模板内 findings 摘录从刚落盘的 `tasks-review-report.md` 填充；**不要**附带用户对 findings 的采纳决策。）
 
