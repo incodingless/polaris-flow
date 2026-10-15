@@ -322,21 +322,16 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
    调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 执行派发（D-0 判定 → D-1 路径引用型 / D-2 内容注入型，见该技能 `references/dispatch-execute.md`）。传入 `platform`、`agent`（probe 结果中 `id=openspec-review-agent` 的项）、`task_spec`：
 
    - `task_type`: `doc_review`
-   - `task_description`:
-     ```text
-     Change: <task_id>
-     Stage: plan
-     ```
+   - `task_description`: 填充后的 `./templates/outside-voice-prompt.tmpl.md`（`Change` / `Stage` / `PrimaryReport` + 主审 findings 摘录；摘录从刚落盘的 `plan-review-report.md` 提取，**不含**用户对 findings 的采纳决策）
    - `materials`:
-     1. `openspec/changes/<task_id>/reviews/plan-review-report.md`（即 PrimaryReport）
-     2. `openspec/changes/<task_id>/proposal.md`
-     3. `openspec/changes/<task_id>/design.md`
-     4. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
-     5. `openspec/changes/<task_id>/tasks.md`
-     6. 若有：`openspec/changes/<task_id>/intention.md`
+     1. `openspec/changes/<task_id>/proposal.md`
+     2. `openspec/changes/<task_id>/design.md`
+     3. `openspec/changes/<task_id>/specs/**/*.md`（每个非空文件）
+     4. `openspec/changes/<task_id>/tasks.md`
+     5. 若有：`openspec/changes/<task_id>/intention.md`
    - `constraints`:
      - `output_path: openspec/changes/<task_id>/reviews/openspec-review-report.md`（报告写入该文件后只回报路径）
-     - 只评审，**禁止**修改任何文件
+     - 只评审，**禁止**修改任何文件；挑战标准在 `openspec-review-agent` 定义内（frontmatter 已载入）
    - `language`: 跟随主会话语言
 
 4. 通过可信度门禁后写入 `openspec/changes/<task_id>/reviews/openspec-review-report.md`。

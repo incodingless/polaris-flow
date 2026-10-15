@@ -53,11 +53,11 @@ B. 跳过
 
 ## Step OV-3：派发
 
-1. **填充启动模板**：
-   - **tasks 阶段**：优先 `skills/tasks/prompts/main-review-summary.tmpl.md`
-   - **plan / design 阶段**：`templates/outside-voice-prompt.tmpl.md`（或同等字段手工 prompt）
-2. 按宿主原生机制派发 `openspec-review-agent`（init 已装到 `.<platform>/agents/`）。
-3. 启动 prompt **必须**含：`Change`、`Stage`、`PrimaryReport`（主审报告路径）、`Materials` 列表。
+1. 按启动模板填充 `task_description`：
+   - **tasks 阶段**：`skills/tasks/prompts/main-review-summary.tmpl.md`（五类结构化 findings 摘录）
+   - **plan / design 阶段**：`templates/outside-voice-prompt.tmpl.md`（通用 findings 摘录）
+2. 调用 `polaris{{SKN_SPR}}subagent-dispatch` 派发 `openspec-review-agent`（init 已装到 `.<platform>/agents/`），`agent` 取 probe 结果中 `id=openspec-review-agent` 的项；填充后的模板作为 `task_spec.task_description`。
+3. `task_description` **必须**含：`Change`、`Stage`、`PrimaryReport`（主审报告路径）+ 主审 findings 摘录；`Materials` 由 `task_spec.materials` 数组承载（不含主审报告，因其已在 `PrimaryReport` 字段）。
 4. **禁止**把用户对主审 findings 的采纳/拒绝决策喂给 challenger（保独立性）。
 
 ## Step OV-4：落盘与可信度门禁
