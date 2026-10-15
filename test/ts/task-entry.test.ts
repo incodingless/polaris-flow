@@ -113,7 +113,7 @@ describe('task-entry · create', () => {
     expect(taskState?.phase).toBe('specify');
   });
 
-  it('create 之后立刻再调 → resume（mode 已落盘，判定应回本技能）', async () => {
+  it('create 之后立刻再调 → resume（新任务停在 specify，该由 specify 技能接手）', async () => {
     const repo = await tmpRepo();
     const first = await runTaskEntry({
       kind: 'coding',
@@ -124,11 +124,11 @@ describe('task-entry · create', () => {
     });
     const taskId = first.payload?.task_id ?? '';
 
-    const second = await runTaskEntry({ kind: 'coding', as: 'tweak', repoRoot: repo });
+    const second = await runTaskEntry({ kind: 'coding', as: 'specify', repoRoot: repo });
     expect(second.payload?.action).toBe('resume');
     expect(second.payload?.task_id).toBe(taskId);
-    expect(second.payload?.skill).toBe('tweak');
-    expect(second.payload?.skill_label).toBe('简单');
+    expect(second.payload?.skill).toBe('specify');
+    expect(second.payload?.skill_label).toBe('澄清');
   });
 
   it('零个时缺 --mode → exit 3；非法 --mode → exit 3', async () => {
@@ -180,7 +180,7 @@ describe('task-entry · 判定（resume / handover / block）', () => {
     const repo = await tmpRepo();
     await seedTask(repo, 't-1', 'plan', 'tweak');
 
-    const result = await runTaskEntry({ kind: 'coding', as: 'tweak', repoRoot: repo });
+    const result = await runTaskEntry({ kind: 'coding', as: 'plan', repoRoot: repo });
     expect(result.payload?.action).toBe('resume');
     expect(result.payload?.phase).toBe('plan');
     expect(result.payload?.phase_label).toBe('提案');
@@ -279,7 +279,7 @@ describe('task-entry · select 与参数', () => {
 
     const byId = new Map((result.payload?.candidates ?? []).map((c) => [c.task_id, c]));
     expect([...byId.keys()].sort()).toEqual(['a-1', 'b-2']);
-    expect(byId.get('a-1')?.skill_label).toBe('简单');
+    expect(byId.get('a-1')?.skill_label).toBe('提案');
     expect(byId.get('a-1')?.mode_label).toBe('简单');
     expect(byId.get('b-2')?.phase_label).toBe('澄清');
     expect(byId.get('b-2')?.skill_label).toBe('澄清');

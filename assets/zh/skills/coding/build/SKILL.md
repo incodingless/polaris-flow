@@ -1,12 +1,12 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}build
-description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}build，或要求按已评审的 tasks.md 实施 / 执行 /opsx:apply 时必须使用本 skill。优先由 implementer subagent 执行 apply；仅当 SessionStart/probe 退化为 inline 或用户选 inline 时主代理才可执行 apply。"
+description: "按已评审的实施计划 tasks.md 完成编码实现。当用户要求按计划写代码、实施某个 change、开始编码时使用。不要用于：改需求（走 specify）、改计划（走 tasks）、验收与测试（走 verify）。"
 ---
 
 # Polaris 工作流 - 阶段：构建（build）
 
 <HARD-GATE>
-本 skill **仅**负责：在 **plan 已完成** 的前提下，按 `openspec/changes/<task_id>/tasks.md` 调用 `/opsx:apply` 完成实现，并做出口校验与阶段推进。
+本 skill **仅**负责：在**本档的规划阶段已完成**的前提下（`tweak` 档 = `tasks` 已完成；`normal` / `strict` 档 = `plan` 已完成），按 `openspec/changes/<task_id>/tasks.md` 调用 `/opsx:apply` 完成实现，并做出口校验与阶段推进。
 
 - **禁止**在 Step 3（能力结论 / 可选 `subagent-probe`，且仅当 `build_mode=subagent_dispatch`）完成之前调用 `/opsx:apply`
 - **禁止**跳过 Constitution 注入点 C（subagent 启动 prompt 必须含 C；inline 时由主代理按 task 输出 C）
@@ -51,45 +51,17 @@ description: "按已评审的 tasks.md 调用 /opsx:apply 实施编码。用户�
 
 本技能所有提问与产出物均采用 `$LANG`。
 
-### Step 1：定位任务 + 恢复分发 + 入口校验
+### Step 1：接收 `intake` 交接
 
-```bash
-ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
-RTID_EXIT=$?
-```
+**前置**：根据交接中是否存在 `task_id`（由 `intake` 的 Step 4 给出；阶段出口的自动衔接同样会带），做以下操作：
 
-- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
-  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` /
-  `skill` / `skill_label` / `state_readable`
-
-按 `$ROWS` 长度：
-
-| 长度 | 动作 |
+| 情形 | 动作 |
 | ---- | ---- |
-| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
-| **唯一** | 记下该行 `task_id`，进入下面的判定 |
-| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
-
-候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
-
-```
-- <task_id> (工作流：严格(strict)，阶段：构建(build)，技能：构建(build))
-```
-
-1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
-2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
-
-| `skill` | 含义 | 动作 |
-| ------- | ---- | ---- |
-| `== build`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` 取该行值，跳到文末「上下文压缩恢复」表里对应 Step |
-| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`（**不要求**用户再敲命令）；本技能到此结束，**不得**建任务 / 推进阶段 |
-| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
-
-- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
+| 有 | **采纳**；`worktree_path` 一并取（空 = 主仓；非空 ⇒ 后续读产物 / 跑命令一律以该 worktree 为仓库根）。中断续跑时按文末「上下文压缩恢复」表定位断点 |
+| 没有 | **阻断**：告知「本技能须经 `intake` 进入，请从入口技能（`tweak` / `normal` / `strict`）重新开始」。|
 
 > 续跑：入口校验通过后**不得**重跑 Step 2 的模式询问原样 —— `runtime.build.build_mode` /
-> `runtime.build.review_mode` 已存在时，展示当前值并问是否沿用（见 Step 2）。
+> `runtime.build.review_mode` 已存在时，**`normal` / `strict` 档**展示当前值并问是否沿用；**`tweak` 档直接沿用**（见 Step 2）。
 > 若上次中断在 plan 中（`runtime.tasks.status=in_progress` / apply paused），从中断点续跑。
 
 **入口校验**（失败 → 阻断）：
@@ -108,9 +80,18 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 ```
 输出：`[polaris-flow 开发]构建: task_id=<task_id> ; worktree=<path|main>`
 
-### Step 2：选择执行方式与审查模式（用户决策点）
+### Step 2：选择执行方式与审查模式
 
-**一次性**按 `./policies/decision-point.md` 询问两项（可同一轮多问）。推荐规则**只能说明，不能代选**。
+**先按 `workflow.mode` 分派**（本技能是**档位消费者**，只读不覆盖）：
+
+| 档 | 本步行为 |
+|---|---|
+| 🔻 **`tweak`** | **不询问** ⇒ 直接取 **`build_mode=inline`** + **`review_mode=standard`**，写入 `state.yaml` 后进 Step 3。**不要**发起 decision-point 询问（"只是选个强度/模式"的询问一律改由档位派生） |
+| **`normal` / `strict`** | 按下方 2.1 / 2.2 询问 |
+
+`normal` / `strict`：**一次性**按 `./policies/decision-point.md` 询问两项（可同一轮多问）。推荐规则**只能说明，不能代选**。
+
+> **续跑（`tweak` 档）**：`runtime.build.build_mode` / `review_mode` 已存在则沿用；缺则按上表补写，**不询问**。
 
 #### 2.1 执行方式 `build_mode`
 
@@ -140,7 +121,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 > **刻意不做**：全局 `tdd_mode`。每个 task 是否 TDD 已由 plan 写在 `tasks.md` HTML 注释里；`/opsx:apply` / implementer 必须遵守注释，不得用 build 级开关覆盖。  
 > **刻意不做**：apply 循环内的「每任务 reviewer」——与「implementer 唯一动作是 `/opsx:apply`」冲突；需要更密审查时选 `thorough`，或事后在 verify 再审。
 
-若续跑且 `runtime.build.build_mode` / `runtime.build.review_mode` 已存在 → 展示当前值，问是否沿用（沿用则跳过写入）。
+若续跑且 `runtime.build.build_mode` / `runtime.build.review_mode` 已存在 → **`normal` / `strict` 档**展示当前值、问是否沿用（沿用则跳过写入）；**`tweak` 档直接沿用**（档位派生值，不询问）。
 
 ### Step 3：Subagent Probe（仅 `build_mode=subagent_dispatch`）
 
@@ -266,7 +247,7 @@ phase: verify
 
 ```text
 [polaris-flow 开发]构建 - 阶段完成，状态已落盘。
-下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+下一步：<SKILL> 阶段（建议新开会话 | 可同会话继续）。
 恢复：先读 openspec/changes/<task_id>/tasks.md 的勾选进度与 .polaris/tasks/<task_id>/state.yaml 的 runtime.build，再从下一步技能的 Step 0 开始。
 ```
 

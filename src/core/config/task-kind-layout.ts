@@ -56,19 +56,6 @@ export type KindPhaseDef = {
    *   - **旁路阶段**：coding `retro` —— 可出现在 state.yaml，但不属推进游标的主序列
    */
   skill?: string | null;
-  /**
-   * **单技能通道**下该阶段的执行者（仅 coding 的 `specify` / `plan` 登记）。
-   *
-   * 语义：`channelSkill[mode]` 命中时**优先于** `skill` / 同名默认。
-   *
-   * 原因：`tweak` / `normal` 把 `specify → tasks → build → verify` 压在**一个技能内部**完成，
-   * 游标只经过 `specify → plan → ship` 三处 ⇒ 这两个阶段在这两条通道下由**通道技能本人**执行，
-   * 不能交给同名的 `specify` / `plan` 技能。
-   *
-   * 只在「恢复分发」的派生函数 `skillForModePhase` 里生效；
-   * `skillForPhase`（服务出口的 `state next`）**不看**本字段 —— 通道迁移由 `mode` 改写保证一致。
-   */
-  channelSkill?: Record<string, string>;
 };
 
 /** 产物定义 */
@@ -105,6 +92,13 @@ export type TaskKindLayout = {
   bootstrapFiles: TaskBootstrapFile[];
   /** 阶段序列（含旁路；旁路用 `bypass` 标记） */
   phases: KindPhaseDef[];
+  /**
+   * 该 kind 下**各工作流的阶段子序列**（按游标推进顺序）；缺省 = 全序列。
+   *
+   * 唯一真相：`phasesForMode` / `nextPhaseForMode` / `isPhaseInMode` 三个派生函数都读它，
+   * **技能与命令不复制这张表**。未登记的 mode（含空串、历史值）落回全序列 —— 存量不崩。
+   */
+  modePhases?: Record<string, string[]>;
   /** 面向界面的中文类型名（单一真相，前端不再自持一份） */
   label: string;
   /** 各阶段产物（**只登记已核实的路径**，不确定的不写） */
@@ -131,20 +125,8 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     usesDraft: true,
     bootstrapFiles: [],
     phases: [
-      {
-        code: 'specify',
-        name: '澄清',
-        group: '澄清与方案',
-        skill: null,
-        // 单技能通道下由通道技能本人执行（见 KindPhaseDef.channelSkill）
-        channelSkill: { tweak: 'tweak', normal: 'normal' },
-      },
-      {
-        code: 'plan',
-        name: '提案',
-        group: '澄清与方案',
-        channelSkill: { tweak: 'tweak', normal: 'normal' },
-      },
+      { code: 'specify', name: '澄清', group: '澄清与方案', skill: null },
+      { code: 'plan', name: '提案', group: '澄清与方案' },
       { code: 'design', name: '深度设计', group: '澄清与方案', optional: true },
       { code: 'tasks', name: '任务规划', group: '实现' },
       { code: 'build', name: '构建', group: '实现' },
@@ -152,6 +134,12 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
       { code: 'ship', name: '交付', group: '收口' },
       { code: 'retro', name: '复盘', group: '旁路', bypass: true, skill: null },
     ],
+    // 三条工作流的阶段子序列（按游标推进顺序）。技能与命令一律从 `phasesForMode` 取，不复制本表。
+    modePhases: {
+      tweak: ['specify', 'tasks', 'build', 'verify', 'ship'],
+      normal: ['specify', 'plan', 'tasks', 'build', 'verify', 'ship'],
+      strict: ['specify', 'plan', 'design', 'tasks', 'build', 'verify', 'ship'],
+    },
     artifacts: [
       {
         phase: 'specify',
@@ -353,6 +341,55 @@ export function getKindPhases(
   return TASK_KIND_LAYOUTS[kind].phases.filter((p) => includeBypass || !p.bypass);
 }
 
+/**
+ * 该**工作流**的阶段序列（按游标推进顺序）。
+ *
+ * `mode` 未登记（含空串、历史值）→ 落回该 kind 的**全序列** ⇒ 存量任务行为不变。
+ * 旁路阶段（coding `retro`）不属于任何档的序列；传 `includeBypass` 时追加在末尾。
+ */
+export function phasesForMode(
+  kind: WorkflowTaskKind,
+  mode: string,
+  options: { includeBypass?: boolean } = {},
+): KindPhaseDef[] {
+  const layout = TASK_KIND_LAYOUTS[kind];
+  const codes = layout.modePhases?.[normalizeMode(mode)];
+  const picked = codes
+    ? codes
+        .map((code) => layout.phases.find((p) => p.code === code))
+        .filter((p): p is KindPhaseDef => Boolean(p))
+    : layout.phases.filter((p) => !p.bypass);
+  const { includeBypass = false } = options;
+  if (!includeBypass) return picked;
+  return [...picked, ...layout.phases.filter((p) => p.bypass)];
+}
+
+/**
+ * 该工作流下 `phase` 的**下一段**；已是末段 / 阶段不在本档序列 / 未登记 → `null`。
+ *
+ * 消费方：`task-state-entry complete-phase` 的**缺省** `--next-phase` ——
+ * 阶段技能不再写死下一段，改由本表派生（`plan` 的 design / tasks 二分支仍显式传入）。
+ */
+export function nextPhaseForMode(
+  kind: WorkflowTaskKind,
+  mode: string,
+  phase: string,
+): string | null {
+  const code = normalizePhase(phase);
+  if (!code) return null;
+  const seq = phasesForMode(kind, mode).map((p) => p.code);
+  const i = seq.indexOf(code);
+  if (i < 0 || i >= seq.length - 1) return null;
+  return seq[i + 1];
+}
+
+/** `phase` 是否属于该工作流的阶段序列（**旁路阶段恒为 false**） */
+export function isPhaseInMode(kind: WorkflowTaskKind, mode: string, phase: string): boolean {
+  const code = normalizePhase(phase);
+  if (!code) return false;
+  return phasesForMode(kind, mode).some((p) => p.code === code);
+}
+
 /** 取 kind 的 UI 分组名序列（按首次出现顺序，只含主序列的组） */
 export function getKindGroups(kind: WorkflowTaskKind): string[] {
   const groups: string[] = [];
@@ -412,30 +449,24 @@ export function skillForPhase(kind: WorkflowTaskKind, phase: string): string | n
 }
 
 /**
- * **恢复分发**用：游标 `phase` + `workflow.mode` → 应执行的技能名（族内相对名）。
+ * **恢复分发**用：游标 `phase` → 该由哪个技能接手（族的相对名）。
  *
- * 与 `skillForPhase` 的两点差别（**不可互相替代**）：
- *   1. **入口阶段**：本函数返回同名技能（coding `specify` → `specify`）——「该进哪个技能」
- *      正是它要回答的问题；`skillForPhase` 对入口阶段返回 `null`（语义是「无下一段可自动衔接」，
- *      服务于出口的 `state next`）。
- *   2. **`mode`**：命中阶段表的 `channelSkill[mode]` 时优先返回它 —— 单技能通道
- *      （coding `tweak` / `normal`）的 `specify` / `plan` 由通道技能本人执行。
+ * 与 `skillForPhase` 的**唯一差别**：入口阶段返回同名技能（coding `specify` → `specify`）
+ * ——「该进哪个技能」正是它要回答的问题；`skillForPhase` 对入口阶段返回 `null`
+ * （语义是「无下一段可自动衔接」，服务于出口的 `state next`）。
  *
  * 返回 `null`：空 / 未知阶段、旁路阶段（coding `retro`）。
- * `mode` 先经 `normalizeMode` 归一（历史 `full` → `strict`），故存量数据不受改名影响。
+ *
+ * **2026-10-14 起不再读 `mode`**：`channelSkill`（单体通道技能的配套）已删，
+ * 三档的阶段一律交给**同名阶段技能**。⚠️ `phase` 不在本档序列时**仍按同名回落、不阻断** ——
+ * 存量任务（如 `mode=tweak` + `phase=plan`）因此照常可路由。
  * 消费方：`workflow-entry get-active-changes --format full`（技能 Step 0 的分发判据）。
  */
-export function skillForModePhase(
-  kind: WorkflowTaskKind,
-  phase: string,
-  mode?: string,
-): string | null {
+export function skillForModePhase(kind: WorkflowTaskKind, phase: string): string | null {
   const code = normalizePhase(phase);
   if (!code) return null;
   const def = TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === code);
   if (!def || def.bypass) return null;
-  const byMode = mode ? def.channelSkill?.[normalizeMode(mode)] : undefined;
-  if (byMode) return byMode;
   return def.skill ?? def.code;
 }
 

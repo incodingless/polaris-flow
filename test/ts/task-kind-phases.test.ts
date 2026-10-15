@@ -27,11 +27,12 @@ import {
   getKindPhases,
   getTaskKindLayout,
   isKnownPhase,
+  isPhaseInMode,
   isWritablePhase,
-  modeLabel,
-  normalizeMode,
+  nextPhaseForMode,
   phaseGroupOf,
   phaseIndexIn,
+  phasesForMode,
   skillForModePhase,
   skillForPhase,
   writablePhaseList,
@@ -244,13 +245,6 @@ describe('skillForPhase：游标 phase → 技能名（A 案的核心语义）',
     }
   });
 
-  it('历史别名 delivery / archive 归一到 ship（存量游标可读）', () => {
-    expect(skillForPhase('coding', 'delivery')).toBe('ship');
-    expect(skillForPhase('coding', 'archive')).toBe('ship');
-    expect(skillForPhase('requirement', 'delivery')).toBe('ship');
-    expect(skillForPhase('prototype', 'delivery')).toBe('ship');
-  });
-
   it('六段时代遗留（triage / prescribe / prove）彻底无衔接', () => {
     for (const gone of ['triage', 'prescribe', 'prove']) {
       expect(skillForPhase('debug', gone)).toBeNull();
@@ -269,74 +263,99 @@ describe('skillForPhase：游标 phase → 技能名（A 案的核心语义）',
   });
 });
 
-describe('skillForModePhase：恢复分发的判据（mode × 游标 phase → 技能）', () => {
-  it('单技能通道：specify / plan 归**通道技能本人**（不得交给同名阶段技能）', () => {
-    expect(skillForModePhase('coding', 'specify', 'tweak')).toBe('tweak');
-    expect(skillForModePhase('coding', 'plan', 'tweak')).toBe('tweak');
-    expect(skillForModePhase('coding', 'specify', 'normal')).toBe('normal');
-    expect(skillForModePhase('coding', 'plan', 'normal')).toBe('normal');
-  });
-
-  it('严格工作流与其余阶段：同名回落（**入口阶段也返回同名** —— 与 skillForPhase 的关键差别）', () => {
+describe('skillForModePhase：恢复分发的判据（游标 phase → 该由哪个技能接手）', () => {
+  it('入口阶段返回同名技能（**与 skillForPhase 的唯一差别**）', () => {
     expect(skillForPhase('coding', 'specify')).toBeNull(); // 出口语义：入口阶段无自动衔接
-    expect(skillForModePhase('coding', 'specify', 'strict')).toBe('specify'); // 分发语义：要回答「进哪个技能」
-    expect(skillForModePhase('coding', 'plan', 'strict')).toBe('plan');
-    expect(skillForModePhase('coding', 'verify', 'strict')).toBe('verify');
-    expect(skillForModePhase('coding', 'specify')).toBe('specify'); // mode 缺省同样回落
+    expect(skillForModePhase('coding', 'specify')).toBe('specify'); // 分发语义：要回答「进哪个技能」
   });
 
-  it('phase=ship 归 ship（mode 不限）—— 交付阶段三通道共用', () => {
-    expect(skillForModePhase('coding', 'ship', 'tweak')).toBe('ship');
-    expect(skillForModePhase('coding', 'ship', 'normal')).toBe('ship');
-    expect(skillForModePhase('coding', 'ship', 'strict')).toBe('ship');
+  it('其余阶段一律同名回落，**与 mode 无关**（channelSkill 已于 2026-10-14 删除）', () => {
+    expect(skillForModePhase('coding', 'plan')).toBe('plan');
+    expect(skillForModePhase('coding', 'design')).toBe('design');
+    expect(skillForModePhase('coding', 'tasks')).toBe('tasks');
+    expect(skillForModePhase('coding', 'build')).toBe('build');
+    expect(skillForModePhase('coding', 'verify')).toBe('verify');
+    expect(skillForModePhase('coding', 'ship')).toBe('ship');
   });
 
-  it('升档 / 存量兜底：phase 不在 mode 的覆盖内时按 phase 直连', () => {
-    expect(skillForModePhase('coding', 'design', 'normal')).toBe('design'); // normal 升档后由 design 接手
-    expect(skillForModePhase('coding', 'build', '')).toBe('build'); // 旧数据 mode 为空
+  it('其余族的入口阶段同样返回同名技能', () => {
+    expect(skillForModePhase('requirement', 'discovery')).toBe('discovery');
+    expect(skillForModePhase('debug', 'diagnose')).toBe('diagnose');
   });
 
-  it('空 / 未知 / 旁路阶段返回 null；历史别名照常归一', () => {
-    expect(skillForModePhase('coding', 'retro', 'strict')).toBeNull();
-    expect(skillForModePhase('coding', '', 'strict')).toBeNull();
-    expect(skillForModePhase('coding', '  ', 'strict')).toBeNull();
-    expect(skillForModePhase('coding', 'nonsense', 'strict')).toBeNull();
-    expect(skillForModePhase('coding', 'delivery', 'strict')).toBe('ship');
+  it('空 / 未知 / 旁路阶段返回 null', () => {
+    expect(skillForModePhase('coding', 'retro')).toBeNull();
+    expect(skillForModePhase('coding', '')).toBeNull();
+    expect(skillForModePhase('coding', '  ')).toBeNull();
+    expect(skillForModePhase('coding', 'nonsense')).toBeNull();
+  });
+});
+
+describe('工作流阶段序列（phasesForMode / nextPhaseForMode / isPhaseInMode）', () => {
+  it('coding 三条工作流的序列（唯一真相 = modePhases 表）', () => {
+    const codes = (mode: string) => phasesForMode('coding', mode).map((p) => p.code);
+    expect(codes('tweak')).toEqual(['specify', 'tasks', 'build', 'verify', 'ship']);
+    expect(codes('normal')).toEqual(['specify', 'plan', 'tasks', 'build', 'verify', 'ship']);
+    expect(codes('strict')).toEqual([
+      'specify',
+      'plan',
+      'design',
+      'tasks',
+      'build',
+      'verify',
+      'ship',
+    ]);
   });
 
-  it('工作流名历史别名 full → strict（改名兜底：存量 state.yaml 照常可读，写入仍被拒）', () => {
-    expect(normalizeMode('full')).toBe('strict');
-    expect(normalizeMode(' strict ')).toBe('strict');
-    expect(normalizeMode('tweak')).toBe('tweak');
-    expect(modeLabel('full')).toBe('严格');
-    expect(modeLabel('strict')).toBe('严格');
-    expect(skillForModePhase('coding', 'specify', 'full')).toBe('specify');
-  });
-
-  it('channelSkill 只登记在 coding 的 specify / plan 上（不留隐性覆盖）', () => {
-    for (const kind of WORKFLOW_TASK_KINDS) {
-      for (const phase of getKindPhases(kind, { includeBypass: true })) {
-        const keys = Object.keys(phase.channelSkill ?? {}).sort();
-        if (kind === 'coding' && (phase.code === 'specify' || phase.code === 'plan')) {
-          expect(keys, `${kind}/${phase.code}`).toEqual(['normal', 'tweak']);
-        } else {
-          expect(keys, `${kind}/${phase.code} 不应登记 channelSkill`).toEqual([]);
-        }
-      }
+  it('旁路阶段 retro 不进任何档的序列；未登记的 mode 落回全序列（存量不崩）', () => {
+    for (const mode of ['tweak', 'normal', 'strict', '', 'sdd', 'nonsense']) {
+      expect(phasesForMode('coding', mode).map((p) => p.code)).not.toContain('retro');
     }
+    const all = getKindPhases('coding').map((p) => p.code);
+    expect(phasesForMode('coding', '').map((p) => p.code)).toEqual(all);
+    expect(phasesForMode('coding', 'sdd').map((p) => p.code)).toEqual(all);
+  });
+
+  it('未登记 modePhases 的族（非 coding）一律落回全序列', () => {
+    for (const kind of WORKFLOW_TASK_KINDS) {
+      if (kind === 'coding') continue;
+      expect(phasesForMode(kind, 'tweak').map((p) => p.code)).toEqual(
+        getKindPhases(kind).map((p) => p.code),
+      );
+    }
+  });
+
+  it('nextPhaseForMode：tweak 从 specify 直接到 tasks（跳过 plan / design）', () => {
+    expect(nextPhaseForMode('coding', 'tweak', 'specify')).toBe('tasks');
+    expect(nextPhaseForMode('coding', 'tweak', 'tasks')).toBe('build');
+    expect(nextPhaseForMode('coding', 'normal', 'specify')).toBe('plan');
+    expect(nextPhaseForMode('coding', 'strict', 'plan')).toBe('design');
+    // 末段 / 阶段不在本档 / 未知 / 旁路 → null
+    expect(nextPhaseForMode('coding', 'tweak', 'ship')).toBeNull();
+    expect(nextPhaseForMode('coding', 'tweak', 'plan')).toBeNull();
+    expect(nextPhaseForMode('coding', 'tweak', 'nonsense')).toBeNull();
+    expect(nextPhaseForMode('coding', 'tweak', 'retro')).toBeNull();
+  });
+
+  it('isPhaseInMode：被本档跳过的上游「不属本档」', () => {
+    expect(isPhaseInMode('coding', 'tweak', 'specify')).toBe(true);
+    expect(isPhaseInMode('coding', 'tweak', 'tasks')).toBe(true);
+    expect(isPhaseInMode('coding', 'tweak', 'plan')).toBe(false);
+    expect(isPhaseInMode('coding', 'tweak', 'design')).toBe(false);
+    expect(isPhaseInMode('coding', 'strict', 'design')).toBe(true);
+    // 空 mode → 全序列（保守：不把存量任务判成「上游不属本档」）
+    expect(isPhaseInMode('coding', '', 'plan')).toBe(true);
   });
 });
 
 describe('写入白名单（原语校验的依据）', () => {
-  it('已登记阶段 + idle + 历史别名都是合法写入值', () => {
+  it('已登记阶段 + idle 都是合法写入值', () => {
     for (const kind of WORKFLOW_TASK_KINDS) {
       for (const phase of getKindPhases(kind, { includeBypass: true })) {
         expect(isWritablePhase(kind, phase.code), `${kind}/${phase.code}`).toBe(true);
       }
       expect(isWritablePhase(kind, 'idle')).toBe(true);
       expect(isWritablePhase(kind, '')).toBe(true);
-      expect(isWritablePhase(kind, 'delivery')).toBe(true);
-      expect(isWritablePhase(kind, 'archive')).toBe(true);
     }
   });
 
@@ -344,7 +363,7 @@ describe('写入白名单（原语校验的依据）', () => {
     expect(isWritablePhase('coding', 'nonsense')).toBe(false);
     expect(isWritablePhase('coding', 'buiild')).toBe(false);
     expect(isWritablePhase('debug', 'triage')).toBe(false);
-    // 跨 kind 借用也非法：delivery 之外，别的族的阶段码不算数
+    // 跨 kind 借用也非法：别的族的阶段码不算数
     expect(isWritablePhase('coding', 'closeout')).toBe(false);
     expect(isWritablePhase('debug', 'specify')).toBe(false);
   });
@@ -357,9 +376,9 @@ describe('写入白名单（原语校验的依据）', () => {
     }
   });
 
-  it('报错信息里列出全部合法值（含 idle 与别名，便于照抄）', () => {
+  it('报错信息里列出全部合法值（含 idle，便于照抄）', () => {
     const list = writablePhaseList('debug');
-    for (const code of ['diagnose', 'patch', 'closeout', 'idle', 'delivery', 'archive']) {
+    for (const code of ['diagnose', 'patch', 'closeout', 'idle']) {
       expect(list).toContain(code);
     }
   });

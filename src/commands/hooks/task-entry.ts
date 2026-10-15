@@ -1,12 +1,13 @@
 /**
- * `polaris task-entry` 命令：入口技能「进入任务」的唯一原语（见 core/hooks/task-entry.ts）。
+ * `polaris task-entry` 命令：`intake`（任务管理与调度层）专用的「进入任务」原语
+ * （见 core/hooks/task-entry.ts）。调用位置 = `intake` 的 Step 3。
  * stdout 输出一行 JSON（`TaskEntryPayload`）；参数 / 环境错误走 stderr + 非 0 退出码。
  */
 import { runTaskEntry } from '../../core/hooks/task-entry.js';
 
 export type TaskEntryCommandOptions = {
   kind?: string;
-  /** 本技能名（族内相对名，如 tweak） */
+  /** 调用者名（族内相对名）—— 固定 `intake` */
   as?: string;
   /** 仅 create 时写入的 workflow.mode */
   mode?: string;

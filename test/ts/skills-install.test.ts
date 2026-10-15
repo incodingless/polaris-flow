@@ -284,6 +284,68 @@ describe('validateSkillAssetsNoCrossSkillParentRefs', () => {
     await expect(validateSkillAssetsNoCrossSkillParentRefs(asset)).resolves.toBeUndefined();
   });
 
+  it(
+    '执行层节点技能不调用 task-entry 原语（不得绕过 intake 被直接调用）',
+    { timeout: INSTALL_TIMEOUT },
+    async () => {
+      const asset = await readAssets('zh');
+      const skills = asset.langDirAssets.find((d) => d.dir === 'skills');
+      expect(skills).toBeDefined();
+      const read = async (shortPath: string): Promise<string> => {
+        const hit = skills!.files.find((f) => f.shortPath.replace(/\\/g, '/') === shortPath);
+        expect(hit, shortPath).toBeDefined();
+        return readFile(hit!.fullPath, 'utf-8');
+      };
+
+      // 机械类清理守卫：coding 的 templates / references 与各技能 description 不得出现"技能名加斜杠"
+      // （技能名前缀是 `polaris`，带斜杠就成了不存在的命令 —— 命令前缀只有 `psfl`）
+      const assetFiles = skills!.files.map((f) => f.shortPath.replace(/\\/g, '/'));
+      for (const shortPath of assetFiles.filter(
+        (p) => p.startsWith('coding/') && (p.includes('/templates/') || p.includes('/references/')),
+      )) {
+        expect(await read(shortPath), `${shortPath} 不得出现技能名加斜杠`).not.toContain('/polaris');
+      }
+      for (const name of ['specify', 'plan', 'design', 'tasks', 'build', 'verify', 'ship', 'intake']) {
+        const content = await read(`coding/${name}/SKILL.md`);
+        const frontmatter = content.split('---')[1] ?? '';
+        expect(frontmatter, `coding/${name}/SKILL.md 的 description 不得出现技能名加斜杠`).not.toContain(
+          '/polaris',
+        );
+      }
+
+      // 执行层：入口只有一个 = intake ⇒ 正文不得出现原语，且 Step 1 必须是「接收交接」
+      for (const name of ['specify', 'plan', 'design', 'tasks', 'build', 'verify', 'ship']) {
+        const content = await read(`coding/${name}/SKILL.md`);
+        expect(content, `coding/${name}/SKILL.md 不得调用 task-entry`).not.toContain('task-entry');
+        expect(content, `coding/${name}/SKILL.md 的入口应为「接收 intake 交接」`).toContain(
+          '接收 `intake` 交接',
+        );
+      }
+
+      // 调度层：原语的唯一调用方；细则随 intake 安装（顶层 policies 已不再注入它）
+      expect(await read('coding/intake/SKILL.md')).toContain('task-entry.sh');
+      expect(await read('coding/intake/policies/task-entry.md')).toContain('task-entry.sh');
+
+      // 链外例外：retro 由**用户直接调用** —— 不经 intake、不被自动转交、不读任务游标
+      // ⚠️ 断言覆盖 retro **整个技能目录**（含 templates / policies），不只是 SKILL.md
+      const retroFiles = skills!.files
+        .map((f) => f.shortPath.replace(/\\/g, '/'))
+        .filter((p) => p.startsWith('coding/retro/'));
+      expect(retroFiles.length, 'retro 技能目录应有多份资产').toBeGreaterThan(1);
+      for (const shortPath of retroFiles) {
+        const content = await read(shortPath);
+        expect(content, `${shortPath} 不得调用 task-entry 原语`).not.toContain('task-entry');
+        expect(content, `${shortPath} 不得自行枚举在途任务`).not.toContain('get-active-changes');
+        // 技能名加斜杠（`/polaris:…`）= 不存在的命令；命令名（`/psfl…`）技能域更拿不到拼写
+        expect(content, `${shortPath} 不得引用命令名`).not.toContain('/polaris');
+        expect(content, `${shortPath} 不得引用命令名`).not.toContain('/psfl');
+      }
+      const retro = await read('coding/retro/SKILL.md');
+      expect(retro, 'retro 必须声明由用户直接调用').toContain('由用户直接调用');
+      expect(retro, 'retro 必须声明不经 intake').toContain('不经 `intake`');
+    },
+  );
+
   it('跨技能 ../ 引用被检出', async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-ref-cross-'));
     const fullPath = path.join(tmpDir, 'SKILL.md');

@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}ship
-description: "verify 通过后做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清游标。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}ship，或在 verify 完成后要求交付 / 合回 / 归档 / 完结一个 change 时必须使用本 skill。不要用于：verify 未完成时强行交付、本阶段编写业务实现、或跳过用户确认直接 /opsx:archive。"
+description: "verify 通过后完成交付：终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档，并清空游标。当用户要求交付、合回、归档、完结一个 change 时使用。不要用于：verify 未完成时强行交付、写业务实现、未经用户确认直接归档。"
 ---
 
 # Polaris 工作流 - 阶段：交付（ship）
@@ -43,56 +43,14 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 >
 > **tweak 档差异**：tweak 只产出 `change-brief.md` + `tasks.md`，没有 proposal / design / specs。归档前必须由本阶段按 `./policies/artifact-backfill.md` 补齐四件套（Step 5.5），否则 `openspec-cn archive` 会失败。
 
+## 输入：接收 `intake` 交接
 
+**前置**：根据交接中是否存在 `task_id`（由 `intake` 的 Step 4 给出；阶段出口的自动衔接同样会带），做以下操作：
 
-## 输入与恢复分发
-
-用 `--format full` 取「任务 + **应执行技能**」（分发表在代码里 —— `src/core/config/task-kind-layout.ts` 的
-`skillForModePhase`；本技能**不复制**该表）：
-
-```bash
-ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
-RTID_EXIT=$?
-```
-
-- ⚠️ **不传 `--phase`** —— 候选须覆盖**全部在途任务**（本技能服务三条工作流，`mode` 不限）。
-- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
-  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` /
-  `skill` / `skill_label` / `state_readable`
-
-按 `$ROWS` 长度：
-
-| 长度 | 动作 |
+| 情形 | 动作 |
 | ---- | ---- |
-| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
-| **唯一** | 记下该行 `task_id`（`worktree_path` 一并用），进入下面的判定 |
-| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
-
-候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
-
-```
-- <task_id> (工作流：简单(tweak)，阶段：交付(ship)，技能：交付(ship))
-```
-
-<!--
-**判定顺序固定，不得颠倒**：先看「读得到吗」，再看「是不是本技能」。`skill` 是程序按
-`phase + mode` 算出来的；`phase` 读不到时它是 `null`，顺序反了会把坏行当成「不是本技能」而转交到空技能。
--->
-
-1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
-2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
-
-| `skill` | 含义 | 动作 |
-| ------- | ---- | ---- |
-| `== ship`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` / `worktree_path` 取该行值 |
-| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`；本技能结束，**不得**建任务 / 推进阶段 |
-| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
-
-- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
-
-> **`phase=ship` 一律归本技能**（代码阶段表里 `ship` 无 `channelSkill` 覆盖，`mode` 取何值都解析为本技能）
-> —— 交付是三条工作流共用的阶段；`mode=tweak` 时本技能还要额外执行产物补齐（见 HARD-GATE）。
+| 有 | **采纳**；`worktree_path` 一并取（空 = 主仓；非空 ⇒ 后续读产物 / 跑命令一律以该 worktree 为仓库根）。中断续跑时按文末「上下文压缩恢复」表定位断点 |
+| 没有 | **阻断**：告知「本技能须经 `intake` 进入，请从入口技能（`tweak` / `normal` / `strict`）重新开始」。|
 
 读 `.polaris/tasks/<task_id>/state.yaml`（若 `worktree_path` 非空 → 从 **worktree 内**同路径读）：
 
@@ -305,8 +263,8 @@ openspec-cn archive "$task_id" --yes
 
 后续：
 ---
-下一个变更 /polaris{{SKN_SPR}}coding{{SKN_SPR}}specify 或 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan；
-度量回顾 /polaris{{SKN_SPR}}coding{{SKN_SPR}}retro
+下一个变更：从入口技能（`tweak` / `normal` / `strict`）重新进入；
+度量回顾：`retro`（**可选** —— 由用户**直接**说「看度量 / 复盘」调用，不经调度层）
 
 恢复：本技能是链路终点。若会话中断，先读 .polaris/tasks/<task_id>/state.yaml 的 runtime.ship.* 与 openspec/changes/<task_id>/reviews/verify-report.md 判断落点（Step 7.1 未执行时先补），再从本技能对应 Step 续跑。
 ```

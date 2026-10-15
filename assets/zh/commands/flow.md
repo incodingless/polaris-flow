@@ -62,9 +62,12 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 则直接把前两个状态一并填好，跳过第一步与第二步，进入第三步。给出的是类别名时才需要走第二步。
 即使用户已给出功能，第三步仍照常执行——除非用户随命令一并给出了上下文材料，此时可直接填入 `附加上下文`。
 
-> **开发类的前置需求预检与复杂度判档已下沉到 `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake` 技能**
-> （Step 1 需求预检 / Step 2 复杂度判档 / Step 3 路由）。
-> 本命令**不再**在命令层做需求预检或复杂度评估 —— 只负责「选择 + 路由」，把用户的原始输入与 `附加上下文` 一并交接给被加载的技能。
+> **开发类的需求判定与档位判定都不在命令层**：本命令只做「选择 + 路由」，把用户原始输入与
+> `附加上下文` 原样交接给 `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake`。
+> `intake` 的四步是：**Step 1 恢复分发（在途任务优先）→ Step 2 入口判档（粗判，只为"选哪个入口技能"）
+> → Step 3 任务初始化（仅「零个在途任务」时；前置只有"需求内容非空"）→ Step 4 转交**。
+> ⚠️ **权威档位判定不在 `intake`** —— 它在 `specify` 的**出口**（那里有 `intention.md` 可细判，且改档零返工）；
+> 过了 `specify` 档位即冻结。
 
 ## 第一步：询问功能类别（第 1 级）
 
@@ -138,9 +141,9 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
     "header": "开发功能",
     "multiSelect": false,
     "options": [
-      { "label": "C01 · 实现简单功能", "description": "单模块/单文件改动" },
-      { "label": "C02 · 实现常规功能", "description": "多模块协作，常规设计及任务规划" },
-      { "label": "C03 · 实现复杂功能", "description": "跨服务/高风险，含专项设计与交付复盘" }
+      { "label": "C01 · 实现简单功能", "description": "单模块/单文件改动（预期走 tweak 工作流：轻量调研 → 任务计划 → 实施 → 验证 → 交付）" },
+      { "label": "C02 · 实现常规功能", "description": "多模块协作，需提案与规格契约（预期走 normal 工作流：澄清 → 提案 → 任务计划 → 实施 → 验证 → 交付）" },
+      { "label": "C03 · 实现复杂功能", "description": "跨服务/高风险，需专项设计（预期走 strict 工作流：澄清 → 提案 → 深度设计(可选) → 任务计划 → 实施 → 验证 → 交付）" }
     ]
   }]
 }
@@ -233,9 +236,9 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 
 | 选项 | 入口技能 | 后续阶段链 |
 |:---:|---|---|
-| **C01** 实现简单功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake` | 进 intake 复核「预期档位 = `trivial`」→ 最终路由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}tweak` |
-| **C02** 实现常规功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake` | 进 intake 复核「预期档位 = `standard`」→ 最终路由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` |
-| **C03** 实现复杂功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake` | 进 intake 复核「预期档位 = `critical`」→ 最终路由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` |
+| **C01** 实现简单功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake` | 交接时**声明预期档位 = `trivial`**；`intake` 复核后建任务（`workflow.mode=tweak`）并转交本档序列**首段** `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`。阶段链与产物见下方「C01–C03 的阶段链」 |
+| **C02** 实现常规功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake` | 交接时**声明预期档位 = `standard`**；同上 → `workflow.mode=normal` → 转交首段 `specify` |
+| **C03** 实现复杂功能 | `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake` | 交接时**声明预期档位 = `critical`**；同上 → `workflow.mode=strict` → 转交首段 `specify` |
 | **M01** 修复生产Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `hotfix`；diagnose（诊断与方案·含现场保全与止血确认）→ patch（实现与自验·含五维独立验证）→ closeout（关闭Bug + 自有收尾归档）。**通道由 diagnose 的场景分流步判定**，预声明只是用户的第一意图。独立入口命令：`/psfl{{CMD_SPR}}maintance{{CMD_SPR}}hotfix` |
 | **M02** 修复测试Bug | `polaris{{SKN_SPR}}debug{{SKN_SPR}}diagnose` | 预声明通道 `bugfix`；diagnose → patch → closeout（同上）。**自有收尾**归档到 `docs/troubleshooting/<issue_id>/`（不使用 openspec，不交 ship）。独立入口命令：`/psfl{{CMD_SPR}}maintance{{CMD_SPR}}bugfix` |
 | **M11** 代码评审 | `polaris{{SKN_SPR}}maintance{{SKN_SPR}}codereview` | 对指定范围的代码做系统化审查（正确性 / 安全 / 性能 / 可维护性 / 架构），可按用户选择启用 SonarQube 扫描并按门禁规则判定。**无独立入口命令**，仅经本表路由 |
@@ -252,8 +255,16 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 按 `已选功能` 的编号在上表中查到入口技能。选项名称以第二步选项的 `label` 为准；
 用户说「代码评审」「重构」等别名时，按编号等价映射到 **M11 / M12**。
 
-开发类（C01 / C02 / C03 / M01 / M02）的 `需求内容` 一律先经 `intake`（C01–C03）或 `diagnose`（M01 / M02）把关，
-命令层**不做**预检。
+> ⚠️ **C01–C03 三条都直接加载 `intake`，并**在交接里声明预期档位**（`trivial` / `standard` / `critical`）。
+> 另一条入口路（用户直接跑 `/psfl{{CMD_SPR}}coding{{CMD_SPR}}tweak|normal|sdd`）走的是**薄编排技能**，
+> 它只声明档位再加载 `intake`。
+> 🔴 **两条路都归 `intake`，而 `intake` 的转交目标是阶段技能（首段 = `specify`），不是薄编排技能** ——
+> 让 `intake` 去加载 `tweak` / `normal` / `strict` 会形成 `intake → 薄技能 → intake` 的循环。
+> 🔴 **档位只是"预期"**：`intake` 复核（一致采用 / 粗判更高问用户 / 更低**不降**），
+> 且**权威判定在 `specify` 的出口**（升 / 降都只在那里），过了即冻结。
+
+开发类（C01 / C02 / C03 / M01 / M02）的 `需求内容` 一律**原样交接**：C01–C03 交 `intake`、M01 / M02 交 `diagnose`，
+由它们各自把关（`intake` 仅做「需求内容非空」的准入检查）。命令层**不做**任何需求预检或质量判断。
 
 用户只说「修 bug」「修复缺陷」而未区分场景时，按以下信号判定后再映射，**不得默认选 M01**：
 
@@ -268,28 +279,34 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 
 加载技能时**必须同时交接** `已选功能` / `附加上下文` / `需求内容` 三个字段，并显式告知技能遵守 3.3 的交接口径（先读取全部材料、异常先回报、上下文优先）。
 `需求内容` 为空时（仅对非开发类）技能直接按其自身流程执行。
-`需求内容` 字段名沿用至 tweak / normal / specify / debug（M01 / M02） / prototype（蓝图 / 建造），被加载技能按以下约定读取：
+`需求内容` 字段名沿用至 `intake` / `specify` / `debug`（M01 / M02） / `prototype`（蓝图 / 建造），被加载技能按以下约定读取：
 
-- tweak / normal：作为「轻量澄清 / intention」输入
-- specify：作为 Phase 0 discovery 的 seed
+- `intake`：**不消费内容** —— 只做「需求内容非空」的**准入检查**（Step 3）与**入口粗判档**（Step 2），并把原文**原样转交**（Step 4）
+- `specify`：作为澄清输入 —— `tweak` 档 = 轻量调研（`lite-clarify.md`）的起点；`normal` / `strict` 档 = Phase 0 discovery 的 seed
 - debug（M01 生产 / M04 测试）：作为故障现象 / 缺陷描述的初始输入。生产的时间线·影响面·变更清单**三对齐**、测试的复现步骤 / 实际结果 / 预期结果 / 环境版本**四要素**统一由 `diagnose` 校验并一次性补全；生产通道的现场保全清单也在 `diagnose` 内产出
 - prototype（**P01 制作**：蓝图 / 建造 / 交付）：作为「最低输入 6 项 + 可选增强输入」的来源——需求文档已能判断的用户 / 场景 / 一期范围 / 页面功能 / 核心流程不重复询问（`blueprint` 技能的 `references/02 §4.3`）
 - prototype-review（**P02 评审**）：不消费 `需求内容` 作为评审判据，只消费 `附加上下文` 里的原型文件（与可选的需求文档、已确认蓝图）；缺需求文档时按该技能 §三 的「无需求文档取证法」判，不得凭空补需求
 - testing（**T01 编写用例**）：不消费 `需求内容` 作为用例来源——用例来源**严格限定为定稿 PRD**；`附加上下文` 中的 PRD / 交互原型 / 数据库表设计 / 接口清单按 `discovery` 的输入约定读取（后三者缺失不阻断，记 `No-Input`）
 - testing-review（**T03 评审**）：不消费 `需求内容`；只消费 `附加上下文` 里的**用例集文档**（与可选的《测试计划》/ PRD 作覆盖判据）
 
-## 功能类选项的复杂度判定
+## C01–C03 的阶段链与产物
 
-C01 / C02 / C03 的差别在于**走的阶段数**，选择时按以下标准判断。本表是 C01–C03 阶段链与产物的**唯一详述出处**（第四步路由表只保留指针）：
+C01 / C02 / C03 的差别在于**走的阶段数**（= 三档工作流）。本表是 C01–C03 阶段链与产物的**唯一详述出处**
+（第四步路由表只保留指针）。⚠️ 三者只是**预期档位**，权威判定在 `specify` 出口（可能被升 / 降）。
 
-| 选项 | 适用特征 | 阶段差异 |
-|:---:|---|---|
-| **C01** 简单 | 单模块、单文件级改动、无跨模块设计、无复杂状态流转、风险低 | 走 `tweak` 单入口技能：一次会话内完成轻量澄清（change-brief）→ tasks → 实施 → 出口检查，跳过 design / tasks 与独立 verify，产物为 `change-brief.md` + `tasks.md`，由 ship 归档前补齐四件套 |
-| **C02** 常规 | 多模块协作、需规格契约与任务拆分、有一定风险 | 走 `normal` 单入口技能：轻量澄清（intention）→ OpenSpec 四件套 → 双向守门 → 终版细计划 → 齐套审查（1 次）→ 实施 → 出口检查；产物为四件套 + intention + tasks，无 detailed-design、无独立 design / tasks 主审 |
-| **C03** 复杂 | 跨系统/跨服务、高风险、需专项设计（数据模型/接口契约/领域模型） | 完整链路：specify → plan → design（可选，plan 完成时询问是否深化）→ tasks → build → verify → ship；含专项设计与强制评审。**链尾是 ship**（交付即结束）——`retro` 归档于阶段序列之外：它对 C01/C02/C03 统一适用，是交付后的**可选只读聚合入口**，由用户显式触发，不进阶段序列 |
+| 选项 | 预期档位 | 适用特征 | 阶段链 | 产物 |
+|:---:|:---:|---|---|---|
+| **C01** 简单 | `tweak` | 单模块、单文件级改动、无跨模块设计、无复杂状态流转、风险低 | `specify → tasks → build → verify → ship`（**跳过 plan / design**） | `intention.md`（9 节写满、内容极简）+ `tasks.md` + verify 报告 + metrics；**四件套不产出**，由 `ship` 的 artifact-backfill 补齐 |
+| **C02** 常规 | `normal` | 多模块协作、需规格契约与任务拆分、有一定风险 | `specify → plan → tasks → build → verify → ship`（**跳过 design**） | 四件套（`proposal.md` / `design.md` / `specs/` / `tasks.md`）+ `intention.md`；无 `detailed-design.md` |
+| **C03** 复杂 | `strict` | 跨系统 / 跨服务、高风险、需专项设计（数据模型 / 接口契约 / 领域模型） | `specify → plan → design（可选，plan 出口询问是否深化）→ tasks → build → verify → ship` | 四件套 + `intention.md` + `detailed-design.md`（深化时）+ 各阶段评审报告 |
 
-- 用户**已知复杂度**时直接按其选择（→ 加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake`，由它复核并路由）。
-- 用户**描述模糊**时，交由 intake 的 Step 3 按 `assets/zh/policies/risk-signals.md` 判档后向用户确认一次。
+> **链尾是 `ship`**（交付即结束）。`retro` 在阶段序列**之外**：它对 C01/C02/C03 统一适用，
+> 是交付后的**可选只读聚合入口**，**由用户显式触发**，不推进阶段。
+
+- 用户**已知复杂度**时直接按其选择 → 加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake` 并声明预期档位，由它复核后建任务并转交。
+- 用户**描述模糊**时同样交给 `intake`：它按 `assets/zh/policies/risk-signals.md` 做**入口粗判**（信息不足 → 落**默认档 `normal`**），
+  并在**每次阶段切换**时把 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}intake` 作为衔接落点（见第五步）。
+- 🔴 **改档的时机只有一个**：`specify` 的**出口**（那里有 `intention.md` 可细判，且改档零返工）。命令层**不判档**。
 
 ## 需求类、原型类与测试类选项的前置依赖
 
@@ -311,5 +328,10 @@ C01 / C02 / C03 的差别在于**走的阶段数**，选择时按以下标准判
 ## 第五步：交给技能执行
 
 1. 加载上表对应的入口技能，严格按技能内定义的流程执行（交接口径见 3.3 与第四步）
-2. 阶段之间的衔接由**各阶段技能在自己的出口**判定：调用 `polaris-flow state next <change-name>` 读配置（`config.yaml` 与任务 `state.yaml` 的 `auto_transition`）—— auto → 先压缩上下文再执行下一技能；manual → 停下并提示用户**新开会话**输入该技能名。命令层**不代做判定**，也不得在同一会话硬续跑
+2. **阶段之间的衔接落点是 `intake`**，不是"下一个阶段技能"：各阶段技能在自己的出口调用
+   `polaris-flow state next <change-name>` 读配置（`config.yaml` 与任务 `state.yaml` 的 `auto_transition`）判定衔接方式 ——
+   - **`auto`** → 先压缩上下文，**再加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}intake`**（由它按 `phase` 定位并转交下一阶段技能）；
+     `state next` 给出的技能名只用于**提示语与恢复清单**，不再作调用目标
+   - **`manual`** → 停下并提示用户**新开会话、从入口技能重新进入**
+   🔴 **阶段技能之间不得直接互相调用**（那等于绕过 `intake`）；命令层**不代做判定**，也不得在同一会话硬续跑
 3. 执行过程中若发现当前选项与实际复杂度不符，向用户提出切换建议，由用户决定是否切换

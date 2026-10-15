@@ -364,17 +364,20 @@ describe('debug 族技能安装', () => {
       );
       expect(tasksTpl).toContain('bash "$PLUGIN_ROOT/scripts/tasks-lint.sh"');
 
-      // H14 与 flow.md 的「开发类」清单必须一致，且含 M02，否则 M02 入口不受零步阻断保护
+      // H14 已收窄为「需求内容非空」的准入检查（受理期不做需求预检；需求质量归 specify 澄清期）
       const hardStops = await readFile(
         path.join(tmpDir, '.claude/skills/polaris/debug/diagnose/policies/hard-stops.md'),
         'utf-8',
       );
-      expect(hardStops).toContain('M01 / M02 / C01–C03');
+      expect(hardStops).toContain('H14');
+      expect(hardStops).toContain('polaris:coding:intake');
+      expect(hardStops).toContain('准入检查');
+      expect(hardStops).not.toContain('需求三要素'); // 旧口径不得回流
       const flowCmd = await readFile(
         path.join(tmpDir, '.claude/commands/psfl/flow.md'),
         'utf-8',
       );
-      expect(flowCmd).toContain('（C01 / C02 / C03 / M01 / M02）');
+      expect(flowCmd).toContain('不做**任何需求预检或质量判断');
     },
   );
 });

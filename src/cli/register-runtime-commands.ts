@@ -240,10 +240,10 @@ export function registerRuntimeCommands(program: Command): void {
   program
     .command('task-entry')
     .description(
-      'Entry primitive for coding entry skills: one call returns resume|handover|create|select|block',
+      'intake 专用的「进入任务」原语：一次调用返回 create|resolve-drafts|select|handover|resume|block',
     )
     .requiredOption('--kind <kind>', 'task kind: coding|requirement|testcase|prototype|debug')
-    .requiredOption('--as <skill>', 'this skill name (family-relative, e.g. tweak)')
+    .requiredOption('--as <skill>', 'caller name (family-relative; always intake)')
     .option('--mode <mode>', 'workflow mode; written only when creating (tweak|normal|strict)')
     .option('--task-id <id>', 're-run for a candidate chosen by the user')
     .option('--started-at <iso>', 'started_at written on create')

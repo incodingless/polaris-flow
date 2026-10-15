@@ -225,4 +225,4 @@ LLM 集成: [GAP] [→EVAL] Prompt 模板变更——需要 eval 测试
 - ...
 ```
 
-**调用方约束**：测试缺口转换为 tasks.md 中的可执行任务这一步**由调用方在下一阶段启动前统一处理**（在 polaris-flow lock 链中即由 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build` 入口处理），本 skill 在 review-report.md 中列出建议即可，**禁止直接修改 tasks.md**。
+**调用方约束**：测试缺口转换为 tasks.md 中的可执行任务这一步**由调用方在下一阶段启动前统一处理**（在 polaris-flow lock 链中即由 **build** 阶段入口处理），本 skill 在 review-report.md 中列出建议即可，**禁止直接修改 tasks.md**。

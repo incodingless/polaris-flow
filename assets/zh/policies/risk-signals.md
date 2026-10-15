@@ -12,15 +12,20 @@
 | `standard` | **默认档**：无升档信号、也不满足降档门；或信息不足 |
 | `critical` | 命中 §4 任一信号（D1–D7），或 §5 glob 命中 |
 
+**→ 工作流档位**（`state.yaml.workflow.mode`）的单源映射：`trivial → tweak`、`standard → normal`、`critical → strict`。
+地方**不得**再内联这张映射（技能侧按此派生，见 §2 的两个判定点）。
+
 ## 2. 消费切片（同表，不同问法）
 
 | 消费点 | 取哪片 | 回答 |
 |--------|--------|------|
-| `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal` Step 6 | §3 + §4 全表 | **工作流**：tweak / normal / design |
-| `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` Step 5.4 | §4 需求侧切片 + §6 合成 | **初判** `complexity_level` / `risk_level` |
-| `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` Step 9 | §4 实现侧切片 + §5 glob | **复核** `risk_level`（只升不降） |
+| `coding/intake` **Step 2** | §1 + §3 + §4 | **入口粗判**：一个档 —— **只用于"选哪个入口技能"**，不落盘为权威判定 |
+| `coding/specify` **Step 5.4.1** | §4 需求侧切片 + §6 合成 | **初判** `complexity_level` / `risk_level`（写入 `state.yaml`） |
+| `coding/specify` **Step 5.5（出口）** | §3 降档门 + §4 升档信号 | 🔴 **权威判档**：`workflow.mode` 的**唯一变更点**（升 / 降都在这里） |
+| `coding/verify` **Step 9** | §4 实现侧切片 + §5 glob | **复核** `risk_level`（只升不降） |
 
-> 「一次判定 ≠ 两次判定」：表唯一，判定点两个（`specify` 初判 / `verify` 复核），**职责正交**。
+> 「一次判定 ≠ 多次判定」：表唯一，三个判定点**分工正交** —— **入口粗判**（选技能）→
+> **出口权威判档**（定档位；过了 `specify` 即冻结）→ **verify 复核**（定验证强度）。
 
 ## 3. 降档门（D1′–D4′）—— **全部满足**才成立
 
@@ -70,9 +75,12 @@
 
 > 与 `prd/discovery/policies/complexity-assessment-policy.md` §4「高危场景强制升档（一票否决）」**同构** —— 复用既有约定，不新造机制。
 
-## 7. 工作流决策与分级的分工
+## 7. 工作流档位与分级的分工
 
 同一张表回答两个不同的问题，**不是**「同一件事两处判定」：
 
-- **工作流**（`normal` Step 6）：问「这活儿该走哪条链路」→ 命降档门 → tweak；命升档门 → design
-- **分级**（`specify` / `verify`）：问「要验多深、要不要卡」→ 两轴 → `current_tier`
+- **工作流档位**（`workflow.mode`）：问「这活儿该走哪条链路」→ 命 §3 降档门 → `tweak`；命 §4 升档信号 → `strict`；
+  都不命中 → `normal`（默认）。**两个判定点**：`intake` 入口**粗判**（只为选入口技能）、
+  `specify` **出口权威判档**（`workflow.mode` 的唯一变更点，**过了即冻结**）。
+- **分级**（`complexity_level` / `risk_level` / `current_tier`）：问「要验多深、要不要卡」→ 两轴 → `current_tier`；
+  判定点：`specify` 初判 → `verify` 复核（只升不降）。

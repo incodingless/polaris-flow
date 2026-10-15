@@ -1,25 +1,35 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks
-description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求在 design 完成后（或 plan 已确认跳过 design）写实施计划 / 细化 tasks.md / 按 writing-plans 拆任务时必须使用本 skill。细计划基于 OpenSpec 四件套（proposal/design/specs/tasks 粗骨架）+ detailed-design.md（若已深化）推导；先询问用户 TDD 策略（prefer_tdd / require_tdd / prefer_direct），再按 Superpowers writing-plans（骨架模式）覆写 tasks.md、标注 TDD/非TDD，并派发 tasks-review-agent 做独立主审（可选 Outside Voice）。不要用于：specify/plan 阶段、尚未完成 design 且尚未确认跳过 design、或已进入 build 要求直接写代码。"
+description: "把已锁定的需求/设计拆解为可执行任务清单 tasks.md（含 TDD 标注）。当用户要求写实施计划、拆解任务、细化 tasks.md 时使用。不要用于：澄清需求（走 specify）、生成提案四件套（走 plan）、写代码（走 build）。"
 ---
 
 # Polaris 工作流 - 阶段：任务规划（tasks）
 
 <HARD-GATE>
-本 skill **仅**负责：以 **OpenSpec 四件套（+ `detailed-design.md` 若已深化）** 为唯一规划依据，覆写可执行的 `openspec/changes/<task_id>/tasks.md`，并经 `tasks-review-agent` 独立主审通过后才放行 build。
+本 skill **仅**负责：以**本档的规划依据**为唯一输入，覆写可执行的 `openspec/changes/<task_id>/tasks.md`，
+经校验（`normal` / `strict` 档另加独立主审）后放行 build。
 
-- **禁止**未完整阅读规划依据就开始写计划（见下方「规划依据」；禁止凭对话记忆 / 口头一句话 / 只看粗骨架 tasks 拆任务）
-- **禁止**未确认 design 状态就开始写计划——须满足其一：`runtime.design.status=completed` 且 `detailed-design.md` 存在（已深化），或 `runtime.design.status=skipped`（plan 已确认跳过深化，`detailed-design.md` 缺失合法）
+**档位分叉**（读 `state.yaml` 的 `workflow.mode`；本技能是**档位消费者**，**只读不覆盖**）：
+
+| 项 | `strict` | `normal` | `tweak` |
+|---|---|---|---|
+| 规划依据（Step 2） | 四件套 + `detailed-design.md`（若深化） | 四件套 | 🔻 **仅 `intention.md`** |
+| design 状态前置（Step 1） | **必查** | ⛔ **不查**（`design` 不在本档序列） | ⛔ **不查** |
+| TDD 策略（Step 3） | 用户决策点 | 用户决策点 | 🔻 **不询问**，按任务类型**自动标注** |
+| 独立主审 + Outside Voice（Step 7） | **不可跳过** | **不可跳过** | 🔻 **本档豁免**（**非缺失**，勿补回） |
+
+- **禁止**未完整阅读**本档的规划依据**就开始写计划（禁止凭对话记忆 / 口头一句话 / 只看粗骨架 tasks 拆任务）
+- **禁止**未确认 design 状态就开始写计划 —— ⚠️ **仅 `strict` 档适用**：须满足其一——`runtime.design.status=completed` 且 `detailed-design.md` 存在（已深化），或 `runtime.design.status=skipped`（plan 已确认跳过深化）。`normal` / `tweak` 档**没有 design 阶段**，本条不适用
 - **禁止**跳过 Superpowers `writing-plans`（不可用则阻断；加载后必须按下方「骨架模式」落地，禁止原样照抄每步贴完整实现代码 / 每任务 commit）
 - **禁止**主代理在覆写 `tasks.md` 前未 `read_file templates/tasks-template.md`
 - **禁止**另写 `docs/superpowers/plans/*.md` 或 `.polaris/tasks/*/implementation-plan.md` 作为主产物——**唯一**实施计划是 `openspec/changes/<task_id>/tasks.md`（覆写，不是并列第二份）
 - **禁止**跳过 `tasks-lint.sh` 或脑补核对
-- **禁止**跳过 Step 7 主审：必须派发 `tasks-review-agent`，并注入本 skill 的 `StandardsRoot`（agent 须读完 `policies/` + `references/` 标准文档；禁止主代理自审冒充；**主审不可跳过**）
-- **禁止**跳过 Step 7 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
+- **禁止**跳过 Step 7 主审：必须派发 `tasks-review-agent`，并注入本 skill 的 `StandardsRoot`（agent 须读完 `policies/` + `references/` 标准文档；禁止主代理自审冒充）—— ⚠️ **仅 `normal` / `strict` 档**；`tweak` 档**本档豁免**（见 Step 7）
+- **禁止**跳过 Step 7 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）—— ⚠️ 随 Step 7 一并仅在 `normal` / `strict` 档适用
 - **禁止**在本阶段编写业务实现代码 / 调用 `/opsx:apply`（那是 build）
 - **禁止**借机重写 `proposal.md` / 高层 `design.md` 的范围与架构结论；缺口只进 review 消化或回 design，不在 plan 静默改 Scope
 - **禁止**写出规划依据中不存在的需求 / 模块 / 验收场景（YAGNI；多出来的任务 = 失败）
-- **禁止**未按 `./policies/decision-point.md` 获得用户对 **TDD 策略**（Step 3）的明确选择，就进入 Step 5 覆写 `tasks.md`
+- **禁止**未按 `./policies/decision-point.md` 获得用户对 **TDD 策略**（Step 3）的明确选择，就进入 Step 5 覆写 `tasks.md` —— ⚠️ **仅 `normal` / `strict` 档**（`tweak` 档由档位**自动标注**，不询问）
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow 开发]任务规划- 进入阶段：使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 技能。`
@@ -27,6 +37,13 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 ## 标识约定
 
 ### 规划依据（只读；细计划必须从中推导）
+
+**先看本档读哪些**（"档位 → 读法与强度"是本技能的核心分叉）：
+
+| 档（`workflow.mode`） | 规划依据 |
+|---|---|
+| `tweak` | 🔻 **仅 `openspec/changes/<task_id>/intention.md`**（**必读全文**）。⚠️ 本档**没有 `plan`** ⇒ 四件套**不存在**，不要去找 |
+| `normal` / `strict` | 下表全部 |
 
 | 来源 | 路径 | 提供什么 |
 |------|------|----------|
@@ -37,6 +54,7 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 | 深度设计 | `openspec/changes/<task_id>/detailed-design.md` | 实现方案、风险、测试策略、边界、模块/接口细节（**仅 `runtime.design.status=completed` 时存在**；`skipped` 时无此依据，细计划仅由四件套推导） |
 
 冲突裁决：**specs 定「做什么」；detailed-design 定「怎么拆怎么测」（`runtime.design.status=skipped` 时由四件套 `design.md` 推导）；高层 design.md / proposal 定边界。** 粗骨架 tasks 与三者冲突时，以三者为准并覆写 tasks。
+`tweak` 档：**`intention.md` 是唯一范围真理** —— 它的「目标 / 任务范围 / 验收场景及标准」即任务覆盖的主清单。
 
 ### 其它
 
@@ -47,7 +65,8 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 - workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`）
 - 运行态：`.polaris/tasks/<task_id>/state.yaml`
 
-> **链路**：`specify → plan → (design 可选) → **tasks** → build → verify → ship → retro(可选)`。  
+> **链路**：`tweak`：`specify → **tasks** → build → verify → ship`（**无 plan / design**）；
+> `normal`：`specify → plan → **tasks** → …`；`strict`：`specify → plan → design(可选) → **tasks** → …`。
 > 细计划 = f(四件套, detailed-design 若有)；plan 的 tasks 只是输入粗骨架。主审走 `tasks-review-agent`；可选 Outside Voice 走 `openspec-review-agent`。
 
 ## 有效 vs 无效（写计划前默念）
@@ -74,61 +93,23 @@ description: "用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 或要求�
 
 每个阶段的"做什么"在对应 policy 文件，本 SKILL.md 仅承载入口、HARD-GATE 锚点与跨阶段衔接。
 
-### Step 1：定位任务 + 恢复分发 + 入口校验
+### Step 1：接收 `intake` 交接
 
-用 `--format full` 取「任务 + **应执行技能**」（分发表在代码里 —— `src/core/config/task-kind-layout.ts` 的
-`skillForModePhase`；本技能**不复制**该表）：
+**前置**：根据交接中是否存在 `task_id`（由 `intake` 的 Step 4 给出；阶段出口的自动衔接同样会带），做以下操作：
 
-```bash
-ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
-RTID_EXIT=$?
-```
-
-- ⚠️ **不传 `--phase`** —— 候选须覆盖**全部在途任务**，由命令解释 `phase`；预先按本阶段过滤会把
-  他阶段的在途任务误判成「零匹配」。
-- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
-  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` /
-  `skill` / `skill_label` / `state_readable`
-
-按 `$ROWS` 长度：
-
-| 长度 | 动作 |
+| 情形 | 动作 |
 | ---- | ---- |
-| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
-| **唯一** | 记下该行 `task_id`，进入下面的判定 |
-| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
+| 有 | **采纳**；`worktree_path` 一并取（空 = 主仓；非空 ⇒ 后续读产物 / 跑命令一律以该 worktree 为仓库根）。中断续跑时按文末「上下文压缩恢复」表定位断点 |
+| 没有 | **阻断**：告知「本技能须经 `intake` 进入，请从入口技能（`tweak` / `normal` / `strict`）重新开始」。|
 
-候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
+**入口校验**（失败 → 阻断；**「适用档」列必看** —— 本技能的每一项校验都带档位条件）：
 
-```
-- <task_id> (工作流：严格(strict)，阶段：任务规划(tasks)，技能：任务规划(tasks))
-```
-
-<!--
-**判定顺序固定，不得颠倒**：先看「读得到吗」，再看「是不是本技能」。`skill` 是程序按
-`phase + mode` 算出来的；`phase` 读不到时它是 `null`，顺序反了会把坏行当成「不是本技能」而转交到空技能。
--->
-
-1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
-2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
-
-| `skill` | 含义 | 动作 |
-| ------- | ---- | ---- |
-| `== tasks`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` 取该行值，跳到文末「上下文压缩恢复」表里对应 Step |
-| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`（**不要求**用户再敲命令）；本技能到此结束，**不得**建任务 / 推进阶段 |
-| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
-
-- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
-
-**入口校验**（失败 → 阻断）：
-
-| 检查 | 条件 |
-|------|------|
-| 深度设计状态 | 二选一：`runtime.design.status=completed` 且 `detailed-design.md` 非空（frontmatter 含 `role: technical-design`）；或 `runtime.design.status=skipped`（plan 已确认跳过深化） |
-| 四件套存在 | `openspec/changes/<task_id>/` 下 `proposal.md`、`design.md`、`tasks.md` 非空，`specs/` 至少一非空文件 |
-| 设计评审 | 若存在 `reviews/design-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 design |
-| 已有细计划 | 若 `runtime.tasks.status=completed` 且 `tasks.md` 已细计划 → 询问 A 修订覆写 / B 退出（禁止静默覆盖） |
+| 检查 | 适用档 | 条件 |
+|------|--------|------|
+| 深度设计状态 | **仅 `strict`** | 二选一：`runtime.design.status=completed` 且 `detailed-design.md` 非空（frontmatter 含 `role: technical-design`）；或 `runtime.design.status=skipped`（plan 已确认跳过深化）。⚠️ `normal` 档**虽走 `plan`**，但 `design` **不在其序列** ⇒ 本条**不适用**（也不该存在 `detailed-design.md`） |
+| 四件套存在 | **`normal` / `strict`** | `openspec/changes/<task_id>/` 下 `proposal.md`、`design.md`、`tasks.md` 非空，`specs/` 至少一非空文件。⚠️ `tweak` 档**不要求** —— 四件套不在本档序列内（由 `ship` 的 artifact-backfill 事后补齐） |
+| 设计评审 | 任意档（**存在才查**） | 若存在 `reviews/design-review-report.md` 且 Verdict=`BLOCK` / 未消化 Critical → 阻断，回 design |
+| 已有细计划 | 任意档 | 若 `runtime.tasks.status=completed` 且 `tasks.md` 已细计划 → 询问 A 修订覆写 / B 退出（禁止静默覆盖） |
 
 通过后更新 `state.yaml`：`phase: tasks`，`runtime.tasks.status: in_progress`。
 
@@ -138,29 +119,50 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 ```
 输出：`[polaris-flow 开发]任务规划: task_id=<task_id> ; phase=tasks`
 
-### Step 2：读取规划依据（OpenSpec 四件套 + detailed-design 若有）
+### Step 2：读取规划依据（**按档**）
 
-**必读全文**（勿用摘要替代；读完再进入 Step 3）：
+#### 2.0 准备变更目录（🔻 **仅 `tweak` 档**）
 
-1. `openspec/changes/<task_id>/proposal.md`
-2. `openspec/changes/<task_id>/design.md`
-3. `openspec/changes/<task_id>/specs/**/*.md`（目录下每个非空 spec）
-4. `openspec/changes/<task_id>/tasks.md`（粗骨架，仅作结构参考）
-5. `openspec/changes/<task_id>/detailed-design.md`（**仅 `runtime.design.status=completed` 时必读**；`skipped` 时此文件不存在，跳过）
+`tweak` 档**没有 `plan`** ⇒ `openspec/changes/<task_id>/` **还没被创建**（`normal` / `strict` 档由 `plan` 的 Step 3.5 建目录并迁入 `intention.md`，本子步**跳过**）。本档在此补做**同一件事**：
+
+```bash
+mkdir -p "$REPO_ROOT/openspec/changes/<task_id>/reviews"
+mv "$REPO_ROOT/.polaris/tasks/<task_id>/intention.md" \
+   "$REPO_ROOT/openspec/changes/<task_id>/intention.md"
+```
+
+- 与 `plan` Step 3.5 **同构**：迁入后 `.polaris` 侧**不再保留副本**，避免两份漂移
+- 若 `state.yaml` 有 intention 路径字段 → 一并改成 `openspec/changes/<task_id>/intention.md`
+- 输出：`[polaris-flow 开发]任务规划: intention moved to openspec/changes/<task_id>/intention.md（tweak 档无 plan，本步补建目录）`
+
+#### 2.1 必读全文（勿用摘要替代；读完再进入 Step 3）
+
+| 档 | 必读 |
+|----|------|
+| **`normal` / `strict`** | ① `openspec/changes/<task_id>/proposal.md`　② `.../design.md`　③ `.../specs/**/*.md`（目录下每个非空 spec）　④ `.../tasks.md`（粗骨架，仅作结构参考）　⑤ `.../detailed-design.md`（**仅 `strict` 且 `runtime.design.status=completed` 时**；`skipped` 时此文件不存在，跳过） |
+| **`tweak`** | 🔻 **`openspec/changes/<task_id>/intention.md`**（即 2.0 迁入的那份）—— **必读全文**。它是本档**唯一**范围真理 |
 
 **禁止**凭对话记忆或只读粗骨架 `tasks.md` 开写。读完输出：
 
-`[polaris-flow 开发]任务规划: 规划依据已读 — proposal / design / specs(N=<文件数>) / tasks(粗) / detailed-design（或 design=skipped）`
+`[polaris-flow 开发]任务规划: 规划依据已读 — <本档依据清单>`
 
-若存在则一并只读：
+#### 2.2 可选只读参考（**存在才读**）
 
-- `openspec/changes/<task_id>/reviews/design-review-report.md`
+- `openspec/changes/<task_id>/reviews/design-review-report.md`（`strict` 档）
 - `openspec/changes/<task_id>/*-design.md`（专项设计，如有；排除四件套 `design.md`）
-- `openspec/changes/<task_id>/intention.md`（冲突以四件套 + detailed-design 若有为准）
+- `openspec/changes/<task_id>/intention.md`（**`normal` / `strict` 档**：只读参考，冲突以四件套 + `detailed-design` 若有为准）
+- `openspec/changes/<task_id>/proposal.md` / `design.md` / `specs/**`（**`tweak` 档**下通常**不存在**；
+  若 `ship` 已补齐则**只读**作参考，冲突时**仍以 `intention.md` 为准**）
 
-### Step 3：TDD 策略（用户决策点）
+### Step 3：TDD 策略（**按档**）
 
-在加载 `writing-plans`、拆任务、覆写 `tasks.md` **之前**，必须按 `./policies/decision-point.md` 暂停，询问本次 change 的 TDD 策略。  
+🔻 **`tweak` 档：不询问** —— 按任务类型**自动标注**（沿用下表 A 的规则：新功能 / Bug 修复 / 含分支逻辑 →
+`<!-- TDD 任务 -->`；配置 / 重命名 / 文档 / 依赖升级 / 纯脚手架 → `<!-- 非 TDD 任务 -->`；无法判断 → **默认 TDD**），
+并把 `tdd_policy` 写为 **`prefer_tdd`**（**记录为"档位派生"，非用户选择**），随后**直接进 Step 4**。
+**不要**发起 decision-point 询问 —— 「只是选个强度」的询问一律改由档位派生（见 `./policies/auto-transition.md` 同级原则）。
+
+`normal` / `strict` 档：在加载 `writing-plans`、拆任务、覆写 `tasks.md` **之前**，必须按
+`./policies/decision-point.md` 暂停，询问本次 change 的 TDD 策略。
 **推荐只能说明，不能代选。** 选定前禁止进入 Step 4。
 
 向用户说明：TDD 决定的是 **tasks.md 里每条顶层任务的子步骤形态**（TDD=用例清单 + 5 步 / 非 TDD=3 步），不是 build 阶段再选的全局开关；build 将严格按标注执行。
@@ -181,7 +183,7 @@ runtime:
 
 输出：`[polaris-flow 开发]任务规划: tdd_policy=<值>`
 
-**续跑**：若 `runtime.tasks.tdd_policy` 已存在 → 展示当前值，按 decision-point 问是否沿用；沿用则跳过改写，不沿用则更新后再进 Step 4。
+**续跑**：若 `runtime.tasks.tdd_policy` 已存在 → **`normal` / `strict` 档**展示当前值并按 decision-point 问是否沿用（沿用跳过改写，不沿用更新后再进 Step 4）；**`tweak` 档直接沿用**（档位派生值，不询问）。
 
 > 用户若要改**个别**任务的 TDD/非 TDD：在本步选 A/B/C 定总策略后，可在 Step 5 覆写前用 decision-point 追加例外清单；例外必须写进 tasks 标注，并在自审中可追溯。禁止留到 build 再改策略。
 
@@ -302,9 +304,15 @@ LINT_EXIT=$?
 - exit 0 → 通过
 - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑本步
 
-### Step 7：独立主审 — `tasks-review-agent`（阻塞点）
+### Step 7：独立主审 — `tasks-review-agent`（阻塞点 · **仅 `normal` / `strict` 档**）
 
-本步**只负责派发**主审 subagent；评审标准在 `tasks-review-agent` 内。**禁止**主代理用「自检清单」冒充。**主审不可跳过。**
+> 🔻 **`tweak` 档：本档豁免（非缺失，审计勿补回）** —— 简单改动的 `tasks.md` 由 `intention.md` 直接推导、
+> 内容极简，独立主审的代价大于收益。
+> **本档跳过 Step 7 全部**（含 7.2 Outside Voice），**直接进 Step 8**（无评审结论可消化 → 直接进 Step 9）。
+> 本档的 `tasks.md` 质量由 **6.1 自审 + 6.2 `tasks-lint.sh` + Step 5 的任务定稿确认**三道保证。
+> 豁免依据见 `HARD-GATE` 的档位分叉表。
+
+本步**只负责派发**主审 subagent；评审标准在 `tasks-review-agent` 内。**禁止**主代理用「自检清单」冒充。
 
 #### 7.1 主审
 
@@ -369,7 +377,9 @@ LINT_EXIT=$?
 4. 通过可信度门禁后写入 `openspec/changes/<task_id>/reviews/openspec-review-report.md`。
 5. 宿主无 subagent 时主审已在 6.1 阻断，不会到达本步的「无 subagent 自动跳过 OV」。
 
-### Step 8：消化评审结论
+### Step 8：消化评审结论（**仅 `normal` / `strict` 档**）
+
+> 🔻 `tweak` 档无评审报告（Step 7 已豁免）⇒ **直接进 Step 9**，本步不执行。
 
 读取 `reviews/tasks-review-report.md` 的 **STATUS**：
 
@@ -387,6 +397,22 @@ LINT_EXIT=$?
 
 ### Step 9：完成 tasks 阶段
 
+#### 9.0 🔻 `tweak` 档专属：`tasks.md` 定稿确认（阻塞点）
+
+本档**没有独立主审**（Step 7 豁免）⇒ 那道确认由**人**承担。覆写完成后、推进阶段前，按
+`./policies/decision-point.md` 暂停，展示 `tasks.md` 的**关键节**（任务清单 + 每条的 Files / 验证命令），
+请用户确认「范围与动作是不是就是要做的」：
+
+| 用户回复 | 判定 | 后续 |
+|---|---|---|
+| 明确确认 | 完成 | 进入 9.1 |
+| 仅对某条反馈 | **不算确认** | 改写 → 重跑 6.2 `tasks-lint.sh` → **重新确认** |
+| 模糊回复 / 沉默 | **不算确认** | 必须再问一次明确确认 |
+
+> `normal` / `strict` 档**不加**此步 —— 那道确认由 Step 7 的独立主审 + Step 8 的 findings 消化承担。
+
+#### 9.1 落盘与推进
+
 更新 `state.yaml`：
 
 ```bash
@@ -401,15 +427,18 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --set "runtime.tasks.outside_voice=<ran|skipped:<reason>>"
 ```
 
+- ⚠️ **`tweak` 档**：`review_report` 写 `—`、`outside_voice` 写 `skipped:tweak 档豁免独立主审`（Step 7 本档豁免）；
+  `STATUS` 恒为 `DONE`（无评审结论）。
+
 输出：
 
 ```
 任务规划阶段完成：
   task_id     : <task_id>
-  tdd_policy    : <prefer_tdd|require_tdd|prefer_direct>
+  tdd_policy    : <prefer_tdd|require_tdd|prefer_direct>（tweak 档=prefer_tdd，档位派生）
   tasks.md      : openspec/changes/<task_id>/tasks.md（已覆写）
-  review-report : openspec/changes/<task_id>/reviews/tasks-review-report.md
-  outside-voice : <ran | skipped:...>
+  review-report : openspec/changes/<task_id>/reviews/tasks-review-report.md（tweak 档：—）
+  outside-voice : <ran | skipped:...>（tweak 档：skipped:tweak 档豁免独立主审）
   STATUS        : <DONE | DONE_WITH_CONCERNS>
 ```
 
@@ -421,25 +450,29 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 ```text
 [polaris-flow 开发]任务规划 - 阶段完成，状态已落盘。
-下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+下一步：<SKILL> 阶段（建议新开会话 | 可同会话继续）。
 恢复：先读 openspec/changes/<task_id>/tasks.md、reviews/tasks-review-report.md 与 .polaris/tasks/<task_id>/state.yaml 的 runtime.tasks，再从下一步技能的 Step 0 开始。
 ```
 
 ## 退出条件
 
-- 用户已明确选择 `runtime.tasks.tdd_policy`（Step 3）
+- `runtime.tasks.tdd_policy` 已确定：**`normal` / `strict` 档** = 用户明确选择（Step 3）；**`tweak` 档** = 档位派生
 - `tasks.md` 已按模板覆写，含与 `tdd_policy` 一致的 TDD/非TDD 标注、Files、Interfaces、可复制验证命令
 - `tasks-lint.sh` exit 0
-- `tasks-review-agent` 已跑完且 STATUS 为 `DONE` 或用户已消化完的 `DONE_WITH_CONCERNS`
-- Outside Voice 已询问并完成（ran / 用户跳过）
+- **`normal` / `strict` 档**：`tasks-review-agent` 已跑完且 STATUS 为 `DONE` 或用户已消化完的 `DONE_WITH_CONCERNS`
+- **`normal` / `strict` 档**：Outside Voice 已询问并完成（ran / 用户跳过）
+- **`tweak` 档**：Step 7 / 8 **豁免**（不得据此判为"退出条件未满足"）
 - `phase=build`
 
 ## 上下文压缩恢复
 
-重载：`task_id`、`runtime.tasks.tdd_policy`、`detailed-design.md`（若有）、当前 `tasks.md`、`reviews/tasks-review-report.md`、`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
+重载：`task_id`、`workflow.mode`、`runtime.tasks.tdd_policy`、`detailed-design.md`（`strict` 档若有）、
+当前 `tasks.md`、`reviews/tasks-review-report.md`（`normal` / `strict` 档）、
+`reviews/openspec-review-report.md`（若有）、本 skill 停在哪一步。
 - **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
-- 停在 **Step 3 未选定** → 先完成 TDD 策略再写 tasks。  
-- 停在 **`runtime.tasks.status=in_progress` 且 tasks 已写未评审** → 从 Step 6.2 / Step 7 续，勿无故重写全部任务（除非用户要求改 `tdd_policy`，则须重跑 Step 3→4）。
+- 停在 **Step 2.0 未迁入**（`tweak` 档）→ 先补齐目录与 `intention.md` 迁入，再读依据
+- 停在 **Step 3 未选定**（`normal` / `strict` 档）→ 先完成 TDD 策略再写 tasks；`tweak` 档沿用档位派生值，不询问
+- 停在 **`runtime.tasks.status=in_progress` 且 tasks 已写未评审** → `normal` / `strict` 档从 Step 6.2 / Step 7 续；`tweak` 档跳过 Step 7 直接从 Step 9 续。勿无故重写全部任务（除非用户要求改 `tdd_policy`，则须重跑 Step 3→4）。
 - 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
 
 ## 自动衔接下一阶段

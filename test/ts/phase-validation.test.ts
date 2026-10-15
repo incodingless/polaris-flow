@@ -76,8 +76,8 @@ describe('checkPhaseWrite', () => {
     }
   });
 
-  it('idle 与历史别名放行（存量数据与 initPatches 都写 idle）', async () => {
-    for (const phase of ['idle', 'delivery', 'archive', '']) {
+  it('idle 放行（存量数据与 initPatches 都写 idle）', async () => {
+    for (const phase of ['idle', '']) {
       const res = await checkPhaseWrite({
         repoRoot: repo,
         kind: 'coding',

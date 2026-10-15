@@ -384,9 +384,9 @@ describe('runWorkflowEntry', () => {
     expect(byId('c-full')?.mode).toBe('strict');
     expect(byId('c-full')?.skill).toBe('plan');
     expect(byId('c-full')?.state_readable).toBe(true);
-    // 单技能通道：阶段 plan 归通道技能本人，不得交给 plan 技能
+    // 阶段归同名阶段技能（channelSkill 已于 2026-10-14 删除）；mode 只影响显示名
     expect(byId('c-tweak')?.mode).toBe('tweak');
-    expect(byId('c-tweak')?.skill).toBe('tweak');
+    expect(byId('c-tweak')?.skill).toBe('plan');
     // phase=ship 归 ship（mode 不限）
     expect(byId('c-ship')?.skill).toBe('ship');
 
@@ -394,9 +394,9 @@ describe('runWorkflowEntry', () => {
     expect(byId('c-full')?.phase_label).toBe('提案');
     expect(byId('c-full')?.mode_label).toBe('严格');
     expect(byId('c-full')?.skill_label).toBe('提案');
-    // 通道技能的中文名来自通道表，不是阶段表
+    // 技能的中文名来自阶段表（阶段 code → 中文名），与 mode 无关
     expect(byId('c-tweak')?.mode_label).toBe('简单');
-    expect(byId('c-tweak')?.skill_label).toBe('简单');
+    expect(byId('c-tweak')?.skill_label).toBe('提案');
     expect(byId('c-ship')?.phase_label).toBe('交付');
     expect(byId('c-ship')?.skill_label).toBe('交付');
   });
@@ -462,8 +462,8 @@ describe('runWorkflowEntry', () => {
     expect(row.state_path).toBe(path.join(wtRepo, '.polaris', 'tasks', 'c-wt', 'state.yaml'));
     expect(row.phase).toBe('plan');
     expect(row.state_readable).toBe(true);
-    // 关键：游标在 specify，但真实阶段在 state.yaml（plan）→ 应派给 normal 通道
-    expect(row.skill).toBe('normal');
+    // 关键：游标在 specify，但真实阶段在 state.yaml（plan）→ 应按真实阶段派给 plan 技能
+    expect(row.skill).toBe('plan');
   });
 
   it('--format full：state.yaml 读不到 → state_readable=false、skill=null（由调用方阻断）', async () => {

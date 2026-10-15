@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}retro
-description: "输出可追溯复盘报告与改进建议。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}retro，或要求查看度量趋势 / overrides 分布 / 阶段复盘 / 改进建议时必须使用本 skill。不要用于：伪造尚未存在的 metrics、在本阶段写业务实现、或替代 verify /ship 做验收与交付。"
+description: "复盘与度量回顾：聚合 `.polaris/metrics/` 与 `.polaris/overrides.log`，输出可追溯的复盘报告与改进建议。独立的服务型只读技能，由用户直接调用，不经调度、不推进阶段。当用户要求看度量、复盘、回顾、分析 override 分布或要改进建议时使用。不要用于：伪造不存在的 metrics、写业务实现、替代 verify / ship 做验收与交付。"
 ---
 
 # Polaris 工作流 - 阶段：复盘（retro）
@@ -13,6 +13,7 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 - **禁止**把 archive 下的文件当作跨 change 趋势的主数据源（跨 change **只** glob 顶层 `.polaris/metrics/`）
 - **禁止**清理或移动顶层 `.polaris/metrics/`（会破坏跨 change 趋势）
 - **禁止**本阶段编写业务实现、改 specs、推进 `workflow.yaml` 的 phase
+- **禁止**加载 `intake` 或任何其它技能，**禁止**作为任何技能的「自动衔接下一阶段」目标（本技能**只由用户直接调用**）
 - **H8**（状态行）：每个 Step 入口输出 `[polaris-flow 开发]复盘 - 进入Step <N>: <动作>`
 </HARD-GATE>
 
@@ -33,8 +34,14 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 > **链路位置**：`specify → … → verify → ship` 之后的**旁路复盘**，不进阶段序列、不推进阶段。  
 > verify 写入 metrics；ship 把 worktree 内 metrics / overrides 合回主仓顶层；retro 只读聚合。
 >
-> **入口口径**：**显式入口**（用户触发 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}retro`）——阶段表登记 `skill: null`，
-> 不由任何技能的「自动衔接下一阶段」进入，也不进入任何技能的下游，**不调用** `state next`。
+> **入口口径（对本技能豁免调度层）**：**由用户直接调用** —— 说「看度量 / 复盘」（或按本技能名加载）即可。
+> 三条豁免，缺一不可：
+> 1. **不经 `intake`** —— 它不是阶段节点，不进任何工作流的阶段序列（`retro` 不在任何档的 `modePhases` 里，
+>    阶段表登记 `skill: null`）⇒ 调度层既**不能**也**不应**转交它。
+> 2. **不被自动转交** —— 任何技能的「自动衔接下一阶段」都不得指向本技能；`ship` 收尾的「下一步」里
+>    本技能只是**供用户参考的提示**，不是调用目标。
+> 3. **不需要 `task_id`** —— 数据源是**主仓全局** metrics / overrides（跨 change 聚合），
+>    故不参与任务调度、不读也不写 `workflow.yaml`、**不调用** `state next`。
 > **前置**：主仓顶层 `.polaris/metrics/` 至少有一个文件（即至少一个 change 跑完 verify，
 > 且若在 worktree 内验证则该 change 已 ship 合回）；不满足时的处理见 Step 2。
 > 可重复执行，只读聚合、无副作用。
@@ -43,8 +50,8 @@ description: "输出可追溯复盘报告与改进建议。用户触发 /polaris
 
 | 触发 | 范围 |
 |------|------|
-| `/polaris{{SKN_SPR}}coding{{SKN_SPR}}retro` 或「看度量 / 复盘」 | **overview**：全部历史 metrics（默认最近 20 次；可按用户要求改 N） |
-| `/polaris{{SKN_SPR}}coding{{SKN_SPR}}retro monthly` 或「月度回顾」 | **monthly**：`timestamp`（或文件名时间戳）落在**当前 UTC 自然月**内的记录 |
+| 「看度量 / 复盘 / 回顾」 | **overview**：全部历史 metrics（默认最近 20 次；可按用户要求改 N） |
+| 「月度回顾 / 本月复盘」 | **monthly**：`timestamp`（或文件名时间戳）落在**当前 UTC 自然月**内的记录 |
 | 用户指定 `task_id` / 「回顾某次变更」 | **by-change**：顶层 metrics 中 `task_id` 等于该值的记录；可辅读 `tasks/` 或 `archive/` 的 state |
 
 用户未说明时默认 overview。多种意图并存时按 decision-point 确认范围，再进入 Step 2。
@@ -100,7 +107,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 | 情况 | 动作 |
 |------|------|
-| 零个 `*-metrics.json` | **停止**。告知：「尚无 verify 度量（`.polaris/metrics/*-metrics.json` 为空）。请先对至少一个 change 跑完 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（若在 worktree 内验证，还需 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 合回主仓）。」**禁止**编造报告正文 |
+| 零个 `*-metrics.json` | **停止**。告知：「尚无 verify 度量（`.polaris/metrics/*-metrics.json` 为空）。请先对至少一个 change **跑完 `verify` 阶段**（若在 worktree 内验证，还需走完 `ship` 合回主仓）。」**禁止**编造报告正文 |
 | 有 metrics，无 overrides | 继续；Override 节写「无记录」 |
 | monthly 筛选后为零 | **停止**。告知本月无度量文件，可建议改跑 overview |
 | by-change 筛选后为零 | **停止**。列出顶层 metrics 中出现过的 `task_id`（及「未归因」），请用户重选 |
@@ -140,7 +147,7 @@ test -f .polaris/overrides.log && wc -l < .polaris/overrides.log || echo 0
 
 - 必须能指回具体低分 scorer、违规计数或 override 聚类  
 - 禁止与数据矛盾的空话（如数据全绿却写「测试覆盖急需提升」）  
-- 建议指向流程动作时用现行命令：`/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`、`/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`、`/polaris{{SKN_SPR}}coding{{SKN_SPR}}specify` 等
+- 建议指向流程动作时用**阶段名**（`specify` / `plan` / `build` / `verify` / `ship`）或本技能的触发说法，**不引用具体命令**（命令名属命令层，技能侧不掌握其拼写）
 
 ### Step 6：输出报告
 
@@ -163,4 +170,5 @@ metrics 是**只读输入**（`.polaris/metrics/*-metrics.json`），重跑无�
 - 复盘报告**默认不落盘**是本技能的刻意设计（经决策点询问后才写入 `.polaris/retro/<UTC>-report.md`）；
   因此中断后**不要**试图从对话历史里找回上一版报告，直接重跑。
 - 不伪造不存在的 metrics：metrics 缺失时如实报告缺失，不凭印象编数。
-- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」。
+- **不参与阶段衔接**：本技能在阶段序列之外，**不调用** `auto-transition`（也没有「下一阶段」可衔接）——
+  报告输出后本技能即结束。

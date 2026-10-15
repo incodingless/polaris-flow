@@ -346,7 +346,7 @@ export async function buildDispatchRow(
   // 归一到现行名（历史 `full` → `strict`）—— 让 `mode` 与 `mode_label` 指向同一个值；
   // 与 `state.yaml` 里同名的 `verify_mode` 无关（那是验证强度，另一个维度）。
   const mode = normalizeMode(String(state?.workflow?.mode ?? ''));
-  const skill = skillForModePhase(kind, phase, mode);
+  const skill = skillForModePhase(kind, phase);
   return {
     task_id: taskId,
     worktree_path: worktreePath ?? '',

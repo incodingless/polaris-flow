@@ -77,10 +77,10 @@ frontmatter   triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}normal"]
 
 | 命令 | 作用 |
 | --- | --- |
-| `/psfl:flow` | 总入口：开发类路径走「前置需求预检 → 强制附需求 → 询问自动评估复杂度 → 按 3 档路由」；其他类直接菜单选择 |
-| `/psfl:coding:tweak` | 小改动（跳过 brainstorming 与完整 plan） |
-| `/psfl:coding:normal` | 常规需求（P02 单入口：四件套 + 双向守门 + 合并主审） |
-| `/psfl:coding:sdd` | SDD 驱动开发（P03 完整链路的别名，等价 `/psfl:flow` 路由 `complex`） |
+| `/psfl:flow` | 总入口：按「类别 → 具体功能」两级菜单选择，收集附加上下文后加载对应技能。**受理期不做需求预检、不做档位判定**（分别归 `intake` 的准入检查与 `specify` 出口的权威判档） |
+| `/psfl:coding:tweak` | 开发入口 · **简单档**：加载薄编排技能 `tweak`（**只声明档位**）→ 由 `intake` 建任务并转交 `specify`；序列 `specify → tasks → build → verify → ship` |
+| `/psfl:coding:normal` | 开发入口 · **常规档**：加载薄编排技能 `normal` → `workflow.mode=normal`；序列 `specify → plan → tasks → build → verify → ship` |
+| `/psfl:coding:sdd` | 开发入口 · **复杂档**：加载薄编排技能 **`strict`**（⚠️ **命令名 `sdd` 与技能名 `strict` 刻意不同名**，命令名是历史保留）→ `workflow.mode=strict`；序列含 `design`（可选） |
 | `/psfl:maintance:hotfix` | 生产故障修复入口（预声明通道 `hotfix`，交出到 `debug:diagnose`；三段通道 diagnose → patch → closeout，发布 / 灰度 / 回滚由人在环执行） |
 | `/psfl:maintance:bugfix` | 测试缺陷修复入口（预声明通道 `bugfix`，交出到 `debug:diagnose`；三段通道 diagnose → patch → closeout + **自有收尾**归档到 `docs/troubleshooting/`；**不使用 openspec**，不交 `coding/ship`） |
 | `/psfl:prd:readiness` | 需求就绪度评估（研发准出判定：五维度加权评分 + PASS/CONDITIONAL/FAIL；`ship` Step 1 的独立入口） |

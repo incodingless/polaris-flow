@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}design
-description: "把 plan 的高层 design.md 深化为可实施的详细技术设计并完成评审。用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design，或要求把 OpenSpec 高层 design.md 深化为 detailed-design.md / 深度技术设计时必须使用本 skill。"
+description: "把 plan 阶段的高层 design.md 深化为可实施的详细技术设计（detailed-design.md）并完成评审。当用户要求深化设计、细化技术方案、产出详细设计文档时使用。不要用于：生成高层方案（走 plan）、拆实施任务（走 tasks）、写代码（走 build）。"
 ---
 
 # Polaris 工作流 - 阶段：深度设计（design）
@@ -15,7 +15,7 @@ description: "把 plan 的高层 design.md 深化为可实施的详细技术设�
 - **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<task_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
 - **禁止**跳过 Step 5 主审：必须派发 `design-review-agent`（评审逻辑在 agent 内，禁止在本 skill 内联重写或主代理自审冒充）
 - **禁止**跳过 Step 5 Outside Voice **询问**（按 `.polaris/policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
-- **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks`；写代码是 build）
+- **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `tasks` 阶段；写代码是 `build` 阶段）
 - **禁止**把本 skill 当成 tasks 主审：不派 `tasks-review-agent`、不写 `tasks-review-report.md`
 - **禁止**将专项设计写成 `design.md` 或放入任何子目录；专项必须为变更根目录下的 `<slug>-design.md`
 - **禁止**把设计/评审产物写回 `.polaris/tasks/`（运行态 `state.yaml` 除外）
@@ -47,42 +47,14 @@ description: "把 plan 的高层 design.md 深化为可实施的详细技术设�
 
 本阶段均以 `$LANG` 为主语言。
 
-### Step 1：定位任务 + 恢复分发 + 入口校验
+### Step 1：接收 `intake` 交接
 
-```bash
-ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
-RTID_EXIT=$?
-```
+**前置**：根据交接中是否存在 `task_id`（由 `intake` 的 Step 4 给出；阶段出口的自动衔接同样会带），做以下操作：
 
-- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
-  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` /
-  `skill` / `skill_label` / `state_readable`
-
-按 `$ROWS` 长度：
-
-| 长度 | 动作 |
+| 情形 | 动作 |
 | ---- | ---- |
-| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
-| **唯一** | 记下该行 `task_id`，进入下面的判定 |
-| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
-
-候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
-
-```
-- <task_id> (工作流：严格(strict)，阶段：深度设计(design)，技能：深度设计(design))
-```
-
-1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
-2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
-
-| `skill` | 含义 | 动作 |
-| ------- | ---- | ---- |
-| `== design`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` 取该行值，跳到文末「上下文压缩恢复」表里对应 Step |
-| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`（**不要求**用户再敲命令）；本技能到此结束，**不得**建任务 / 推进阶段 |
-| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
-
-- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
+| 有 | **采纳**；`worktree_path` 一并取（空 = 主仓；非空 ⇒ 后续读产物 / 跑命令一律以该 worktree 为仓库根）。中断续跑时按文末「上下文压缩恢复」表定位断点 |
+| 没有 | **阻断**：告知「本技能须经 `intake` 进入，请从入口技能（`tweak` / `normal` / `strict`）重新开始」。|
 
 **入口校验**（失败 → 阻断）：
 
@@ -269,7 +241,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 ```text
 [polaris-flow 开发]深度设计 - 阶段完成，状态已落盘。
-下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+下一步：<SKILL> 阶段（建议新开会话 | 可同会话继续）。
 恢复：先读 openspec/changes/<task_id>/detailed-design.md、reviews/design-review-report.md 与 reviews/openspec-review-report.md（若有），再从下一步技能的 Step 0 开始。
 ```
 

@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}verify
-description: "对 build 产出做验证并按证据落盘：编译闸门 → 意图验收 → Constitution 审计与静态 scorer → 单元测试（含三级分叉与三段判读 + 基线红名单）→ 覆盖率打分与强度补强 → 按 verify_mode 探测并执行契约 / 集成 / 功能三条测试轨 → 收口清单（轻量 6 项 / 完整 7 项）→ 按 runtime.build.review_mode 可选派发独立 subagent 做独立代码评审（可含用户选定的可选 SonarQube 扫描与门禁判定）→ 人工业务语义确认；用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}verify，或在 build 完成后要求验收 / 审计实施产出 / 跑测试并落盘测试证据 / 跑 Constitution 合规与 scorer / 对照 specs 与深度设计做验证时必须使用本 skill。"
+description: "验证 build 产出并落盘测试证据：编译检查、需求验收、合规审计、单元/集成/契约测试、覆盖率与代码评审、人工确认。当用户要求验证实现、跑测试、验收、审计实施产出、落盘测试证据时使用。不要用于：写代码（走 build）、交付与归档（走 ship）。"
 ---
 
 # Polaris 工作流 - 阶段：验证（verify）
@@ -75,7 +75,7 @@ description: "对 build 产出做验证并按证据落盘：编译闸门 → 意
 
 | 段 | 步骤 | 强度 |
 |----|------|------|
-| 前置 | Step 1 定位任务 ID + 入口校验 · Step 2 处理 dirty worktree | always |
+| 前置 | Step 1 接收 `intake` 交接（取 `task_id`）+ 入口校验 · Step 2 处理 dirty worktree | always |
 | 模式无关基底 | Step 3 命令获取（`build` + `unit`）· Step 4 编译 / 构建闸门 · Step 5 意图验收 · Step 6 自动检查项 · Step 7 单元测试 · Step 8 覆盖率打分 + 强度补强 | always |
 | 强度分流后 | Step 9 确定 `verify_mode` · Step 10 命令获取（按强度）· Step 11 契约测试 · Step 12 集成测试 · Step 13 功能测试 · Step 14 收口清单 | 按 `verify_mode` 与触发条件 |
 | 收口与人 | Step 15 独立代码评审 · Step 16 人工验证 · Step 17 落盘证据 + 出口推进 | Step 15 按 `review_mode`；Step 16 必现 |
@@ -89,52 +89,14 @@ description: "对 build 产出做验证并按证据落盘：编译闸门 → 意
 
 **边界**：「先机器后人工」**不是**「人工接机器剩下的全部」。机械性残留（环境没起、需手工跑一条命令）走 `No-Verification`，**不占人工注意力**。
 
-### Step 1：定位任务 + 恢复分发 + 入口校验
+### Step 1：接收 `intake` 交接
 
-用 `--format full` 取「任务 + **应执行技能**」（分发表在代码里 —— `src/core/config/task-kind-layout.ts` 的
-`skillForModePhase`；本技能**不复制**该表）：
+**前置**：根据交接中是否存在 `task_id`（由 `intake` 的 Step 4 给出；阶段出口的自动衔接同样会带），做以下操作：
 
-```bash
-ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
-RTID_EXIT=$?
-```
-
-- ⚠️ **不传 `--phase`** —— 候选须覆盖**全部在途任务**，由命令解释 `phase`；预先按本阶段过滤会把
-  他阶段的在途任务误判成「零匹配」。
-- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`），每行含：
-  `task_id` / `worktree_path` / `state_path` / `phase` / `phase_label` / `mode` / `mode_label` /
-  `skill` / `skill_label` / `state_readable`
-
-按 `$ROWS` 长度：
-
-| 长度 | 动作 |
+| 情形 | 动作 |
 | ---- | ---- |
-| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
-| **唯一** | 记下该行 `task_id`，进入下面的判定 |
-| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
-
-候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
-
-```
-- <task_id> (工作流：严格(strict)，阶段：验收(verify)，技能：验收(verify))
-```
-
-<!--
-**判定顺序固定，不得颠倒**：先看「读得到吗」，再看「是不是本技能」。`skill` 是程序按
-`phase + mode` 算出来的；`phase` 读不到时它是 `null`，顺序反了会把坏行当成「不是本技能」而转交到空技能。
--->
-
-1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
-2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
-
-| `skill` | 含义 | 动作 |
-| ------- | ---- | ---- |
-| `== verify`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` 取该行值，跳到文末「上下文压缩恢复」表里对应 Step |
-| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`（**不要求**用户再敲命令）；本技能到此结束，**不得**建任务 / 推进阶段 |
-| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
-
-- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
+| 有 | **采纳**；`worktree_path` 一并取（空 = 主仓；非空 ⇒ 后续读产物 / 跑命令一律以该 worktree 为仓库根）。中断续跑时按文末「上下文压缩恢复」表定位断点 |
+| 没有 | **阻断**：告知「本技能须经 `intake` 进入，请从入口技能（`tweak` / `normal` / `strict`）重新开始」。|
 
 > **中断续跑**：`runtime.verify.status=in_progress` 时从中断点续跑，**不得**判成「零匹配」。
 
@@ -880,7 +842,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 ```text
 [polaris-flow 开发]验证 - 阶段完成，状态已落盘。
-下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+下一步：<SKILL> 阶段（建议新开会话 | 可同会话继续）。
 恢复：先读 .polaris/metrics/<timestamp>-metrics.json 与 openspec/changes/<task_id>/reviews/verify-report.md，再从下一步技能的 Step 0 开始。
 ```
 

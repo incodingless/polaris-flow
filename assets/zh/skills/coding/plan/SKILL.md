@@ -1,6 +1,6 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}plan
-description: "基于已锁定的 intention.md 生成 OpenSpec 四件套；用户触发 /polaris{{SKN_SPR}}coding{{SKN_SPR}}plan，或要求基于 intention.md 生成 OpenSpec 四件套（proposal/specs/design/tasks）时必须使用本 skill。四件套落盘并经 plan-review-agent 独立主审（可选 Outside Voice）后，询问是否进入可选 design 深化：深化则进 design，跳过则直接进 tasks（runtime.design.status=skipped）。"
+description: "基于已锁定的 intention.md 生成 OpenSpec 四件套（proposal / specs / design / tasks）并经独立评审。当用户要求生成提案、写规格契约、做方案设计、产出 OpenSpec 四件套时使用。不要用于：澄清需求（走 specify）、深化为详细技术设计（走 design）、拆实施任务（走 tasks）。"
 version: 0.1
 ---
 
@@ -38,41 +38,14 @@ version: 0.1
 
 本阶段均以 `$LANG` 为主语言。
 
-### Step 1：定位任务 + 恢复分发
+### Step 1：接收 `intake` 交接
 
-#### 1.1 选任务（游标枚举）
-```bash
-ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
-RTID_EXIT=$?
-```
+**前置**：根据交接中是否存在 `task_id`（由 `intake` 的 Step 4 给出；阶段出口的自动衔接同样会带），做以下操作：
 
-- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$ROWS` 是 JSON 数组（可能为 `[]`）
-
-按 `$ROWS` 长度：
-
-| 长度 | 动作 |
+| 情形 | 动作 |
 | ---- | ---- |
-| **零个** | 阻断：「未找到 coding 在途任务，请先执行 `polaris{{SKN_SPR}}coding{{SKN_SPR}}specify`（完整链路入口）或对应工作流技能」 |
-| **唯一** | 记下该行 `task_id`，进入下面的判定 |
-| **多个** | 按 `./policies/decision-point.md` 列出候选请用户选 **1 个**，记下 `task_id`，进入下面的判定 |
-
-候选呈现格式：逐行给 `中文(英文)`，中文取不到时只显英文（`state_readable=false` 的行标注「无法路由」并给出 `state_path`）：
-
-```
-- <task_id> (工作流：严格(strict)，阶段：提案(plan)，技能：提案(plan))
-```
-
-1. `state_readable=false` 或 `phase` 为空 → **阻断**：把 `state_path` 交给用户人工确认。**不得**当成「零个」去新建，也不得猜阶段。
-2. `skill`（= 应执行技能），按 `./policies/decision-point.md` 分三路：
-
-| `skill` | 含义 | 动作 |
-| ------- | ---- | ---- |
-| `== plan`（本技能） | 任务停在本技能的中断点 | **接手**：`task_id` 取该行值，跳到文末「上下文压缩恢复」表里对应 Step |
-| `== 其他技能` | 该由别的技能接手 | **转交**：同会话内加载 `polaris{{SKN_SPR}}coding{{SKN_SPR}}<skill>`（**不要求**用户再敲命令）；本技能到此结束，**不得**建任务 / 推进阶段 |
-| `== null` | 旁路阶段（`retro`）/ 表外未登记阶段 | **阻断**：没有可路由的技能，把该行 `phase` / `state_path` 交给用户 |
-
-- ⚠️ 「读不到」**只在你选中那一行时**才是阻塞；与本次操作无关的其它任务读不到，照常列出并标注「无法路由」。
+| 有 | **采纳**；`worktree_path` 一并取（空 = 主仓；非空 ⇒ 后续读产物 / 跑命令一律以该 worktree 为仓库根）。中断续跑时按文末「上下文压缩恢复」表定位断点 |
+| 没有 | **阻断**：告知「本技能须经 `intake` 进入，请从入口技能（`tweak` / `normal` / `strict`）重新开始」。|
 
 ### Step 2：Worktree 决策（提示性，非阻断）
 
@@ -148,7 +121,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 检查`intention.md`内容，根据情况处理：
 | 情况 | 处理 |
 |---|---|
-| **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户调用 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}plan`（或 `/plan`）时的原始消息作为 plan 输入；输出 `[polaris-flow 开发]提案 - 未找到 intention.md，使用用户原始 prompt 作为 plan 输入。` 后跳到 Step 3.2 |
+| **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户**直接进入本阶段**时的原始消息作为 plan 输入；输出 `[polaris-flow 开发]提案 - 未找到 intention.md，使用用户原始 prompt 作为 plan 输入。` 后跳到 Step 3.2 |
 | **文件存在**（暂存或已迁入） | 逐节检查**必含节**均存在且非空：目标 / 任务范围 / 验收场景及标准 / 宪法对齐 / 前提 / 结论（架构 + 技术选型）/ 待决问题 / 备选方案。缺节 → **阻断**，列出缺失节名，提示回到 specify 补全 |
 
 #### 3.3 用户最终确认
@@ -391,7 +364,18 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 #### 6.1 深化设计决策点（阻塞）
 
-plan 完成后，深度设计（design）是**可选**衔接阶段：只有严格工作流（strict，specify 起）在此决策；tweak / normal 不经过本 skill，天然无此决策。
+plan 完成后，深度设计（design）是**可选**衔接阶段。**本决策点是否提供，由档位决定**
+（读 `state.yaml` 的 `workflow.mode`；档位 → 阶段序列的唯一真相在代码表
+`src/core/config/task-kind-layout.ts` 的 `modePhases`，本技能不内联）：
+
+| 档（`workflow.mode`） | 本决策点 |
+| --- | --- |
+| `strict` | ✅ **提供** —— `design` 在它的阶段序列里 |
+| `normal` | ⛔ **不提供** —— `design` **不在** `normal` 的序列里 ⇒ **直接落 `tasks`**（走 6.2 的 B 支，标 `design.status=skipped`） |
+| `tweak` | — **不经过本技能**（`plan` 不在它的序列里），天然无此决策 |
+
+> ⚠️ `normal` 档下**不要**把 A 支呈现给用户 —— 那会让 `phase` 落到一个不属于本档的阶段。
+> 档位在 `specify` 出口就已冻结（`./policies/risk-signals.md` §7），本技能**不判档、不改 `mode`**。
 
 按 `./policies/decision-point.md` 暂停，询问是否进入深度设计深化：
 
@@ -399,7 +383,7 @@ plan 完成后，深度设计（design）是**可选**衔接阶段：只有严�
 四件套已锁定。是否需要把高层 design.md 深化为 detailed-design.md（含可选专项设计）？
 
 A. 是 — 进入 /polaris{{SKN_SPR}}coding{{SKN_SPR}}design 深化（复杂 / 高风险 / 需数据模型或接口契约专项设计）
-B. 否 — 跳过深化，直接进入 plan（四件套已足够指导细计划）
+B. 否 — 跳过深化，直接进入 tasks（四件套已足够指导细计划）
 ```
 
 **推荐规则**（可附在选项旁，不强制）：涉及跨服务、数据模型、对外 API 契约、领域模型或高风险 → 推荐 A；四件套已把架构、模块、接口、数据流写清、无需专项展开 → 推荐 B。
@@ -415,7 +399,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase plan --next-phase design
 ```
 
-输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 覆写）。`
+输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 `tasks` 阶段覆写）。`
 
 **B（跳过深化）** → 更新 `state.yaml` 标记 design 跳过，直接推进 tasks：
 
@@ -431,7 +415,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase plan --next-phase tasks
 ```
 
-输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入；已跳过深度设计（runtime.design.status=skipped，tasks.md 为粗骨架，细计划由 /polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks 覆写）。`
+输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入；已跳过深度设计（runtime.design.status=skipped，tasks.md 为粗骨架，细计划由 `tasks` 阶段覆写）。`
 
 **A / B 两分支共用同一出口**，输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
 先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
@@ -439,7 +423,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
 
 ```text
 [polaris-flow 开发]提案 - 阶段完成，状态已落盘。
-下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+下一步：<SKILL> 阶段（建议新开会话 | 可同会话继续）。
 恢复：先读 openspec/changes/<task_id>/ 的四件套与 reviews/plan-review-report.md、reviews/openspec-review-report.md（若有），再从下一步技能的 Step 0 开始。
 ```
 

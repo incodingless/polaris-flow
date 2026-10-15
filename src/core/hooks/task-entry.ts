@@ -1,25 +1,32 @@
 /**
- * `task-entry`：**入口技能「进入任务」的唯一原语**。
+ * `task-entry`：**`intake`（任务管理与调度层）专用的「进入任务」原语**。
  *
- * 把「选任务 → 判阶段 → （必要时）建任务」三件事收敛成一次调用，返回一个 `action`，
- * 调用方（coding 族的入口技能）只按 `action` 分派动作、不复制任何判定表。
+ * 把「选任务 → 判阶段 → 建任务」收敛成**一次调用**，返回一个 `action`；
+ * `intake` 只按 `action` 分派动作，不复制任何判定表。
  *
- * 出口语义：
- *   - `resume`         该任务停在本技能的中断点（`skill == --as`）
- *   - `handover`       该由别的技能接手（`skill` 非空且 ≠ `--as`）
+ * **调用位置**：`intake` 的 Step 3（**仅「零个在途任务」时**）。它是**写**操作
+ * —— 零候选时**一步**建目录 + 写 `workflow.mode` + 注册游标（幂等）。
+ * 只想**读**列表（`intake` 的 Step 1 恢复分发）请用只读的 `workflow-entry get-active-changes`。
+ *
+ * 🔴 **不得由执行层（节点技能）调用** —— 执行层只有一个入口 = `intake`；
+ * 节点技能的 Step 1 只「接收 `intake` 的交接」，不做任何任务判定。
+ *
+ * 出口语义（**非 `create` / `resolve-drafts` 的出口 = 状态在本调用之前变了**，
+ * 应让调用方**回到 Step 1 重跑**，而不是当场处理）：
  *   - `create`         零个在途任务 → 已建目录、写 `workflow.mode`、注册游标（幂等）
- *   - `select`         **多个**在途任务 → 只列出候选，**不替用户选**（带 `--task-id` 重跑）
  *   - `resolve-drafts` 零个在途任务但磁盘上**有未注册的 draft 残留** → 交出 `drafts` 列表，
- *                      由调用方按决策点协议裁决（见 `./policies/task-entry.md` §5）
+ *                      由调用方按决策点协议裁决（见 `policies/task-entry.md` §5）
+ *   - `select`         **多个**在途任务 → 只列出候选，**不替用户选**
+ *   - `handover`       唯一任务，但该由别的技能接手（`skill` ≠ `--as`）
+ *   - `resume`         唯一任务且 `skill == --as`（`intake` 永不命中：它不执行任何阶段）
  *   - `block`          读不到 state / `phase` 为空 / 无可路由技能（`skill == null`）→ 没有答案，停下
  *
- * 两点刻意的约定：
+ * 三点刻意的约定：
  *   1. **`--mode` 只在 `create` 时被写入**；判定阶段一律用任务**自己** `state.yaml` 里的 `mode`。
  *      这是「`mode` 由上游传入、技能不自证」的落点。
- *   2. **调用即表示要进入任务** —— 零候选时会发生写入。只想读列表（如 `intake` 的恢复分发）
- *      请用只读的 `workflow-entry get-active-changes`。
+ *   2. **调用即表示要进入任务** —— 零候选时会发生写入（这正是 `intake` 的 Step 3 要的）。
  *   3. **本命令不删任何东西**。「丢弃并新建」「孤儿 draft 的 A/B/C/D」两组分支都是
- *      破坏性或需用户裁决的，刻意留在 `./policies/task-entry.md` §5 里用既有原语表达。
+ *      破坏性或需用户裁决的，刻意留在 `policies/task-entry.md` §5 里用既有原语表达。
  */
 import { resolveTaskStatePath } from '../assets/polaris-paths.js';
 import { WORKFLOW_MODE_LABELS, modeLabel } from '../config/task-kind-layout.js';
@@ -47,7 +54,7 @@ export type TaskEntryAction =
 export type TaskEntryArgs = {
   /** 任务类型（coding / requirement / testcase / prototype / debug） */
   kind?: string;
-  /** 本技能名（族内相对名，如 `tweak`）；用于与判定出的 `skill` 比较 */
+  /** 调用者名（族内相对名）—— 固定 `intake`；用于与判定出的 `skill` 比较 */
   as?: string;
   /** **仅 `create` 时写入** `state.yaml` 的 `workflow.mode` 取值 */
   mode?: string;
@@ -184,7 +191,7 @@ async function createTask(
     taskId,
     kind,
     sets: [`workflow.mode=${mode}`],
-    skill: 'task-entry',
+    skill: 'intake',
   });
   if (wroteMode.exitCode !== 0) {
     return { exitCode: wroteMode.exitCode, message: wroteMode.message ?? '写 workflow.mode 失败' };
@@ -192,7 +199,7 @@ async function createTask(
 
   const registered = await runWorkflowEntry({
     op: 'append-active',
-    skill: 'task-entry',
+    skill: 'intake',
     kind,
     repoRoot,
     taskId,

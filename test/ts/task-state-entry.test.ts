@@ -140,6 +140,63 @@ describe('runTaskStateEntry', () => {
     expect((gotId.value as Record<string, unknown>).req_name_cn).toBe('用户权限');
   });
 
+  it('complete-phase 缺省 --next-phase → 按 workflow.mode 从阶段表派生（tweak 跳过 plan）', async () => {
+    const repo = await tmpRepo();
+    const statePath = path.join(repo, '.polaris', 'tasks', 't1', 'state.yaml');
+
+    await writeFile(
+      statePath,
+      'kind: coding\nphase: specify\nworkflow:\n  mode: tweak\nruntime: {}\n',
+      'utf-8',
+    );
+    const tweak = await runTaskStateEntry({
+      op: 'complete-phase',
+      repoRoot: repo,
+      taskId: 't1',
+      kind: 'coding',
+      phase: 'specify',
+    });
+    expect(tweak.exitCode).toBe(0);
+    expect(await readFile(statePath, 'utf-8')).toMatch(/phase:\s*tasks/);
+
+    await writeFile(
+      statePath,
+      'kind: coding\nphase: specify\nworkflow:\n  mode: strict\nruntime: {}\n',
+      'utf-8',
+    );
+    const strict = await runTaskStateEntry({
+      op: 'complete-phase',
+      repoRoot: repo,
+      taskId: 't1',
+      kind: 'coding',
+      phase: 'specify',
+    });
+    expect(strict.exitCode).toBe(0);
+    expect(await readFile(statePath, 'utf-8')).toMatch(/phase:\s*plan/);
+  });
+
+  it('complete-phase 显式 --next-phase 优先于派生值（plan 的二分支依赖它）', async () => {
+    const repo = await tmpRepo();
+    const statePath = path.join(repo, '.polaris', 'tasks', 't1', 'state.yaml');
+    await writeFile(
+      statePath,
+      'kind: coding\nphase: plan\nworkflow:\n  mode: strict\nruntime: {}\n',
+      'utf-8',
+    );
+    const r = await runTaskStateEntry({
+      op: 'complete-phase',
+      repoRoot: repo,
+      taskId: 't1',
+      kind: 'coding',
+      phase: 'plan',
+      nextPhase: 'tasks', // 派生值本是 design，显式传入必须覆盖它
+    });
+    expect(r.exitCode).toBe(0);
+    const raw = await readFile(statePath, 'utf-8');
+    expect(raw).toMatch(/phase:\s*tasks/);
+    expect(raw).not.toMatch(/phase:\s*design/);
+  });
+
   it('change enter-phase 写入 runtime.<phase>', async () => {
     const repo = await tmpRepo();
     const statePath = path.join(repo, '.polaris', 'tasks', 't1', 'state.yaml');

@@ -4,7 +4,7 @@
 ### Added
 
 - **`task-entry` 原语**: 新增 `polaris-flow task-entry --kind coding --as <技能> --mode <档>`，一次调用返回 `resume` / `handover` / `create` / `select` / `resolve-drafts` / `block` —— 把「选任务 → 判阶段 →（必要时）建任务」收敛成一条命令，判定全部留在代码里；新建时一步完成建目录 + 写 `workflow.mode` + 注册游标。`--mode` **只在新建时被写入**，判定阶段一律用任务**自己** `state.yaml` 里的值（工作流不被入口假设）
-- **共享 policy `assets/zh/policies/task-entry.md`**: coding 三入口技能共用的「进入任务」流程。含刻意不放进命令的破坏性 / 需裁决分支（§5：孤儿 draft 的 A/B/C/D、「丢弃并新建」）
+- **共享 policy `assets/zh/policies/task-entry.md`**: coding 三入口技能共用的「进入任务」流程。含刻意不放进命令的破坏性 / 需裁决分支（§5：孤儿 draft 的 A/B/C/D、「丢弃并新建」）。⚠️ **2026-10-14 已改**：执行层不再调用该原语 ⇒ 该文档**移入 `coding/intake/policies/` 成为 `intake` 私有细则**（随技能安装，不再注入其它技能）
 - **候选列表的中文显示名**: `get-active-changes --format full` 每行新增 `phase_label` / `mode_label` / `skill_label`；中文名由 `phaseLabel` / `modeLabel` / `skillLabel` 从**既有阶段表与工作流表**派生（不新增任何映射表），技能只负责拼成 `中文(英文)`。取不到时为空串，显示层退回只显英文 —— 不猜
 - **`append-active` 幂等**: 同一 `task_id` 已在列表里 → 视为成功且**不改动**已有条目。入口技能的「新建」与「采纳孤儿 draft」两条路因此可以**无条件**注册，不再需要「仅 `status=ok` 才执行」这类分支条件
 - **`buildDispatchRow` 导出**: `--format full` 的单行构造从 `runGetActiveChanges` 抽出，供 `task-entry` 复用，避免第二份「运行态形状」
@@ -20,7 +20,7 @@
 - **恢复分发改读 state.yaml**: `workflow-entry get-active-changes --format full` 的 `phase` 与 `mode` 现在同出一个文件，行结构新增 `state_path`（定位结果，便于排查）与 `state_readable`；`--phase` 过滤改为按各任务 state.yaml 的阶段过滤（默认 `ids` 格式仍不读 state.yaml，保持低成本）
 - **阶段推进只走一个原语**: 所有技能的游标 phase 写入（`update-active --set phase=` / `append-active --phase=`）删除，阶段推进统一由 `task-state-entry enter-phase / complete-phase --next-phase` 完成
 - **`tweak` / `normal` 的阶段语义与全链路统一**: 进入实施阶段不再写顶层 `phase: build`（进行中的事实由 `runtime.build.status` 承载）；顶层 `phase` 只承载「下一步该谁接手」，三条工作流自此同义
-- **工作流名 `full` 更名为 `strict`**: 旧名与 `verify_mode` 的取值 `full` **同名不同义** —— 同一份 `state.yaml` 里两个 `full` 指向不同维度。新名描述真实特征（端到端全走、门禁不跳步），中文名由「完整」改为「严格」。**存量数据无需迁移**：历史值只在**读取侧**归一（新增 `normalizeMode`，与 `PHASE_ALIASES` 同构），`--format full` 输出的 `mode` / `mode_label`、恢复分发 `skillForModePhase`、Dashboard 卡片均按现行名显示；**写入侧**白名单不含 `full`，误写会被 `task-entry` 以「未知工作流」拒绝
+- **工作流名 `full` 更名为 `strict`**: 旧名与 `verify_mode` 的取值 `full` **同名不同义** —— 同一份 `state.yaml` 里两个 `full` 指向不同维度。新名描述真实特征（端到端全走、门禁不跳步），中文名由「完整」改为「严格」。写入侧白名单不含 `full`，误写会被 `task-entry` 以「未知工作流」拒绝。⚠️ **本条已修订**（2026-10-14）：初版曾写"存量数据无需迁移、读取侧归一"，但 `WORKFLOW_MODE_ALIASES` 与 `PHASE_ALIASES` **随后被删除** ⇒ `normalizePhase` / `normalizeMode` 已退化为纯 trim，**存量 `state.yaml` 写 `full` / `delivery` 不再被识别**
 
 ### Fixed
 

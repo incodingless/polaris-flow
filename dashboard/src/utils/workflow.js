@@ -40,20 +40,9 @@ export function displayPhase(phase, phaseNames = {}) {
   return phaseNames[code] || PHASE_EXTRA_LABELS[code] || code
 }
 
-/** 工作流名的历史别名：写盘一律用现行名，读到时归一（与后端 `normalizeMode` 同口径） */
-const MODE_ALIASES = {
-  sdd: 'normal',
-  full: 'strict'
-}
-
-/**
- * 模式显示名。`state.yaml` 的历史值域含 `sdd` / `full`，现行值域是 `tweak|normal|strict`
- * —— 历史值归一到现行同名档（`sdd` 即 `normal`、`full` 即 `strict`），未登记值原样显示，不显示为空白。
- */
+/** 模式显示名。`workflow.mode` 原样显示 —— 不做别名归一 */
 export function displayMode(mode) {
-  const raw = String(mode ?? '').trim()
-  if (!raw) return ''
-  return MODE_ALIASES[raw] || raw
+  return String(mode ?? '').trim()
 }
 
 /** 为所有阶段步骤分配全局连续序号（从 1 开始） */

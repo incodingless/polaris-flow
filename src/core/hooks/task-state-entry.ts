@@ -13,6 +13,7 @@ import {
   getTaskStatePath,
 } from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
+import { nextPhaseForMode } from '../config/task-kind-layout.js';
 import { parseWorkflowTaskKind, type WorkflowTaskKind } from '../config/workflow-state.js';
 import { resolveRepoRoot } from './workflow-entry.js';
 import { acquireExclusiveLock, WorkflowLockError } from './workflow-lock.js';
@@ -619,7 +620,17 @@ async function runWriteOp(
         const phase = (args.phase ?? '').trim();
         if (!phase) throw new TaskStateEntryParamError('complete-phase 需要 --phase');
         const style = resolveBlockStyle(state, kind, args.blockStyle);
-        next = applyCompletePhase(state, phase, style, args.nextPhase?.trim() || undefined);
+        // `--next-phase` 缺省 → 按本任务的工作流（`workflow.mode`）从阶段表派生下一段
+        // （`phasesForMode` 的唯一真相）。显式传入仍优先：`plan` 的 design / tasks 二分支、
+        // 以及升降档后的 phase 前移都依赖它。`kind` 缺失时无法派生 ⇒ 保持「不推 phase」。
+        const modeRaw = getByPath(state, 'workflow.mode');
+        const nextPhase =
+          args.nextPhase?.trim() ||
+          (kind
+            ? nextPhaseForMode(kind, typeof modeRaw === 'string' ? modeRaw : '', phase)
+            : null) ||
+          undefined;
+        next = applyCompletePhase(state, phase, style, nextPhase);
         break;
       }
       case 'set-identity': {
