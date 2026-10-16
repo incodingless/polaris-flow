@@ -239,13 +239,12 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 输出：`[polaris-flow 开发]深度设计 - 阶段完成：openspec/changes/<task_id>/detailed-design.md 已锁定。`
 
-输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
-先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
-—— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
+输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**，`NEXT` 取 manual/auto 对应一套）。
+先按「自动衔接下一阶段」一节运行 `state next`，`<SKILL>` 与 `<mode>` 均取自其输出，**不得写死**。
+本技能填写的状态行与「恢复」行（「下一步」「操作」两行以模板为准，不在此复制）：
 
 ```text
 [polaris-flow 开发]深度设计 - 阶段完成，状态已落盘。
-下一步：<SKILL> 阶段（建议新开会话 | 可同会话继续）。
 恢复：先读 openspec/changes/<task_id>/detailed-design.md、reviews/design-review-report.md 与 reviews/openspec-review-report.md（若有），再从下一步技能的 Step 0 开始。
 ```
 

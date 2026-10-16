@@ -21,9 +21,11 @@
 - **阶段推进只走一个原语**: 所有技能的游标 phase 写入（`update-active --set phase=` / `append-active --phase=`）删除，阶段推进统一由 `task-state-entry enter-phase / complete-phase --next-phase` 完成
 - **`tweak` / `normal` 的阶段语义与全链路统一**: 进入实施阶段不再写顶层 `phase: build`（进行中的事实由 `runtime.build.status` 承载）；顶层 `phase` 只承载「下一步该谁接手」，三条工作流自此同义
 - **工作流名 `full` 更名为 `strict`**: 旧名与 `verify_mode` 的取值 `full` **同名不同义** —— 同一份 `state.yaml` 里两个 `full` 指向不同维度。新名描述真实特征（端到端全走、门禁不跳步），中文名由「完整」改为「严格」。写入侧白名单不含 `full`，误写会被 `task-entry` 以「未知工作流」拒绝。⚠️ **本条已修订**（2026-10-14）：初版曾写"存量数据无需迁移、读取侧归一"，但 `WORKFLOW_MODE_ALIASES` 与 `PHASE_ALIASES` **随后被删除** ⇒ `normalizePhase` / `normalizeMode` 已退化为纯 trim，**存量 `state.yaml` 写 `full` / `delivery` 不再被识别**
+- **`polaris update` 第三方依赖按版本跳过重复安装**: openspec / superpowers / codegraph 安装前先探测「已装版本 vs 上游最新版本」，无更新时回显「已是最新 —— 跳过重复安装」并跳过（`--force` 仍强制重装）；codegraph 版本补记入 `skills-lock.json` 的 `sources`，与 openspec / superpowers 一致
 
 ### Fixed
 
+- **项目选择弹框「失效」徽章样式块未闭合**: `.badge--stale` 少写结束括号，后续项目操作按钮规则被吞进该块，Vite 压缩 CSS 时报 `Expected "}" to go with "{"`
 - **入口技能采纳孤儿 draft 后永远进不了游标**: `task-init` 报 `status="existing"` 时选「继续最近 / 选择一个」的两条路都跳过注册，而它采纳的恰恰是**游标里没有**的 draft（这正是它成为孤儿的原因）。后果是该任务既无法被其它技能发现，还会在 `finalize` 的 `rename-active` 处以 exit 3 阻断，且每次重进命令都会再问一遍。现由 `append-active` 幂等 + 无条件注册修掉
 - **采纳时工作流写入被跳过**: 同一分支此前一并跳过 `workflow.mode` 覆盖，会让任务停在模板默认的 `normal`（`tweak` 任务被当成常规工作流）。现与注册一并无条件执行
 - **worktree 任务的阶段与工作流读错文件**: `--format full` 原先一律从主仓路径读 `state.yaml`，而任务目录被 `worktree-create` 搬进 worktree 后（主仓副本改名为 `<id>.snapshot`）该路径并不存在 —— `mode` 读成空串会让 `normal` / `tweak` 任务被误派给 `plan` / `specify` 技能，工作流丢失。现按条目的 `worktree_path` 定位
@@ -37,6 +39,7 @@
 - `workflow-entry.test.ts`：新增 worktree 任务按 `worktree_path` 读阶段（含 `state_path` 断言）、`state_readable=false` 时 `skill` 为 `null`、条目不含 `phase`、中文标签三类回归
 - `state-next.test.ts`：新增「state.yaml 读不到 → `NEXT: done`」与「worktree 任务从 worktree 内解析」用例；全部用例的阶段改为写入 state.yaml
 - `dashboard-scan.test.ts` / `dashboard-write.test.ts` / `delivery-cleanup.test.ts`：阶段来源改为 state.yaml 的断言改写；面板「推进阶段」改为写 `state.yaml` 并新增"state 缺失即拒绝"用例
+- `update-deps-version.test.ts`（新增，7 项）：`isConcreteVersion` 识别 semver / 拒绝 `local`·`HEAD`·`npx-latest` 占位符；`hasNoVersionUpdate` 的相等、已装更新、有更新、版本缺失、不可比五类边界
 
 ## What's Changed [0.1.1] - 2026-08-04
 

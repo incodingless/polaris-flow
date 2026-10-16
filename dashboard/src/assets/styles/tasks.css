@@ -2310,6 +2310,7 @@
   font-weight: 500;
   color: var(--danger, var(--text-secondary));
   border: 1px solid var(--danger, var(--border-normal));
+}
 .project-item__actions {
   display: flex;
   align-items: center;

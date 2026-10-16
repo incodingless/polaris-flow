@@ -16,10 +16,16 @@ import { t } from './i18n/index.js';
 import { detectPlatforms, getBaseDir, hasSkills } from '../core/integrations/detect.js';
 import { installPolarisForPlatform, type PolarisAssetKind } from '../core/install.js';
 import { getAssetsDir, loadManifestConfig, readAssets } from '../core/assets/manifest.js';
-import { SOURCES } from '../core/assets/sources.js';
+import { SOURCES, SUPERPOWERS_MIN_VERSION, SUPERPOWERS_REPO } from '../core/assets/sources.js';
 import { PLATFORMS, getPlatformSkillsDir, type Platform } from '../core/domain/platforms.js';
-import { getCurrentVersion, printVersionInfo, PACKAGE_NAME } from '../core/deps/version.js';
-import { getNpmPackageVersion } from '../core/deps/npm.js';
+import {
+  compareVersions,
+  getCurrentVersion,
+  printVersionInfo,
+  PACKAGE_NAME,
+} from '../core/deps/version.js';
+import { getLatestNpmVersion, getNpmPackageVersion } from '../core/deps/npm.js';
+import { resolveVersion } from '../core/deps/github.js';
 import {
   buildGlobalInstallInvocation,
   updatePolarisProgram,
@@ -27,7 +33,7 @@ import {
 } from '../core/deps/self-update.js';
 import { installOpenSpec } from '../core/integrations/openspec.js';
 import { installSuperpowersForPlatforms } from '../core/integrations/superpowers.js';
-import { installCodegraph } from '../core/integrations/codegraph.js';
+import { CODEGRAPH_PACKAGE, installCodegraph } from '../core/integrations/codegraph.js';
 import {
   readLockFile,
   saveLockFile,
@@ -147,6 +153,18 @@ async function findInstalledPlatforms(
 /** 仅 skills / commands 具备独占命名空间，可安全清理 */
 function isPrunableKind(kind: PolarisAssetKind): kind is PrunableKind {
   return kind === 'skills' || kind === 'commands';
+}
+
+/** 版本字符串可作 semver 比较（去掉 `v` 前缀、形如 x.y.z…；`local`/`HEAD`/`npx-latest` 均不可比） */
+export function isConcreteVersion(version: string): boolean {
+  return /^\d+\.\d+\.\d+/.test(version.trim().replace(/^v/, ''));
+}
+
+/** 两个版本都可比、且 latest 不新于 installed 时，判定「无版本更新」 */
+export function hasNoVersionUpdate(installed: string | null, latest: string | null): boolean {
+  if (!installed || !latest) return false;
+  if (!isConcreteVersion(installed) || !isConcreteVersion(latest)) return false;
+  return compareVersions(latest, installed) <= 0;
 }
 
 /** 程序层结果的人类可读行 */
@@ -320,29 +338,57 @@ export async function runUpdate(
     log(`  ${t(lang, 'updateDepsSkipped')}`);
   } else if (wantsDeps) {
     if (plan.deps.includes('openspec')) {
-      log(`\n  ${OPENSPEC_PACKAGE}...`);
-      const status = await installOpenSpec(projectPath, platforms, scope, true);
-      const version = status === 'installed' ? getNpmPackageVersion(OPENSPEC_PACKAGE) : undefined;
-      deps.push({ id: 'openspec', status, version });
-      if (version) {
-        sourceEntries.set('openspec', { id: 'openspec', version });
+      const installed = getNpmPackageVersion(OPENSPEC_PACKAGE);
+      const latest = options.force ? null : await getLatestNpmVersion(OPENSPEC_PACKAGE);
+      if (hasNoVersionUpdate(installed, latest)) {
+        log(`\n  ${OPENSPEC_PACKAGE}: ${t(lang, 'updateDepUpToDate')} (v${installed})`);
+        deps.push({ id: 'openspec', status: 'up-to-date', version: installed });
+      } else {
+        log(`\n  ${OPENSPEC_PACKAGE}...`);
+        const status = await installOpenSpec(projectPath, platforms, scope, true);
+        const version = status === 'installed' ? getNpmPackageVersion(OPENSPEC_PACKAGE) : undefined;
+        deps.push({ id: 'openspec', status, version });
+        if (version) {
+          sourceEntries.set('openspec', { id: 'openspec', version });
+        }
       }
     }
 
     if (plan.deps.includes('superpowers')) {
-      log('\n  Superpowers...');
-      const result = await installSuperpowersForPlatforms(projectPath, scope, platformIds, true);
-      deps.push({ id: 'superpowers', status: result.status, version: result.version });
-      if (result.status === 'installed') {
-        sourceEntries.set('superpowers', { id: 'superpowers', version: result.version });
+      const installed = sourceEntries.get('superpowers')?.version ?? null;
+      const latest = options.force
+        ? null
+        : resolveVersion(SUPERPOWERS_REPO, SUPERPOWERS_MIN_VERSION).version;
+      if (hasNoVersionUpdate(installed, latest)) {
+        log(`\n  Superpowers: ${t(lang, 'updateDepUpToDate')} (v${installed})`);
+        deps.push({ id: 'superpowers', status: 'up-to-date', version: installed ?? undefined });
+      } else {
+        log('\n  Superpowers...');
+        const result = await installSuperpowersForPlatforms(projectPath, scope, platformIds, true);
+        deps.push({ id: 'superpowers', status: result.status, version: result.version });
+        if (result.status === 'installed') {
+          sourceEntries.set('superpowers', { id: 'superpowers', version: result.version });
+        }
       }
     }
 
     if (plan.deps.includes('codegraph')) {
-      log('\n  Codegraph...');
-      // upgradeCli=true：已装 CLI 也重新拉 @latest，但已有 .codegraph 索引时不重建
-      const status = await installCodegraph(projectPath, scope, true, true);
-      deps.push({ id: 'codegraph', status, version: 'latest' });
+      const installed = getNpmPackageVersion(CODEGRAPH_PACKAGE);
+      const latest = options.force ? null : await getLatestNpmVersion(CODEGRAPH_PACKAGE);
+      if (hasNoVersionUpdate(installed, latest)) {
+        log(`\n  Codegraph: ${t(lang, 'updateDepUpToDate')} (v${installed})`);
+        deps.push({ id: 'codegraph', status: 'up-to-date', version: installed });
+      } else {
+        log('\n  Codegraph...');
+        // upgradeCli=true：已装 CLI 也重新拉 @latest，但已有 .codegraph 索引时不重建
+        const status = await installCodegraph(projectPath, scope, true, true);
+        const version =
+          status === 'installed' ? getNpmPackageVersion(CODEGRAPH_PACKAGE) : undefined;
+        deps.push({ id: 'codegraph', status, version: version ?? 'latest' });
+        if (version) {
+          sourceEntries.set('codegraph', { id: 'codegraph', version });
+        }
+      }
     }
   }
 

@@ -174,7 +174,7 @@ CREATE_EXIT=$?
 
 #### 3.3 状态行（H8）
 
-输出：`[polaris-flow 开发]任务调度 - 已建任务：<draft_name>；工作流=<档>；游标已注册`
+输出：`[polaris-flow 开发]任务管理 - 已建任务：<draft_name>；工作流=<档>；游标已注册`
 
 ### Step 4：转交
 

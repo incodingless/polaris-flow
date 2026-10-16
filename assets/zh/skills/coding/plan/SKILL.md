@@ -9,10 +9,11 @@ version: 0.1
 <HARD-GATE>
 - **禁止**未检查 `intention.md` 存在性就调用 `/opsx:propose` / 开始生成四件套
   - 文件存在 → 必须读取全文后再调用
-  - 文件不存在 → 必须先走 Step 2.2 fallback 声明，方可继续（不得静默跳过检查）
+  - 文件不存在 → 必须先走 Step 3.2 fallback 声明，方可继续（不得静默跳过检查）
 - **禁止**主代理在调用 `/opsx:propose` / 生成 `tasks.md` 之前未读取 `./templates/tasks-template.md`
-- **禁止**跳过 `./policies/artifact-batch-generation.md`：须按 3.3 已选模式执行分批生成（Mode A 含批内 §4；Mode B 跳过 §4）；禁止硬编码四件套结构；禁止主代理自审冒充制品审查
-- **禁止**通过 `superpowers:using-git-worktrees` 创建 worktree——必须由本 skill Step 1.3.A 直接执行 git / hooks 完成
+- **禁止**跳过 `./policies/artifact-batch-generation.md`：须按 4.3 已选模式执行分批生成（Mode A 含批内 §4；Mode B 跳过 §4）；禁止硬编码四件套结构；禁止主代理自审冒充制品审查
+- **禁止**通过 `superpowers:using-git-worktrees` 创建 worktree——必须由本 skill Step 2.3.A 直接执行 git / hooks 完成
+- **禁止**跳过 Step 4.3 用户询问：未经用户显式选择，禁止写入 `artifact_review_mode`、禁止进入 Step 4.4
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow 开发]提案 - 进入提案阶段: 使用 polaris{{SKN_SPR}}coding{{SKN_SPR}}plan 技能。`
@@ -24,11 +25,11 @@ version: 0.1
 - 意图文档（迁入后唯一真相）：`openspec/changes/<task_id>/intention.md`
 - OpenSpec 四件套：`openspec/changes/<task_id>/`
 - 批内审查日志（Mode A）：`openspec/changes/<task_id>/review-log.md`
-- 提案主审报告：`openspec/changes/<task_id>/reviews/plan-review-report.md`（Step 4.2）
+- 提案主审报告：`openspec/changes/<task_id>/reviews/plan-review-report.md`（Step 5.2）
 - Outside Voice 报告（若运行）：`openspec/changes/<task_id>/reviews/openspec-review-report.md`
 - workflow 游标：`.polaris/workflow.yaml` → `coding_tasks[].task_id`（写入一律走 `scripts/workflow-entry.sh`）
 
-> **续跑**：若 `openspec/changes/<task_id>/intention.md` 已存在且 `.polaris/tasks/<task_id>/intention.md` 已不存在，视为 Step 3.5 已完成，不得再从 `.polaris` 读 intention。
+> **续跑**：若 `openspec/changes/<task_id>/intention.md` 已存在且 `.polaris/tasks/<task_id>/intention.md` 已不存在，视为 Step 4.5 已完成，不得再从 `.polaris` 读 intention。
 
 ## 流程（按顺序执行，每一步未完成不得进入下一步）
 
@@ -52,7 +53,7 @@ version: 0.1
 #### 2.1 前置自检
 读 `.polaris/tasks/<task_id>/state.yaml` 的 `worktree.created_by_polaris_flow`。
 
-- 字段**已存在**（`true` 或 `false`）→ 跳过本步，输出 `[polaris-flow 开发]提案 - worktree：已决策（<true|false>），跳过本次询问。` 后进入 Step 2
+- 字段**已存在**（`true` 或 `false`）→ 跳过本步，输出 `[polaris-flow 开发]提案 - worktree：已决策（<true|false>），跳过本次询问。` 后进入 Step 3
 - 字段缺失 / 空 → 继续 2.2
 
 #### 2.2 询问用户
@@ -121,7 +122,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skil
 检查`intention.md`内容，根据情况处理：
 | 情况 | 处理 |
 |---|---|
-| **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户**直接进入本阶段**时的原始消息作为 plan 输入；输出 `[polaris-flow 开发]提案 - 未找到 intention.md，使用用户原始 prompt 作为 plan 输入。` 后跳到 Step 3.2 |
+| **`.polaris` 与 `openspec` 目录下均无 intention.md** | fallback：把用户**直接进入本阶段**时的原始消息作为 plan 输入；输出 `[polaris-flow 开发]提案 - 未找到 intention.md，使用用户原始 prompt 作为 plan 输入。` 后跳到 Step 3.3 |
 | **文件存在**（暂存或已迁入） | 逐节检查**必含节**均存在且非空：目标 / 任务范围 / 验收场景及标准 / 宪法对齐 / 前提 / 结论（架构 + 技术选型）/ 待决问题 / 备选方案。缺节 → **阻断**，列出缺失节名，提示回到 specify 补全 |
 
 #### 3.3 用户最终确认
@@ -155,56 +156,50 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 
 `tasks.md` 严格按 `./templates/tasks-template.md` 规则生成;
 
-#### 4.3 审查模式选择（阻塞）
+#### 4.3 审查模式选择（阻塞，禁止自动决策）
 
-##### 4.3.1 先判定推荐（不得代选）
+本步是用户决策点：必须先回显判定依据与推荐，再暂停等用户选择。禁止用推荐直接写入 `artifact_review_mode` 或跳过询问。
 
-在发问前，基于已读的 `intention.md`（或 fallback 原始 prompt）与 `state.yaml` 的**分级三字段**（`complexity_level` / `risk_level` / `current_tier`）做一次**推荐判定**，并在决策点中写明建议与依据。
+发问前按顺序一次性回显三件事：
 
-> 三字段由 `specify` Step 5.4.1 落盘（**必有**，不再是「若有」）；缺失（老任务 / 非 specify 入口）→ 按 `standard` 兜底并在决策点标注。信号表唯一源：`./policies/risk-signals.md`。
-**禁止**用推荐直接写入 `artifact_review_mode` 或跳过询问。
+1. **判定依据**：基于 `intention.md`（或 fallback 原始 prompt）与 `state.yaml` 的分级三字段（`complexity_level` / `risk_level` / `current_tier`），核对下方信号表，**只列出实际命中的信号**（未命中不列）。
 
-**推荐 A（`per_batch`）— 每批生成后立即审查**，满足任一即倾向 A：
+   > 三字段由 `specify` Step 5.4.1 落盘（必有）；缺失（老任务 / 非 specify 入口）→ 按 `standard` 兜底并标注。信号表唯一源：`./policies/risk-signals.md`。
 
-| 信号 | 说明 |
-|------|------|
-| 范围大 / 多模块 | Scope 跨 2+ 模块或子系统；或涉及多 capability / 多份 spec 预期 |
-| 需求与选型仍脆 | intention 中待决问题多、备选方案争议大、或结论依赖未验证假设 |
-| 高返工成本 | 后续批次强依赖前序决策（specs/design 易被 proposal 边界牵动）；希望尽早冻结，避免四件套齐了再大面积回滚 |
-| 复杂 / 关键变更 | `current_tier` 为 `critical`，或涉及权限、数据迁移、对外 API 契约、合规 |
-| 作者经验不足该域 | 主代理或用户对该领域不熟，需要分批纠偏 |
+   **推荐 A（`per_batch`）— 每批生成后立即审查**，命中任一即倾向 A：
 
-**推荐 B（`after_all`）— 生成完成后再整体审查**，在**未命中上表强信号**且同时满足多项时倾向 B：
+   | 信号 | 说明 |
+   |------|------|
+   | 范围大 / 多模块 | Scope 跨 2+ 模块或子系统；或涉及多 capability / 多份 spec 预期 |
+   | 需求与选型仍脆 | intention 中待决问题多、备选方案争议大、或结论依赖未验证假设 |
+   | 高返工成本 | 后续批次强依赖前序决策（specs/design 易被 proposal 边界牵动）；希望尽早冻结，避免四件套齐了再大面积回滚 |
+   | 复杂 / 关键变更 | `current_tier` 为 `critical`，或涉及权限、数据迁移、对外 API 契约、合规 |
+   | 作者经验不足该域 | 主代理或用户对该领域不熟，需要分批纠偏 |
 
-| 信号 | 说明 |
-|------|------|
-| 变更小而清晰 | 单模块、目标与 Non-goals 清楚、待决问题少或已关闭 |
-| 低耦合四件套 | proposal→specs→design→tasks 预期改动面窄，跨批矛盾概率低 |
-| 速度优先且可接受一次齐套返工 | 用户明确要快推；或 trivial / 文档型 / 配置型变更 |
-| `current_tier` 为 `trivial` 或明确的小改 | 与上列一致时加强 B |
+   **推荐 B（`after_all`）— 生成完成后再整体审查**，在未命中上表强信号且同时满足多项时倾向 B：
 
-**默认推荐**：说不清或信号冲突 → **推荐 A**（分批审查成本高于事后大返工时更可控）。
+   | 信号 | 说明 |
+   |------|------|
+   | 变更小而清晰 | 单模块、目标与 Non-goals 清楚、待决问题少或已关闭 |
+   | 低耦合四件套 | proposal→specs→design→tasks 预期改动面窄，跨批矛盾概率低 |
+   | 速度优先且可接受一次齐套返工 | 用户明确要快推；或 trivial / 文档型 / 配置型变更 |
+   | `current_tier` 为 `trivial` 或明确的小改 | 与上列一致时加强 B |
 
-判定输出格式（发问前必须写出）：
+2. **推荐**：`审查模式推荐: A|B（per_batch|after_all）`，附 1–3 条命中信号。信号无法判定或冲突 → 推荐 A（分批审查成本高于事后大返工时更可控）。**推荐仅作回显，不代选。**
 
-```text
-审查模式推荐: A|B（per_batch|after_all）
-依据: <1–3 条命中信号>
-```
+3. **选项**（按 `./policies/decision-point.md` 暂停询问，须带上推荐）：
 
-##### 4.3.2 用户决策点
+   ```text
+   即将按批次创建 OpenSpec 制品（顺序：proposal → specs → design → tasks）。
+   是否在每一批生成后立即审查该批内容？
 
-按 `./policies/decision-point.md` 暂停，询问（须带上 4.3.1 的推荐）：
+   建议: <A 或 B>（依据见上方）
 
-```text
-即将按批次创建 OpenSpec 制品（顺序：proposal → specs → design → tasks）。
-是否在每一批生成后立即审查该批内容？
+   A. 是 — 每批生成后立即审查并冻结，再生成下一批（per_batch）
+   B. 否 — 四件套全部生成完毕后，再在 Step 5.2 统一整体主审（after_all）
+   ```
 
-建议: <A 或 B>（依据见上方）
-
-A. 是 — 每批生成后立即审查并冻结，再生成下一批（per_batch）
-B. 否 — 四件套全部生成完毕后，再在 Step 5.2 统一整体主审（after_all）
-```
+   停止等待用户选择。用户未回复前，禁止写入 `artifact_review_mode`、禁止进入 Step 4.4。
 
 | 选项 | 写入 `state.yaml` | 后续 |
 |------|-------------------|------|
@@ -272,14 +267,29 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 
 本步派发主审 subagent。评审对象是**四件套 + intention**；禁止内联重写评审标准。
 
-- **Mode A**：批内 §4 已完成；本步做**齐套跨批 Verdict**（喂给 OV），不是重跑批内细则。
+- **Mode A**：批内 §4 已完成；本步做**齐套跨批 Verdict**，不是重跑批内细则。
 - **Mode B**：本步为**唯一**制品主审出口（policy 未跑 §4）。
 
 1. **能力**：读 SessionStart 注入（`SUPPORTS_SUBAGENT` / `PLATFORM_DEGRADATION`；清单见 `$SUBAGENT_PROBE_CACHE`）。
    - `PLATFORM_DEGRADATION=inline|unsupported` → 标注并 decision-point：A 接受跳过进 Step 5 / B 阻断。不得 inline 假评审。**不派发 → 不涉及 probe**。
    - `SUPPORTS_SUBAGENT=true` → **仍须 probe（H10）**：调用 `polaris{{SKN_SPR}}subagent-probe`（传 `platform`），随后派发固定 `plan-review-agent`。
    - **缺注入** → 调用 `polaris{{SKN_SPR}}subagent-probe`（传入 `platform`；优先读 `$SUBAGENT_PROBE_CACHE`）。`inline` / `unsupported` → 同上 decision-point。
-2. **派发**：`plan-review-agent`（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。
+
+2. **派发方式判定（一次性 vs 分段，回显不自动决策）**
+
+   先算主审 `materials` 合计行数 = proposal + specs（每个非空 spec）+ design + tasks + intention + review-log（若有）。
+
+   | 情形 | 判定 |
+   |------|------|
+   | 合计 > **2500 行** | **强制分段**（超阈值是工程降级，分段是唯一不崩路径，直接执行并回显依据，不新增决策点） |
+   | 合计 ≤ 2500 行 且 `after_all` | **分段**（唯一主审，单批质量 + 跨批对齐都做，负载最重） |
+   | 合计 ≤ 2500 行 且 `per_batch` | **一次性**（批内已审，本步只做跨批 Verdict，负载轻） |
+
+   判定结果与依据随派发一并回显：`[polaris-flow 开发]提案 - 主审派发方式：一次性|分段，依据：materials 合计 <N> 行 + 模式 <per_batch|after_all>`。
+
+3. **派发前置**：`plan-review-agent` 已安装（init 已装到 `.<platform>/agents/`）。缺失 → 阻断，提示 `polaris-flow init/update`。
+
+4. **派发（一次性）**
 
    调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 执行派发（D-0 工具判定 → D-1 路径引用型 / D-2 内容注入型，见该技能 `references/dispatch-execute.md`）。传入 `platform`、`agent`（probe 结果中 `id=plan-review-agent` 的项）、`task_spec`：
 
@@ -303,13 +313,42 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
      - 只评审，**禁止**修改任何文件；评审标准在 `plan-review-agent` 定义内（frontmatter 已载入）
    - `language`: 跟随主会话语言
 
-3. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；写入 `openspec/changes/<task_id>/reviews/plan-review-report.md`。
+5. **派发（分段，沿 DAG 边 3 段链式）**
 
-> 整体主审消化上限为 **最多 3 轮**（见 4.4）；与 Mode A 批内 `artifact_max_round` 无关。
+   同一 `plan-review-agent` 按顺序派发 3 段，每段只审一条边。上游不传全文，改由主代理抽取「上游决策摘要」注入 `UpstreamSummary`（scope / 非目标 / 需求标题清单 / 关键决策 / 待决问题，≤ 15 行）。
+
+   | 段 | 审的边 | 本段 materials（全量） | UpstreamSummary 来源 |
+   |----|--------|----------------------|----------------------|
+   | 1 | proposal → specs | proposal.md + specs/**/*.md + intention.md | 无（intention 即基线） |
+   | 2 | proposal+specs → design | design.md + intention.md | proposal + specs 决策摘要 |
+   | 3 | 全上游 → tasks | tasks.md + intention.md | proposal + specs + design 决策摘要 |
+
+   每段 `task_description`：
+
+   ```text
+   Change: <task_id>
+   Segment: <1|2|3>
+   ReviewMode: <per_batch|after_all>
+   UpstreamSummary: <主代理抽取的上游决策摘要>
+   ```
+
+   每段 `output_path`：`openspec/changes/<task_id>/reviews/plan-review-seg<1|2|3>.md`。
+
+   三段全部落盘后，主代理汇总三段 findings 合成最终 Verdict，写入 `openspec/changes/<task_id>/reviews/plan-review-report.md`（subagent 只报 findings，不产出跨段结论）。
+
+6. **失败降级**：任一段派发失败 / 超时（如服务端 `-1`）→ **不整轮重跑**，按 `./policies/decision-point.md` 暂停：
+
+   - A. 分段重跑（未分段则改走第 5 步；已分段则仅重跑失败段）
+   - B. 原样重试一次
+   - C. 用户接受 SKIPPED（按现有协议）
+
+7. **落盘**：确保 `openspec/changes/<task_id>/reviews/` 存在；写入 `openspec/changes/<task_id>/reviews/plan-review-report.md`。
+
+> 整体主审消化上限为 **最多 3 轮**（见 5.4）；与 Mode A 批内 `artifact_max_round` 无关。
 
 主审报告落盘后，在 `.polaris/tasks/<task_id>/state.yaml` 写入：
 
-- `runtime.plan.review_round`：`runtime.plan.review_round + 1`（本次主审轮次；4.4 中重跑 4.2 时继续 +1）
+- `runtime.plan.review_round`：`runtime.plan.review_round + 1`（本次主审轮次；5.4 中重跑 5.2 时继续 +1）
 
 #### 5.3 Outside Voice（询问后可选）
 
@@ -420,13 +459,12 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
 
 输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入；已跳过深度设计（runtime.design.status=skipped，tasks.md 为粗骨架，细计划由 `tasks` 阶段覆写）。`
 
-**A / B 两分支共用同一出口**，输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
-先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
-（A 分支应得 `design`、B 分支应得 `tasks`，但**以脚本输出为准，不得写死**）：
+**A / B 两分支共用同一出口**，输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**，`NEXT` 取 manual/auto 对应一套）。
+先按「自动衔接下一阶段」一节运行 `state next`，`<SKILL>` 与 `<mode>` 均取自其输出
+（A 分支应得 `design`、B 分支应得 `tasks`，但**以脚本输出为准，不得写死**）。本技能填写的状态行与「恢复」行（「下一步」「操作」两行以模板为准，不在此复制）：
 
 ```text
 [polaris-flow 开发]提案 - 阶段完成，状态已落盘。
-下一步：<SKILL> 阶段（建议新开会话 | 可同会话继续）。
 恢复：先读 openspec/changes/<task_id>/ 的四件套与 reviews/plan-review-report.md、reviews/openspec-review-report.md（若有），再从下一步技能的 Step 0 开始。
 ```
 

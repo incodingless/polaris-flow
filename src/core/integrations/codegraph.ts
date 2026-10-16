@@ -6,6 +6,9 @@ import { printCommandErrorDetails } from '../command-error.js';
 
 import type { InstallScope } from '../config/polaris-project-config.js';
 
+/** CodeGraph CLI 的 npm 包名 */
+export const CODEGRAPH_PACKAGE = '@colbymchenry/codegraph';
+
 function getPnpmExecutable(platform: NodeJS.Platform = process.platform): string {
   return platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 }
@@ -66,7 +69,7 @@ async function ensureCodegraphCli(
 
   console.log(`    ${existingCommand ? 'Upgrading' : 'Installing'} CodeGraph CLI...`);
   try {
-    execFileSync(getNpmExecutable(), ['install', '-g', '@colbymchenry/codegraph@latest'], {
+    execFileSync(getNpmExecutable(), ['install', '-g', `${CODEGRAPH_PACKAGE}@latest`], {
       cwd: projectPath,
       stdio: 'inherit',
       timeout: 180_000,
@@ -107,7 +110,7 @@ async function installCodegraph(
       return 'skipped';
     }
     console.error(
-      '    CodeGraph CLI not available. Install manually: npm install -g @colbymchenry/codegraph',
+      `    CodeGraph CLI not available. Install manually: npm install -g ${CODEGRAPH_PACKAGE}`,
     );
     return 'failed';
   }

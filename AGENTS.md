@@ -113,7 +113,7 @@ pnpm test           # 单元测试
 
 skill 优化时先写中文版本（`assets/zh/skills/`），用户确认后再修改英文版本（`assets/en/skills/`）。
 
-现阶段只做中文版本。
+现阶段skill只做中文版本。
 
 ## 编号边界（命令 vs 技能）
 

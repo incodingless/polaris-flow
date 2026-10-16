@@ -122,7 +122,7 @@ triage:
 # 工作树信息
 worktree:
   # 是否由 polaris-flow 创建
-  created_by_polaris_flow: false
+  created_by_polaris_flow: none
   # 工作树路径
   path: ""
   # 工作树分支

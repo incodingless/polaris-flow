@@ -1,6 +1,6 @@
 # OpenSpec 制品分批生成与 Mode A 批内审查
 
-> **调用方**：plan skill Step 3.4。模式选择由 skill Step 3.3 完成并写入 `state.yaml`；本文件**不**再做模式 decision-point。
+> **调用方**：plan skill Step 4.4。模式选择由 skill Step 4.3 完成并写入 `state.yaml`；本文件**不**再做模式 decision-point。
 
 ## 核心原则
 
@@ -8,9 +8,9 @@
 - **禁止**未读 `openspec instructions` 返回的 `template` / `instruction` 就硬编码文档结构
 - `artifact_review_mode` 只改变**批内审查是否发生**，不改变批次顺序，不绕过 OpenSpec instructions
 - **Mode A（`per_batch`）**：每批生成后必须走 §4 反思循环（intention / explore 基线 + `review-log.md`）→ 冻结 → 下一批；全部批次完成后返回 skill
-- **Mode B（`after_all`）**：只跑 §3 生成后返回 skill；**禁止**在本 policy 内跑 §4 / `Batch: all`。制品主审出口是 skill **Step 4.2**
+- **Mode B（`after_all`）**：只跑 §3 生成后返回 skill；**禁止**在本 policy 内跑 §4 / `Batch: all`。制品主审出口是 skill **Step 5.2**
 - 批内审查派发 `plan-review-agent`；主代理**禁止**自审冒充通过
-- **机械终检**不在本 policy：由 skill **Step 4.1** 执行
+- **机械终检**不在本 policy：由 skill **Step 5.1** 执行
 
 ---
 
@@ -24,9 +24,9 @@
 artifact_review_mode: per_batch   # 或 after_all
 ```
 
-> 本字段只决定「批内 §4 是否发生」：批次顺序与行为见上方**核心原则**（`per_batch` → §3+§4；`after_all` → 仅 §3，跳过 §4）；机械终检统一在 skill Step 4.1。
+> 本字段只决定「批内 §4 是否发生」：批次顺序与行为见上方**核心原则**（`per_batch` → §3+§4；`after_all` → 仅 §3，跳过 §4）；机械终检统一在 skill Step 5.1。
 
-若字段缺失、空或非上述枚举 → **停止**，回 skill Step 3.3 补选；**禁止** AI 代选或默认为某一模式。
+若字段缺失、空或非上述枚举 → **停止**，回 skill Step 4.3 补选；**禁止** AI 代选或默认为某一模式。
 
 ---
 
@@ -54,7 +54,7 @@ openspec/changes/<change_id>/
 
 ## 3. 标准生成循环（两种模式共用）
 
-主代理在自己会话内可调用 `/opsx:propose <change_id>` 作为上下文，把 skill Step 3.2 的输入一并带入。
+主代理在自己会话内可调用 `/opsx:propose <change_id>` 作为上下文，把 skill Step 4.2 的输入一并带入。
 按 OpenSpec **四件套**循环生成（对每个 artifact：以 `openspec status` 给出的可创建顺序为准；通常为 `proposal` → `specs` → `design` → `tasks`）：
 
 对**当前批次**严格执行：
@@ -211,7 +211,7 @@ ReviewMode: per_batch
 2. 读取顶层字段 `artifact_max_round`（正整数）作为本批 **MAX_ROUNDS**
 3. 若字段缺失、非正整数或无法解析 → **回退默认 `MAX_ROUNDS = 5`**，并在摘要中标注 `(artifact_max_round defaulted)`
 
-> `artifact_max_round` **仅约束 Mode A 批内 §4**；不约束 skill Step 4.2 整体主审消化轮次。
+> `artifact_max_round` **仅约束 Mode A 批内 §4**；不约束 skill Step 5.2 整体主审消化轮次。
 
 同一批次累计审查轮次达到 **MAX_ROUNDS** 仍未按 4a 通过 → **停止循环**，按 `./policies/decision-point.md` 交人工：
 
@@ -272,7 +272,7 @@ design:   生成（对照已冻结 proposal + specs）→ §4 → 冻结
    ↓
 tasks:    生成（对照全部已冻结前序）→ §4 → 通过/冻结
    ↓
-返回 skill → Step 4.1 机械终检 → …
+返回 skill → Step 5.1 机械终检 → …
 ```
 
 每轮只推进一批；未冻结不得开下一批。
@@ -281,7 +281,7 @@ tasks:    生成（对照全部已冻结前序）→ §4 → 通过/冻结
 
 ## 6. 完成条件（返回 skill 前）
 
-- 四件套路径已按 §2 / §3 落盘（存在性的机械终检由 skill Step 4.1 负责，本 policy 不重复）
+- 四件套路径已按 §2 / §3 落盘（存在性的机械终检由 skill Step 5.1 负责，本 policy 不重复）
 - **Mode A**：各批 §4 已按 4a 完成（或 4c 人工决策已落地），或经 decision-point 明确接受「本批审查 SKIPPED」；无「应冻结未冻结」的中间批；`review-log.md` 已记录各批有效审查轮次（若未整段跳过审查）
 - **Mode B**：不要求 `review-log.md`；**不得**在本 policy 内声称已完成制品主审或机械终检
-- 满足上述后，方可返回 skill（intention 迁入 → Step 4.1 机械终检 → Step 4.2 整体主审）
+- 满足上述后，方可返回 skill（intention 迁入 → Step 5.1 机械终检 → Step 5.2 整体主审）

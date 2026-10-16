@@ -287,13 +287,12 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
 
 输出：`[polaris-flow 开发]澄清需求 - 澄清阶段完成：.polaris/tasks/<task_id>/intention.md 已锁定；state 已更新；分级初判 = complexity=<...> / risk=<...> → current_tier=<...>（命中 <信号编号>）；出口判档 = <当前档> → <目标档>（未变 | 已升档 <当前档>→<目标档> | 已降档 <当前档>→<目标档>）。`
 
-输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
-先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
-—— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
+输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**，`NEXT` 取 manual/auto 对应一套）。
+先按「自动衔接下一阶段」一节运行 `state next`，`<SKILL>` 与 `<mode>` 均取自其输出，**不得写死**。
+本技能填写的状态行与「恢复」行（「下一步」「操作」两行以模板为准，不在此复制）：
 
 ```text
 [polaris-flow 开发]澄清需求 - 阶段完成，状态已落盘。
-下一步：<SKILL> 阶段（建议新开会话 | 可同会话继续）。
 恢复：先读 .polaris/tasks/<task_id>/intention.md（首行即 task_id），再从下一步技能的 Step 0 开始。
 ```
 

@@ -179,6 +179,9 @@ updateComplete:
 updateUpToDate:
   en: already up to date
   zh: 已是最新
+updateDepUpToDate:
+  en: already up to date — skipping reinstall
+  zh: 已是最新 —— 跳过重复安装
 updateUpdatedTo:
   en: updated to
   zh: 已更新到
