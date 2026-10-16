@@ -247,7 +247,13 @@ bash "$PLUGIN_ROOT/scripts/constitution-validity.sh"   # 0=有效 / 1=无效 / 2
 - **无效**：按配置 `constitution_required`（来自 `.polaris/config.yaml` 或项目约定）告警或阻断
 
 将累计的 Critical+Major 条数记为后续 metrics 的 `audit.violations`；核对项总数记为 `audit.total_checks`（无明确分母时填 1）。
-写入 `state.yaml`：`runtime.verify.constitution_valid: <true|false>`。
+写入（走脚本，**禁止**直接编辑 `state.yaml`）：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.verify.constitution_valid=<true|false>
+```
 
 #### 6.2 静态 scorer（4 个）
 
@@ -402,7 +408,14 @@ overall_score = round( Σ(score_i × w_i) / Σ(w_i) )
 - `Σ(w_i) = 0` → `overall_score = 0`，reason 注明「所有 scorer 权重为 0」
 - 负权重 → 按 `1.0` 处理并警告
 
-写入 `state.yaml`：`runtime.verify.overall_score`、`runtime.verify.scorer_results`。
+写入（走脚本；`scorer_results` 用 JSON 字面量一次写入）：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.verify.overall_score=<N> \
+  --set 'runtime.verify.scorer_results=[{"scorer":"<name>","score":<0-100>,"reason":"<text>"}]'
+```
 
 #### 8.4 得分等级
 
@@ -416,7 +429,13 @@ else:  # team
 - **solo**：低分仅告警，可继续验证（完整验证倾向）
 - **team**：低分 → `runtime.verify.blocked: true`，需用户 override（记 overrides.log）后才可继续；未 override 禁止出口通过
 
-写入 `runtime.verify.score_level: <high|low>`。
+写入（走脚本）：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.verify.score_level=<high|low>
+```
 
 **本步只产出 `score_level`** —— 「规模小但得分低 → 升格」的判定在 Step 9 消费它（不在此处改模式）。
 
@@ -785,7 +804,17 @@ sonarqube: { enabled: true, gate_rule: "<quality_gate | blocker_critical | new_o
 
 - **不得默认跳过**（与 Step 15 的降级三选项同构：**可降级、必须标**）；跳过必须留原因 —— 否则报告会看起来「全绿」而这层根本没做
 - **与 Step 15 不可互相替代**：Step 15 是机器（独立 subagent）审「**代码写得对不对**」，本步是人审「**写的业务含义对不对**」—— Step 15 没有业务上下文，本步不做逐行代码审查
-- **落盘**：`reviews/verify-report.md` 的「业务语义确认」段 + `runtime.verify.semantics_review`
+- **落盘**：
+  - `reviews/verify-report.md` 的「业务语义确认」段
+  - 用脚本写 state（**禁止**直接编辑 `state.yaml`）：
+
+    ```bash
+    bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+      --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+      --set runtime.verify.semantics_review=<confirmed|skipped_by_user>
+    ```
+
+    `skipped_by_user` 时**原因必填**，追加 `--set "runtime.verify.semantics_skip_reason=<原因>"`
 
 ### Step 17：落盘证据 + 出口推进
 
@@ -812,7 +841,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --set runtime.verify.test_result=<passed|failed|no_verification> \
   --set runtime.verify.test_slots=<实际执行的槽位，逗号分隔，如 unit,contract,integration> \
   --set runtime.verify.semantics_review=<confirmed|skipped_by_user>
-# scorer_results 等复杂对象可用 get-json 读出后由 Agent 合并，或多次 --set 扁平键
+# scorer_results 用 JSON 字面量一次写入（见 Step 8.3）
 # semantics_review=skipped_by_user 时另记 runtime.verify.semantics_skip_reason=<原因>
 ```
 

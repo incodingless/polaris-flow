@@ -132,7 +132,13 @@ mv "$REPO_ROOT/.polaris/tasks/<task_id>/intention.md" \
 ```
 
 - 与 `plan` Step 3.5 **同构**：迁入后 `.polaris` 侧**不再保留副本**，避免两份漂移
-- 若 `state.yaml` 有 intention 路径字段 → 一并改成 `openspec/changes/<task_id>/intention.md`
+- 用脚本同步 intention 路径字段（与 `plan` Step 4.5 同构）：
+
+  ```bash
+  bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+    --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+    --set runtime.specify.intention_path=openspec/changes/<task_id>/intention.md
+  ```
 - 输出：`[polaris-flow 开发]任务规划: intention moved to openspec/changes/<task_id>/intention.md（tweak 档无 plan，本步补建目录）`
 
 #### 2.1 必读全文（勿用摘要替代；读完再进入 Step 3）
@@ -173,12 +179,12 @@ mv "$REPO_ROOT/.polaris/tasks/<task_id>/intention.md" \
 | **B** | `require_tdd` | **从紧**：凡含行为或接口变更的任务一律 TDD；仅纯文档 / 纯文案可标非 TDD | 高风险、核心业务、安全相关 |
 | **C** | `prefer_direct` | **从宽**：默认非 TDD（三步）；仅当 `detailed-design` 测试策略点名（若已深化）、或用户在本决策中另行指定的任务标 TDD | hotfix、探索性小改、明确不要求测试覆盖时 |
 
-写入 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml`：
+写入（走脚本，**禁止**直接编辑 `state.yaml`；本处就地落盘是为让**续跑**读得到，Step 9.1 会再写一次，幂等）：
 
-```yaml
-runtime:
-  tasks:
-    tdd_policy: <prefer_tdd|require_tdd|prefer_direct>
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.tasks.tdd_policy=<prefer_tdd|require_tdd|prefer_direct>
 ```
 
 输出：`[polaris-flow 开发]任务规划: tdd_policy=<值>`

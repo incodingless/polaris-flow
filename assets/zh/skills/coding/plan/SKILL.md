@@ -80,11 +80,7 @@ WT_EXIT=$?
 - exit 0 → `$WT_RESULT` 含 JSON（`target_path` / `target_branch` / `snapshot_path`）；继续下方同步
 - exit 1 → **阻断**，stderr 有错误信息
 
-创建成功后，确保 `.polaris/tasks/<task_id>/state.yaml`（worktree 内路径优先）写入：
-
-- `worktree.created_by_polaris_flow: true`
-- `worktree.path` / `branch` / `origin_repo` / `status: active`
-- `phase: plan`
+创建成功后，`worktree` 块（`created_by_polaris_flow` / `path` / `branch` / `origin_repo` / `created_at` / `status`）**已由 `worktree-create.sh` 在同一次调用内写入** —— 本技能**不再重复声明**，也不直接编辑 `state.yaml`；顶层 `phase` 由后续 `complete-phase` 推进。
 
 同步主仓 workflow.yaml（脚本内含锁 / 写后校验，见 H12）：
 
@@ -92,19 +88,27 @@ WT_EXIT=$?
 bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set worktree-path="$target_path"
 ```
 
-在 `.polaris/tasks/<task_id>/state.yaml`（worktree 内路径优先）写入：
+在 `.polaris/tasks/<task_id>/state.yaml`（worktree 内路径优先）写入 `runtime.plan.worktree_decision`：
 
-- `runtime.plan.worktree_decision: created`
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.plan.worktree_decision=created
+```
 
 输出 `[polaris-flow 开发]提案 - worktree：created at <target_path> on branch <target_branch>`。
 
 #### 2.3.B 用户选 B — 留在主仓库
 
-不动 git。更新主仓 `.polaris/tasks/<task_id>/state.yaml`：
+不动 git。用脚本写入（顶层 `phase` 由后续 `complete-phase` 推进，此处不写）：
 
-- `worktree.created_by_polaris_flow: false`
-- `runtime.plan.worktree_decision: declined`
-- `phase: plan`
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set worktree.created_by_polaris_flow=false \
+  --set worktree.status=main \
+  --set runtime.plan.worktree_decision=declined
+```
 
 输出 `[polaris-flow 开发]提案 - worktree：用户选择留在主仓库，工作区未创建。工作路径为: $REPO_ROOT`。
 
@@ -207,22 +211,34 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 | A | `artifact_review_mode: per_batch` | Step 4.4 走 policy Mode A（§3+§4）→ 4.5 → 5.1 机械终检 → **仍进** Step 5.2 齐套主审 |
 | B | `artifact_review_mode: after_all` | Step 4.4 走 policy Mode B（仅 §3，**跳过 §4**）→ 4.5 → 5.1 机械终检 → Step 5.2 为**唯一**制品主审 |
 
-写入 `.polaris/tasks/<task_id>/state.yaml` 顶层 `artifact_review_mode`。
+用脚本写入 `artifact_review_mode`（顶层）与 plan 主审游标（**禁止**直接编辑 `state.yaml`）：
 
-同步在 `state.yaml` 写入：
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set artifact_review_mode=<per_batch|after_all> \
+  --set runtime.plan.review_round=0 \
+  --set "runtime.plan.review_log_file=<openspec/changes/<task_id>/review-log.md|skipped:after_all>"
+```
 
-- `runtime.plan.review_round: 0`  （plan 主审轮次，从 0 起；每次 5.2 落盘后 +1）
-- `runtime.plan.review_log_file`：
-  - 选 A → `openspec/changes/<task_id>/review-log.md`（Mode A 批内日志路径）
-  - 选 B → `skipped:after_all`（无批内日志）
+- `artifact_review_mode`：选 A → `per_batch`；选 B → `after_all`
+- `runtime.plan.review_round`：plan 主审轮次，从 0 起；每次 5.2 落盘后 +1
+- `runtime.plan.review_log_file`：选 A → `openspec/changes/<task_id>/review-log.md`（Mode A 批内日志路径）；选 B → `skipped:after_all`（无批内日志）
 
 #### 4.4 按模式执行分批生成
 
 `read_file ./policies/artifact-batch-generation.md`，按 4.3 已选模式执行（勿在本 skill 内另写一套循环)
 
-执行后（无论 ok / failed）在 `.polaris/tasks/<task_id>/state.yaml` 写入：
+执行后（无论 ok / failed）用脚本落盘：
 
-- `runtime.propose.opsx_propose_status`: `<ok|failed>`（四件套全部生成并通过本步校验为 `ok`，任一失败为 `failed`；如本步未执行写 `n/a`）
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.plan.opsx_propose_status=<ok|failed>
+```
+
+- 取值：`ok` = 四件套全部生成并通过本步校验；`failed` = 任一失败；如本步未执行写 `n/a`
+- ⚠️ 路径是 `runtime.plan.*` —— `propose` 是**旧阶段名**，早已改名 `plan`，**不存在**以旧名命名的命名空间
 
 #### 4.5 迁入 `intention.md`（唯一真相）
 
@@ -237,7 +253,13 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 ```
 确认 `.polaris/tasks/<task_id>/intention.md` 已不存在；目标路径存在且非空。
 
-3. 更新 `.polaris/tasks/<task_id>/state.yaml`：将 intention 路径字段改为 `openspec/changes/<task_id>/intention.md`（若模板有 `intention.path` / 等价字段则写入；无则至少在摘要中记录）。
+3. 用脚本把 intention 路径字段改为 `openspec/changes/<task_id>/intention.md`：
+
+   ```bash
+   bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+     --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+     --set runtime.specify.intention_path=openspec/changes/<task_id>/intention.md
+   ```
 4. 若本轮为 fallback（从未有过 intention 文件）→ **跳过**本步，不造空 `intention.md`。
 5. 若 openspec 侧已有 `intention.md` 且 `.polaris` 侧已无 → 视为已迁入，输出 `[polaris-flow 开发]提案 - 意图：已在 openspec，跳过迁入。`
 
@@ -347,9 +369,13 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 
 > 整体主审消化上限为 **最多 3 轮**（见 5.4）；与 Mode A 批内 `artifact_max_round` 无关。
 
-主审报告落盘后，在 `.polaris/tasks/<task_id>/state.yaml` 写入：
+主审报告落盘后，用脚本把轮次 +1（取当前值加一；5.4 中重跑 5.2 时继续 +1）：
 
-- `runtime.plan.review_round`：`runtime.plan.review_round + 1`（本次主审轮次；5.4 中重跑 5.2 时继续 +1）
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.plan.review_round=<N>
+```
 
 #### 5.3 同行评审-Outside Voice（询问后可选）
 
@@ -444,16 +470,14 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
 
 输出：`[polaris-flow 开发]提案 - 提案阶段完成：四件套已落盘；plan-review 已处理；intention.md 已迁入（tasks.md 为粗骨架，细计划由 `tasks` 阶段覆写）。`
 
-**B（跳过深化）** → 更新 `state.yaml` 标记 design 跳过，直接推进 tasks：
-
-```yaml
-runtime:
-  design:
-    status: skipped
-    review_report: "skipped:用户选择跳过深度设计（四件套已足够指导细计划）"
-```
+**B（跳过深化）** → 标记 design 跳过，直接推进 tasks：
 
 ```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.design.status=skipped \
+  --set "runtime.design.review_report=skipped:用户选择跳过深度设计（四件套已足够指导细计划）"
+
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase plan --next-phase tasks
 ```

@@ -30,6 +30,17 @@
 - 候选呈现（用户手定）：单行 `<task_id> (工作流：<mode_label>，阶段：<phase_label>，技能：<skill_label>)`。
 - 每轮改动后跑 26/26 技能测试通过方可提交。
 
+## state.yaml 写入（2026-10-16 审计事实）
+- **state 不套骨架**：`draft-create.ts:102` 只写 `kind: coding`；`patchTaskStateFile` 的 `?? createDefaultTaskState(...)` 仅在文件不存在时生效 → 实际任务 state **无** `worktree` / `artifact_review_mode` / `runtime.*` 骨架，字段靠增量长出。「字段缺失」是常态，不是异常。
+- `createDefaultTaskState`（task-state.ts:517-580）那套默认值（含顶层已废弃 `verify_mode: 'light'`）**实际不落盘**。
+- ⚠️ `worktree.ts:141-158` 用 `appendFile` 追加顶层 `worktree:` 块 —— 全仓唯一绕过 task-state-entry 锁与写后校验的 state 写入；state 已有该块时产生重复顶层键，`yaml` 库**直接抛错**（`Map keys must be unique`）→ 该文件此后所有读 op 全挂。
+- `set-checkbox` op 已实现「同锁内 tasks.md 勾选 + `runtime.build.{total,completed}_tasks` 原子同步」，但**零消费者**（生效资产里没人调）。
+- `runtime.build.pause_reason` 是技能自造字段，未登记进 `state.example.yaml` / 类型。
+- `opsx_propose_status` 的正确路径是 `runtime.plan.*`（`propose` 是旧阶段名，`task-state.ts:470` 明示已改名 plan）；写 `runtime.propose.*` 会静默长出孤儿段。
+- 已落盘（2026-10-16）：`zh-skills-state-write-fix-plan.md` —— 23 处 AI 直写全部改为 `task-state-entry.sh`（P0 2 / P1 21），涉 build/plan/tasks/verify/ship 五个 SKILL.md。**范围硬边界 = 仅 `assets/zh/skills/coding/**`，未改 src**。
+- 判据口径（复用）：凡「state 写入」必须给出 `task-state-entry.sh` 调用；**紧跟脚本调用之后的说明性文字**（如「随后产出 phase: X」）不算直写，但措辞若写成「更新 state.yaml：<字段>」就该收口。
+- ⚠️ 底线：涉及 `src/`、`assets/shared/templates/`、其它族的发现，**不得**顺手纳入修复范围（2026-10-16 用户纠正过一次）。
+
 ## 测试与工具坑
 - 测试族固定 `testing`（不可改 test）；coding 族 12 技能。
 - 本机 BSD grep 不支持 `\|`；用 Grep 工具。用户用 Typora 打开 docs 会静默覆盖 AI 写入，写前 `lsof` 查占用。

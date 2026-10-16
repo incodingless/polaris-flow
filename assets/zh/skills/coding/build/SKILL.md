@@ -81,7 +81,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 
 | 档 | 本步行为 |
 |---|---|
-| 🔻 **`tweak`** | **不询问** ⇒ 直接取 **`build_mode=inline`** + **`review_mode=standard`**，写入 `state.yaml` 后进 Step 3。**不要**发起 decision-point 询问（"只是选个强度/模式"的询问一律改由档位派生） |
+| 🔻 **`tweak`** | **不询问** ⇒ 直接取 **`build_mode=inline`** + **`review_mode=standard`**，按 2.1 / 2.2 的脚本写入 `runtime.build.build_mode` + `runtime.build.review_mode` 后进 Step 3。**不要**发起 decision-point 询问（"只是选个强度/模式"的询问一律改由档位派生） |
 | **`normal` / `strict`** | 按下方 2.1 / 2.2 询问 |
 
 `normal` / `strict`：**一次性**按 `./policies/decision-point.md` 询问两项（可同一轮多问）。推荐规则**只能说明，不能代选**。
@@ -101,7 +101,13 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 - 未完成任务数 ≤ 2 且无跨模块依赖 → 推荐 **B**
 - hotfix / 极小改动路径 → 推荐 **B**
 
-写入 `state.yaml`：`runtime.build.build_mode: <subagent_dispatch|inline>`。
+写入（走脚本，**禁止**直接编辑 `state.yaml`）：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.build.build_mode=<subagent_dispatch|inline>
+```
 
 #### 2.2 代码审查模式 `review_mode`
 
@@ -111,7 +117,13 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 | `standard`（默认推荐） | apply 全部完成后做**一次**轻量最终审查（正确性 / 安全 / 边界） | 大多数普通改动 |
 | `thorough` | apply 全部完成后做**一次**完整最终审查（覆盖面更宽：含与 tasks/spec 一致性关注点） | 高风险、多模块、架构或安全相关 |
 
-写入 `state.yaml`：`runtime.build.review_mode: <off|standard|thorough>`。
+写入（走脚本；与 2.1 可合并为同一条 `set`）：
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.build.review_mode=<off|standard|thorough>
+```
 
 > **刻意不做**：全局 `tdd_mode`。每个 task 是否 TDD 已由 plan 写在 `tasks.md` HTML 注释里；`/opsx:apply` / implementer 必须遵守注释，不得用 build 级开关覆盖。  
 > **刻意不做**：apply 循环内的「每任务 reviewer」——与「implementer 唯一动作是 `/opsx:apply`」冲突；需要更密审查时选 `thorough`，或事后在 verify 再审。
@@ -177,7 +189,15 @@ Working directory: <worktree_path 或 main repo root>
 
 #### apply 中途 pause / error
 
-- **paused**：按 apply 给出的原因与选项，用 decision-point 问用户，并把**原因与可选项**写入 `state.yaml` 的 `runtime.build.pause_reason`（恢复清单据此重载，恢复后置空）；用户选继续 → 同模式再次 `/opsx:apply`（不要重跑 Step 2，除非用户要求改模式）
+- **paused**：按 apply 给出的原因与选项，用 decision-point 问用户，并用脚本把**原因与可选项**写入 `runtime.build.pause_reason`（恢复清单据此重载；恢复后置空）；用户选继续 → 同模式再次 `/opsx:apply`（不要重跑 Step 2，除非用户要求改模式）
+
+  ```bash
+  bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+    --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+    --set "runtime.build.pause_reason=<原因与可选项摘要>"
+  ```
+
+  恢复后置空：`--set "runtime.build.pause_reason="`
 - **errored**：阻断，报告错误；不写 `runtime.build.status=completed`
 
 ### Step 5：最终代码审查（按 `review_mode`）
@@ -186,7 +206,7 @@ Working directory: <worktree_path 或 main repo root>
 
 | `review_mode` | 动作 |
 |---------------|------|
-| `off` | 跳过；在 state 记 `runtime.build.final_review: skipped:off` |
+| `off` | 跳过；由 Step 6 的脚本写 `runtime.build.final_review=skipped:off` |
 | `standard` | 加载 Superpowers `requesting-code-review`，范围：本次 diff + `tasks.md` + 必要测试结果；只查正确性 / 安全 / 边界 |
 | `thorough` | 同上，并额外要求对照 `tasks.md` 与相关 specs 做覆盖与一致性关注（仍是一次最终审查，不是每任务审查） |
 
@@ -211,20 +231,32 @@ Working directory: <worktree_path 或 main repo root>
 - 校验 3 失败 → 流程失败，不推进 phase
 - 校验 4 失败 → 不推进 phase
 
-**全部通过**：
+**全部通过**（走脚本落盘；**禁止**直接编辑 `state.yaml`）：
 
-```yaml
-# state.yaml
-runtime:
-  build:
-    status: completed
-    build_mode: <subagent_dispatch|inline>
-    review_mode: <off|standard|thorough>
-    final_review: <done|skipped:off|skipped:<reason>|accepted_risk>
-    completed_tasks: <N>
-    total_tasks: <N>
-    finished_at: "<ISO>"
-phase: verify
+| 落盘字段 | 值 | 产出方 |
+|---|---|---|
+| `runtime.build.status` | `completed` | 下方 `complete-phase` |
+| `runtime.build.finished_at` | ISO 时间戳 | 下方 `complete-phase` |
+| 顶层 `phase` | `verify` | 下方 `complete-phase --next-phase` |
+| `runtime.build.build_mode` | `<subagent_dispatch\|inline>` | 下方 `set` |
+| `runtime.build.review_mode` | `<off\|standard\|thorough>` | 下方 `set` |
+| `runtime.build.final_review` | `<done\|skipped:off\|skipped:<reason>\|accepted_risk>` | 下方 `set` |
+| `runtime.build.completed_tasks` | `<N>` | 下方 `set` |
+| `runtime.build.total_tasks` | `<N>` | 下方 `set` |
+| `runtime.build.pause_reason` | 空（本轮暂停已解决） | 下方 `set` |
+
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase build --next-phase verify
+
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set runtime.build.build_mode=<subagent_dispatch|inline> \
+  --set runtime.build.review_mode=<off|standard|thorough> \
+  --set "runtime.build.final_review=<done|skipped:off|skipped:<reason>|accepted_risk>" \
+  --set runtime.build.completed_tasks=<N> \
+  --set runtime.build.total_tasks=<N> \
+  --set "runtime.build.pause_reason="
 ```
 
 输出：

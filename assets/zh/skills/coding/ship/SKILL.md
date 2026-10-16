@@ -60,7 +60,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 | 未阻塞 | `runtime.verify.blocked != true`（或已合法 override） | 阻断，提示回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify` 处理 |
 | worktree 合回分支 | `worktree.created_by_polaris_flow == true` | 触发本 skill Step 4；否则 Step 4 整段跳过 |
 
-通过后更新：`phase: ship`。
+通过后由 Step 5 的脚本推进 `phase: ship`（本步不单独写）。
 
 ## 流程
 
@@ -158,10 +158,16 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 
 #### 4.6 选项 C：保留 worktree
 
-不执行 4.5。写入：
+不执行 4.5。用脚本写入（**禁止**直接编辑 `state.yaml`）：
 
-- `worktree.status: abandoned`
-- `runtime.ship.harness_sync: skipped_worktree_retained`（字段名沿用模板；语义=产物未合回）
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+  --set worktree.status=abandoned \
+  --set runtime.ship.harness_sync=skipped_worktree_retained
+```
+
+`harness_sync` 字段名沿用模板；语义 = 产物未合回（Step 5 会再写一次，幂等）。
 
 提醒用户：后续清理前须先手动合回 `.polaris/` 产物。
 
