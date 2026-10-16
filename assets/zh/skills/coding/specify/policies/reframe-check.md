@@ -104,4 +104,4 @@ Reframe 阶段必须在 `intention.md` 中记录一行 **"Reframe 历程"**，�
 
 ### 2.3 与 Premise Challenge 的衔接
 
-被淘汰的方案及拒绝理由会在 Premise Challenge 完成后写入 `intention.md` 的 `## Alternatives` 节。
+被淘汰的方案及拒绝理由会在 Premise Challenge 完成后写入 `intention.md` 的 `## 备选方案` 节。

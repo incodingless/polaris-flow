@@ -10,7 +10,7 @@ version: 0.1
 - **禁止**未检查 `intention.md` 存在性就调用 `/opsx:propose` / 开始生成四件套
   - 文件存在 → 必须读取全文后再调用
   - 文件不存在 → 必须先走 Step 3.2 fallback 声明，方可继续（不得静默跳过检查）
-- **禁止**主代理在调用 `/opsx:propose` / 生成 `tasks.md` 之前未读取 `./templates/tasks-template.md`
+- **禁止**主代理在调用 `/opsx:propose` / 生成 `design.md` / 生成 `tasks.md` 之前未读取对应产物模板（`./templates/design-template.md`、`./templates/tasks-template.md`）
 - **禁止**跳过 `./policies/artifact-batch-generation.md`：须按 4.3 已选模式执行分批生成（Mode A 含批内 §4；Mode B 跳过 §4）；禁止硬编码四件套结构；禁止主代理自审冒充制品审查
 - **禁止**通过 `superpowers:using-git-worktrees` 创建 worktree——必须由本 skill Step 2.3.A 直接执行 git / hooks 完成
 - **禁止**跳过 Step 4.3 用户询问：未经用户显式选择，禁止写入 `artifact_review_mode`、禁止进入 Step 4.4
@@ -149,11 +149,12 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 | `## 任务范围` | `proposal.md` 范围 / 非目标；并作为 `tasks.md` 任务划分依据 | 必须包含；任务为粗粒度，单任务约 20 分钟量级 |
 | `## 待决问题` | `proposal.md` 的 Open Questions / 待决 | 必须包含 |
 | `## 验收场景及标准` | `specs/` 需求与场景依据 | 必须体现 |
-| `## 宪法对齐` | `design.md` 的 `## Constitution Alignment`（逐条对齐 Core Principle） | 必须包含 |
-| `## 前提` | `design.md` 的 `## Premises` | 必须包含 |
-| `## 结论（架构 + 技术选型）` | `design.md` 的 Architecture / 选型相关节 | 必须包含架构决策与方案选型（深度技术设计留给后续 design 文档细化） |
-| `## 备选方案` | `design.md` 的 `## Alternatives` | 必须包含未选方案及拒绝理由 |
+| `## 宪法对齐` | `design.md` 的 `## 3. 原则与依据`（逐条对齐 Core Principle） | 必须包含 |
+| `## 前提` | `design.md` 的 `## 2. 前提` | 必须包含 |
+| `## 结论（架构 + 技术选型）` | `design.md` 的 `### 4.1 技术栈` / `### 4.2 整体方案思路` / `### 4.3 架构总览` | 必须包含架构决策与方案选型（深度技术设计留给后续 `design` 阶段） |
+| `## 备选方案` | `design.md` 的 `## 5. 未选方案及拒绝理由` | 必须包含未选方案及拒绝理由 |
 
+`design.md` 严格按 `./templates/design-template.md` 的节名与节序生成（先 `read_file` 再填充）；
 `tasks.md` 严格按 `./templates/tasks-template.md` 规则生成;
 
 #### 4.3 审查模式选择（阻塞，禁止自动决策）
@@ -251,7 +252,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 1. **四件套存在且非空**：`proposal.md`、`design.md`、`tasks.md` 非空；`specs/` 为目录且含至少一个非空文件。任一失败 → 回 Step 4.4 / policy §3 补齐，不得进入 5.2
 2. **`proposal.md`**：含问题背景、目标、范围、非目标
 3. **`design.md`**：含高层架构决策、方案选型，且含  
-   `## Constitution Alignment`、`## Alternatives`、`## Premises`
+   `## 2. 前提`、`## 3. 原则与依据`、`## 5. 未选方案及拒绝理由`（节名与 `./templates/design-template.md` 同源）
 4. **`tasks.md`**：任务有明确描述；必须跑：
    ```bash
    LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
@@ -259,7 +260,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
    ```
    - exit 0 → 通过  
    - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑
-5. 生成 `tasks.md` 前已 `read_file ./templates/tasks-template.md`，按其节顺序填充
+5. 生成 `design.md` 前已 `read_file ./templates/design-template.md`、生成 `tasks.md` 前已 `read_file ./templates/tasks-template.md`，均按其所列节顺序填充
 
 > **fallback**（无 intention、仅用户原始 prompt）：若 proposal/design 缺第 2/3 项部分节，可放宽不阻断，仅在摘要标 `(fallback)`；**四件套存在性与 `tasks-lint` 仍必须通过**。
 

@@ -36,7 +36,7 @@ artifact_review_mode: per_batch   # 或 after_all
 |--------|--------------|------|
 | `proposal` | `openspec/changes/<change_id>/proposal.md` | Why + What |
 | `specs` | `openspec/changes/<change_id>/specs/**` | 至少一处非空 `spec.md` |
-| `design` | `openspec/changes/<change_id>/design.md` | 高层 How |
+| `design` | `openspec/changes/<change_id>/design.md` | 高层 How（须先读 `./templates/design-template.md`） |
 | `tasks` | `openspec/changes/<change_id>/tasks.md` | 粗任务清单（须先读 `./templates/tasks-template.md`） |
 
 完整目录期望（全部批次结束后）：

@@ -25,9 +25,9 @@
 | 范围 → 拆分决策 | `## 任务范围（Scope）` 末尾 | `proposal.md` — Scope 备注 |
 | 验收标准 | `## 验收场景及标准` | `specs/<capability>/spec.md` — Requirements + Scenarios |
 | 方案 | `## 结论（架构 + 技术选型）` | `design.md` — Architecture / 技术选型 |
-| 宪法对齐 | `## 宪法对齐` | `design.md` — `## Constitution Alignment` |
-| 前提与风险 | `## 前提`（风险留在 `## 待决问题` 或省略） | `design.md` — `## Premises` |
-| 备选方案 | `## 备选方案` | `design.md` — `## Alternatives` |
+| 宪法对齐 | `## 宪法对齐` | `design.md` — `## 3. 原则与依据` |
+| 前提与风险 | `## 前提`（风险留在 `## 待决问题` 或省略） | `design.md` — `## 2. 前提` |
+| 备选方案 | `## 备选方案` | `design.md` — `## 5. 未选方案及拒绝理由` |
 | 待决问题 | `## 待决问题` | `proposal.md` — Open Questions |
 | 影响面 | `## 下游约束` | 不进四件套；仅用于 capability 命名（§3.2） |
 
@@ -75,7 +75,7 @@
 | 目标文件 | 内容来源 | 必须包含的节 |
 |---|---|---|
 | `proposal.md` | 一句话目标、问题与背景、范围、待决问题 | Why / Context、目标、Scope、非目标、Open Questions |
-| `design.md` | 方案、宪法对齐、前提与风险、备选方案 | Architecture / 技术选型、`## Constitution Alignment`、`## Premises`、`## Alternatives` |
+| `design.md` | 方案、宪法对齐、前提与风险、备选方案 | `### 4.1 技术栈` / `### 4.2 整体方案思路` / `### 4.3 架构总览`、`## 2. 前提`、`## 3. 原则与依据`、`## 5. 未选方案及拒绝理由` |
 | `specs/<capability>/spec.md` | 验收标准 | Requirements（ADDED）+ Scenarios（GWT 格式） |
 | `tasks.md` | **保持原样，不动** | — |
 
@@ -106,7 +106,7 @@
 
 - 四件套存在且非空；`specs/` 为目录且含至少一个非空文件
 - `proposal.md` 含问题背景、目标、范围、非目标
-- `design.md` 含架构决策、方案选型，且含 `## Constitution Alignment` / `## Alternatives` / `## Premises`
+- `design.md` 含架构决策、方案选型，且含 `## 2. 前提` / `## 3. 原则与依据` / `## 5. 未选方案及拒绝理由`
 
 **失败处理**：不阻断交付。按 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 现有规则处置——`runtime.ship.archive=failed`，写入 `archive_error`，`openspec/changes/<change_id>/` 保持原位，照常进入 Step 7.1 清游标。用户可事后手动补齐并运行 `openspec-cn archive <change_id>`。
 
