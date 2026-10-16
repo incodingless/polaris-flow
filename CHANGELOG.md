@@ -8,6 +8,7 @@
 - **候选列表的中文显示名**: `get-active-changes --format full` 每行新增 `phase_label` / `mode_label` / `skill_label`；中文名由 `phaseLabel` / `modeLabel` / `skillLabel` 从**既有阶段表与工作流表**派生（不新增任何映射表），技能只负责拼成 `中文(英文)`。取不到时为空串，显示层退回只显英文 —— 不猜
 - **`append-active` 幂等**: 同一 `task_id` 已在列表里 → 视为成功且**不改动**已有条目。入口技能的「新建」与「采纳孤儿 draft」两条路因此可以**无条件**注册，不再需要「仅 `status=ok` 才执行」这类分支条件
 - **`buildDispatchRow` 导出**: `--format full` 的单行构造从 `runGetActiveChanges` 抽出，供 `task-entry` 复用，避免第二份「运行态形状」
+- **新建任务前校验 git 版本管理**: `task-entry` 的 `create` 出口在写目录前先确认项目已纳入 git（`git rev-parse --show-toplevel`），未纳入时 exit 3 并提示先 `git init` —— `.polaris/tasks/<id>` 产物需随仓走，无版本管理会让后续 ship / 归档找不到版本边界
 
 ### Changed
 
@@ -36,6 +37,7 @@
 ### Tests
 
 - `task-entry.test.ts`（新增，13 项）：`create` 的落盘与注册、`create → resume` 链路闭合、六出口（`resume` / `handover` / `select` / `resolve-drafts` / `block`）判定、`--task-id` 直判、四类参数错误
+- `task-entry.test.ts`：`tmpRepo` 改为先 `git init`（匹配新增的 git 前置校验）；新增「无 `.git` → exit 3 提示 `git init`，且不建目录 / 不注册游标」用例
 - `workflow-entry.test.ts`：新增 worktree 任务按 `worktree_path` 读阶段（含 `state_path` 断言）、`state_readable=false` 时 `skill` 为 `null`、条目不含 `phase`、中文标签三类回归
 - `state-next.test.ts`：新增「state.yaml 读不到 → `NEXT: done`」与「worktree 任务从 worktree 内解析」用例；全部用例的阶段改为写入 state.yaml
 - `dashboard-scan.test.ts` / `dashboard-write.test.ts` / `delivery-cleanup.test.ts`：阶段来源改为 state.yaml 的断言改写；面板「推进阶段」改为写 `state.yaml` 并新增"state 缺失即拒绝"用例

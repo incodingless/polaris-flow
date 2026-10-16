@@ -26,6 +26,7 @@ CREATE_EXIT=$?
 - `--mode` 填**入口层给出的档位**（`tweak` / `normal` / `strict`）；入口层未给档时用它 Step 2 的粗判结果。
   ⚠️ 它**只在 `create` 时被写入**。
 - `CREATE_EXIT != 0` → **阻断**，按 stderr 处理（缺 `--mode` / 非法档 / 环境问题）。
+  - stderr 提示「项目未纳入 git 版本管理」时 → 提示用户先执行 `git init` 再重试；**不得**继续建任务。
 - ⚠️ **本命令会写盘**（零候选时**一步**完成：建目录 + 写 `workflow.mode` + 注册游标，幂等）。
   只想**读**列表（Step 1 恢复分发）请用只读的 `workflow-entry get-active-changes`。
 

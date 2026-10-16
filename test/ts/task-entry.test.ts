@@ -12,6 +12,7 @@
  *   8. `skill == null`（旁路阶段）→ `block`（**不得**落进 handover）
  *   9. 参数与顺序：缺 `--as`、缺 `--mode`、非法 `--mode`、`--task-id` 不存在 → exit 3
  */
+import { execFileSync } from 'child_process';
 import { mkdir, mkdtemp, utimes, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
@@ -29,6 +30,20 @@ async function tmpRepo(): Promise<string> {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'polaris-task-entry-'));
   await mkdir(path.join(dir, '.polaris'), { recursive: true });
   // task-init 依赖 .polaris/config.yaml（缺则 exit 2）
+  await writeFile(
+    path.join(dir, '.polaris', 'config.yaml'),
+    "lang: zh\nplatform: claude\nplugin_root: '.claude/skills/polaris'\n",
+    'utf-8',
+  );
+  // createTask 会校验项目已纳入 git 版本管理（无 .git 则 exit 3），故临时仓先 git init
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  return dir;
+}
+
+/** 与 tmpRepo 相同，但**不** git init —— 专测「未纳入 git 版本管理」的阻断路径 */
+async function tmpRepoNoGit(): Promise<string> {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'polaris-task-entry-nogit-'));
+  await mkdir(path.join(dir, '.polaris'), { recursive: true });
   await writeFile(
     path.join(dir, '.polaris', 'config.yaml'),
     "lang: zh\nplatform: claude\nplugin_root: '.claude/skills/polaris'\n",
@@ -148,6 +163,22 @@ describe('task-entry · create', () => {
     expect(badMode.message).toContain('未知工作流');
 
     // 失败的调用不得留下游标条目
+    expect((await loadWorkflowState(repo)).coding_tasks).toHaveLength(0);
+  });
+
+  it('项目未纳入 git 版本管理（无 .git）→ exit 3，提示先 git init，且不建目录', async () => {
+    const repo = await tmpRepoNoGit();
+    const result = await runTaskEntry({
+      kind: 'coding',
+      as: 'tweak',
+      mode: 'tweak',
+      repoRoot: repo,
+    });
+
+    expect(result.exitCode).toBe(3);
+    expect(result.message).toContain('git init');
+    expect(result.payload).toBeUndefined();
+    // 未建任务目录、未注册游标
     expect((await loadWorkflowState(repo)).coding_tasks).toHaveLength(0);
   });
 

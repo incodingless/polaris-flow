@@ -115,10 +115,6 @@ RTID_EXIT=$?
 
 ### Step 3：任务初始化（**仅「零个」时**）
 
-> ⚠️ **本步（建任务）是 `intake` 独有的职责**。阶段技能（`specify` / `plan` / `tasks` / `build` / `verify` / `ship`）
-> **自 2026-10-14 起不再建任务** —— 它们只做本阶段内容。
-> ⚠️ 但 `workflow.mode` 的**变更**是另一件事：**唯一变更点在 `specify` 的出口**（本技能只做入口粗判，见 Step 2）。
-
 **前置（准入检查）**：`需求内容` **非空** —— 空则不建任务，要求用户先说明要做什么。
 
 > 这是**输入非空校验**，不是需求质量判断。需求够不够详细由被转交的 `specify` 在澄清时解决。
@@ -143,17 +139,13 @@ fi
 
 #### 3.2 建任务（**一次调用**完成三件事）
 
-「建目录 + 写 `workflow.mode` + 注册游标」是**一个原子动作** ⇒ 交给 `task-entry` 原语一次做完。
-⚠️ 拆成三次脚本调用时，**中途失败会留下"建了目录但没注册"的半成品 draft** —— 那正是历史上
-`resolve-drafts`（孤儿 draft）那类坑的来源。
-
 ```bash
-CREATE=$(bash "$PLUGIN_ROOT/scripts/task-entry.sh" \
-  --kind coding --as intake --mode <档> --repo-root "$REPO_ROOT")
+CREATE=$(bash "$PLUGIN_ROOT/scripts/task-entry.sh" --kind coding --as intake --mode <档> --repo-root "$REPO_ROOT")
 CREATE_EXIT=$?
 ```
 
 - `CREATE_EXIT != 0` → **阻断**（按 H12）；stderr 写明原因（缺 `--mode` / 非法档 / 环境问题）。
+  - stderr 提示「项目未纳入 git 版本管理」时 → **提示用户先执行 `git init`** 完成初始化，再重试本步；**不得**继续建任务。
 - 按返回的 `action` 分派：
 
 | `action` | 含义 | 动作 |

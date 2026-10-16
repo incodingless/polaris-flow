@@ -33,6 +33,7 @@ import { WORKFLOW_MODE_LABELS, modeLabel } from '../config/task-kind-layout.js';
 import {
   loadWorkflowState,
   parseWorkflowTaskKind,
+  resolveGitRoot,
   workflowTaskKindErrorMessage,
   type WorkflowTaskKind,
 } from '../config/workflow-state.js';
@@ -159,6 +160,15 @@ async function createTask(
     return {
       exitCode: 3,
       message: `未知工作流：${mode}；合法取值 ${Object.keys(WORKFLOW_MODE_LABELS).join(' | ')}`,
+    };
+  }
+
+  // 新建任务前确认项目已纳入 git 版本管理：`.polaris/tasks/<id>` 产物需随仓走，
+  // 未纳入 git 时直接建任务会让后续 ship / 归档找不到版本边界。
+  if (!resolveGitRoot(repoRoot)) {
+    return {
+      exitCode: 3,
+      message: '项目未纳入 git 版本管理（未检测到 .git），请先执行 git init 完成初始化后再新建任务',
     };
   }
 

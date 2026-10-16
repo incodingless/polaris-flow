@@ -350,7 +350,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 
 - `runtime.plan.review_round`：`runtime.plan.review_round + 1`（本次主审轮次；5.4 中重跑 5.2 时继续 +1）
 
-#### 5.3 Outside Voice（询问后可选）
+#### 5.3 同行评审-Outside Voice（询问后可选）
 
 主审已落盘（未整步跳过）后：
 
