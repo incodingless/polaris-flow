@@ -106,6 +106,9 @@ export type TaskRuntimeTasksState = {
 export type TaskRuntimeBuildState = {
   status?: string;
   build_mode?: string;
+  batch_dispatch?: boolean;
+  current_batch?: string | number;
+  pause_reason?: string;
   review_mode?: string;
   final_review?: string;
   current_task?: string;
@@ -611,6 +614,9 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
       build: {
         status: '',
         build_mode: '',
+        batch_dispatch: false,
+        current_batch: '',
+        pause_reason: '',
         review_mode: '',
         final_review: '',
         current_task: '',

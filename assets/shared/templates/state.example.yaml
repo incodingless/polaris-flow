@@ -252,6 +252,15 @@ runtime:
     status: ""
     # 构建模式，可选值: inline-内联执行 | subagent_dispatch-子代理派发。
     build_mode: ""
+
+    # 分批派发，可选值: true-分批派发（按 tasks.md 批次逐批派发 subagent） | false-单批派发（一个 subagent 派完所有任务）。默认 false；仅 build_mode=subagent_dispatch 时生效
+    batch_dispatch: false
+
+    # 当前批次（分批派发游标，仅 batch_dispatch=true 时写；空 = 从第 1 批开始 / 已全批结束）
+    current_batch: ""
+
+    # 暂停原因（apply 中途 pause 时写入：原因与可选项摘要；恢复后置空）
+    pause_reason: ""
     
     # 代码审查模式，可选值: off-关闭 | standard-标准 | thorough-完整。默认 standard
     review_mode: "standard"

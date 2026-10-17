@@ -18,12 +18,23 @@ tasks.md 支持两类任务：
 
 ---
 
+## 执行批次规则（组 = 批次）
+
+`## N.` 的 N 就是**执行批次号**。build 阶段按批次号**串行逐批派发 subagent**，每个 subagent 只实施一批，避免单个 subagent 上下文溢出。
+
+- 批次按**依赖拓扑 + 文件关联**划分：Consumes 为空的任务归最早批次；依赖某任务 Produces 的任务排在其后；改同一文件 / 模块的任务合并同批。
+- 单批顶层任务数 **≤ 8**；超限按依赖序拆成两个连续批次。
+- 一条顶层任务的用例清单 + 子步骤（TDD 五步 / 非 TDD 三步）**整体属于该批次，不跨批**。
+- 每批任务尽量改**相邻的文件**（缩小 subagent 要读的文件面）。
+
+---
+
 ## 模板正文（plan 初稿 / tasks 覆写须按此格式）
 
 ```markdown
 # {{CHANGE_ID}} — 实施任务计划
 
-> **执行入口**：本计划由 **build** 阶段通过 `/opsx:apply` 在 implementer subagent 内逐 task 执行。
+> **执行入口**：本计划由 **build** 阶段按 `## N.` 批次逐批派发 implementer subagent、每批通过 `/opsx:apply` 实施（见「执行批次规则」）。
 > **规划入口**：细计划由 **tasks** 阶段按 writing-plans（骨架模式）覆写；plan 仅提供粗骨架。
 
 
@@ -73,7 +84,7 @@ tasks.md 支持两类任务：
 
 ## 2. {{NEXT_TASK_GROUP_NAME}}
 
-（按需追加任务组，编号连续）
+（按需追加批次，`## N.` 的 N = 批次号，按依赖拓扑连续编号）
 
 ---
 
@@ -136,7 +147,7 @@ tasks.md 支持两类任务：
 | **plan** 阶段 | 按本模板生成**粗骨架**（可过 lint）；细粒度留给 plan |
 | **tasks** 阶段 | **覆写**为可执行细计划（Files + Interfaces + TDD/非TDD + 可复制命令）；跑 `tasks-lint`；再派 `tasks-review-agent` |
 | `tasks-review-agent`（由 plan 派发） | 评审粒度、依赖排序、可执行性、测试缺口；写入 `reviews/tasks-review-report.md`，**评审期间不直接改 tasks**；消化与改写由 plan skill 完成；可选 Outside Voice（`openspec-review-agent`） |
-| **build** 阶段（implementer 跑 `/opsx:apply`） | 按 task 顺序逐条执行；通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
+| **build** 阶段（implementer 跑 `/opsx:apply`） | 按 `## N.` 批次逐批派发 subagent 执行；每批通过 `<!-- TDD 任务 / 非 TDD 任务 -->` 决定子步骤节奏；apply 负责更新 checkbox |
 | verify / audit | 实施完成后对照产物；audit 可不读 tasks，只看代码改动与产出 |
 
 ---

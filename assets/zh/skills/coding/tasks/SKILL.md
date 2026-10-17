@@ -245,6 +245,7 @@ read_file ./templates/tasks-template.md
 - 将创建 / 修改 / 测试的**精确路径**（优先采用 detailed-design 已点名的路径；`skipped` 时以四件套 `design.md` 为准）
 - 模块边界与依赖方向（与 detailed-design（若有）+ 高层 design.md 一致）
 - 哪些任务 TDD、哪些非 TDD——**必须服从 Step 3 的 `tdd_policy`**（见下表）；用户声明的例外优先于默认规则
+- **执行批次**：按依赖拓扑分层（Consumes 为空 → 最早批）+ 文件关联聚类，把顶层任务归入 `## N.` 批次；单批顶层任务 **≤ 8**，超限按依赖序拆成两个连续批次；TDD 任务的用例清单 + 五步**整体归本批、不跨批**
 
 | `tdd_policy` | 标注规则 |
 |--------------|----------|
@@ -260,6 +261,7 @@ read_file ./templates/tasks-template.md
 - 脚手架 / 配置 / 文档同步：**折进**需要它的交付任务；禁止无验收的「纯脚手架」顶层任务
 - 子步骤：TDD=用例清单 + 5 步 / 非 TDD=3 步（见模板）；每步约 2–5 分钟量级的**一个动作**
 - **不要**按 plan 粗骨架原样加细——粗骨架可拆可并，以 specs + detailed-design（若有）覆盖为准
+- 单批顶层任务 **≤ 8**：超过就按依赖序拆成两个连续批次，别让一个 subagent 一次扛太多（见 5.2 的「执行批次」）
 
 #### 5.4 每条顶层任务必须含
 
@@ -287,6 +289,7 @@ read_file ./templates/tasks-template.md
 #### 5.5 覆写落盘
 
 将完整计划写入（**覆写**）`openspec/changes/<task_id>/tasks.md`。  
+`## N.` 的 N 就是**执行批次号**，按依赖拓扑连续编号——这是 build 逐批派发 subagent 的边界。  
 最后一组必须是 Documentation Sync（见模板）。  
 输出：`[polaris-flow 开发]任务规划: 已写 openspec/changes/<task_id>/tasks.md`
 
