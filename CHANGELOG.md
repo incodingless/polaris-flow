@@ -3,6 +3,21 @@
 ## What's Changed [0.1.2] - 2026-10-13
 ### Added
 
+- **state.yaml 孤儿键登记（cs-foundation 审计批③）**: `TaskRuntimeVerifyState` 补 9 个技能已写入但未登记的键（`risk_escalation_reason` / `codereview_status` / `codereview_report` / `build_command` / `test_command` / `test_result` / `test_slots` / `semantics_review` / `semantics_skip_reason`）；`TaskRuntimeBuildState` 补 `constitution_exception` / `override`；`state.example.yaml` 同步登记并改写顶层 `verify_mode` 注释（裁定为保留且必须写入：verify 定档时与 `runtime.verify.verify_mode` 成对写入，非废弃键）
+- **三方一致性校验修复**: `scripts/check_state_yaml_three_way.py` 的 TS 类型映射缺 `tasks` 段（`TaskRuntimeTasksState` 从未被解析），补一行后校验从基线 2 处失配转为全绿；技能侧 runtime/workflow 引用 66+11 条全部命中模板 + 类型
+
+### Fixed
+
+- **`constitution_compliance` 模板值域对齐**: `state.example.yaml` 原注释声明 `true|false`，与 verify 技能实际写入的 `pass|violations:<N>|skipped:<reason>` 冲突（后者才能承载「文件缺失 + 用户批准跳过」的显式语义，与 build 段 `constitution_exception` 口径一致）——模板注释改为按实际值域声明
+
+> 技能侧写点（`assets/zh/skills/coding/**` 的 workflow 全局字段同步、升降档留痕、plan 主审嵌套块等，见 `zh-skills-state-audit-cs-foundation.md` §4 批②③）按双语言约定，待英文同步后补记本 Changelog。
+
+### Changed
+
+- **npm 分发与一键安装**: 包名由 `@polaris/polaris-flow` 改为裸名 `polaris-flow`（npm 上未占用，用户安装命令更短，同时移除 scoped 专用的 `publishConfig`）；新增根目录 `install.sh`（校验 node ≥ 20 与 npm → `npm i -g polaris-flow` → 引导 `polaris init`，兼容 macOS/Linux/Git Bash，用户侧 `curl … | bash` 一条命令完成安装）；新增 GitHub Actions `publish.yml`（推送 `v*` tag 自动构建并发布 npm，需在仓库 Secrets 配置 `NPM_TOKEN`）
+- **安装手册**: 新增 `docs/安装手册.md`——面向使用者的完整安装文档：前置条件自查、脚本/npm 两种安装方式、`polaris init` + `doctor` 初始化、升级与卸载、五类常见安装故障排查表、GitHub 不通时的镜像配置指引（单源引用 README-zh，不复制细节）与发布前的源码安装附则
+- **内网 GitLab 适配**: `install.sh` 新增可选 `NPM_REGISTRY` 环境变量（指向公司私服时以 `--registry` 安装，缺省行为不变，一份脚本两端通用）；新增 `.gitlab-ci.yml`（推 `v*` tag 自动构建发布，与 GitHub Actions `publish.yml` 共存互不干扰，私服地址留 TODO 待填）；安装手册补「内网环境」一节与私有仓库 curl 拉不到脚本的排查项
+
 - **`task-entry` 原语**: 新增 `polaris-flow task-entry --kind coding --as <技能> --mode <档>`，一次调用返回 `resume` / `handover` / `create` / `select` / `resolve-drafts` / `block` —— 把「选任务 → 判阶段 →（必要时）建任务」收敛成一条命令，判定全部留在代码里；新建时一步完成建目录 + 写 `workflow.mode` + 注册游标。`--mode` **只在新建时被写入**，判定阶段一律用任务**自己** `state.yaml` 里的值（工作流不被入口假设）
 - **共享 policy `assets/zh/policies/task-entry.md`**: coding 三入口技能共用的「进入任务」流程。含刻意不放进命令的破坏性 / 需裁决分支（§5：孤儿 draft 的 A/B/C/D、「丢弃并新建」）。⚠️ **2026-10-14 已改**：执行层不再调用该原语 ⇒ 该文档**移入 `coding/intake/policies/` 成为 `intake` 私有细则**（随技能安装，不再注入其它技能）
 - **候选列表的中文显示名**: `get-active-changes --format full` 每行新增 `phase_label` / `mode_label` / `skill_label`；中文名由 `phaseLabel` / `modeLabel` / `skillLabel` 从**既有阶段表与工作流表**派生（不新增任何映射表），技能只负责拼成 `中文(英文)`。取不到时为空串，显示层退回只显英文 —— 不猜
@@ -23,6 +38,8 @@
 - **`tweak` / `normal` 的阶段语义与全链路统一**: 进入实施阶段不再写顶层 `phase: build`（进行中的事实由 `runtime.build.status` 承载）；顶层 `phase` 只承载「下一步该谁接手」，三条工作流自此同义
 - **工作流名 `full` 更名为 `strict`**: 旧名与 `verify_mode` 的取值 `full` **同名不同义** —— 同一份 `state.yaml` 里两个 `full` 指向不同维度。新名描述真实特征（端到端全走、门禁不跳步），中文名由「完整」改为「严格」。写入侧白名单不含 `full`，误写会被 `task-entry` 以「未知工作流」拒绝。⚠️ **本条已修订**（2026-10-14）：初版曾写"存量数据无需迁移、读取侧归一"，但 `WORKFLOW_MODE_ALIASES` 与 `PHASE_ALIASES` **随后被删除** ⇒ `normalizePhase` / `normalizeMode` 已退化为纯 trim，**存量 `state.yaml` 写 `full` / `delivery` 不再被识别**
 - **`polaris update` 第三方依赖按版本跳过重复安装**: openspec / superpowers / codegraph 安装前先探测「已装版本 vs 上游最新版本」，无更新时回显「已是最新 —— 跳过重复安装」并跳过（`--force` 仍强制重装）；codegraph 版本补记入 `skills-lock.json` 的 `sources`，与 openspec / superpowers 一致
+- **`task-init` 回填仓库根与安装信息**: coding 任务 `state.yaml` 初始化时从项目 `.polaris/config.yaml` 回填 `main_repo_root` / `worktree_dir` / `install_time` —— 此前模板占位符 `<project_root>` 与样例安装时间原样落盘，任务全程无人修正，跨仓 / 归档消费时指向不存在的路径
+- **阶段开始时间键名统一为 `started_at`**: `state.example.yaml` 与任务 state 类型此前声明 `start_time`，而 `task-state-entry enter-phase` 自脚本接管 state 写入起一直是 `started_at` —— 两条官方路径键名互相不一致，导致 specify 之后各阶段 `start_time` 恒空、真实时间落在类型之外。现模板 / 类型 / coding initPatches 全部对齐 `started_at`（与 requirement / testcase / debug 家族 initPatches 同名），存量 state 不做迁移
 
 ### Fixed
 

@@ -109,8 +109,11 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
-  --set runtime.build.build_mode=<subagent_dispatch|inline>
+  --set runtime.build.build_mode=<subagent_dispatch|inline> \
+  --set workflow.build_mode=<同 build_mode 值>
 ```
+
+- ⚠️ `workflow.build_mode` = 全局决策记录（与 `runtime.build.build_mode` 单向同步，**只写不读**）。
 
 #### 2.2 代码审查模式 `review_mode`
 
@@ -151,7 +154,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 > `build_mode=inline` 时不询问、不写此字段（inline 不涉及分批）。  
 > 续跑时 `runtime.build.batch_dispatch` 已存在则沿用，缺则按推荐补写（仅 `subagent_dispatch` 时）。
 
-> **刻意不做**：全局 `tdd_mode`。每个 task 是否 TDD 已由 plan 写在 `tasks.md` HTML 注释里；`/opsx:apply` / implementer 必须遵守注释，不得用 build 级开关覆盖。  
+> **全局 `tdd_mode` 仅作决策记录**：tasks Step 3 已把总策略写入 `workflow.tdd_mode`（单向同步，build **只写不读**）。每个 task 是否 TDD 仍由 plan 写在 `tasks.md` HTML 注释里；`/opsx:apply` / implementer 必须遵守注释，不得用 build 级开关覆盖。  
 > **刻意不做**：apply 循环内的「每任务 reviewer」——与「implementer 唯一动作是 `/opsx:apply`」冲突；需要更密审查时选 `thorough`，或事后在 verify 再审。
 
 若续跑且 `runtime.build.build_mode` / `runtime.build.batch_dispatch` / `runtime.build.review_mode` 已存在 → **`normal` / `strict` 档**展示当前值、问是否沿用（沿用则跳过写入）；**`tweak` 档直接沿用**（档位派生值，不询问）。
@@ -287,6 +290,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 | `thorough` | 同上，并额外要求对照 `tasks.md` 与相关 specs 做覆盖与一致性关注（仍是一次最终审查，不是每任务审查） |
 
 - 审查发现 **Critical / Major** → **阻断**完成；decision-point：A 回 Step 4 修复 / B 用户接受风险并记录 override（须显式确认） / C 放弃
+  - B 选项落盘（走脚本）：`--set runtime.build.override=<被跳过项>_user_approved`（如 `skip_runtime_verification_user_approved`）
 - `requesting-code-review` 不可用 → 标注跳过原因，decision-point：A 接受跳过 / B 阻断
 
 > 与 verify 去重：本步已审过且未再改动的 diff，verify 侧应聚焦「是否符合 spec/tasks」与「build 之后新增改动」，避免整份重审。
@@ -339,6 +343,8 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --set "runtime.build.current_batch="
 ```
 
+- ⚠️ `final_review` **只能**取上表四值之一：`done` / `skipped:off` / `skipped:<reason>` / `accepted_risk`；**禁止自由文本**（修复轮次、F× 明细等过程信息写 verify 报告或输出话术，不进 state）。
+
 输出：
 
 ```
@@ -363,6 +369,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   `[Constitution C] Task <N.M>: 适用原则 = ...`
 - **inline（4.B）**：主代理在 apply 前输出原则清单，并在每个 task 前补输同上格式
 - 原则来源：`openspec/memory/constitution.md`（若项目约定路径不同，以仓库内 constitution 为准）
+- **文件缺失/无效且用户批准继续** → 走脚本记 `--set runtime.build.constitution_exception=<原因>_user_approved_skip`（如 `constitution_md_missing_user_approved_skip`），注入点 C 降级为「按通用工程原则输出」
 
 ## 退出条件
 

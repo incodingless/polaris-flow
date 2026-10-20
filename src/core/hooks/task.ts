@@ -9,7 +9,7 @@ import { mkdir, rename, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import type { Document } from 'yaml';
 
-import { getPolarisConfigPath } from '../config/polaris-project-config.js';
+import { getPolarisConfigPath, loadPolarisConfig } from '../config/polaris-project-config.js';
 import { getTaskStateTemplateSrc } from '../assets/manifest.js';
 import {
   getTaskDir,
@@ -75,7 +75,15 @@ type ResolvedIdentity =
 /** 将补丁占位符替换为实际值 */
 function resolvePatchValue(
   raw: string,
-  vars: { taskId: string; now: string; intentionRel: string; planRel: string },
+  vars: {
+    taskId: string;
+    now: string;
+    intentionRel: string;
+    planRel: string;
+    mainRepoRoot: string;
+    worktreeDir: string;
+    installTime: string;
+  },
 ): string {
   switch (raw) {
     case '$taskId':
@@ -86,17 +94,30 @@ function resolvePatchValue(
       return vars.intentionRel;
     case '$planRel':
       return vars.planRel;
+    case '$mainRepoRoot':
+      return vars.mainRepoRoot;
+    case '$worktreeDir':
+      return vars.worktreeDir;
+    case '$installTime':
+      return vars.installTime;
     default:
       return raw;
   }
 }
 
+/** init 补丁变量（含从项目 config 解析的仓库根 / 工作树目录 / 安装时间） */
+type InitPatchVars = {
+  taskId: string;
+  now: string;
+  intentionRel: string;
+  planRel: string;
+  mainRepoRoot: string;
+  worktreeDir: string;
+  installTime: string;
+};
+
 /** 对 state 模板文档应用 initPatches（点路径写入对应节点） */
-function applyInitPatches(
-  doc: Document,
-  patches: TaskInitPatches,
-  vars: { taskId: string; now: string; intentionRel: string; planRel: string },
-): void {
+function applyInitPatches(doc: Document, patches: TaskInitPatches, vars: InitPatchVars): void {
   for (const [dotted, raw] of Object.entries(patches)) {
     doc.setIn(dotted.split('.'), resolvePatchValue(raw, vars));
   }
@@ -111,6 +132,7 @@ async function materializeStateFromTemplate(
   kind: WorkflowTaskKind,
   taskId: string,
   layout: TaskKindLayout,
+  vars: InitPatchVars,
 ): Promise<void> {
   const statePath = getTaskKindStatePath(root, kind, taskId);
   const templateSrc = getTaskStateTemplateSrc(layout.stateTemplate);
@@ -126,6 +148,7 @@ async function materializeStateFromTemplate(
         throw new Error(`state 模板无法解析为对象: ${templateSrc}`);
       }
       applyInitPatches(doc, layout.initPatches, {
+        ...vars,
         taskId,
         now,
         intentionRel: getTaskIntentionRelPath(taskId),
@@ -235,9 +258,21 @@ export async function init(
     return resolved.result;
   }
 
+  // 从项目 config 解析仓库根 / 工作树目录 / 安装时间，替换模板占位符与样例值
+  const config = await loadPolarisConfig(root);
+  const patchVars: InitPatchVars = {
+    taskId: '',
+    now: '',
+    intentionRel: '',
+    planRel: '',
+    mainRepoRoot: config?.main_repo_root || root,
+    worktreeDir: config?.worktree_dir || `${root}/.worktrees`,
+    installTime: new Date(config?.install_time ?? Date.now()).toISOString(),
+  };
+
   try {
     await mkdir(resolved.dir, { recursive: true });
-    await materializeStateFromTemplate(root, kind, resolved.taskId, layout);
+    await materializeStateFromTemplate(root, kind, resolved.taskId, layout, patchVars);
     await writeBootstrapFiles(resolved.dir, layout.bootstrapFiles);
   } catch (err) {
     return {

@@ -253,13 +253,15 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 ```
 确认 `.polaris/tasks/<task_id>/intention.md` 已不存在；目标路径存在且非空。
 
-3. 用脚本把 intention 路径字段改为 `openspec/changes/<task_id>/intention.md`：
+3. **必须**用脚本把 intention 路径字段同步为 `openspec/changes/<task_id>/intention.md`——`--set` 与上面 `mv` **成对执行，不得只做其一**（漏写则 `intention_path` 指向已删除的 `.polaris` 旧路径，成为失效引用）：
 
    ```bash
    bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
      --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
      --set runtime.specify.intention_path=openspec/changes/<task_id>/intention.md
    ```
+
+   执行后核对：state 中 `runtime.specify.intention_path` 已为 openspec 新路径（仅第 4/5 条两种情形可豁免）。
 4. 若本轮为 fallback（从未有过 intention 文件）→ **跳过**本步，不造空 `intention.md`。
 5. 若 openspec 侧已有 `intention.md` 且 `.polaris` 侧已无 → 视为已迁入，输出 `[polaris-flow 开发]提案 - 意图：已在 openspec，跳过迁入。`
 
@@ -425,9 +427,15 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --set "runtime.plan.review_round=<N>" \
   --set "runtime.plan.review_log_file=<path|skipped:after_all>" \
   --set runtime.plan.review_report=openspec/changes/<task_id>/reviews/plan-review-report.md \
+  --set runtime.plan.review.skipped=false \
+  --set runtime.plan.review.round=<N，与 review_round 同值> \
+  --set runtime.plan.review.started_at=<主审派发成功时刻 ISO> \
+  --set runtime.plan.review.finished_at=<主审完成时刻 ISO> \
   --set "runtime.plan.outside_voice=<ran|skipped:<reason>|not_run:<reason>>" \
   --set runtime.plan.outside_voice_report=openspec/changes/<task_id>/reviews/openspec-review-report.md
 ```
+
+- ⚠️ 嵌套 `runtime.plan.review.*` 与扁平 `review_round`/`review_report` **必须一致**（同一次主审执行态，本块是它的时间线；`review.round` = `review_round` 同值）。5.2 主审被用户批准跳过 → `review.skipped=true`、`round=0`、两个时间留空，且 `review_report` 记 `skipped:<reason>`。
 
 任一项不满足 → 阻断并输出失败原因。
 

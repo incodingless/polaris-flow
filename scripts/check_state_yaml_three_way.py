@@ -84,6 +84,7 @@ def parse_ts_runtime_subfield_map(ts_path: Path):
         "propose": "TaskRuntimeProposeState",
         "design": "TaskRuntimeDesignState",
         "plan": "TaskRuntimePlanState",
+        "tasks": "TaskRuntimeTasksState",
         "build": "TaskRuntimeBuildState",
         "verify": "TaskRuntimeVerifyState",
         "ship": "TaskRuntimeShipState",

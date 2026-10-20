@@ -50,7 +50,7 @@ export type TaskWorktreeState = {
 export type TaskRuntimeSpecifyState = {
   intention_path?: string;
   status?: string;
-  start_time?: string;
+  started_at?: string;
   finished_at?: string;
 };
 
@@ -65,13 +65,13 @@ export type TaskRuntimePlanState = {
   review_report?: string;
   outside_voice?: string;
   outside_voice_report?: string;
-  start_time?: string;
+  started_at?: string;
   finished_at?: string;
   /** 子块：审查执行态（per_batch 时落盘） */
   review?: {
     skipped?: boolean;
     round?: number;
-    start_time?: string;
+    started_at?: string;
     finished_at?: string;
   };
 };
@@ -84,7 +84,7 @@ export type TaskRuntimeDesignState = {
   outside_voice?: string;
   outside_voice_report?: string;
   draft_dir?: string;
-  start_time?: string;
+  started_at?: string;
   finished_at?: string;
 };
 
@@ -98,7 +98,7 @@ export type TaskRuntimeTasksState = {
   review_report?: string;
   outside_voice?: string;
   outside_voice_report?: string;
-  start_time?: string;
+  started_at?: string;
   finished_at?: string;
 };
 
@@ -111,10 +111,14 @@ export type TaskRuntimeBuildState = {
   pause_reason?: string;
   review_mode?: string;
   final_review?: string;
+  /** 宪法例外：constitution.md 缺失/无效且用户批准继续时记录（<原因>_user_approved_skip） */
+  constitution_exception?: string;
+  /** 用户批准的风险接受（Step 5 审查 decision-point B；<被跳过项>_user_approved） */
+  override?: string;
   current_task?: string;
   total_tasks?: number;
   completed_tasks?: number;
-  start_time?: string;
+  started_at?: string;
   finished_at?: string;
 };
 
@@ -126,12 +130,29 @@ export type TaskRuntimeVerifyState = {
   constitution_compliance?: string;
   /** 聚合判定 */
   constitution_valid?: boolean | string;
+  /** 风险升档原因（Step 9 复核上调时记命中的信号编号 / glob 片段；未上调留空） */
+  risk_escalation_reason?: string;
+  /** 代码评审回报状态：done | degraded_inline | skipped:off | skipped:no_independent_reviewer */
+  codereview_status?: string;
+  /** 代码评审报告路径 */
+  codereview_report?: string;
+  /** 构建/测试命令（探测或确认后回写） */
+  build_command?: string;
+  test_command?: string;
+  /** 测试结果：passed | failed | no_verification */
+  test_result?: string;
+  /** 实际执行的测试槽位（逗号分隔，如 unit,contract,integration） */
+  test_slots?: string;
+  /** 业务语义确认：confirmed | skipped_by_user */
+  semantics_review?: string;
+  /** 语义确认跳过原因（semantics_review=skipped_by_user 时填写） */
+  semantics_skip_reason?: string;
   overall_score?: number;
   score_level?: string;
   blocked?: boolean;
   verification_report?: string;
   scorer_results?: Record<string, unknown>;
-  start_time?: string;
+  started_at?: string;
   finished_at?: string;
 };
 
@@ -146,7 +167,7 @@ export type TaskRuntimeShipState = {
   archive?: string;
   archive_path?: string;
   archive_error?: string;
-  start_time?: string;
+  started_at?: string;
   finished_at?: string;
 };
 
@@ -568,7 +589,7 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
       specify: {
         intention_path: '',
         status: '',
-        start_time: '',
+        started_at: '',
         finished_at: '',
       },
       plan: {
@@ -581,12 +602,12 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
         review_report: '',
         outside_voice: '',
         outside_voice_report: '',
-        start_time: '',
+        started_at: '',
         finished_at: '',
         review: {
           skipped: true,
           round: 0,
-          start_time: '',
+          started_at: '',
           finished_at: '',
         },
       },
@@ -597,7 +618,7 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
         outside_voice: '',
         outside_voice_report: '',
         draft_dir: '',
-        start_time: '',
+        started_at: '',
         finished_at: '',
       },
       tasks: {
@@ -608,7 +629,7 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
         review_report: '',
         outside_voice: '',
         outside_voice_report: '',
-        start_time: '',
+        started_at: '',
         finished_at: '',
       },
       build: {
@@ -622,7 +643,7 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
         current_task: '',
         total_tasks: 0,
         completed_tasks: 0,
-        start_time: '',
+        started_at: '',
         finished_at: '',
       },
       verify: {
@@ -635,7 +656,7 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
         blocked: false,
         verification_report: '',
         scorer_results: {},
-        start_time: '',
+        started_at: '',
         finished_at: '',
       },
       ship: {
@@ -647,7 +668,7 @@ export function createDefaultTaskState(options: CreateDefaultTaskStateOptions = 
         archive: '',
         archive_path: '',
         archive_error: '',
-        start_time: '',
+        started_at: '',
         finished_at: '',
       },
       deepread: {

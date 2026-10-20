@@ -45,3 +45,7 @@
 - 测试族固定 `testing`（不可改 test）；coding 族 12 技能。
 - 本机 BSD grep 不支持 `\|`；用 Grep 工具。用户用 Typora 打开 docs 会静默覆盖 AI 写入，写前 `lsof` 查占用。
 - `state.example.yaml` 混有用户手改，回退禁用 `git checkout`。
+
+## state.yaml 双层字段语义（2026-10-19 裁定）
+- workflow.tdd_mode/build_mode/signals = workflow 层全局决策字段，必须由技能写入（tasks Step 3 / build Step 2.1 / specify 5.4.1 + verify Step 9）；runtime 同名/相应字段（tdd_policy、runtime.build.build_mode 等）= 运行细节记录。两层并存、不裁撤；build SKILL.md「刻意不做全局 tdd_mode」表述与本裁定冲突，待批③修正。
+- 顶层 `verify_mode` = 保留且必须写入（verify 定档时与 runtime.verify.verify_mode 成对同步），模板「已废弃不读取」注释待批③改写（2026-10-19 裁定）。

@@ -1,0 +1,50 @@
+# npm 发布流水线：推送 v* tag 时自动构建并发布到 npm registry
+#
+# 前置条件: 仓库 Secrets 中配置 NPM_TOKEN（npm automation token，无 2FA 触发要求）。
+# 发版动作: 更新 package.json version → 打 tag（如 v0.1.3）→ push tag。
+
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      # Dashboard 前端是独立的 npm 子工程（自带 lockfile，不参与 pnpm workspace），
+      # `pnpm run build` 的 vite 步骤依赖它，与 ci.yml 保持一致。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install dashboard deps
+        run: npm --prefix dashboard ci
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Publish
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

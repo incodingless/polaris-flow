@@ -227,11 +227,13 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set complexity_level=<trivial|standard|critical> \
   --set risk_level=<trivial|standard|critical> \
-  --set current_tier=<两轴取较高档>
+  --set current_tier=<两轴取较高档> \
+  --set 'workflow.signals=["<命中信号编号>",...]'
 ```
 
 - 档位定义与方向见 `./policies/risk-signals.md` §1；信号见 §4（需求侧重点 `D2` / `D6` / `D7`）；合成见 §6
 - `current_tier = max(complexity_level, risk_level)`（升档门优先）
+- `workflow.signals` = 本次初判命中的信号编号 / glob 片段（JSON 数组字面量；无命中写 `[]`）——全局决策记录，verify Step 9 复核后覆盖更新
 - **只初判不代决**：本步只把档位**落盘**；需要用户拍板的是下一步（**5.5 的出口判档**），本步不得代选
 - 输出判定依据（命中信号编号，如 `D6,D7`），随 5.6 状态行一并呈现
 
@@ -264,8 +266,15 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
-  --set workflow.mode=<目标档>
+  --set workflow.mode=<目标档> \
+  --set workflow.status=<upgraded|downgraded> \
+  --set workflow.upgrade_reason=<命中信号编号；降档时留空> \
+  --set workflow.upgrade_target=<目标档；降档时留空> \
+  --set workflow.downgrade_reason=<命中降档门编号；升档时留空> \
+  --set workflow.downgrade_target=<目标档；升档时留空>
 ```
+
+- ⚠️ **留痕成对写入**：升档 → `status=upgraded` + `upgrade_reason`/`upgrade_target`；降档 → `status=downgraded` + `downgrade_reason`/`downgrade_target`。档位未变则六项全部不写。
 
 ⚠️ 用户不同意 → **保持当前档**，不写。（判定与理由一并落 5.6 状态行，便于回溯。）
 

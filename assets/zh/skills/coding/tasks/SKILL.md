@@ -132,13 +132,15 @@ mv "$REPO_ROOT/.polaris/tasks/<task_id>/intention.md" \
 ```
 
 - 与 `plan` Step 3.5 **同构**：迁入后 `.polaris` 侧**不再保留副本**，避免两份漂移
-- 用脚本同步 intention 路径字段（与 `plan` Step 4.5 同构）：
+- 用脚本同步 intention 路径字段（与 `plan` Step 4.5 同构）；`--set` 与上面 `mv` **成对执行，不得只做其一**：
 
   ```bash
   bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
     --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
     --set runtime.specify.intention_path=openspec/changes/<task_id>/intention.md
   ```
+
+  执行后核对：state 中 `runtime.specify.intention_path` 已为 openspec 新路径。
 - 输出：`[polaris-flow 开发]任务规划: intention moved to openspec/changes/<task_id>/intention.md（tweak 档无 plan，本步补建目录）`
 
 #### 2.1 必读全文（勿用摘要替代；读完再进入 Step 3）
@@ -184,8 +186,11 @@ mv "$REPO_ROOT/.polaris/tasks/<task_id>/intention.md" \
 ```bash
 bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
-  --set runtime.tasks.tdd_policy=<prefer_tdd|require_tdd|prefer_direct>
+  --set runtime.tasks.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \
+  --set workflow.tdd_mode=<同 tdd_policy 值>
 ```
+
+- ⚠️ `workflow.tdd_mode` = 全局决策记录（本步为**唯一写点**，与 `runtime.tasks.tdd_policy` 单向同步）；build 及后续阶段**只写不读**，每个 task 是否 TDD 仍由 `tasks.md` HTML 注释决定。
 
 输出：`[polaris-flow 开发]任务规划: tdd_policy=<值>`
 
@@ -433,12 +438,16 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.tasks.status=completed \
   --set runtime.tasks.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \
+  --set workflow.tdd_mode=<同 tdd_policy 值> \
   --set runtime.tasks.tasks_path=openspec/changes/<task_id>/tasks.md \
   --set runtime.tasks.review_report=openspec/changes/<task_id>/reviews/tasks-review-report.md \
-  --set "runtime.tasks.outside_voice=<ran|skipped:<reason>>"
+  --set runtime.tasks.plan_review_status=<completed|skipped:<reason>> \
+  --set "runtime.tasks.outside_voice=<ran|skipped:<reason>>" \
+  --set runtime.tasks.outside_voice_report=openspec/changes/<task_id>/reviews/openspec-review-report.md
 ```
 
-- ⚠️ **`tweak` 档**：`review_report` 写 `—`、`outside_voice` 写 `skipped:tweak 档豁免独立主审`（Step 7 本档豁免）；
+- ⚠️ `outside_voice` 与 `outside_voice_report` **成对写入**（与 plan Step 6 / design Step 5 同构）：`outside_voice=ran` 时 report 必须为实际报告路径，不得留空。
+- ⚠️ **`tweak` 档**：`review_report` 写 `—`、`plan_review_status` 写 `skipped:tweak 档豁免独立主审`、`outside_voice` 写 `skipped:tweak 档豁免独立主审`、`outside_voice_report` 写 `—`（Step 7 本档豁免）；
   `STATUS` 恒为 `DONE`（无评审结论）。
 
 输出：

@@ -83,8 +83,7 @@ workflow:
   # 升档原因（命中的信号编号，如 "U1,U5" 或 "D2,D4"）
   upgrade_reason: ""
   
-  # 升档目标，可选值: normal-需求开发 | design-深度设计
-  # tweak 可升到 normal 或 design；strict 只升到 design
+  # 升档目标（与 workflow.mode 同值域），可选值: normal-常规 | strict-深度
   upgrade_target: ""
   
   # 完成时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
@@ -96,9 +95,8 @@ artifact_review_mode: "per_batch"
 # 制品审查最大轮次，默认5轮。
 artifact_max_round: 5
 
-# 验证模式（⚠️ 已废弃：顶层留值仅为历史兼容，polaris 不再读取本键）
-# 唯一来源: runtime.verify.verify_mode（取值 light-轻量验证 | full-完整验证）
-# 保留原因：src/core/config/task-state.ts 仍会默认生成顶层 verify_mode；清理需单独一轮
+# 验证模式（全局快照；verify Step 9 定档 / Step 17 落盘时与 runtime.verify.verify_mode 成对写入）
+# 取值: light-轻量验证 | full-完整验证；读取以 runtime.verify.verify_mode 为唯一来源
 verify_mode: "light"
 
 # 自动过渡
@@ -150,7 +148,7 @@ runtime:
     status: ""
 
     # 开始时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-    start_time: ""
+    started_at: ""
 
     # 完成时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
     finished_at: ""
@@ -185,7 +183,7 @@ runtime:
     outside_voice_report: ""
     
     # 开始时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-    start_time: ""
+    started_at: ""
     
     # 完成时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
     finished_at: ""
@@ -199,7 +197,7 @@ runtime:
       round: 0
     
       # 开始时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-      start_time: ""
+      started_at: ""
     
       # 完成时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
       finished_at: ""
@@ -219,7 +217,7 @@ runtime:
     outside_voice: ""
     
     # 开始时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-    start_time: ""
+    started_at: ""
     
     # 完成时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ  
     finished_at: ""
@@ -242,7 +240,7 @@ runtime:
     outside_voice_report: ""
 
     # 开始时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-    start_time: ""
+    started_at: ""
     # 完成时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
     finished_at: ""
 
@@ -270,7 +268,13 @@ runtime:
     
     # 当前任务，可选值: openspec/changes/<change_id>/tasks/<task_id>.md
     current_task: ""
-    
+
+    # 宪法例外（constitution.md 缺失/无效且用户批准继续时记录），可选值: <原因>_user_approved_skip
+    constitution_exception: ""
+
+    # 用户批准的风险接受（Step 5 审查 decision-point B），可选值: <被跳过项>_user_approved
+    override: ""
+
     # 总任务数，可选值: 0
     total_tasks: 0
     
@@ -278,7 +282,7 @@ runtime:
     completed_tasks: 0
 
     # 开始时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-    start_time: ""
+    started_at: ""
     
     # 完成时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
     finished_at: ""
@@ -288,10 +292,13 @@ runtime:
     # 状态，可选值: in_progress-进行中 | completed-完成 | failed-失败 | skipped-跳过
     status: ""
 
-    # 验证模式，可选值: light-轻量验证 | full-完整验证
+    # 验证模式，可选值: light-轻量验证 | full-完整验证（与顶层 verify_mode 成对写入）
     verify_mode: ""
-    
-    # 宪法合规（constitution 子规则逐条合规结果），可选值: true-合规 | false-不合规
+
+    # 风险升档原因（Step 9 复核上调时记命中的信号编号 / glob 片段；未上调留空）
+    risk_escalation_reason: ""
+
+    # 宪法合规（逐条结果，与 constitution_valid 成对写入），可选值: pass-合规 | violations:<N>-违规N条 | skipped:<reason>-跳过
     constitution_compliance: ""
     
     # 宪法整体合规（聚合判定），可选值: true-合规 | false-不合规
@@ -308,12 +315,34 @@ runtime:
     
     # 验证报告，可选值: openspec/changes/<change_id>/reviews/verify-report.md
     verification_report: ""
-    
+
+    # 构建/测试命令（探测或确认后回写）
+    build_command: ""
+    test_command: ""
+
+    # 代码评审回报状态，可选值: done-完成 | degraded_inline-降级内联 | skipped:off-关闭而跳过 | skipped:no_independent_reviewer-无独立评审者
+    codereview_status: ""
+
+    # 代码评审报告，可选值: openspec/changes/<change_id>/reviews/code-review-report.md
+    codereview_report: ""
+
+    # 测试结果，可选值: passed-通过 | failed-失败 | no_verification-未验证
+    test_result: ""
+
+    # 实际执行的测试槽位（逗号分隔，如 unit,contract,integration）
+    test_slots: ""
+
+    # 业务语义确认，可选值: confirmed-已确认 | skipped_by_user-用户跳过
+    semantics_review: ""
+
+    # 语义确认跳过原因（semantics_review=skipped_by_user 时填写）
+    semantics_skip_reason: ""
+
     # 评分器结果，可选值: {}
     scorer_results: {}
 
     # 开始时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-    start_time: ""
+    started_at: ""
     
     # 完成时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
     finished_at: ""
@@ -344,7 +373,7 @@ runtime:
     archive_error: ""
 
     # 开始时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
-    start_time: ""
+    started_at: ""
     
     # 完成时间，格式: YYYY-MM-DDTHH:MM:SS.SSSZ
     finished_at: ""

@@ -1,5 +1,5 @@
 {
-  "name": "@polaris/polaris-flow",
+  "name": "polaris-flow",
   "version": "0.1.2",
   "description": "All-in-one Polaris workflow platform: install, OpenSpec schema, skills, and dashboard for AI coding environments",
   "keywords": [
@@ -12,9 +12,6 @@
   ],
   "license": "MIT",
   "type": "module",
-  "publishConfig": {
-    "access": "public"
-  },
   "bin": {
     "polaris": "./bin/polaris.js",
     "polaris-flow": "./bin/polaris-flow.js"
