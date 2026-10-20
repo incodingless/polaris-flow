@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- **hook 提示语不再写 /dev/tty**: `_polaris-cli.sh` 的 `_polaris_cli_tty` 原本优先向 `/dev/tty` 直写「polaris-flow CLI not found」等提示（宿主吞 stderr 时保证用户可见），但终端环境跑集成测试时子进程继承控制终端，消息绕过 stdout/stderr 导致 `session-start-sh.integration` 断言空字符串——两类场景无法区分。改为恒写 stderr（函数更名 `_polaris_cli_msg`），与测试契约一致、行为可测
 - **`constitution_compliance` 模板值域对齐**: `state.example.yaml` 原注释声明 `true|false`，与 verify 技能实际写入的 `pass|violations:<N>|skipped:<reason>` 冲突（后者才能承载「文件缺失 + 用户批准跳过」的显式语义，与 build 段 `constitution_exception` 口径一致）——模板注释改为按实际值域声明
 
 > 技能侧写点（`assets/zh/skills/coding/**` 的 workflow 全局字段同步、升降档留痕、plan 主审嵌套块等，见 `zh-skills-state-audit-cs-foundation.md` §4 批②③）按双语言约定，待英文同步后补记本 Changelog。

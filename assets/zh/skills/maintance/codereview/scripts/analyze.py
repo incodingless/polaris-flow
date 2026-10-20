@@ -6,8 +6,9 @@
 相比正则版（analyze.sh）的核心改进：
   1. 基于 AST 结构分析，而非字符串匹配，大幅减少误报；
   2. 精确判断 subprocess 的 shell=True（不再误报 shell=False 的安全写法）；
-  3. 新增函数级指标：函数行数、圈复杂度、嵌套深度；
-  4. 检测未使用函数/导入（死代码）。
+  3. 新增函数级指标：函数行数、圈复杂度、嵌套深度、参数个数；
+  4. 检测未使用函数/导入（死代码）；
+  5. 文件级指标：超大文件行数（阈值单源在 code-smells.md）。
 
 用法:
   python3 analyze.py [目标路径] [--diff] [--maxdepth N] [--maxfiles N] [--json]
@@ -24,9 +25,10 @@ from pathlib import Path
 
 # ==================== 阈值常量 ====================
 LONG_FUNC_LINES = 100      # 超长函数行数阈值（与 code-smells.md 一致）
-LARGE_FILE_LINES = 500     # 超大文件行数阈值
+LARGE_FILE_LINES = 1000    # 超大文件行数阈值（与 code-smells.md 一致，单源在 code-smells）
 MAX_NESTING = 5            # 最大嵌套深度（与 code-smells.md 一致）
 MAX_COMPLEXITY = 10        # 圈复杂度阈值
+MAX_PARAMS = 5             # 长参数列表阈值（与 code-smells.md 一致，单源在 code-smells）
 EXCLUDE_DIRS = {
     '.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build',
     'vendor', 'target', '.next', 'coverage', '.idea', '.vscode', 'site-packages',
@@ -270,6 +272,9 @@ class FunctionAnalyzer(ast.NodeVisitor):
     def _check(self, node):
         lines = line_end(node) - node.lineno + 1
         cx = self._complexity(node)
+        nparams = len(node.args.posonlyargs) + len(node.args.args) \
+            + len(node.args.kwonlyargs) \
+            + (1 if node.args.vararg else 0) + (1 if node.args.kwarg else 0)
         if lines > LONG_FUNC_LINES:
             self.col.add(
                 'minor', 'maintainability', f'超长函数 {node.name}()', self.path,
@@ -280,6 +285,11 @@ class FunctionAnalyzer(ast.NodeVisitor):
                 'minor', 'maintainability', f'复杂度过高 {node.name}()', self.path,
                 node.lineno, f'圈复杂度 {cx}，超过 {MAX_COMPLEXITY}，难以理解和测试',
                 '拆分条件分支、提取子函数或使用查表法降低复杂度')
+        if nparams > MAX_PARAMS:
+            self.col.add(
+                'minor', 'maintainability', f'长参数列表 {node.name}()', self.path,
+                node.lineno, f'函数 {nparams} 个参数，超过 {MAX_PARAMS} 个，调用易错且难以维护',
+                '封装为参数对象（dataclass/dict），或拆分函数职责')
 
 
 class NestingDetector(ast.NodeVisitor):

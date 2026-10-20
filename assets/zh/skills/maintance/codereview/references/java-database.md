@@ -9,34 +9,40 @@
 
 ## 检查项清单（19 条）
 
+> **分工声明（三档归属）**：本清单检查项按《CodeReview核心分工原则》三档归属——**规则层**（DB-01、06、09、11~17）：Sonar/脚本可判定，AI 只引用结论不逐条复扫；**重叠**（DB-02、04、05）：规则检出即定论，AI 只解释成因与补佐证，静态边界为「部分可审」的按 rubric 不计分；**AI 主导**（DB-03、07、08、10、18、19）：规则做不了，AI 逐项核查。语义面与 AI 主导条目的审查指引见 `ai-checklist.md`。
+>
+> **加载条件**：本文件属**规则对照组**，日常精读不加载（日常精读用 `ai-checklist.md`）。加载时机：① Sonar 经用户确认跳过后的 AI 兜底核查；② 规则误报申诉核对；③ 重叠项佐证核对。
+>
+> **编号约定**：本清单编号 `DB-01`～`DB-19`（数据库操作 DB-01～09，事务管理 DB-10～19），供报告「违反约定」字段与记录格式引用；判定文字与严重度以本表为准。
+
 ### 数据库操作（9 条）
 
-| 关注点 | 严重度 |
-|--------|--------|
-| 无 WHERE 的 UPDATE/DELETE（或条件可被绕过） | Critical |
-| `IN` 参数过多（如 >1000 需分批） | Major |
-| 不必要嵌套/关联、可下推的条件未下推 | Major |
-| 未使用连接池 / 池参数未按环境调优 | Major |
-| 大表全量拉取、未分页 | Major |
-| `SELECT *`、宽行浪费 | Minor |
-| 不必要 DB 函数、可应用层完成的计算 | Minor |
-| 物理删除 vs 业务要求的逻辑删除 | Minor |
-| 表结构、字段类型、索引与查询模式是否匹配 | Minor |
+| 编号 | 关注点 | 严重度 |
+|--------|--------|--------|
+| DB-01 | 无 WHERE 的 UPDATE/DELETE（或条件可被绕过） | Critical |
+| DB-02 | `IN` 参数过多（如 >1000 需分批） | Major |
+| DB-03 | 不必要嵌套/关联、可下推的条件未下推 | Major |
+| DB-04 | 未使用连接池 / 池参数未按环境调优 | Major |
+| DB-05 | 大表全量拉取、未分页 | Major |
+| DB-06 | `SELECT *`、宽行浪费 | Minor |
+| DB-07 | 不必要 DB 函数、可应用层完成的计算 | Minor |
+| DB-08 | 物理删除 vs 业务要求的逻辑删除 | Minor |
+| DB-09 | 表结构、字段类型、索引与查询模式是否匹配 | Minor |
 
 ### 事务管理（10 条）
 
-| 关注点 | 严重度 |
-|--------|--------|
-| 该原子化的多写操作未包事务 | Critical |
-| 在类上大面积 `@Transactional` | Major |
-| 在 Controller 加事务 | Major |
-| 写库相关 `@Transactional` 未显式 `rollbackFor = Exception.class` | Major |
-| 同类 `this` 自调用带 `@Transactional` 的方法，未经过 Spring 代理 | Major |
-| `@Transactional` 打在非 `public` 或 `static` 方法上 | Major |
-| 方法内 `try/catch` 吞掉异常或未再抛出，切面按正常路径提交 | Major |
-| 带事务逻辑的类未被 Spring 托管（`new` / 非 Bean） | Major |
-| 跨服务多写：仅本地事务却假设全局原子 | Minor |
-| `@Async` / 消息监听 / 线程池任务中的事务边界 | Minor |
+| 编号 | 关注点 | 严重度 |
+|--------|--------|--------|
+| DB-10 | 该原子化的多写操作未包事务 | Critical |
+| DB-11 | 在类上大面积 `@Transactional` | Major |
+| DB-12 | 在 Controller 加事务 | Major |
+| DB-13 | 写库相关 `@Transactional` 未显式 `rollbackFor = Exception.class` | Major |
+| DB-14 | 同类 `this` 自调用带 `@Transactional` 的方法，未经过 Spring 代理 | Major |
+| DB-15 | `@Transactional` 打在非 `public` 或 `static` 方法上 | Major |
+| DB-16 | 方法内 `try/catch` 吞掉异常或未再抛出，切面按正常路径提交 | Major |
+| DB-17 | 带事务逻辑的类未被 Spring 托管（`new` / 非 Bean） | Major |
+| DB-18 | 跨服务多写：仅本地事务却假设全局原子 | Minor |
+| DB-19 | `@Async` / 消息监听 / 线程池任务中的事务边界 | Minor |
 
 ---
 

@@ -75,83 +75,89 @@
 
 ## 二、Web 与网络安全清单（OWASP，语言无关）
 
+> **分工声明（三档归属）**：本清单检查项按《CodeReview核心分工原则》三档归属——**规则层**（SEC-01~05、07~09、15~16、19~28、30、32~36；§三 SEC-F02~F04）：Sonar/脚本可判定，AI 只引用结论不逐条复扫；**重叠**（SEC-06、11、14、17、29、31；§三 SEC-F01）：规则检出即定论，AI 只解释成因与补佐证，静态边界为「部分可审」的按 rubric 不计分；**AI 主导**（SEC-10、12、13、18）：规则做不了，AI 逐项核查。语义面与 AI 主导条目的审查指引见 `ai-checklist.md`。
+>
+> **加载条件**：本文件属**规则对照组**，日常精读不加载（日常精读用 `ai-checklist.md`）。加载时机：① Sonar 经用户确认跳过后的 AI 兜底核查；② 规则误报申诉核对；③ 重叠项佐证核对。
+>
 > **规则与语言无关**：括号内的 API 是常见信号（示例以 Java/Spring 为主），其他语言按同一规则判、换用本语言对应的 API 与配置。命中项以本段严重度为准；Java/Spring **框架特有**的检查项收在 §三，本节不重复。
+>
+> **编号约定**：§二 检查项编号 `SEC-01`～`SEC-36`（按组连续），§三 编号 `SEC-F01`～`SEC-F04`；§一 入口速查不编号，引用时一律指向 §二/§三 编号。编号供报告「违反约定」字段与记录格式引用，判定文字与严重度以本表为准。
 
 ### 1. 各类注入 & 反序列化（外部输入解析执行风险）
 
-| 关注点 | 严重度 |
-|---|---|
-| SQL 注入：字符串拼接 SQL、动态 SQL / 模板占位未绑定参数（如 MyBatis `${}`） | Critical |
-| XML/XXE 注入：未禁用外部实体 | Critical |
-| 命令注入：不可信输入拼进系统命令（`Runtime.exec` / `ProcessBuilder`、`os.system` / `child_process.exec`） | Critical |
-| LDAP/XPath/ 模板 / 表达式（SpEL 等）注入 —— 按技术栈启用 | Critical |
-| 反序列化漏洞：反序列化不可信数据（`ObjectInputStream`、Jackson`enableDefaultTyping`、Fastjson `autoType`、Python `pickle`） | Critical |
-| XSS：未编码输出、危险 HTML 渲染（`th:utext`、`innerHTML`） | Minor |
-| 日志注入 / 敏感信息入日志 | Minor |
-| 格式化字符串含用户输入 | Minor |
-| CRLF/HTTP 头注入 | Minor |
-| 跨信任边界输入无校验 | Minor |
+| 编号 | 关注点 | 严重度 |
+|---|---|---|
+| SEC-01 | SQL 注入：字符串拼接 SQL、动态 SQL / 模板占位未绑定参数（如 MyBatis `${}`） | Critical |
+| SEC-02 | XML/XXE 注入：未禁用外部实体 | Critical |
+| SEC-03 | 命令注入：不可信输入拼进系统命令（`Runtime.exec` / `ProcessBuilder`、`os.system` / `child_process.exec`） | Critical |
+| SEC-04 | LDAP/XPath/ 模板 / 表达式（SpEL 等）注入 —— 按技术栈启用 | Critical |
+| SEC-05 | 反序列化漏洞：反序列化不可信数据（`ObjectInputStream`、Jackson`enableDefaultTyping`、Fastjson `autoType`、Python `pickle`） | Critical |
+| SEC-06 | XSS：未编码输出、危险 HTML 渲染（`th:utext`、`innerHTML`） | Minor |
+| SEC-07 | 日志注入 / 敏感信息入日志 | Minor |
+| SEC-08 | 格式化字符串含用户输入 | Minor |
+| SEC-09 | CRLF/HTTP 头注入 | Minor |
+| SEC-10 | 跨信任边界输入无校验 | Minor |
 
 ### 2. 访问控制 & 权限越权（鉴权授权业务逻辑）
 
-| 关注点 | 严重度 |
-|---|---|
-| 接口未鉴权，或默认放行 / 白名单过宽（如 `permitAll("/**")`） | Critical |
-| 水平 / 垂直越权：仅信前端或参数 role | Critical |
-| IDOR：资源 ID 来自请求且无归属校验 | Critical |
-| CSRF 防护缺失或全局关闭 | Minor |
+| 编号 | 关注点 | 严重度 |
+|---|---|---|
+| SEC-11 | 接口未鉴权，或默认放行 / 白名单过宽（如 `permitAll("/**")`） | Critical |
+| SEC-12 | 水平 / 垂直越权：仅信前端或参数 role | Critical |
+| SEC-13 | IDOR：资源 ID 来自请求且无归属校验 | Critical |
+| SEC-14 | CSRF 防护缺失或全局关闭 | Minor |
 
 ### 3. 文件、上传下载与压缩（本地文件资源攻击面）
 
-| 关注点 | 严重度 |
-|---|---|
-| 路径遍历：`../`、未 normalize | Critical |
-| Zip Slip：解压未校验 entry 路径与压缩比 | Critical |
-| 上传：无类型 / 大小校验、文件名直用 | Critical |
-| 下载：未鉴权、路径用户可控 | Critical |
-| 临时文件未删除 | Nit |
+| 编号 | 关注点 | 严重度 |
+|---|---|---|
+| SEC-15 | 路径遍历：`../`、未 normalize | Critical |
+| SEC-16 | Zip Slip：解压未校验 entry 路径与压缩比 | Critical |
+| SEC-17 | 上传：无类型 / 大小校验、文件名直用 | Critical |
+| SEC-18 | 下载：未鉴权、路径用户可控 | Critical |
+| SEC-19 | 临时文件未删除 | Nit |
 
 ### 4. 加密、密钥与随机数（密码学风险域）
 
-| 关注点 | 严重度 |
-|---|---|
-| 硬编码口令 / 密钥 / Token | Critical |
-| 弱算法 DES/MD5/SHA1 用于口令或完整性 | Critical |
-| 口令存储无 salt / 未用 BCrypt/Argon2 | Critical |
-| 弱随机数生成会话 / 验证码 | Critical |
-| 明文 Socket 传敏感数据 | Minor |
-| 禁用证书校验 / TrustAll | Minor |
+| 编号 | 关注点 | 严重度 |
+|---|---|---|
+| SEC-20 | 硬编码口令 / 密钥 / Token | Critical |
+| SEC-21 | 弱算法 DES/MD5/SHA1 用于口令或完整性 | Critical |
+| SEC-22 | 口令存储无 salt / 未用 BCrypt/Argon2 | Critical |
+| SEC-23 | 弱随机数生成会话 / 验证码 | Critical |
+| SEC-24 | 明文 Socket 传敏感数据 | Minor |
+| SEC-25 | 禁用证书校验 / TrustAll | Minor |
 
 ### 5. 会话 & Cookie（客户端身份凭证管理）
 
-| 关注点 | 严重度 |
-|---|---|
-| Cookie 未设 HttpOnly | Minor |
-| Cookie 未设 Secure | Minor |
-| Session 超时异常或未在登录后轮换 | Minor |
+| 编号 | 关注点 | 严重度 |
+|---|---|---|
+| SEC-26 | Cookie 未设 HttpOnly | Minor |
+| SEC-27 | Cookie 未设 Secure | Minor |
+| SEC-28 | Session 超时异常或未在登录后轮换 | Minor |
 
 ### 6. 错误处理 & 信息泄露（返回响应侧泄露内部信息）
 
-| 关注点 | 严重度 |
-|---|---|
-| 异常栈 / 内部路径返回客户端 | Critical |
-| 响应中泄露版本号、物理路径 | Minor |
+| 编号 | 关注点 | 严重度 |
+|---|---|---|
+| SEC-29 | 异常栈 / 内部路径返回客户端 | Critical |
+| SEC-30 | 响应中泄露版本号、物理路径 | Minor |
 
 ### 7. 网络外部请求与跨域（对外发起请求、HTTP 安全配置）
 
-| 关注点 | 严重度 |
-|---|---|
-| SSRF：服务端请求用户可控 URL | Critical |
-| 开放重定向 | Minor |
-| CORS 过宽（`Access-Control-Allow-Origin: *`） | Minor |
-| 不安全 HTTP 方法 PUT/DELETE 匿名可访问 | Minor |
+| 编号 | 关注点 | 严重度 |
+|---|---|---|
+| SEC-31 | SSRF：服务端请求用户可控 URL | Critical |
+| SEC-32 | 开放重定向 | Minor |
+| SEC-33 | CORS 过宽（`Access-Control-Allow-Origin: *`） | Minor |
+| SEC-34 | 不安全 HTTP 方法 PUT/DELETE 匿名可访问 | Minor |
 
 ### 8. 运行环境与进程（应用运行时环境风险）
 
-| 关注点 | 严重度 |
-|---|---|
-| 信任环境变量未校验 | Minor |
-| 外部进程阻塞无超时 | Nit |
+| 编号 | 关注点 | 严重度 |
+|---|---|---|
+| SEC-35 | 信任环境变量未校验 | Minor |
+| SEC-36 | 外部进程阻塞无超时 | Nit |
 
 ### 正反例（用于快速对照）
 
@@ -369,7 +375,7 @@ if (!filePath.startsWith(basePath)) throw ...;          // 路径遍历防护
 | **部分可审** | CSRF（需确认认证方式）、XSS（需渲染上下文）、上传（需部署目录配置）、SSRF（需网络层）、文件权限、Session 轮换（需流程） |
 | **不可审（仅提示）** | 暴力破解防护、用户名枚举、会话固定、密码明文传输（需抓包）、Slow HTTP、逻辑漏洞（需设计评审） |
 
-对「部分可审」项标为高危可疑并注明「需配置/运行时佐证」；对「不可审」项输出「需渗透/运维/人工」提示，不报假阳性。
+对「部分可审」项标为高危可疑并注明「需配置/运行时佐证」；对「不可审」项输出「需渗透/运维/人工」提示，不报假阳性。「部分可审」项按 `review-rubric.md` §评分与结论的计分排除规则**不计入总体评分与合并建议**，报告单列「待人工确认」。
 
 ### 快速决策提示
 
@@ -382,7 +388,7 @@ if (!filePath.startsWith(basePath)) throw ...;          // 路径遍历防护
 - **「XSS 有吗」**：`th:utext` / HTML 拼用户输入 → Minor。
 - **「CORS 过宽吗」**：`allowedOrigins("*")` → Minor。
 - **「SSRF 可能吗」**：`RestTemplate` URL 来自参数 → Critical。
-- **检查项外发现**：不属于 §二 36 条 / §三 4 条但确属高危的安全问题（新型漏洞、框架特有缺陷、业务逻辑漏洞），也必须报出，标注「检查项外发现」并说明判定依据，不得因不在清单中而忽略。
+- **检查项外发现**：不属于 §二 编号段（SEC-01～SEC-36）/ §三 编号段（SEC-F01～SEC-F04）但确属高危的安全问题（新型漏洞、框架特有缺陷、业务逻辑漏洞），也必须报出，标注「检查项外发现」并说明判定依据，不得因不在清单中而忽略。
 
 ---
 
@@ -392,12 +398,12 @@ if (!filePath.startsWith(basePath)) throw ...;          // 路径遍历防护
 
 ### 检查项清单
 
-| 关注点 | 严重度 |
-|--------|--------|
-| 写操作缺少方法级权限注解（`@PreAuthorize`/`@Secured`），仅靠 URL 层规则兜底 | Minor |
-| Actuator/Swagger 生产暴露（`include: *`、无 `@Profile` 限制） | Critical |
-| JMX / 远程监控端点无认证（如 `spring.boot.admin`） | Minor |
-| 生产 Profile 仍启用 H2 Console、debug 端点 | Minor |
+| 编号 | 关注点 | 严重度 |
+|--------|--------|--------|
+| SEC-F01 | 写操作缺少方法级权限注解（`@PreAuthorize`/`@Secured`），仅靠 URL 层规则兜底 | Minor |
+| SEC-F02 | Actuator/Swagger 生产暴露（`include: *`、无 `@Profile` 限制） | Critical |
+| SEC-F03 | JMX / 远程监控端点无认证（如 `spring.boot.admin`） | Minor |
+| SEC-F04 | 生产 Profile 仍启用 H2 Console、debug 端点 | Minor |
 
 ### 正反例
 
@@ -425,14 +431,15 @@ if (!filePath.startsWith(basePath)) throw ...;          // 路径遍历防护
 
 ## 检查结果记录格式
 
-`§一` / `§二` / `§三` 命中项统一按以下格式记录，供报告引用：
+`§一` / `§二` / `§三` 命中项统一按以下格式记录，供报告引用（编号取 §二/§三 检查项编号；`§一` 速查命中或检查项外发现无编号时省略编号段）：
 
 ```
-[类别] 位置（文件:行） - 具体模式描述 - 建议严重级别
+[类别·编号] 位置（文件:行） - 具体模式描述 - 建议严重级别
 ```
 
 示例：
 ```
-[注入类] src/user.js:42 - SQL 语句通过字符串拼接用户输入 - Critical
-[敏感信息] config.py:7 - 硬编码数据库密码 - Critical
+[注入类·SEC-01] src/user.js:42 - SQL 语句通过字符串拼接用户输入 - Critical
+[敏感信息·SEC-20] config.py:7 - 硬编码数据库密码 - Critical
+[检查项外] src/order.js:18 - 业务规则缺陷：退款金额未校验负数 - Major
 ```
