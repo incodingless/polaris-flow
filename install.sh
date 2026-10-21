@@ -2,10 +2,11 @@
 # Polaris Flow 一键安装脚本（用户侧分发入口）
 #
 # 用法:
-#   curl -fsSL https://raw.githubusercontent.com/incodingless/polaris-flow/main/install.sh | bash
+#   bash install.sh
 #
-# 内网私服场景（脚本内容与托管平台解耦，同一份脚本两端通用）:
-#   NPM_REGISTRY=https://nexus.example.com/repository/npm-public/ bash install.sh
+# 默认从公司内网 Nexus 聚合仓库安装（npm-group：内部包 + 公网 npm 代理）。
+# 需要换源时用环境变量覆盖:
+#   NPM_REGISTRY=https://registry.npmjs.org bash install.sh
 #
 # 职责: 校验环境（node >= 20 + npm）→ 全局安装 npm 包 polaris-flow → 引导 polaris init。
 # 兼容 macOS / Linux / Windows Git Bash。
@@ -14,6 +15,9 @@ set -euo pipefail
 
 PACKAGE_NAME="polaris-flow"
 MIN_NODE_MAJOR=20
+# 内网 Nexus 聚合仓库（Nexus 2 路径格式：/nexus/content/groups/<repoId>/）
+DEFAULT_REGISTRY="http://192.168.2.96:8081/nexus/content/groups/npm-group/"
+REGISTRY="${NPM_REGISTRY:-$DEFAULT_REGISTRY}"
 
 info() { echo "==> $*"; }
 err() { echo "error: $*" >&2; }
@@ -41,12 +45,8 @@ command -v npm >/dev/null 2>&1 || {
 }
 
 info "Installing ${PACKAGE_NAME} via npm"
-if [ -n "${NPM_REGISTRY:-}" ]; then
-  info "Using registry: ${NPM_REGISTRY}"
-  npm install -g "$PACKAGE_NAME" --registry "$NPM_REGISTRY"
-else
-  npm install -g "$PACKAGE_NAME"
-fi
+info "Using registry: ${REGISTRY}"
+npm install -g "$PACKAGE_NAME" --registry "$REGISTRY"
 
 info "Installed:"
 polaris --version

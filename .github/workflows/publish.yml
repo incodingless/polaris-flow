@@ -1,17 +1,28 @@
-# npm 发布流水线：推送 v* tag 时自动构建并发布到 npm registry
+# 发布校验流水线（本仓库托管在 GitHub 时的职责）
 #
-# 前置条件: 仓库 Secrets 中配置 NPM_TOKEN（npm automation token，无 2FA 触发要求）。
-# 发版动作: 更新 package.json version → 打 tag（如 v0.1.3）→ push tag。
+# 为什么这里不发布到 Nexus：GitHub 托管 runner 在公网，访问不到公司内网的
+# 192.168.2.96:8081。内部分发一律以内网机器手动发布为准（见 docs/发布操作指南.md 通道 A）。
+#
+# 本流水线做两件事：
+#   1. 推 v* tag 时：构建 + 密钥扫描 + 包内文件清单自检，**不发布任何包**
+#   2. 在 Actions 页手动 Run workflow 并勾选 publish_public 时：额外发布到公网 npm
+#      （公网发布才需要 NPM_TOKEN；不勾选则永远不发公网）
 
-name: Publish
+name: Release Check
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish_public:
+        description: '同时发布到公网 npm（需已配置 NPM_TOKEN）'
+        type: boolean
+        default: false
 
 jobs:
-  publish:
+  check:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,7 +36,6 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
 
       # Dashboard 前端是独立的 npm 子工程（自带 lockfile，不参与 pnpm workspace），
       # `pnpm run build` 的 vite 步骤依赖它，与 ci.yml 保持一致。
@@ -44,7 +54,18 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      - name: Publish
-        run: npm publish
+      - name: 密钥扫描
+        run: node scripts/prepublish-check.js
+
+      # --ignore-scripts：上面已显式构建，这里只要文件清单，避免 prepare 重复构建
+      - name: 检查包内文件清单
+        run: npm pack --dry-run --ignore-scripts
+
+      # 唯一会发包的分支：手动触发 + 显式勾选
+      - name: Publish to public npm
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_public
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+          npm publish --registry https://registry.npmjs.org/
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

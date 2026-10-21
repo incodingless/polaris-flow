@@ -3,6 +3,11 @@
 ## What's Changed [0.1.2] - 2026-10-13
 ### Added
 
+- **Nexus 内网分发落地**: 公司 Nexus 2.15.1 上建好 `npm-group`（聚合）/ `npm-hosted`（发布）/ `npmjs`（公网代理）三仓库并实测可读后，把分发主路径固定为 Nexus——`install.sh` 默认 registry 指向 `npm-group`（`NPM_REGISTRY` 仍可覆盖），发布采用 Nexus 2 的 Basic 认证（`~/.npmrc` 内 `_auth=base64(user:pass)`，非 Nexus 3 的 Bearer Realm），发布指南与安装手册同步改为 Nexus 口径（含三条发布后验证命令）
+- **npm 分发与一键安装**: 包名由 `@polaris/polaris-flow` 改为裸名 `polaris-flow`（npm 上未占用，用户安装命令更短，同时移除 scoped 专用的 `publishConfig`）；新增根目录 `install.sh`（校验 node ≥ 20 与 npm → 全局安装 → 引导 `polaris init`，兼容 macOS/Linux/Git Bash）；新增 GitHub Actions `publish.yml`
+- **源码在 GitHub、分发走内网 Nexus**: 托管 runner 在公网访问不到 `192.168.2.96`，故发布动作改由内网机器手动执行（`npm publish --registry <npm-hosted>`），`publish.yml` 相应改为 `Release Check`——推 `v*` tag 只做构建 + 密钥扫描 + `npm pack --dry-run` 文件清单自检、**不发任何包**；公网 npm 发布降级为 `workflow_dispatch` 手动触发并须显式勾选 `publish_public`（默认 false，杜绝推 tag 误发公网）。双平台并存方案废弃：**删除 `.gitlab-ci.yml`**（`.github/workflows/publish.yml` 成为唯一 CI），发布指南同步删掉 GitLab 相关注脚，通道 A 的「以后每次发版」改为「推 tag 校验 → 内网 checkout 该 tag 手动发布」两步
+- **安装手册**: 新增 `docs/安装手册.md`——使用者视角的完整安装文档：前置条件自查、脚本/npm 两种安装方式、`polaris init` + `doctor` 初始化、升级与卸载、常见安装故障排查表、GitHub 不通时的镜像配置指引（单源引用 README-zh）与发布前的源码安装附则
+- **发布操作指南**: 新增 `docs/发布操作指南.md`——维护者发版手册。按**通道拆分**成篇：开头对比两条通道（Nexus / 公网 npmjs）并声明「选一条走完，不混读」；第一节为与 registry 无关的共用前置（升版本、写 Changelog、自检清单、提交）；第二、三节分别是通道 A（Nexus：仓库布局、Basic 认证、手动发布、三条验证、专属报错）与通道 B（npmjs：账号与 token、包名确认、registry 校验、手动或 Actions 勾选发布、验证、专属报错）的完整平行流程；第四节撤包处置按通道标注差异（公网 72 小时限制 vs Nexus 无时限）；第五节为双通道同时发布的顺序
 - **state.yaml 孤儿键登记（cs-foundation 审计批③）**: `TaskRuntimeVerifyState` 补 9 个技能已写入但未登记的键（`risk_escalation_reason` / `codereview_status` / `codereview_report` / `build_command` / `test_command` / `test_result` / `test_slots` / `semantics_review` / `semantics_skip_reason`）；`TaskRuntimeBuildState` 补 `constitution_exception` / `override`；`state.example.yaml` 同步登记并改写顶层 `verify_mode` 注释（裁定为保留且必须写入：verify 定档时与 `runtime.verify.verify_mode` 成对写入，非废弃键）
 - **三方一致性校验修复**: `scripts/check_state_yaml_three_way.py` 的 TS 类型映射缺 `tasks` 段（`TaskRuntimeTasksState` 从未被解析），补一行后校验从基线 2 处失配转为全绿；技能侧 runtime/workflow 引用 66+11 条全部命中模板 + 类型
 
@@ -14,10 +19,6 @@
 > 技能侧写点（`assets/zh/skills/coding/**` 的 workflow 全局字段同步、升降档留痕、plan 主审嵌套块等，见 `zh-skills-state-audit-cs-foundation.md` §4 批②③）按双语言约定，待英文同步后补记本 Changelog。
 
 ### Changed
-
-- **npm 分发与一键安装**: 包名由 `@polaris/polaris-flow` 改为裸名 `polaris-flow`（npm 上未占用，用户安装命令更短，同时移除 scoped 专用的 `publishConfig`）；新增根目录 `install.sh`（校验 node ≥ 20 与 npm → `npm i -g polaris-flow` → 引导 `polaris init`，兼容 macOS/Linux/Git Bash，用户侧 `curl … | bash` 一条命令完成安装）；新增 GitHub Actions `publish.yml`（推送 `v*` tag 自动构建并发布 npm，需在仓库 Secrets 配置 `NPM_TOKEN`）
-- **安装手册**: 新增 `docs/安装手册.md`——面向使用者的完整安装文档：前置条件自查、脚本/npm 两种安装方式、`polaris init` + `doctor` 初始化、升级与卸载、五类常见安装故障排查表、GitHub 不通时的镜像配置指引（单源引用 README-zh，不复制细节）与发布前的源码安装附则
-- **内网 GitLab 适配**: `install.sh` 新增可选 `NPM_REGISTRY` 环境变量（指向公司私服时以 `--registry` 安装，缺省行为不变，一份脚本两端通用）；新增 `.gitlab-ci.yml`（推 `v*` tag 自动构建发布，与 GitHub Actions `publish.yml` 共存互不干扰，私服地址留 TODO 待填）；安装手册补「内网环境」一节与私有仓库 curl 拉不到脚本的排查项
 
 - **`task-entry` 原语**: 新增 `polaris-flow task-entry --kind coding --as <技能> --mode <档>`，一次调用返回 `resume` / `handover` / `create` / `select` / `resolve-drafts` / `block` —— 把「选任务 → 判阶段 →（必要时）建任务」收敛成一条命令，判定全部留在代码里；新建时一步完成建目录 + 写 `workflow.mode` + 注册游标。`--mode` **只在新建时被写入**，判定阶段一律用任务**自己** `state.yaml` 里的值（工作流不被入口假设）
 - **共享 policy `assets/zh/policies/task-entry.md`**: coding 三入口技能共用的「进入任务」流程。含刻意不放进命令的破坏性 / 需裁决分支（§5：孤儿 draft 的 A/B/C/D、「丢弃并新建」）。⚠️ **2026-10-14 已改**：执行层不再调用该原语 ⇒ 该文档**移入 `coding/intake/policies/` 成为 `intake` 私有细则**（随技能安装，不再注入其它技能）
