@@ -45,6 +45,24 @@
 - 测试族固定 `testing`（不可改 test）；coding 族 12 技能。
 - 本机 BSD grep 不支持 `\|`；用 Grep 工具。用户用 Typora 打开 docs 会静默覆盖 AI 写入，写前 `lsof` 查占用。
 - `state.example.yaml` 混有用户手改，回退禁用 `git checkout`。
+- `packageManager` 必须锁 `pnpm@10.18.3`（= 两处 workflow 的 `pnpm/action-setup` version）。改成 pnpm 12+ 会让本机 `pnpm` 直接崩：pnpm 12 入口改名 `bin/pnpm.mjs`，而 Node 自带 corepack 0.34.6 仍找 `bin/pnpm.cjs` → `prepare`(`husky && pnpm run build`) 失败 → `npm pack`/`npm publish` 全挂（报 `Cannot find module .../corepack/v1/pnpm/<ver>/bin/pnpm.cjs`）。升大版本须同时升 corepack 或独立安装 pnpm，并同步两处 workflow。
+- 写 shell：**变量后紧跟中文必须 `${VAR}`**。`"$VERSION，"` 会把全角逗号首字节吃进变量名 → `VERSION<乱码>: unbound variable`（locale 多字节）；`$BRANCH（`、`$VERSION）` 同理。
+- `git status --porcelain` 中文路径默认转义成 `\345\217...`，需 `git -c core.quotepath=false status`。
+- `.workbuddy/memory/` **被 git 跟踪**（非 ignored）；任何「工作区必须干净」的检查都要 `:(exclude).workbuddy`，否则 AI 每次写日志都会误触发。
+- `npm publish` **没有 `--force` 参数**；覆盖同版本靠 Nexus 的 Allow Redeploy（开了会静默覆盖），公网 npm 则根本不允许。
+- 发布链路：`release.sh`（根目录）= 通道 A 固化脚本；`npm publish --registry <hosted>` 前 `prepublishOnly` 会跑密钥扫描 + build。
+- ⚠️ **Nexus 2.15.1 不能承载 npm 发布（2026-10-21 实测，推翻旧结论）**：公司 `npm-hosted`/`npmjs` 的 provider 是 **maven2**（Nexus 2 官方无 npm 仓库插件，UI 的 Provider 下拉里没有 npm 选项）。`npm publish` 用 CouchDB 协议**只发一次 PUT**（packument + `_attachments` 内嵌 base64 tarball），maven2 存储把整份 JSON 存成**一个文件** `/polaris-flow`（2.1MB），**从不拆出 tarball** → `GET /polaris-flow/-/polaris-flow-0.1.2.tgz` 永远 **404**。
+  - 死锁：手工补传 tarball 到 `/polaris-flow/-/...` → **500**（`polaris-flow` 已是 leaf 文件，建不了同名目录）；删 packument 腾位置则 metadata 也没了。静态 raw 仓库同样不可行（文件/目录同名冲突）。
+  - 判据教训：**201 / `+ pkg@ver` 只证明 metadata 写入，不证明可安装**。验收必须用**全新缓存**跑 `npm pack` 或 `npm i`（`--cache <新目录> --prefer-online`），否则本机 ~/.npm 缓存会伪装成功 —— 我此前正是被缓存骗过，误判"发布闭环已通"。
+  - 可行替代：Verdaccio（动态服务，无路径冲突）或 Nexus 3。
+
+## Windows 支持（2026-10-21 裁定）
+- **bash 是硬依赖，非可选**：`assets/shared/hooks.json` 模板、`src/core/install/hooks.ts:62`（硬编码 `bash "…"`）、`doctor.ts:135`、`verify/SKILL.md` 的 scorers 调用，共 27 个 `.sh`。全仓 `grep win32|process.platform` **零结果**（无 Windows 分支）。⇒ Windows 缺 bash 时：安装与 `polaris init` 都成功、**hook 静默失效不报错**。
+- 裁定 = **A+B，不做 C**：A 文档分平台 + B 新增 `install.ps1`（`install.sh` 等价物）；C（把 hook/scorers 改写成 Node 跨平台）明确不做。理由：Git for Windows 提供的 `bash.exe` 同时解决 install 与 hook 两件事。
+- `install.ps1` 三个必须保持的约束：① 调用 `npm.cmd` 而非 `npm`（PowerShell 的 `npm`→`npm.ps1` 被执行策略拦）；② 文件必须 **UTF-8 BOM + CRLF**（PowerShell 5.1 否则按 ANSI 解析 → 中文乱码）；③ bash 缺失只警告不阻断，且区分「已装 Git 但 `bin` 不在 PATH」与「未装」。
+- PowerShell 语法坑：`-split` 单段结果 `[0]` 取首字符 → 用 `String.Split()`；`npm prefix -g` 要 `Select-Object -First 1` 再 `.Trim()`。bash 的「变量后跟中文要 `${}`」坑**不适用**于 PowerShell。
+- MAX_PATH 无风险：包内最长相对路径 93 + Windows 全局前缀 68 = 161 < 260。
+- 已知残留（未处理）：`assets/zh/skills/prototype/build/evals/fixtures/.proto-verify.*.html` 是测试残留，随 `assets` 入包。
 
 ## state.yaml 双层字段语义（2026-10-19 裁定）
 - workflow.tdd_mode/build_mode/signals = workflow 层全局决策字段，必须由技能写入（tasks Step 3 / build Step 2.1 / specify 5.4.1 + verify Step 9）；runtime 同名/相应字段（tdd_policy、runtime.build.build_mode 等）= 运行细节记录。两层并存、不裁撤；build SKILL.md「刻意不做全局 tdd_mode」表述与本裁定冲突，待批③修正。
