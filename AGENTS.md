@@ -34,8 +34,9 @@ assets/         → 发布到 npm 的 skills、hooks等资产，由 init 分发�
 ```
 polaris-flow/
 ├── src/            # CLI、命令编排、core、Dashboard API
-├── dashboard/      # Dashboard 前端子工程；由 build.js 构建到 dist/web
+├── dashboard/      # Dashboard 前端子工程；由 devops/build.js 构建到 dist/web
 ├── assets/         # 发布到 npm 的 skills / hooks 等资产
+├── devops/         # 维护者构建/发布/打包脚本（build/publish/package 等）
 └── dist/           # 构建产物：dist/*（后端 tsc）、dist/web（前端 vite）
 ```
 
@@ -63,7 +64,11 @@ polaris-flow/
 ## 文档
 
 - 用户文档：README.md / README-zh.md
-- 专题文档：docs/
+- 专题文档：docs/，按类别归入子目录，命名统一加日期前缀 `YYYY-MM-DD-<slug>.md`：
+  - `docs/plans/`：计划 / 评审 / 审计 / 优化
+  - `docs/specs/`：设计 / 规格
+  - `docs/design/`：流程设计（长期）
+  - 计划/评审/设计类文档不得散落在仓库根目录，必须归入上述子目录；`git mv` 后同步修正文档间互指与 `CHANGELOG.md` 的引用
 - Skill 参考：assets/en/skills/reference/, assets/zh/skills/reference
 
 ## 测试
@@ -98,8 +103,12 @@ pnpm test           # 单元测试
 - 所有可选 grep 结果加 `|| true` 防止 `pipefail` 误杀
 - 新增脚本必须加入 `beforeEach` 的拷贝列表和 manifest.json
 
-脚本位置：
- - 
+脚本位置（按「面向谁」分三类，不要混放）：
+
+- **根目录** = 用户分发入口：`install.sh` / `install.ps1`（用户单独下载执行）
+- **`devops/`** = 维护者的构建·发布·打包脚本：`build.js` / `build.sh`（构建）、`publish.sh`（发布到 Nexus）、`package.sh`（离线安装包打包）、`prepublish-check.js`（发布前密钥扫描）、`polaris-preseed.cjs`（bundle 预种）
+- **`scripts/`** = 运行时安装辅助与内部工具：`postinstall.js`（npm 钩子）、`check_state_yaml_three_way.py`（state 校验）等
+- 判据：用户单独下载执行的放根目录；维护者构建/发布/打包放 `devops/`；运行时安装辅助与内部工具放 `scripts/`
 
 ## 脚本依赖关系
 

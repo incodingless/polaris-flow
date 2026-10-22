@@ -17,6 +17,7 @@ import { checkbox, select } from '@inquirer/prompts';
 
 import { t } from './i18n/index.js';
 import type { InstallScope, Languages } from '../core/config/polaris-project-config.js';
+import type { ChannelComponentId } from '../core/install/channels.js';
 import { hasSkills } from '../core/integrations/detect.js';
 import { PLATFORMS, getPlatformSkillsDir, type Platform } from '../core/domain/platforms.js';
 
@@ -32,6 +33,10 @@ export type InitPromptOptions = {
   lang?: Languages;
   platforms?: string[];
   json?: boolean | string;
+  /** 三通道安装配置覆盖（--github-mirror / --npm-registry / --local-path，见 core/install/channels.ts） */
+  githubMirror?: string;
+  npmRegistry?: string;
+  localPaths?: Partial<Record<ChannelComponentId, string>>;
 };
 
 export type ComponentPlan = {

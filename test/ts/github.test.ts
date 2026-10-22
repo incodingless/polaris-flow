@@ -30,6 +30,18 @@ describe('rewriteGithubRepoUrl', () => {
       'https://ghproxy.example/https://github.com/obra/superpowers',
     );
   });
+
+  it('显式传入 mirror 参数时优先于环境变量', () => {
+    process.env.POLARIS_GITHUB_MIRROR = 'https://from-env';
+    expect(rewriteGithubRepoUrl(SUPERPOWERS, 'https://gitclone.com/github.com')).toBe(
+      'https://gitclone.com/github.com/obra/superpowers',
+    );
+  });
+
+  it('显式传入空串 mirror 时不改写（视为未配置）', () => {
+    process.env.POLARIS_GITHUB_MIRROR = 'https://from-env';
+    expect(rewriteGithubRepoUrl(SUPERPOWERS, '')).toBe(SUPERPOWERS);
+  });
 });
 
 describe('getGitEnv', () => {

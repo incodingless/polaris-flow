@@ -31,3 +31,16 @@ models:
   - DeepSeek-V4-Pro
   low:
   - DeepSeek-V4-Flash
+
+# 组件安装通道（polaris init 安装 OpenSpec / Superpowers / Codegraph 时使用）
+# 三条通道按序尝试：npm → git 镜像 clone → 本地源码目录；留空 = 使用默认行为
+install:
+  # GitHub 镜像基址（git clone 通道）；留空 = 直连 github.com
+  github-mirror: ""
+  # npm registry 覆盖（npm 通道）；留空 = 使用机器默认（~/.npmrc）
+  npm-registry: ""
+  # 各组件本机源码目录（本地目录通道）；留空 = 跳过该通道
+  local-paths:
+    openspec: ""
+    superpowers: ""
+    codegraph: ""

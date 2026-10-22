@@ -37,10 +37,11 @@ import {
   type Languages,
 } from '../core/config/polaris-project-config.js';
 import { initializePolarisCommonLayout } from '../core/install/layout.js';
-import { installCodegraph } from '../core/integrations/codegraph.js';
+import { CODEGRAPH_PACKAGE, installCodegraph } from '../core/integrations/codegraph.js';
 import { fileExists } from '../utils/file-system.js';
 import { writeYamlFromTemplate } from '../utils/yaml-io.js';
 import { loadManifestConfig } from '../core/assets/manifest.js';
+import { readInstallSectionFromFile } from '../core/install/channels.js';
 
 type InstallStatus = 'installed' | 'skipped' | 'failed';
 
@@ -266,16 +267,20 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
 
   // --- 3. Codegraph ---
   const shouldInstallCodegraph = plans.some((p) => p.codegraphAction !== 'skip');
-  let codegraphGlobalStatus: InstallStatus = 'skipped';
-
-  let codegraphVersion = '0.0.0';
 
   if (shouldInstallCodegraph) {
     log(`\n  ${blue('⏳')} ${bold('Codegraph')}...`);
-    codegraphGlobalStatus = await installCodegraph(projectPath, scope, shouldInstallCodegraph);
+    const codegraphGlobalStatus = await installCodegraph(
+      projectPath,
+      scope,
+      shouldInstallCodegraph,
+    );
     log(
       `  ${statusSymbol(codegraphGlobalStatus)}  Codegraph ${statusLabel(codegraphGlobalStatus, lang)}`,
     );
+
+    const codegraphVersion =
+      codegraphGlobalStatus === 'installed' ? getNpmPackageVersion(CODEGRAPH_PACKAGE) : '0.0.0';
 
     pluginResults.push({
       id: 'codegraph',
@@ -448,9 +453,16 @@ async function generatePolarisGlobalConfig(
   overwrite: boolean = false,
   pluginResults: PluginInstallResult[],
 ): Promise<void> {
-  if (!overwrite && (await fileExists(polarisGlobalConfigPath))) {
+  const existed = await fileExists(polarisGlobalConfigPath);
+  if (!overwrite && existed) {
     return;
   }
+
+  // overwrite 重写时保留既有 install: 段（install.sh/ps1 预种或用户手配的镜像/本地目录，
+  // 不能随模板重置而丢失）
+  const existingInstall = existed
+    ? await readInstallSectionFromFile(polarisGlobalConfigPath)
+    : null;
 
   // 始终从模板读，避免 overwrite 时读到旧目标
   await writeYamlFromTemplate(getGlobalPolarisConfigSrc(), polarisGlobalConfigPath, {
@@ -465,6 +477,22 @@ async function generatePolarisGlobalConfig(
           version: p.version,
         })),
       );
+      if (existingInstall) {
+        doc.setIn(['install', 'github-mirror'], existingInstall.githubMirror ?? '');
+        doc.setIn(['install', 'npm-registry'], existingInstall.npmRegistry ?? '');
+        doc.setIn(
+          ['install', 'local-paths', 'openspec'],
+          existingInstall.localPaths.openspec ?? '',
+        );
+        doc.setIn(
+          ['install', 'local-paths', 'superpowers'],
+          existingInstall.localPaths.superpowers ?? '',
+        );
+        doc.setIn(
+          ['install', 'local-paths', 'codegraph'],
+          existingInstall.localPaths.codegraph ?? '',
+        );
+      }
     },
   });
 }

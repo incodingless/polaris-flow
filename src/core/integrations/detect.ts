@@ -219,22 +219,34 @@ async function findSuperpowersInPluginCache(cacheRoot: string): Promise<string |
   return null;
 }
 
-/** which 探测命令是否在 PATH 中 */
+/** 探测命令是否在 PATH 中（POSIX 用内建 `command -v`，避免依赖最小化 Linux 缺失的外部 `which`） */
 function commandAvailable(command: string): boolean {
   try {
-    const checker = process.platform === 'win32' ? 'where' : 'which';
-    execFileSync(checker, [command], { stdio: 'ignore', timeout: 10_000 });
+    if (process.platform === 'win32') {
+      execFileSync('where', [command], { stdio: 'ignore', timeout: 10_000 });
+      return true;
+    }
+    execFileSync('sh', ['-c', 'command -v "$1"', 'sh', command], {
+      stdio: 'ignore',
+      timeout: 10_000,
+    });
     return true;
   } catch {
     return false;
   }
 }
 
-/** 解析命令绝对路径 */
+/** 解析命令绝对路径（POSIX 用内建 `command -v` 输出路径，不依赖外部 `which`） */
 function resolveCommandPath(command: string): string {
   try {
-    const checker = process.platform === 'win32' ? 'where' : 'which';
-    const out = execFileSync(checker, [command], {
+    if (process.platform === 'win32') {
+      const out = execFileSync('where', [command], {
+        encoding: 'utf-8',
+        timeout: 10_000,
+      });
+      return out.split(/\r?\n/)[0]?.trim() || command;
+    }
+    const out = execFileSync('sh', ['-c', 'command -v "$1"', 'sh', command], {
       encoding: 'utf-8',
       timeout: 10_000,
     });

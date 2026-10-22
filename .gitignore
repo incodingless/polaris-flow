@@ -24,6 +24,12 @@ node_modules/
 # Build output
 dist/
 
+# 离线安装包打包产物（scripts/build-install-bundle.sh 输出）
+release/
+release.zip
+
+devops/vendor/*
+
 # dotenv / secrets
 .env
 .env.*
@@ -102,3 +108,5 @@ assets/*/skills/*/*/.workbuddy/
 # 全局 gitignore 忽略所有 README.md，这里显式反向放行本仓需要的两份
 !dashboard/docs/README.md
 !/README.md
+
+

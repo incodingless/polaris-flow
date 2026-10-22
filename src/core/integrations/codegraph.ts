@@ -2,7 +2,19 @@ import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { isCommandAvailable, getNpmExecutable } from './openspec.js';
+import {
+  getNpmGlobalPrefix,
+  isNpmGlobalPrefixWritable,
+  printNpmPrefixNotWritableHint,
+} from '../deps/npm.js';
 import { printCommandErrorDetails } from '../command-error.js';
+import { getCodegraphSource } from '../assets/sources.js';
+import { resolveInstallChannelConfig } from '../install/channels.js';
+import {
+  buildNpmGlobalInstallArgs,
+  installCliFromGitRepo,
+  installCliFromLocalDir,
+} from '../install/cli-installer.js';
 
 import type { InstallScope } from '../config/polaris-project-config.js';
 
@@ -68,20 +80,68 @@ async function ensureCodegraphCli(
   if (!shouldInstall) return existingCommand;
 
   console.log(`    ${existingCommand ? 'Upgrading' : 'Installing'} CodeGraph CLI...`);
-  try {
-    execFileSync(getNpmExecutable(), ['install', '-g', `${CODEGRAPH_PACKAGE}@latest`], {
-      cwd: projectPath,
-      stdio: 'inherit',
-      timeout: 180_000,
-      shell: process.platform === 'win32',
-    });
-    return resolveCodegraphCommand();
-  } catch (error) {
-    console.error(`    Failed to install CodeGraph CLI: ${(error as Error).message}`);
-    printCommandErrorDetails(error);
-    // 升级失败时既有命令仍可用，不阻断后续步骤
-    return existingCommand;
+
+  // 全局目录不可写时 npm install -g 必失败（EACCES），提前给出 root 定向提示
+  const npmPrefix = getNpmGlobalPrefix();
+  if (!existingCommand && npmPrefix && isNpmGlobalPrefixWritable(npmPrefix) === false) {
+    printNpmPrefixNotWritableHint(`sudo npm install -g ${CODEGRAPH_PACKAGE}`, npmPrefix);
+    return null;
   }
+
+  const source = getCodegraphSource();
+  const channel = await resolveInstallChannelConfig();
+
+  // --- 1. npm 通道 ---
+  try {
+    execFileSync(
+      getNpmExecutable(),
+      buildNpmGlobalInstallArgs(`${CODEGRAPH_PACKAGE}@latest`, channel.npmRegistry),
+      {
+        cwd: projectPath,
+        stdio: 'inherit',
+        timeout: 180_000,
+        shell: process.platform === 'win32',
+      },
+    );
+    const resolved = resolveCodegraphCommand();
+    if (resolved) return resolved;
+  } catch (error) {
+    console.error(`    Failed to install CodeGraph CLI via npm: ${(error as Error).message}`);
+    printCommandErrorDetails(error);
+  }
+
+  // --- 2. git 镜像通道 ---
+  if (source.repo) {
+    console.warn(`    ↳ git 镜像通道: ${source.repo} ...`);
+    const ok = await installCliFromGitRepo(
+      source.repo,
+      source.minVersion,
+      channel.githubMirror,
+      channel.npmRegistry,
+    );
+    if (ok) {
+      const resolved = resolveCodegraphCommand();
+      if (resolved) return resolved;
+    }
+  }
+
+  // --- 3. 本地目录通道 ---
+  const localPath = channel.localPaths.codegraph;
+  if (localPath) {
+    if (!fs.existsSync(localPath)) {
+      console.warn(`    ↳ 本地目录不存在: ${localPath}`);
+    } else {
+      console.warn(`    ↳ 本地目录通道: ${localPath} ...`);
+      const ok = installCliFromLocalDir(localPath, channel.npmRegistry);
+      if (ok) {
+        const resolved = resolveCodegraphCommand();
+        if (resolved) return resolved;
+      }
+    }
+  }
+
+  // 升级失败时既有命令仍可用，不阻断后续步骤
+  return existingCommand;
 }
 
 /**

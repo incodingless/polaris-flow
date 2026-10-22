@@ -25,15 +25,15 @@ export function getGitEnv(): NodeJS.ProcessEnv {
 }
 
 /**
- * 按 POLARIS_GITHUB_MIRROR 改写 GitHub URL。
+ * 按镜像改写 GitHub URL（镜像来源：显式传入 mirror > 环境变量 POLARIS_GITHUB_MIRROR）。
  * 镜像含 github.com 时替换主机前缀；否则把原 URL 接到镜像基址后面。
  */
-export function rewriteGithubRepoUrl(repo: string): string {
-  const mirror = process.env.POLARIS_GITHUB_MIRROR?.trim();
-  if (!mirror) {
+export function rewriteGithubRepoUrl(repo: string, mirror?: string): string {
+  const m = (mirror ?? process.env.POLARIS_GITHUB_MIRROR)?.trim();
+  if (!m) {
     return repo;
   }
-  const base = mirror.replace(/\/$/, '');
+  const base = m.replace(/\/$/, '');
   if (!repo.startsWith('https://github.com')) {
     return repo;
   }
@@ -64,8 +64,12 @@ export type ResolveVersionResult = {
 };
 
 /** 解析 >= minVersion 的最新 semver tag；无 tag 时返回 null（使用 HEAD） */
-export function resolveVersion(repo: string, minVersion: string): ResolveVersionResult {
-  const gitRepo = rewriteGithubRepoUrl(repo);
+export function resolveVersion(
+  repo: string,
+  minVersion: string,
+  mirror?: string,
+): ResolveVersionResult {
+  const gitRepo = rewriteGithubRepoUrl(repo, mirror);
   let output: string;
   try {
     output = runGitShell(`git ls-remote --tags --sort=-v:refname ${gitRepo}`, LS_REMOTE_TIMEOUT_MS);
@@ -98,8 +102,12 @@ export function resolveVersion(repo: string, minVersion: string): ResolveVersion
 }
 
 /** shallow clone 到临时目录 */
-export async function fetchRepo(repo: string, version: string | null): Promise<FetchResult> {
-  const gitRepo = rewriteGithubRepoUrl(repo);
+export async function fetchRepo(
+  repo: string,
+  version: string | null,
+  mirror?: string,
+): Promise<FetchResult> {
+  const gitRepo = rewriteGithubRepoUrl(repo, mirror);
   const tmpDir = path.join(
     os.tmpdir(),
     `polaris-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

@@ -51,16 +51,19 @@
 - `.workbuddy/memory/` **被 git 跟踪**（非 ignored）；任何「工作区必须干净」的检查都要 `:(exclude).workbuddy`，否则 AI 每次写日志都会误触发。
 - `npm publish` **没有 `--force` 参数**；覆盖同版本靠 Nexus 的 Allow Redeploy（开了会静默覆盖），公网 npm 则根本不允许。
 - 发布链路：`release.sh`（根目录）= 通道 A 固化脚本；`npm publish --registry <hosted>` 前 `prepublishOnly` 会跑密钥扫描 + build。
-- ⚠️ **Nexus 2.15.1 不能承载 npm 发布（2026-10-21 实测，推翻旧结论）**：公司 `npm-hosted`/`npmjs` 的 provider 是 **maven2**（Nexus 2 官方无 npm 仓库插件，UI 的 Provider 下拉里没有 npm 选项）。`npm publish` 用 CouchDB 协议**只发一次 PUT**（packument + `_attachments` 内嵌 base64 tarball），maven2 存储把整份 JSON 存成**一个文件** `/polaris-flow`（2.1MB），**从不拆出 tarball** → `GET /polaris-flow/-/polaris-flow-0.1.2.tgz` 永远 **404**。
-  - 死锁：手工补传 tarball 到 `/polaris-flow/-/...` → **500**（`polaris-flow` 已是 leaf 文件，建不了同名目录）；删 packument 腾位置则 metadata 也没了。静态 raw 仓库同样不可行（文件/目录同名冲突）。
-  - 判据教训：**201 / `+ pkg@ver` 只证明 metadata 写入，不证明可安装**。验收必须用**全新缓存**跑 `npm pack` 或 `npm i`（`--cache <新目录> --prefer-online`），否则本机 ~/.npm 缓存会伪装成功 —— 我此前正是被缓存骗过，误判"发布闭环已通"。
-  - 可行替代：Verdaccio（动态服务，无路径冲突）或 Nexus 3。
+- ⚠️ **公司 Nexus 已是 Nexus 3.90.1-01 (COMMUNITY)** @ `http://192.168.103.96:8081`（2026-10-21 用户裁定）。旧 Nexus 2.15.1 @`192.168.2.96` 已退役，其全部实测结论——maven2 provider、tarball 永久 404、packument leaf 死锁、Basic-only 认证、pf-dist 绕行、34 个代理依赖 404——**一律作废，勿再引用**。
+  - 三仓布局：`npm-hosted`（发布，只进）/ `npm-proxy`（代理 registry.npmjs.org）/ `npm-group`（聚合读，安装统一走它）；路径 `/repository/<仓库名>/`（无 `/nexus/content/` 前缀）。
+  - 认证（Nexus 3 口径）：先启用 `npm Bearer Token Realm`，再 `npm login --auth-type=legacy`（写 `_authToken`，默认 30 天过期，Community 版无过期配置项）；长期发布改 Basic `_auth=base64(user:pass)`（永不过期，两种写法不可并存）。匿名读须给 `nx-anonymous` 加 `npm-group` 的 browse/read。
+  - 覆盖同版本 = 仓库 Deployment Policy（Allow redeploy 会静默覆盖）。
+  - **仍然有效的教训（版本无关）**：验收判据 = **tarball 可直接下载 + 全新缓存 `npm pack`/`npm i` 通过**；`201` / `+ pkg@ver` / metadata 200 只证明元数据写入，不证明可安装（本机 ~/.npm 缓存会伪装成功，须 `--cache <新目录> --prefer-online`）。
+  - 操作细节单源：《docs/releases/发布操作指南.md》通道 A + `release.sh`；记忆不复制步骤。
 
 ## Windows 支持（2026-10-21 裁定）
 - **bash 是硬依赖，非可选**：`assets/shared/hooks.json` 模板、`src/core/install/hooks.ts:62`（硬编码 `bash "…"`）、`doctor.ts:135`、`verify/SKILL.md` 的 scorers 调用，共 27 个 `.sh`。全仓 `grep win32|process.platform` **零结果**（无 Windows 分支）。⇒ Windows 缺 bash 时：安装与 `polaris init` 都成功、**hook 静默失效不报错**。
 - 裁定 = **A+B，不做 C**：A 文档分平台 + B 新增 `install.ps1`（`install.sh` 等价物）；C（把 hook/scorers 改写成 Node 跨平台）明确不做。理由：Git for Windows 提供的 `bash.exe` 同时解决 install 与 hook 两件事。
 - `install.ps1` 三个必须保持的约束：① 调用 `npm.cmd` 而非 `npm`（PowerShell 的 `npm`→`npm.ps1` 被执行策略拦）；② 文件必须 **UTF-8 BOM + CRLF**（PowerShell 5.1 否则按 ANSI 解析 → 中文乱码）；③ bash 缺失只警告不阻断，且区分「已装 Git 但 `bin` 不在 PATH」与「未装」。
 - PowerShell 语法坑：`-split` 单段结果 `[0]` 取首字符 → 用 `String.Split()`；`npm prefix -g` 要 `Select-Object -First 1` 再 `.Trim()`。bash 的「变量后跟中文要 `${}`」坑**不适用**于 PowerShell。
+- **安装判据 = 全局目录可写，不是「是否 root」**（2026-10-21，与 Linux `sudo` 同源逻辑）：Windows 官方安装包的 npm 前缀默认 `%APPDATA%\npm`，本来就在当前用户名下、已在 PATH → **不需要管理员**；只有前缀被指到 `C:\Program Files` 类受保护路径才需管理员。判据统一为「装进一个 `polaris init` / `update` 也写得进去的全局目录」，`--prefix` 绕开一律禁止（会得到只能跑 `--version` 的残件）。`install.ps1` 用建临时文件探测（ACL 判断在 Windows 易误判），**目录不存在时向上找最近已存在祖先**再探测（全新 Node 上 `%APPDATA%\npm` 可能尚未创建，否则会误判不可写而拒绝安装）。
 - MAX_PATH 无风险：包内最长相对路径 93 + Windows 全局前缀 68 = 161 < 260。
 - 已知残留（未处理）：`assets/zh/skills/prototype/build/evals/fixtures/.proto-verify.*.html` 是测试残留，随 `assets` 入包。
 

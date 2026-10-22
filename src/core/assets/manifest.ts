@@ -49,9 +49,13 @@ export function getTaskStateTemplateSrc(filename: string): string {
   return path.join(getSharedTemplatesDir(), filename);
 }
 
-/** 返回 shared .gitignore 源：`assets/shared/.gitignore` */
+/**
+ * 返回 shared .gitignore 模板源：`assets/shared/gitignore.template`。
+ * 不直接叫 `.gitignore`：npm 发布永远剔除 .gitignore 文件，且全局 gitignore 也会把它挡在版本库外；
+ * 安装时由调用方写出为 `.polaris/.gitignore`。
+ */
 export function getSharedGitignoreSrc(): string {
-  return path.join(getSharedDir(), '.gitignore');
+  return path.join(getSharedDir(), 'gitignore.template');
 }
 
 //---------------------------------

@@ -1,6 +1,6 @@
 # `assets/zh/skills/` 跨会话上下文缺陷 — 修复方案
 
-> **输入**：`zh-skills-cross-session-context-review.md`（审计报告，2026-10-11）。
+> **输入**：`2026-10-14-zh-skills-cross-session-context-review.md`（审计报告，2026-10-11）。
 > **性质**：方案文档，**不含任何资产改动**。逐项给出「问题 → 精确改法 → 决策张力 → 验证」，
 > 供逐项裁定后分批落盘。
 > **范围**：仅 `assets/zh/skills/**` 与 `assets/zh/commands/**` 的 Markdown 文本。

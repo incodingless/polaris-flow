@@ -2,9 +2,9 @@
 # 本地构建 Polaris Flow CLI（install + build，可选 lint/test）
 #
 # 用法:
-#   ./scripts/build.sh           # 安装依赖并构建
-#   ./scripts/build.sh --check   # 构建 + lint + test（提交前推荐）
-#   ./scripts/build.sh --skip-install  # 跳过 pnpm install
+#   ./devops/build.sh           # 安装依赖并构建
+#   ./devops/build.sh --check   # 构建 + lint + test（提交前推荐）
+#   ./devops/build.sh --skip-install  # 跳过 pnpm install
 
 set -euo pipefail
 

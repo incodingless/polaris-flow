@@ -9,6 +9,7 @@ import { doctorCommand } from '../commands/doctor.js';
 import { statusCommand } from '../commands/status.js';
 import { DEFAULT_DASHBOARD_PORT, dashboardCommand } from '../commands/dashboard.js';
 import { UPDATE_TARGETS } from '../core/update/scope.js';
+import { parseLocalPathPairs } from '../core/install/channels.js';
 
 /** 逗号分隔列表选项 → 去空数组 */
 function splitList(value: string): string[] {
@@ -36,9 +37,25 @@ export function registerUserCommands(program: Command): void {
       'comma-separated platform ids (e.g. trae,claude,cursor); skips platform prompt',
       splitList,
     )
+    .option('--github-mirror <url>', 'GitHub mirror base URL for the git-clone install channel')
+    .option('--npm-registry <url>', 'npm registry override for the npm install channel')
+    .option(
+      '--local-path <component=dir>',
+      'local source dir for a component (openspec|superpowers|codegraph=DIR); repeatable',
+      (value: string, previous: string[]) => previous.concat(value),
+      [] as string[],
+    )
     .option('--json', 'output JSON')
     .action(async (path: string, options) => {
       try {
+        const { localPaths, invalid } = parseLocalPathPairs(options.localPath ?? []);
+        if (invalid.length > 0) {
+          console.error(
+            `Invalid --local-path value(s): ${invalid.join(', ')} (expected <openspec|superpowers|codegraph>=<dir>)`,
+          );
+          process.exitCode = 1;
+          return;
+        }
         await initCommand(path, {
           yes: options.yes,
           scope: options.scope,
@@ -46,6 +63,9 @@ export function registerUserCommands(program: Command): void {
           skipExisting: options.skipExisting,
           lang: options.lang,
           platforms: options.platforms,
+          githubMirror: options.githubMirror,
+          npmRegistry: options.npmRegistry,
+          localPaths,
           json: options.json,
         });
       } catch (error) {

@@ -2,27 +2,27 @@
 # Polaris Flow 手动发布脚本（维护者侧，固化《发布操作指南》通道 A）
 #
 # 用法:
-#   ./release.sh                    # 完整流程：检查 → 干跑 → 确认 → 发布 → 验证
-#   ./release.sh --dry-run          # 只检查到干跑为止，不发任何包
-#   ./release.sh --yes              # 跳过交互确认
-#   ./release.sh --allow-dirty      # 允许工作区有未提交改动
-#   ./release.sh --force            # 该版本已存在时仍发布（Nexus Allow Redeploy 会覆盖）
-#   ./release.sh --registry <url>   # 换发布目标，默认公司 Nexus npm-hosted
+#   ./devops/publish.sh                    # 完整流程：检查 → 干跑 → 确认 → 发布 → 验证
+#   ./devops/publish.sh --dry-run          # 只检查到干跑为止，不发任何包
+#   ./devops/publish.sh --yes              # 跳过交互确认
+#   ./devops/publish.sh --allow-dirty      # 允许工作区有未提交改动
+#   ./devops/publish.sh --force            # 该版本已存在时仍发布（Nexus Allow Redeploy 会覆盖）
+#   ./devops/publish.sh --registry <url>   # 换发布目标，默认公司 Nexus npm-hosted
 #
 # 职责: 把「版本一致性 → git 状态 → 重复发布检测 → 认证检查 → 文件清单 → 发布 → 验证」
 #       串成一条命令，任何一步不合格就停在发布之前。
 #
-# 注意: 凭据不在本脚本内，读的是 ~/.npmrc（Nexus 2 Basic 认证，见发布指南 A-1）。
+# 注意: 凭据不在本脚本内，读的是 ~/.npmrc（npm login 或 Basic _auth 写入，见发布指南 A-1）。
 # 兼容 macOS / Linux / Windows Git Bash。
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 PKG="polaris-flow"
-DEFAULT_REGISTRY="http://192.168.2.96:8081/nexus/content/repositories/npm-hosted/"
-GROUP_REGISTRY="http://192.168.2.96:8081/nexus/content/groups/npm-group/"
+DEFAULT_REGISTRY="http://192.168.103.96:8081/repository/npm-hosted/"
+GROUP_REGISTRY="http://192.168.103.96:8081/repository/npm-group/"
 MIN_NODE_MAJOR=20
 
 DRY_RUN=false
@@ -188,10 +188,12 @@ if [ -f "$NPMRC" ] && grep -q "$REG_HOST" "$NPMRC" 2>/dev/null &&
   grep -qE '(_auth|_authToken)' "$NPMRC" 2>/dev/null; then
   ok "~/.npmrc 中检测到 $REG_HOST 的认证配置"
 else
-  warn "~/.npmrc 里没找到 $REG_HOST 的 _auth/_authToken"
-  echo "     Nexus 2 的写法（发布指南 A-1）："
-  echo "       echo -n \"用户名:密码\" | base64"
-  echo "       echo \"//$REG_HOST/nexus/content/repositories/npm-hosted/:_auth=<base64>\" >> ~/.npmrc"
+  REG_NOPROTO="${REGISTRY#http://}"
+  warn "~/.npmrc 里没找到 $REG_HOST 的 _auth / _authToken"
+  echo "     方式一 长期有效（推荐，发布指南 A-1）："
+  echo "       AUTH=\$(printf '%s' '用户名:密码' | base64 | tr -d '\\n')"
+  echo "       echo \"//${REG_NOPROTO}/:_auth=\$AUTH\" >> ~/.npmrc"
+  echo "     方式二 临时登录（会过期）：npm login --registry \"${REGISTRY}/\" --auth-type=legacy"
   confirm "仍要继续（可能因 401 失败）？" || die "已取消"
 fi
 
@@ -266,6 +268,15 @@ else
   VIEW_CMD="npm view $PKG version --registry $REGISTRY"
 fi
 verify_retry "registry 上版本为 $VERSION" "$VIEW_CMD 2>/dev/null | grep -qx '$VERSION'" || FAILED=1
+
+# 关键判据：tarball 必须能真实下载。只有元数据 200 不代表可安装。
+if [ "$REGISTRY_OVERRIDDEN" = false ]; then
+  DIST_URL="$GROUP_REGISTRY/$PKG/-/$PKG-$VERSION.tgz"
+else
+  DIST_URL="$REGISTRY/$PKG/-/$PKG-$VERSION.tgz"
+fi
+verify_retry "tarball 可下载: $PKG-$VERSION.tgz" \
+  "curl -sf --max-time 10 -o /dev/null -r 0-0 '$DIST_URL'" || FAILED=1
 
 echo ""
 if [ "$FAILED" = 0 ]; then

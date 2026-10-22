@@ -1,7 +1,7 @@
 # 发布校验流水线（本仓库托管在 GitHub 时的职责）
 #
 # 为什么这里不发布到 Nexus：GitHub 托管 runner 在公网，访问不到公司内网的
-# 192.168.2.96:8081。内部分发一律以内网机器手动发布为准（见 docs/发布操作指南.md 通道 A）。
+# 192.168.103.96:8081。内部分发一律以内网机器手动发布为准（见 docs/releases/发布操作指南.md 通道 A）。
 #
 # 本流水线做两件事：
 #   1. 推 v* tag 时：构建 + 密钥扫描 + 包内文件清单自检，**不发布任何包**
@@ -55,7 +55,7 @@ jobs:
         run: pnpm run build
 
       - name: 密钥扫描
-        run: node scripts/prepublish-check.js
+        run: node devops/prepublish-check.js
 
       # --ignore-scripts：上面已显式构建，这里只要文件清单，避免 prepare 重复构建
       - name: 检查包内文件清单

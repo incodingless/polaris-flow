@@ -25,11 +25,9 @@
     "!dist/**/__tests__"
   ],
   "scripts": {
-    "build": "node build.js",
-    "build:sh": "bash scripts/build.sh",
+    "build": "node devops/build.js",
+    "build:sh": "bash devops/build.sh",
     "build:web": "npm --prefix dashboard run build",
-    "migrate:dashboard": "node scripts/migrate-dashboard.js",
-    "migrate:dashboard:write": "node scripts/migrate-dashboard.js --write",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -39,7 +37,7 @@
     "format": "prettier --write src/",
     "format:check": "prettier --check src/",
     "prepare": "husky && pnpm run build",
-    "prepublishOnly": "node scripts/prepublish-check.js && pnpm run build",
+    "prepublishOnly": "node devops/prepublish-check.js && pnpm run build",
     "postinstall": "node scripts/postinstall.js"
   },
   "lint-staged": {

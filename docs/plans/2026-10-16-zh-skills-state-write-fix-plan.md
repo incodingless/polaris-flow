@@ -18,7 +18,7 @@
 | **脚本已够用，不加新 op** | P0 + P1 全部修复**不需要新增任何脚本能力** —— `set` / `enter-phase` / `complete-phase` 三个 op 已覆盖全部场景。**这是「本轮零代码」的前提。** |
 | **不保留兼容层** | `AGENTS.md` 明令移除过时路径。改法只指向现状值，不写「旧字段路径兼容分支」。 |
 | **批次可独立回滚** | 批 1 / 批 2 单独提交，各自可独立回滚。 |
-| **落盘前逐处复核行号** | 本文行号为 2026-10-16 实测值；本仓行号漂移史见 `zh-skills-config-io-audit.md` 前言。 |
+| **落盘前逐处复核行号** | 本文行号为 2026-10-16 实测值；本仓行号漂移史见 `2026-10-14-zh-skills-config-io-audit.md` 前言。 |
 
 ---
 
@@ -26,7 +26,7 @@
 
 | # | 上一轮说法 | 更正 | 依据 |
 |---|---|---|---|
-| **C1** | 「`ship` 全族唯一完全无状态脚本的技能」 | ❌ **撤回**。该结论抄自 `zh-skills-config-io-audit.md` §7.3 的**旧**行号表，而同报告 §8.2 记录 2026-10-14 已修 —— `ship` Step 4 / Step 4.5 现走脚本。残留的 2 处是**出口脚本已覆盖的重复声明**，性质与「无脚本可用」不同 | `ship/SKILL.md:170-185`、`:208-213`；`zh-skills-config-io-audit.md:308` |
+| **C1** | 「`ship` 全族唯一完全无状态脚本的技能」 | ❌ **撤回**。该结论抄自 `2026-10-14-zh-skills-config-io-audit.md` §7.3 的**旧**行号表，而同报告 §8.2 记录 2026-10-14 已修 —— `ship` Step 4 / Step 4.5 现走脚本。残留的 2 处是**出口脚本已覆盖的重复声明**，性质与「无脚本可用」不同 | `ship/SKILL.md:170-185`、`:208-213`；`2026-10-14-zh-skills-config-io-audit.md:308` |
 | **C2** | 「`artifact_max_round` 有读无写、永远默认 5」 | ⚠️ **结论成立，原因更正**。不是「没有写入入口」，而是 **coding 族无任何技能写它** ⇒ 读端 `artifact-batch-generation.md:210-212` 永远走 `defaulted` 分支 | `plan/policies/artifact-batch-generation.md:208-212` |
 | **C3** | 把「`set` 写顶层 phase 绕过校验」当作现存缺陷引用 | ⚠️ **已于 2026-10-14 修复**。但它反而是 AI 直写的更强论据 —— 手动 yaml 块连这道新护栏也绕过了 | 见「依据」节的脚本行为 |
 
@@ -135,7 +135,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 | # | 疑问 | 说明 |
 |---|---|---|
-| **Q6** | Changelog 口径 | `AGENTS.md`：「Skill 内容变更须等中英文完全同步后写 Changelog」。`assets/en/skills/` 为空 —— 是否即算同步完成？这与 `zh-skills-cross-session-context-fix-plan.md` 的 **M1** 是同一问题，**至今未裁定**。本方案一并挂起。 |
+| **Q6** | Changelog 口径 | `AGENTS.md`：「Skill 内容变更须等中英文完全同步后写 Changelog」。`assets/en/skills/` 为空 —— 是否即算同步完成？这与 `2026-10-14-zh-skills-cross-session-context-fix-plan.md` 的 **M1** 是同一问题，**至今未裁定**。本方案一并挂起。 |
 
 ---
 

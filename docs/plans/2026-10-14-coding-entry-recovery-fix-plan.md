@@ -6,7 +6,7 @@
 > ④ **复杂度值域 = `simple | normal | complex`**；映射 `simple→tweak / normal→normal / complex→full`  
 > ⑤ 通道落 `state.yaml` 既有 `workflow.mode`；模板默认值 `sdd` → `normal` 由**用户自行修改**  
 > ⚠️ 用户正在实时编辑 `state.example.yaml` ⇒ 本方案对该文件**只列清单、不代改**  
-> **前序**：`zh-skills-cross-session-context-review.md`（审计）→ `coding-entry-recovery-optimization.md`（讨论稿）
+> **前序**：`2026-10-14-zh-skills-cross-session-context-review.md`（审计）→ `2026-10-14-coding-entry-recovery-optimization.md`（讨论稿）
 
 ---
 

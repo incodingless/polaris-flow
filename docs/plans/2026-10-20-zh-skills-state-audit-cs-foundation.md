@@ -147,6 +147,6 @@
 - 本报告所有行号引用均出自本次实际读取的文件版本（state.yaml 137 行版、state.example.yaml 361 行版、task-kind-layout.ts、task.ts、task-state.ts、各 SKILL.md）✅ real
 - `started_at` 写者已用 git 历史核实（14c0e07，2026-09-15「技能更新 state 转到脚本实现」），`task-state-entry.ts` 从未写过 `start_time`（`git log -S` 零命中）✅ real
 - §3.3 `constitution_exception` / `override` 的写入依据标注为 ⚠️ risk（未在 build SKILL.md 找到显式指令，可能是执行会话自造）
-- `runtime.plan.start_time`（L56）有值但全仓无写者，标注为 ⚠️ risk（疑似执行会话 AI 直写残留，与 zh-skills-state-write-fix-plan.md 同类）
+- `runtime.plan.start_time`（L56）有值但全仓无写者，标注为 ⚠️ risk（疑似执行会话 AI 直写残留，与 2026-10-16-zh-skills-state-write-fix-plan.md 同类）
 - §3.5 B 表「本任务是否发生过升档」无法从 state 回溯（入场档未落盘），标注为 ⚠️ UNKNOWN
 - 修复分批建议为提案性质，待逐项裁定后方可执行
