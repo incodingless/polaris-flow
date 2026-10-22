@@ -21,8 +21,19 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      # Dashboard 前端是独立的 npm 子工程（自带 lockfile，不参与 pnpm workspace），
+      # 依赖与缓存都要单独处理：否则 `pnpm run build` 会在其中的 vite 步骤失败。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Install dashboard deps
+        run: npm --prefix dashboard ci
 
       - name: Build
         run: pnpm run build

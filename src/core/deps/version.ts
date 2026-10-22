@@ -2,13 +2,13 @@
  * Polaris 包版本读取与 npm registry 更新检查。
  */
 import { createRequire } from 'module';
-import https from 'https';
+
+import { getLatestNpmVersion } from './npm.js';
 
 const require = createRequire(import.meta.url);
 const { version: CURRENT_VERSION } = require('../../../package.json');
 
 const PACKAGE_NAME = '@polaris/polaris-flow';
-const REGISTRY_URL = `https://registry.npmjs.org/${PACKAGE_NAME}/latest`;
 
 /** npm 更新检查结果；checked=false 表示网络未成功 */
 export interface VersionCheckResult {
@@ -57,35 +57,7 @@ export function getCurrentVersion(): string {
  * 网络不可达时返回 null。
  */
 export function getLatestVersion(): Promise<string | null> {
-  return new Promise((resolve) => {
-    const request = https.get(REGISTRY_URL, { timeout: 5000 }, (res) => {
-      if (res.statusCode !== 200) {
-        res.resume();
-        resolve(null);
-        return;
-      }
-
-      let data = '';
-      res.on('data', (chunk: string) => {
-        data += chunk;
-      });
-
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data) as { version?: string };
-          resolve(typeof parsed.version === 'string' ? parsed.version : null);
-        } catch {
-          resolve(null);
-        }
-      });
-    });
-
-    request.on('error', () => resolve(null));
-    request.on('timeout', () => {
-      request.destroy();
-      resolve(null);
-    });
-  });
+  return getLatestNpmVersion(PACKAGE_NAME);
 }
 
 /** 检查是否有可用更新。registry 不可达时静默返回 checked: false。 */

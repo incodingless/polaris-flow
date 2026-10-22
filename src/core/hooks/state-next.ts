@@ -1,18 +1,29 @@
 /**
- * `polaris state next <change-name>` 核心逻辑：读 workflow 游标 + auto_transition，
+ * `polaris-flow state next <change-name>` 核心逻辑：读 workflow 游标 + auto_transition，
  * 输出确定性的下一步衔接指令（对齐 assets/zh/policies/auto-transition.md）。
+ *
+ * **阶段 → 技能**的映射**不在这里**，而在 `src/core/config/task-kind-layout.ts` 的阶段表上
+ * （`skillForPhase`）。本模块只做三件事：读游标、判定是否自动衔接、拼完整技能名。
+ *
+ * 这里曾经有两张手写的转移表（`PHASE_TO_SKILL` / `DEBUG_PHASE_TO_SKILL`），其中
+ * **prototype 与 debug 两张偏移了一位**——按"游标 = 待执行阶段"的约定，游标为 `build`
+ * 时返回 `ship`、为 `diagnose` 时返回 `patch`，会让自动衔接**逐段跳阶段且不报错**；
+ * `closeout` 更是直接返回 null（`NEXT: done`，跳过关单）。2026-09-19 删除，
+ * 见 `docs/specs/2026-09-19-phase-truth-unification-design.md` 的 D13。
  *
  * 只读，不写盘、不持锁：
  *   - 未找到 entry → `NEXT: done`
  *   - 找到 entry 且 phase 可映射到下一 skill：
  *       auto_transition 开 → `NEXT: auto` + `SKILL`
  *       auto_transition 关 → `NEXT: manual` + `SKILL` + `HINT`
- *   - 找到 entry 但 phase 未知/终结 → `NEXT: done`
+ *   - 找到 entry 但 phase 无衔接（入口/旁路/未登记）→ `NEXT: done`
  */
 import path from 'path';
 
+import { resolveTaskStatePath } from '../assets/polaris-paths.js';
+import { skillForPhase } from '../config/task-kind-layout.js';
 import { loadPolarisConfig, type ProjectPolarisConfig } from '../config/polaris-project-config.js';
-import { loadTaskState, type TaskState } from '../config/task-state.js';
+import { loadTaskStateFromFile, type TaskState } from '../config/task-state.js';
 import {
   loadWorkflowState,
   type WorkflowState,
@@ -25,7 +36,7 @@ import { resolveRepoRoot } from './workflow-entry.js';
 export type NextAction = 'auto' | 'manual' | 'done';
 
 export type StateNextArgs = {
-  /** 目标任务 id（change/requirement/testcase 通用） */
+  /** 目标任务 id（coding/requirement/testcase/prototype 通用） */
   changeName: string;
   repoRoot?: string;
   cwd?: string;
@@ -34,7 +45,7 @@ export type StateNextArgs = {
 export type StateNextResult = {
   exitCode: number;
   next: NextAction;
-  /** next != done 时的下一 skill 名（如 `polaris:coding:propose`） */
+  /** next != done 时的下一 skill 名（如 `polaris:coding:plan`） */
   skill?: string;
   /** next == manual 时的人工提示 */
   hint?: string;
@@ -46,44 +57,24 @@ export type StateNextResult = {
 
 /** kind → skill 族名 */
 const FAMILY_BY_KIND: Record<WorkflowTaskKind, string> = {
-  change: 'coding',
+  coding: 'coding',
   requirement: 'prd',
   testcase: 'testing',
+  prototype: 'prototype',
+  debug: 'debug',
 };
 
-/**
- * phase → 下一 skill 名（仅含可自动衔接的目标）。
- * `delivery`/`archive` 为历史别名，映射到现行 `ship`。
- */
-const PHASE_TO_SKILL: Record<string, Record<string, string>> = {
-  coding: {
-    propose: 'propose',
-    design: 'design',
-    plan: 'plan',
-    build: 'build',
-    verify: 'verify',
-    ship: 'ship',
-    delivery: 'ship',
-    archive: 'ship',
-  },
-  prd: {
-    draft: 'draft',
-    refine: 'refine',
-    ship: 'ship',
-    delivery: 'ship',
-  },
-  testing: {},
-};
-
-/** 在三个任务列表中查找 task_id == 目标 id 的 entry */
+/** 在五个任务列表中查找 task_id == 目标 id 的 entry */
 export function findEntryByTaskId(
   state: WorkflowState,
   taskId: string,
 ): { kind: WorkflowTaskKind; entry: WorkflowTaskEntry } | null {
   const lists: Array<[WorkflowTaskKind, WorkflowTaskEntry[]]> = [
-    ['change', state.change_tasks],
+    ['coding', state.coding_tasks],
     ['requirement', state.requirement_tasks],
     ['testcase', state.testcase_tasks],
+    ['prototype', state.prototype_tasks],
+    ['debug', state.debug_tasks],
   ];
   for (const [kind, entries] of lists) {
     const hit = entries.find((e) => e.task_id === taskId);
@@ -94,17 +85,6 @@ export function findEntryByTaskId(
   return null;
 }
 
-/** 把 phase 映射为下一 skill 名；未知/终结 phase 返回 null */
-export function resolveNextSkillName(kind: WorkflowTaskKind, phase: string): string | null {
-  const family = FAMILY_BY_KIND[kind];
-  const table = PHASE_TO_SKILL[family] ?? {};
-  const normalized = (phase ?? '').trim();
-  if (!normalized) {
-    return null;
-  }
-  return table[normalized] ?? null;
-}
-
 /** 拼装完整 skill 名：`polaris<sep><family><sep><skill>` */
 export function buildSkillName(separator: string, family: string, skill: string): string {
   return `polaris${separator}${family}${separator}${skill}`;
@@ -113,7 +93,13 @@ export function buildSkillName(separator: string, family: string, skill: string)
 /**
  * 判定是否自动衔接。
  * 优先级：项目 config 的 `auto_transition`（`'auto'|'off'`，文档约定控制点）
- * → 任务 state 的 `auto_transition`（boolean）→ 默认自动。
+ * → 任务 state 的 `auto_transition`（boolean）→ **默认 manual**。
+ *
+ * 2026-09-22 起出厂默认改为 manual（`false`）：每完成一个技能停下并提示用户新开会话，
+ * 而不是在同一会话连跑。需要连续执行的用户显式设 `auto_transition: auto`。
+ *
+ * 配置联动（2026-09-23）：`auto_transition: 'auto'` 蕴含 `context_compression ≠ off`
+ * —— 「不能压缩却要自动跑」是非法组合，此处直接降级为 manual。
  */
 export function isAutoTransitionEnabled(
   config: ProjectPolarisConfig | null,
@@ -121,12 +107,27 @@ export function isAutoTransitionEnabled(
 ): boolean {
   // 类型声明为 'auto'|'off'，但历史落盘值可能为 boolean true/false（见 formatPolarisConfigYaml）。
   const cfg = config?.auto_transition as unknown;
+
+  // 显式关闭优先：config 或任务级任一为 false/off 即 manual
   if (cfg === 'off' || cfg === false) {
     return false;
   }
   if (taskState?.auto_transition === false) {
     return false;
   }
+
+  // 开启来源：config 'auto' 或任务级 true；两者都未声明 → 出厂 manual
+  const wantsAuto = cfg === 'auto' || taskState?.auto_transition === true;
+  if (!wantsAuto) {
+    return false;
+  }
+
+  // 配置联动（2026-09-23）：auto 蕴含 context_compression ≠ off。
+  // 「不能压缩却要自动跑」是非法组合（违背「每技能新开会话」原则），降级为 manual。
+  if (config?.context_compression === 'off') {
+    return false;
+  }
+
   return true;
 }
 
@@ -178,14 +179,18 @@ export async function runStateNext(args: StateNextArgs): Promise<StateNextResult
     return { exitCode: 0, next: 'done' };
   }
 
-  const skill = resolveNextSkillName(hit.kind, hit.entry.phase);
+  // 阶段不在游标里：读该任务的 state.yaml（位置由条目的 worktree_path 决定）。
+  const statePath = resolveTaskStatePath(repoRoot, hit.kind, taskId, hit.entry.worktree_path);
+  const taskState = await loadTaskStateFromFile(statePath);
+  const phase = String(taskState?.phase ?? '');
+
+  const skill = skillForPhase(hit.kind, phase);
   if (!skill) {
-    // phase 未知或已终结（如 ship 清游标后不应再命中），视为完成。
-    return { exitCode: 0, next: 'done', phase: hit.entry.phase, kind: hit.kind };
+    // 入口阶段 / 旁路阶段 / 未登记值 / state 读不到 → 无自动衔接，视为完成。
+    return { exitCode: 0, next: 'done', phase, kind: hit.kind };
   }
 
   const config = await loadPolarisConfig(repoRoot);
-  const taskState = await loadTaskState(repoRoot, taskId);
   const auto = isAutoTransitionEnabled(config, taskState);
 
   const separator = await resolveSkillNameSeparator(repoRoot);
@@ -197,7 +202,7 @@ export async function runStateNext(args: StateNextArgs): Promise<StateNextResult
       exitCode: 0,
       next: 'auto',
       skill: fullName,
-      phase: hit.entry.phase,
+      phase,
       kind: hit.kind,
     };
   }
@@ -206,8 +211,8 @@ export async function runStateNext(args: StateNextArgs): Promise<StateNextResult
     exitCode: 0,
     next: 'manual',
     skill: fullName,
-    hint: `自动衔接已关闭，请手动运行 /${fullName}`,
-    phase: hit.entry.phase,
+    hint: `请新开会话并执行 /${fullName}（当前为手动衔接模式）`,
+    phase,
     kind: hit.kind,
   };
 }

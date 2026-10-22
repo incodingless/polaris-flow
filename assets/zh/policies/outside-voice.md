@@ -1,10 +1,10 @@
-# Outside Voice 协议
+# 同行交叉评审（Outside Voice）协议
 
-由 **propose** / **design** / **plan** 在主审 subagent 报告落盘后执行。挑战主审结论的 subagent 固定为 `openspec-review-agent`。
+由 **plan** / **design** / **tasks** 在主审 subagent 报告落盘后执行。挑战主审结论的 subagent 固定为 `openspec-review-agent`。
 
 ## 核心定位
 
-- Outside Voice **挑战主审报告 + 提案材料**，不是 code review，也不是重做主审。
+- 同行交叉评审 **挑战主审报告 + 提案材料**，不是代码评审，也不是重做主审。
 - 读代码仅用于验证材料中的引用或「复用现有能力」假设（见 agent 六道防线）。
 - **默认询问用户**是否启动；AI 可按复杂度给建议，**不得代决跳过或强制启动**。
 
@@ -14,11 +14,11 @@
 
 | 阶段 | 主审 agent | 主审报告 |
 |------|------------|----------|
-| propose | `propose-review-agent` | `openspec/changes/<change_id>/reviews/propose-review-report.md` |
+| plan | `plan-review-agent` | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
 | design  | `design-review-agent`  | `openspec/changes/<change_id>/reviews/design-review-report.md` |
-| plan    | `plan-review-agent`    | `openspec/changes/<change_id>/reviews/plan-review-report.md` |
+| tasks   | `tasks-review-agent`    | `openspec/changes/<change_id>/reviews/tasks-review-report.md` |
 
-然后：`read_file` 本文件（或已安装的 `./reference/outside-voice.md`），按下列步骤。
+然后：`read_file` 本文件（或已安装的 `./policies/outside-voice.md`），按下列步骤。
 
 ## Step OV-1：复杂度建议（仅建议）
 
@@ -32,33 +32,33 @@
 
 ## Step OV-2：用户决策点
 
-按 `./reference/decision-point.md` 暂停：
+按 `./policies/decision-point.md` 暂停：
 
 ```text
-主审已完成。是否启动 Outside Voice（openspec-review-agent）独立交叉评审？
+主审已完成。是否启动 独立同行交叉评审（openspec-review-agent）？
 
 建议: <上表文案>
 
-A. 启动交叉评审
+A. 启动同行交叉评审
 B. 跳过
 ```
 
-- 选 **B** → 在主审报告 Completion / state 标注 `Outside Voice: skipped (user decision)`，进入消化主审结论。
+- 选 **B** → 在主审报告 Completion / state 标注 `同行交叉评审: 已跳过 (用户决策)`，进入消化主审结论。
 - 选 **A** → 进入 OV-3。
-- 用户口头「跳过评审 / skip outside voice」等 → 同 B。
+- 用户口头「跳过评审 / 跳过交叉评审 / 跳过同行评审 / skip outside voice」等 → 同 B。
 
 **自动跳过（不必询问）仅当：**
 
-- 宿主 `subagent-probe` 为 `inline` / `unsupported`（无独立 subagent）→ 标注 `Outside Voice: not run (host lacks subagent capability)`，**禁止 inline 假跑**。
+- 宿主 `subagent-probe` 为 `inline` / `unsupported`（无独立 subagent）→ 标注 `同行交叉评审: 未运行（当前平台不具备子代理(subagent)派发能力`，**禁止 inline 假跑**。
 
 ## Step OV-3：派发
 
-1. **填充启动模板**：
-   - **plan 阶段**：优先 `skills/plan/prompts/main-review-summary.tmpl.md`
-   - **propose / design 阶段**：`templates/outside-voice-prompt.tmpl.md`（或同等字段手工 prompt）
-2. 按宿主原生机制派发 `openspec-review-agent`（init 已装到 `.<platform>/agents/`）。
-3. 启动 prompt **必须**含：`Change`、`Stage`、`PrimaryReport`（主审报告路径）、`Materials` 列表。
-4. **禁止**把用户对主审 findings 的采纳/拒绝决策喂给 challenger（保独立性）。
+1. 按启动模板填充 `task_description`：
+   - **tasks 阶段**：`skills/tasks/prompts/main-review-summary.tmpl.md`（五类结构化 findings 摘录）
+   - **plan / design 阶段**：`templates/outside-voice-prompt.tmpl.md`（通用 findings 摘录）
+2. 调用 `polaris{{SKN_SPR}}subagent-dispatch` 派发 `openspec-review-agent`（init 已装到 `.<platform>/agents/`），`agent` 取 probe 结果中 `id=openspec-review-agent` 的项；填充后的模板作为 `task_spec.task_description`。
+3. `task_description` **必须**含：`Change`、`Stage`、`PrimaryReport`（主审报告路径）+ 主审 findings 摘录；`Materials` 由 `task_spec.materials` 数组承载（不含主审报告，因其已在 `PrimaryReport` 字段）。
+4. **禁止**把用户对主审发现 findings 的采纳/拒绝决策喂给 challenger（保独立性）。
 
 ## Step OV-4：落盘与可信度门禁
 

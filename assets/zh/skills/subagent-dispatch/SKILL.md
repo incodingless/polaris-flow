@@ -1,42 +1,50 @@
 ---
 name: polaris{{SKN_SPR}}subagent-dispatch
-description: Subagent 派发执行技能。接收 platform、已选定的 agent（由 subagent-probe 探测后由调用方选定）、task_spec，构造 prompt 并派发 subagent 执行，等待回报。纯执行，不做探测、不做选 agent 决策、不做降级判断——这些由调用方（编排型技能）完成。支持代码编写、文档编写、文档评审、数据分析、研究等通用任务类型。
+description: Subagent 派发执行技能。接收 platform、已选定的 agent（来自 subagent-probe、SessionStart 缓存或调用方固定 id；亦可 agent=null）、task_spec，构造 prompt 并派发执行，等待回报。纯执行，不做探测、不做选 agent 决策、不做降级判断。
 ---
 
 # subagent-dispatch
 
 ## 定位
 
-**派发执行技能**：由编排型技能（orchestrator skill）在调用 `subagent-probe` 探测可用 agent 并自行选定后调用，负责"D-0 工具判定 → D-1/D-2 prompt 构造 → 派发执行 → 等待回报"，**不做探测、不做选 agent 决策、不做降级判断**。
+**派发执行技能**：由编排型技能在已选定 agent（或 `agent=null`）后调用，负责"D-0 工具判定 → D-1/D-2 prompt 构造 → 派发执行 → 等待回报"，**不做探测、不做选 agent 决策、不做降级判断**。
 
 ## 适用场景
 
 调用方技能在以下情况调用本技能：
 
-- 已通过 `subagent-probe` 探测到可用 agent 并自行选定
+- 已选定要派发的 agent（**必先**经 `subagent-probe` 拿到清单；清单为空、或决定默认通用时用 `agent=null`）
 - 需要让一个独立 LLM context 接手某项工作（代码实现、文档撰写、文档评审、数据分析、信息研究等）
 
 **不适用**：
-- 探测可用 subagent（用 `polaris{{SKN_SPR}}subagent-probe`）
+- 探测可用 subagent（用 `polaris{{SKN_SPR}}subagent-probe`；跳过规则见该技能契约）
 - 选定哪个 agent（由调用方决策）
 - 降级 / inline 决策（由调用方决策）
 - 主代理自己能直接完成的简单任务（直接 inline 执行，无需派发）
 
 ## 调用方契约
 
-**编排型技能在调用 `subagent-probe` 拿到 agents 清单并自行选定 agent 后，调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 并传入 `platform`、`agent`、`task_spec`，等待回报。**
+**编排型技能在已选定 agent（或决定 `agent=null`）后，调用 `use_skill("polaris{{SKN_SPR}}subagent-dispatch")` 并传入 `platform`、`agent`、`task_spec`，等待回报。**
+
+选定途径：
+- 经 `subagent-probe` 拿到清单后选定某一项；或
+- 平台支持、但清单为空 / 只要默认通用 Agent → `agent=null`（**probe 仍须先执行** —— H10 禁止跳过 probe 直接派发；缓存由 probe 自己优先读取）
 
 调用方准备入参时应包含：
-- `platform`：宿主平台 id（从项目配置读取）
+- `platform`：宿主平台 id（从 SessionStart 注入的 `PLATFORM_ID` 或项目配置读取）
 - `agent`：由 `subagent-probe` 返回的 agents[] 中调用方选定的某一项（含 id / path / tools / source）；传 `null` 表示用默认 subagent 或 inline 执行
 - `task_spec`：
   - `task_description`：任务的具体描述（做什么、产出什么）
   - `task_type`：任务类型（见 `subagent-probe` 的 `references/task-type-mapping.md`）
   - `materials`：材料路径清单（可选；subagent 需要读取的文件路径数组）
-  - `constraints`：约束条件（可选；如允许修改的文件范围、禁止执行的操作、输出格式要求等）
+  - `constraints`：约束条件（可选；如允许修改的文件范围、禁止执行的操作、输出格式要求等）。**建议包含 `output_path`**（subagent 产出文件的落盘路径）——回报契约要求产出先落盘、只报路径
   - `language`：输出语言（可选；默认跟随主会话语言）
 
-> **agent=null 的场景**：当调用方探测后 agents 为空、或调用方决定派默认 subagent / inline 执行时，传 `agent=null` 并在 `task_spec.constraints` 中加 `"dispatch_mode_hint: default_subagent | inline"`。本技能按 hint 执行：
+> **agent=null 的场景**：
+> 1. 调用方 probe 后 agents 为空，或决定派默认 subagent / inline
+> 2. **probe 返回的 `agents` 为空**（或调用方只想要默认通用 Agent）：**仍须先 probe**（H10），再传 `agent=null`
+>
+> 传 `agent=null` 时在 `task_spec.constraints` 中加 `"dispatch_mode_hint: default_subagent | inline"`。本技能按 hint 执行：
 > - `default_subagent` → 派发宿主默认 subagent（不指定 agent 文件），走 D-2 内容注入型
 > - `inline` → 主代理在自己会话内执行 task_spec
 
@@ -60,8 +68,8 @@ dispatch:
   reason: <短说明>
 result:
   status: <subagent 回报状态：DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT | FAILED>
-  output: <subagent 产出内容或路径>
-  concerns: <顾虑清单，无则 []>
+  artifact_path: <产出文件路径；未产出文件则 null>
+  concerns: <短列表，无则 []>
 ```
 
 | `dispatch.status` | 含义 | 调用方应执行 |
@@ -96,7 +104,7 @@ result:
     - 执行派发（宿主原生 Task / AgentTool）
     - 等待 subagent 回报
 
-[5] 填 result（status / output / concerns），返回完整结构
+[5] 填 result（status / artifact_path / concerns），返回完整结构
 ```
 
 ## references

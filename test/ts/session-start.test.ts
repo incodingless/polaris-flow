@@ -172,7 +172,7 @@ describe('runSessionStart', () => {
     await mkdir(path.join(pluginRoot, 'templates'), { recursive: true });
     await writeFile(
       path.join(pluginRoot, 'templates', 'workflow-template.yaml'),
-      'change_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\n',
+      'coding_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\nprototype_tasks: []\n',
       'utf-8',
     );
     // 装上 superpowers + 假 openspec skill，减少 WARN
@@ -199,9 +199,10 @@ describe('runSessionStart', () => {
     expect(gitignore).toContain('workflow.yaml');
 
     const workflow = await readFile(path.join(tmp, '.polaris', 'workflow.yaml'), 'utf-8');
-    expect(workflow).toContain('change_tasks');
+    expect(workflow).toContain('coding_tasks');
     expect(workflow).toContain('requirement_tasks');
     expect(workflow).toContain('testcase_tasks');
+    expect(workflow).toContain('prototype_tasks');
 
     const session = await readFile(path.join(tmp, '.polaris', 'sessions', '99901.id'), 'utf-8');
     expect(session.trim()).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-[0-9a-f]{6}$/);
@@ -214,16 +215,17 @@ describe('runSessionStart', () => {
       platformId: 'claude',
       pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris'),
       contextDir: '.claude',
+      hostForm: null,
     });
   });
 
   it('注入 review agent model', async () => {
     const tmp = await makeProject({ platform: 'claude', challengerModel: 'test-model' });
     await mkdir(path.join(tmp, '.claude', 'agents'), { recursive: true });
-    const agentPath = path.join(tmp, '.claude', 'agents', 'propose-review-agent.md');
+    const agentPath = path.join(tmp, '.claude', 'agents', 'plan-reviewer.md');
     await writeFile(
       agentPath,
-      '---\nname: propose-review-agent\nmodel: inherit\n---\nbody\n',
+      '---\nname: plan-reviewer\nmodel: inherit\n---\nbody\n',
       'utf-8',
     );
 
@@ -232,13 +234,13 @@ describe('runSessionStart', () => {
       io,
       tmp,
       claudePlatform,
-      'propose-review-agent',
+      'plan-reviewer',
       'test-model',
     );
     expect(ok).toBe(true);
     const updated = await readFile(agentPath, 'utf-8');
     expect(updated).toContain('model: test-model');
-    expect(lines.ok.some((l) => l.includes('propose-review-agent model'))).toBe(true);
+    expect(lines.ok.some((l) => l.includes('plan-reviewer model'))).toBe(true);
   });
 
   it('依赖缺失时 WARN 且 exitCode 1', async () => {
@@ -261,6 +263,7 @@ describe('runSessionStart', () => {
       platformId: 'claude',
       pluginRoot: path.posix.join(path.resolve(tmp), '.claude', 'skills', 'polaris'),
       contextDir: '.claude',
+      hostForm: null,
     });
   });
 });

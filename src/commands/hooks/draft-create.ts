@@ -3,15 +3,16 @@
  */
 import { runDraftCreate } from '../../core/hooks/draft-create.js';
 import { parseTaskKind } from '../../core/config/task-kind-layout.js';
-import type { WorkflowTaskKind } from '../../core/config/workflow-state.js';
+import {
+  workflowTaskKindErrorMessage,
+  type WorkflowTaskKind,
+} from '../../core/config/workflow-state.js';
 
 /** 运行 draft-create 并设置 exitCode / stdout JSON */
 export async function draftCreateCommand(repoRoot: string, kindRaw: string): Promise<void> {
   const kind = parseTaskKind(kindRaw);
   if (!kind) {
-    console.error(
-      JSON.stringify({ error: '缺少或非法 --kind（须为 change|requirement|testcase）' }),
-    );
+    console.error(JSON.stringify({ error: workflowTaskKindErrorMessage() }));
     process.exitCode = 2;
     return;
   }

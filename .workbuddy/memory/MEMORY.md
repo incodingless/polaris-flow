@@ -1,73 +1,72 @@
 # Polaris Flow — 项目长期记忆
 
-## 资产分发约定
+## 引用与安装（最高优先，勿回退）
+- 命令前缀 `psfl`（`POLARIS_COMMAND_PREFIX`）与技能插件名 `polaris`（`POLARIS_PLUGIN_NAME`）刻意解耦；改命令前缀必须先拆分。
+- 引用形态仅两种，不得混用：**技能名** = `polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（无斜杠）；**命令名** = `/psfl{{CMD_SPR}}coding{{CMD_SPR}}tweak`（带斜杠）。**「技能名加斜杠」是坏引用**。
+- ⚠️ 边界（2026-10-15 用户纠正）：正文里「转交/回退到某技能」（如 ship「终验失败 → 回 verify」）是描述流程逻辑，**合理、不算坏引用**；其中带斜杠只是措辞一致性问题（`/polaris:` 斜杠暗示命令、前缀应为 psfl），非逻辑错误，勿机械清理。
+- 技能资产不得反向引用命令（`/psfl:*`、flow 菜单编号 C01/M01 等）；要表达档位用层内表述（`tweak`/`normal`/`strict`）。
+- 占位符仅在 skills/commands 域展开；`install/skills.ts` 只替换 `{{SKN_SPR}}`；`{{CMD_SPR}}` 只在命令域。
 
-- **命令落盘**：`assets/{zh,en}/commands/*.md` → `<contextDir>/commands/polaris/<file>.md`
-  （带 `polaris/` 子目录）。文件名即命令名，`polaris-flow.md` → `/polaris-flow`。
-- **`{{SKN_SPR}}` 占位符**：技能与命令共用，安装时按 `skillsLayout` 展开 —— nested（claude / cursor）→ `:`，
-  flat（trae / trae-cn）→ `-`。命令正文引用技能**必须**用占位符，写死必然在另一布局失效。
-- **`init` 默认语言是 `en`**，而 `assets/en/skills/` 实际为空（仅 `.gitkeep`）。
-  验证安装效果必须 `polaris init --lang zh`，否则只装到共享内容、0 个技能。
+## 三层架构（权威源 `src/core/config/task-kind-layout.ts`）
+- 三层：入口层（tweak/normal/strict 薄编排，只声明档位）→ 调度层 `intake` → 执行层（specify→plan→design(可选)→tasks→build→verify→ship）+ 旁路 retro。
+- 执行层唯一入口 = `intake`：不得被直接调用、不得互相调用、不得加载 intake；阶段出口的自动衔接也回 intake。
+- 档位序列唯一真相 = `TaskKindLayout.modePhases`：tweak=跳过 plan/design；normal=跳过 design；strict=全序列。
+- `workflow.mode` 三值 `tweak|normal|strict`（`full` 已改名，别名已删，存量 full/delivery 不再识别）；中文名「工作流」。
+- 档位升降唯一位置 = `specify` 出口（Step 5.5），过即冻结；其余阶段纯按 `skill` 字段转交。
 
-## 技能资产现状
+## intake（调度层）
+- `task-entry` 原语 = intake 专用（六出口 resume/handover/create/select/resolve-drafts/block）；恢复分发用只读 `get-active-changes`。
+- intake Step1–4：恢复分发 → 入口判档（仅零个）→ 任务初始化 → 转交；上游已指定 `task_id` 则跳过枚举（机器交接免提问）。
+- 执行层 Step1「接收 intake 交接」：必给 `task_id` + `worktree_path`（空=主仓）；没有则阻断，不得自行枚举在途任务。
+- retro = 调度层唯一豁免：不进场序列、不需 `task_id`、由用户直接调用（「看度量/复盘」），intake 不转交它。
 
-- **在用族**（`assets/zh/skills/`）：
-  - `coding/`: build, clarify, design, plan, propose, retro, ship, verify（**无 refactor**）
-  - `prd/`: discovery, draft, refine, review, ship, testability
-  - `testing/`: acceptance, case
-  - `subagent-dispatch/`、`subagent-probe/`（各自带 `references/`）
-  - `maintance/`：**空目录**，0 文件，git 历史也无内容
-  族名在 `layout.ts` 与 `install/skills.ts` 的 `SKILL_FAMILIES` 中注册，**新增/改名必须同步两处**。
-  **写命令路由表前先 `ls assets/zh/skills/<族>/` 核对**——凭印象写必然挂。
-- **⚠️ 测试族固定为 `testing`，不可改回 `test`** —— `test` 与仓库根 `test/`（单元测试）及保留目录
-  冲突。族名一旦与 `assets/<lang>/skills/` 下的真实目录名不一致，`parseSkillAssetPath` 会把族目录
-  误判成独立技能（落盘 `polaris/testing/` 带 `case/` 子目录，而非两个叶技能），命令里的
-  `polaris{{SKN_SPR}}testing{{SKN_SPR}}case` 就永远路由不到。
-- **不安装**：`assets/zh/skills/requirements-engineering/`（被 `shouldSkipSkillShortPath` 跳过，
-  与 `skills/prd/` 功能重叠的旧版）。改 PRD 技能改 `skills/prd/`，不要改这里。
+## 值域（2026-10-12 裁定，勿再动）
+- `complexity_level`/`risk_level`/`current_tier` = `trivial|standard|critical`（方向 critical > standard > trivial）。
+- 分级→档位映射单源（`risk-signals.md` §1）：trivial→tweak / standard→normal / critical→strict；技能侧不内联。
 
-## 已知陈旧项（勿踩）
+## 用户约定
+- 配置归代码（禁止 policy 承载配置表）；写 `state.yaml` 一律走 `scripts/task-state-entry.sh`（禁直写 yaml 块）。
+- 双语言：先写中文（`assets/zh/skills/`），用户确认后再同步英文；未同步前不写 Changelog。当前英文版暂不处理。
+- 候选呈现（用户手定）：单行 `<task_id> (工作流：<mode_label>，阶段：<phase_label>，技能：<skill_label>)`。
+- 每轮改动后跑 26/26 技能测试通过方可提交。
 
-- **`assets/zh/commands/hotfix.md` 与 `assets/en/commands/hotfix.md` 是死链命令桩**：
-  正文仅 `Use the polaris:hotfix skill.`，而该技能不存在（既非族也非独立技能）。
-- **安装类测试的 timeout 债**：任何调 `installPolarisForPlatform` / `copyPolarisSkillsForPlatform` 的用例，
-  实测需 11~15s（拷贝 200+ 文件），必须显式给 `{ timeout: 60_000 }`，否则默认 5s 必然超时。
-  照 `commands-install.test.ts` / `skills-install.test.ts` 的 `INSTALL_TIMEOUT` 写法加即可。
-  `session-start.test.ts` 里也有同类超时失败（未修）。
-- `assets/zh/skills/README.md` 引用了不存在的 `delivery/`、`explore-router/`、`idea-discovery/`、
-  `hard-stops.md`。
-- `polaris.example.yaml` / `config.example.yaml` / `ask-question-react.md` /
-  `subagent-probe/references/platform-probe.md` 仍残留 `qoder` 等已移除平台的枚举项。
-- `src/core` 有 3 个 prettier 未格式化文件、若干 eslint 错误，均为存量，提交前别被 CI 误伤。
+## state.yaml 写入（2026-10-16 审计事实）
+- **state 不套骨架**：`draft-create.ts:102` 只写 `kind: coding`；`patchTaskStateFile` 的 `?? createDefaultTaskState(...)` 仅在文件不存在时生效 → 实际任务 state **无** `worktree` / `artifact_review_mode` / `runtime.*` 骨架，字段靠增量长出。「字段缺失」是常态，不是异常。
+- `createDefaultTaskState`（task-state.ts:517-580）那套默认值（含顶层已废弃 `verify_mode: 'light'`）**实际不落盘**。
+- ⚠️ `worktree.ts:141-158` 用 `appendFile` 追加顶层 `worktree:` 块 —— 全仓唯一绕过 task-state-entry 锁与写后校验的 state 写入；state 已有该块时产生重复顶层键，`yaml` 库**直接抛错**（`Map keys must be unique`）→ 该文件此后所有读 op 全挂。
+- `set-checkbox` op 已实现「同锁内 tasks.md 勾选 + `runtime.build.{total,completed}_tasks` 原子同步」，但**零消费者**（生效资产里没人调）。
+- `runtime.build.pause_reason` 是技能自造字段，未登记进 `state.example.yaml` / 类型。
+- `opsx_propose_status` 的正确路径是 `runtime.plan.*`（`propose` 是旧阶段名，`task-state.ts:470` 明示已改名 plan）；写 `runtime.propose.*` 会静默长出孤儿段。
+- 已落盘（2026-10-16）：`zh-skills-state-write-fix-plan.md` —— 23 处 AI 直写全部改为 `task-state-entry.sh`（P0 2 / P1 21），涉 build/plan/tasks/verify/ship 五个 SKILL.md。**范围硬边界 = 仅 `assets/zh/skills/coding/**`，未改 src**。
+- 判据口径（复用）：凡「state 写入」必须给出 `task-state-entry.sh` 调用；**紧跟脚本调用之后的说明性文字**（如「随后产出 phase: X」）不算直写，但措辞若写成「更新 state.yaml：<字段>」就该收口。
+- ⚠️ 底线：涉及 `src/`、`assets/shared/templates/`、其它族的发现，**不得**顺手纳入修复范围（2026-10-16 用户纠正过一次）。
 
-## 命令资产（multi-turn 询问类）编写约定
+## 测试与工具坑
+- 测试族固定 `testing`（不可改 test）；coding 族 12 技能。
+- 本机 BSD grep 不支持 `\|`；用 Grep 工具。用户用 Typora 打开 docs 会静默覆盖 AI 写入，写前 `lsof` 查占用。
+- `state.example.yaml` 混有用户手改，回退禁用 `git checkout`。
+- `packageManager` 必须锁 `pnpm@10.18.3`（= 两处 workflow 的 `pnpm/action-setup` version）。改成 pnpm 12+ 会让本机 `pnpm` 直接崩：pnpm 12 入口改名 `bin/pnpm.mjs`，而 Node 自带 corepack 0.34.6 仍找 `bin/pnpm.cjs` → `prepare`(`husky && pnpm run build`) 失败 → `npm pack`/`npm publish` 全挂（报 `Cannot find module .../corepack/v1/pnpm/<ver>/bin/pnpm.cjs`）。升大版本须同时升 corepack 或独立安装 pnpm，并同步两处 workflow。
+- 写 shell：**变量后紧跟中文必须 `${VAR}`**。`"$VERSION，"` 会把全角逗号首字节吃进变量名 → `VERSION<乱码>: unbound variable`（locale 多字节）；`$BRANCH（`、`$VERSION）` 同理。
+- `git status --porcelain` 中文路径默认转义成 `\345\217...`，需 `git -c core.quotepath=false status`。
+- `.workbuddy/memory/` **被 git 跟踪**（非 ignored）；任何「工作区必须干净」的检查都要 `:(exclude).workbuddy`，否则 AI 每次写日志都会误触发。
+- `npm publish` **没有 `--force` 参数**；覆盖同版本靠 Nexus 的 Allow Redeploy（开了会静默覆盖），公网 npm 则根本不允许。
+- 发布链路：`release.sh`（根目录）= 通道 A 固化脚本；`npm publish --registry <hosted>` 前 `prepublishOnly` 会跑密钥扫描 + build。
+- ⚠️ **公司 Nexus 已是 Nexus 3.90.1-01 (COMMUNITY)** @ `http://192.168.103.96:8081`（2026-10-21 用户裁定）。旧 Nexus 2.15.1 @`192.168.2.96` 已退役，其全部实测结论——maven2 provider、tarball 永久 404、packument leaf 死锁、Basic-only 认证、pf-dist 绕行、34 个代理依赖 404——**一律作废，勿再引用**。
+  - 三仓布局：`npm-hosted`（发布，只进）/ `npm-proxy`（代理 registry.npmjs.org）/ `npm-group`（聚合读，安装统一走它）；路径 `/repository/<仓库名>/`（无 `/nexus/content/` 前缀）。
+  - 认证（Nexus 3 口径）：先启用 `npm Bearer Token Realm`，再 `npm login --auth-type=legacy`（写 `_authToken`，默认 30 天过期，Community 版无过期配置项）；长期发布改 Basic `_auth=base64(user:pass)`（永不过期，两种写法不可并存）。匿名读须给 `nx-anonymous` 加 `npm-group` 的 browse/read。
+  - 覆盖同版本 = 仓库 Deployment Policy（Allow redeploy 会静默覆盖）。
+  - **仍然有效的教训（版本无关）**：验收判据 = **tarball 可直接下载 + 全新缓存 `npm pack`/`npm i` 通过**；`201` / `+ pkg@ver` / metadata 200 只证明元数据写入，不证明可安装（本机 ~/.npm 缓存会伪装成功，须 `--cache <新目录> --prefer-online`）。
+  - 操作细节单源：《docs/releases/发布操作指南.md》通道 A + `release.sh`；记忆不复制步骤。
 
-- 多轮 `AskUserQuestion` 询问，每一轮必须各占一个**一级标题**（`## 第一步` / `## 第二步` …）。
-  塞进同一节的 `###` 子标题里，模型会按标题层级直接跳到下一个「动作型」步骤而漏问。
-- 每一轮都要给**完整可原样复制的工具调用 payload**（含 `question` / `header` / `multiSelect`），
-  只给 `options` 片段会让模型退化成纯文本罗列，选项弹不出来。
-- 配一个「执行状态」小节记录已选值（如 `已选类别` / `已选功能`），要求每步结束回查，缺值不许往下走。
-- HARD-STOP 里显式写死「禁止拿到某级答案后直接跳去执行」与「禁止纯文本罗列代替工具调用」。
-- `AskUserQuestion` 单次选项上限 4 个；菜单项超过 4 个就拆成「类别 → 具体项」两级串行。
-- 路由型命令在「选完做什么」与「加载技能」之间必须插入**上下文收集步骤**，否则用户没机会交代
-  要读哪些文件。收集到的是原样清单，交接时要求技能先消费上下文再进自身流程。
+## Windows 支持（2026-10-21 裁定）
+- **bash 是硬依赖，非可选**：`assets/shared/hooks.json` 模板、`src/core/install/hooks.ts:62`（硬编码 `bash "…"`）、`doctor.ts:135`、`verify/SKILL.md` 的 scorers 调用，共 27 个 `.sh`。全仓 `grep win32|process.platform` **零结果**（无 Windows 分支）。⇒ Windows 缺 bash 时：安装与 `polaris init` 都成功、**hook 静默失效不报错**。
+- 裁定 = **A+B，不做 C**：A 文档分平台 + B 新增 `install.ps1`（`install.sh` 等价物）；C（把 hook/scorers 改写成 Node 跨平台）明确不做。理由：Git for Windows 提供的 `bash.exe` 同时解决 install 与 hook 两件事。
+- `install.ps1` 三个必须保持的约束：① 调用 `npm.cmd` 而非 `npm`（PowerShell 的 `npm`→`npm.ps1` 被执行策略拦）；② 文件必须 **UTF-8 BOM + CRLF**（PowerShell 5.1 否则按 ANSI 解析 → 中文乱码）；③ bash 缺失只警告不阻断，且区分「已装 Git 但 `bin` 不在 PATH」与「未装」。
+- PowerShell 语法坑：`-split` 单段结果 `[0]` 取首字符 → 用 `String.Split()`；`npm prefix -g` 要 `Select-Object -First 1` 再 `.Trim()`。bash 的「变量后跟中文要 `${}`」坑**不适用**于 PowerShell。
+- **安装判据 = 全局目录可写，不是「是否 root」**（2026-10-21，与 Linux `sudo` 同源逻辑）：Windows 官方安装包的 npm 前缀默认 `%APPDATA%\npm`，本来就在当前用户名下、已在 PATH → **不需要管理员**；只有前缀被指到 `C:\Program Files` 类受保护路径才需管理员。判据统一为「装进一个 `polaris init` / `update` 也写得进去的全局目录」，`--prefix` 绕开一律禁止（会得到只能跑 `--version` 的残件）。`install.ps1` 用建临时文件探测（ACL 判断在 Windows 易误判），**目录不存在时向上找最近已存在祖先**再探测（全新 Node 上 `%APPDATA%\npm` 可能尚未创建，否则会误判不可写而拒绝安装）。
+- MAX_PATH 无风险：包内最长相对路径 93 + Windows 全局前缀 68 = 161 < 260。
+- 已知残留（未处理）：`assets/zh/skills/prototype/build/evals/fixtures/.proto-verify.*.html` 是测试残留，随 `assets` 入包。
 
-## 发问相关约定（全局）
-
-- **禁止在 SKILL 内写死 `AskUserQuestion`**（`assets/zh/policies/ask-question-react.md` 明令）。
-  工具名须按 `.polaris/config.yaml` 的 `platform` 查「平台询问工具注册表」得到；单次选项上限 4 个，
-  平台不支持单次多 question 时拆多次调用串行。
-- 共享策略（`decision-point.md` / `ask-question-react.md` / `response-posture.md` 等）打包时注入
-  各叶技能 `policies/` 目录，源码树里看不到 —— 技能内写 `./policies/xxx.md` 是正常的，不是坏引用。
-- 让用户从列表里选一项时，要写「判定规则」表区分**明确选择**与**不算选择**
-  （「都要做」「按建议来」「只确认方案」都不算），并接受「名称或编号」两种回答。
-- **命令资产不能引用 `./policies/xxx.md`**：共享 policies 只注入叶技能（`install/skills.ts` Step 3），
-  插件根没有 `policies/`；且不能拷到 `commands/` 下——Claude Code 会把 `commands/**/*.md` 全注册成命令。
-  命令需要发问时**内联精简的「平台询问工具注册表」**，注明与 `ask-question-react.md` 冲突时以后者为准。
-
-## 流程约定
-
-- 双语言：技能先写中文版，用户确认后再同步英文版；**中英文未同步前不写 Changelog**。
-- **`task-init` 只建目录 + `state.yaml`，不写 workflow 游标**；`append-active` 是独立 op。
-  要「可恢复的任务/基础任务」必须两者都做，缺游标 = `get-active-changes` 恢复时不可见。
-- Qoder 在 0.1.0 已刻意从平台列表移除，如需恢复属新决策，勿默认其仍受支持。
+## state.yaml 双层字段语义（2026-10-19 裁定）
+- workflow.tdd_mode/build_mode/signals = workflow 层全局决策字段，必须由技能写入（tasks Step 3 / build Step 2.1 / specify 5.4.1 + verify Step 9）；runtime 同名/相应字段（tdd_policy、runtime.build.build_mode 等）= 运行细节记录。两层并存、不裁撤；build SKILL.md「刻意不做全局 tdd_mode」表述与本裁定冲突，待批③修正。
+- 顶层 `verify_mode` = 保留且必须写入（verify 定档时与 runtime.verify.verify_mode 成对同步），模板「已废弃不读取」注释待批③改写（2026-10-19 裁定）。

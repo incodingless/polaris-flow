@@ -8,6 +8,7 @@ import { type Platform } from '../domain/platforms.js';
 import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
 import { Languages } from '../config/polaris-project-config.js';
 import { getAssetsDir } from '../assets/manifest.js';
+import type { CopyStats } from './types.js';
 
 /** 按平台 rulesFormat 拷贝 hard-stops 等规则文件 */
 export async function copyPolarisRules(
@@ -16,7 +17,7 @@ export async function copyPolarisRules(
   platform: Platform,
   language: Languages,
   asset: Assets,
-): Promise<{ copied: number; skipped: number }> {
+): Promise<CopyStats> {
   const ruleDirs = asset.langDirAssets.filter((asset) => asset.dir.startsWith('rules/'));
   const jobs: CopyJob[] = [];
   for (const ruleDir of ruleDirs) {
@@ -33,7 +34,12 @@ export async function copyPolarisRules(
       });
     }
   }
-  return runCopyJobs(jobs);
+  const result = await runCopyJobs(jobs);
+  return {
+    copied: result.copied,
+    skipped: result.skipped,
+    files: result.results.map((entry) => entry.job.dest),
+  };
 }
 
 /** 按规则格式计算目标文件名（mdc / 原名） */

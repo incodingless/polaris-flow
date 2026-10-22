@@ -1,6 +1,7 @@
 /**
- * Superpowers 技能包安装（GitHub clone 优先，失败回退 npx skills add）。
- * 按平台映射 skills CLI agent 名并写入宿主 skills 目录。
+ * Superpowers 技能包安装（按 npm → git 镜像 → 本地目录 三通道顺序尝试）。
+ * 通道配置统一走 `install/channels.ts`（CLI flag > env > polaris.yaml）；按平台映射
+ * skills CLI agent 名并写入宿主 skills 目录。
  */
 import { getNodeToolExecutable } from '../deps/npm.js';
 import { cleanupTemp, fetchRepo, resolveVersion } from '../deps/github.js';
@@ -10,23 +11,26 @@ import {
   SUPERPOWERS_REPO,
   SUPERPOWERS_MIN_VERSION,
 } from '../assets/sources.js';
+import { resolveInstallChannelConfig } from '../install/channels.js';
 import { getBaseDir } from './detect.js';
 import { PLATFORMS } from '../domain/platforms.js';
 import { printCommandErrorDetails } from '../command-error.js';
 import type { InstallScope } from '../config/polaris-project-config.js';
 import { execFileSync } from 'child_process';
+import { fileExists } from '../../utils/file-system.js';
 
 /** Superpowers 安装结果 */
 export type SuperpowersInstallResult = {
   status: 'installed' | 'failed' | 'skipped';
   version: string;
   /** 实际使用的安装通道 */
-  method?: 'github' | 'npx';
+  method?: 'github' | 'npx' | 'local';
 };
 
+/** skills CLI 的 --agent 必须用平台 id（trae-cn），不能用展示名（Trae-CN） */
 const SKILLS_AGENT_MAP: Record<string, string> = PLATFORMS.reduce(
   (acc, platform) => {
-    acc[platform.id] = platform.name;
+    acc[platform.id] = platform.id;
     return acc;
   },
   {} as Record<string, string>,
@@ -58,17 +62,41 @@ function buildSuperpowersInstallCommand(
   return { command: getNodeToolExecutable('npx'), args };
 }
 
-/** 优先通道：GitHub shallow clone */
+/** 本地目录通道：channels 配置的 localPaths.superpowers 指向已 clone 的仓库 */
+async function installSuperpowersFromLocalPath(
+  localPath: string | undefined,
+  baseDir: string,
+  platforms: (typeof PLATFORMS)[number][],
+  scope: InstallScope,
+): Promise<SuperpowersInstallResult | null> {
+  if (!localPath) {
+    return null;
+  }
+  if (!(await fileExists(localPath))) {
+    console.warn(`    ↳ 本地目录不存在: ${localPath}`);
+    return null;
+  }
+
+  console.warn(`    ↳ 使用本地目录 ${localPath} ...`);
+  const source = getSuperpowersSource();
+  for (const platform of platforms) {
+    await installSource(source, localPath, baseDir, platform, scope);
+  }
+  return { status: 'installed', version: 'local', method: 'local' };
+}
+
+/** git 镜像通道：shallow clone（镜像来自 channels 配置） */
 async function installSuperpowersViaGitHub(
   baseDir: string,
   platforms: (typeof PLATFORMS)[number][],
   scope: InstallScope,
+  mirror?: string,
 ): Promise<SuperpowersInstallResult | null> {
   const source = getSuperpowersSource();
   let localPath: string | undefined;
 
   try {
-    const resolved = resolveVersion(SUPERPOWERS_REPO, SUPERPOWERS_MIN_VERSION);
+    const resolved = resolveVersion(SUPERPOWERS_REPO, SUPERPOWERS_MIN_VERSION, mirror);
     const version = resolved.version;
 
     if (version) {
@@ -81,7 +109,7 @@ async function installSuperpowersViaGitHub(
 
     console.warn(`    ↳ git clone ${SUPERPOWERS_REPO} ...`);
 
-    const fetched = await fetchRepo(SUPERPOWERS_REPO, version);
+    const fetched = await fetchRepo(SUPERPOWERS_REPO, version, mirror);
     localPath = fetched.localPath;
 
     for (const platform of platforms) {
@@ -103,13 +131,13 @@ async function installSuperpowersViaGitHub(
   }
 }
 
-/** 回退通道：npx skills add（国内网络或 git HTTP/2 问题时更稳定） */
+/** npm 通道：npx skills add（内部仍会 clone GitHub，不是国内网络逃逸舱） */
 async function installSuperpowersViaNpx(
   projectPath: string,
   scope: InstallScope,
   platformIds: string[],
 ): Promise<SuperpowersInstallResult> {
-  console.warn('    ↳ 回退: npx skills add obra/superpowers ...');
+  console.warn('    ↳ npx skills add obra/superpowers ...');
 
   const skillsCliPlatformIds = platformIds.filter((id) => SKILLS_AGENT_MAP[id]);
   if (skillsCliPlatformIds.length === 0) {
@@ -133,7 +161,7 @@ async function installSuperpowersViaNpx(
 }
 
 /**
- * 安装 Superpowers：优先 GitHub clone，失败时回退 npx skills add。
+ * 安装 Superpowers：按 npm → git 镜像 → 本地目录 顺序尝试，任一通道成功即返回。
  */
 export async function installSuperpowersForPlatforms(
   projectPath: string,
@@ -152,13 +180,41 @@ export async function installSuperpowersForPlatforms(
 
   const baseDir = getBaseDir(scope, projectPath);
   const platforms = PLATFORMS.filter((p) => platformIds.includes(p.id));
+  const channel = await resolveInstallChannelConfig();
 
-  const githubResult = await installSuperpowersViaGitHub(baseDir, platforms, scope);
+  // 1. npm 通道
+  const npxResult = await installSuperpowersViaNpx(projectPath, scope, platformIds);
+  if (npxResult.status === 'installed') {
+    return npxResult;
+  }
+
+  // 2. git 镜像通道
+  const githubResult = await installSuperpowersViaGitHub(
+    baseDir,
+    platforms,
+    scope,
+    channel.githubMirror,
+  );
   if (githubResult?.status === 'installed') {
     return githubResult;
   }
 
-  return installSuperpowersViaNpx(projectPath, scope, platformIds);
+  // 3. 本地目录通道
+  const localResult = await installSuperpowersFromLocalPath(
+    channel.localPaths.superpowers,
+    baseDir,
+    platforms,
+    scope,
+  );
+  if (localResult?.status === 'installed') {
+    return localResult;
+  }
+
+  return {
+    status: 'failed',
+    version: 'failed',
+    method: undefined,
+  };
 }
 
 export {

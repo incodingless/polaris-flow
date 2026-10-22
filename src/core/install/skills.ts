@@ -18,15 +18,17 @@ import {
   type CopyJob,
   type CopyResult,
 } from '../../utils/file-system.js';
+import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { Assets } from '../assets/manifest.js';
 import { POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
-import { parseSkillAssetPath } from '../assets/layout.js';
+import { parseSkillAssetPath, SKILL_FAMILIES } from '../assets/layout.js';
+import type { CopyStats } from './types.js';
 
 /** 技能资产中的名称分隔符占位符 */
 export const SKILL_NAME_PREFIX_PLACEHOLDER = '{{SKN_SPR}}';
 
 /**
- * 匹配技能文本中的 `../` 相对引用（如 `../clarify/x.md`、`../../../../policies/y.md`）。
+ * 匹配技能文本中的 `../` 相对引用（如 `../specify/x.md`、`../../../../policies/y.md`）。
  * 负向前瞻 `(?<!\.)` 排除 `.../`（省略号 / shell glob），避免误报。
  */
 const CROSS_SKILL_PARENT_REF_RE = /(?<!\.)\.\.\/[A-Za-z0-9._\-\/]+/g;
@@ -34,22 +36,27 @@ const CROSS_SKILL_PARENT_REF_RE = /(?<!\.)\.\.\/[A-Za-z0-9._\-\/]+/g;
 /** 幽灵占位符：源码中从未定义 / 替换，安装后会原样残留，必须清理。 */
 const GHOST_SKILL_NAME_PLACEHOLDER = '{{SKILL_NAME_PREFIX}}';
 
-/**
- * 技能族目录名（其下为叶技能）。
- * 注意：族名必须与 `assets/<lang>/skills/` 下的实际目录名一致，否则族目录会被误判为独立技能。
- * 测试族固定为 `testing`——**不可用 `test`**，与仓库根 `test/`（单元测试）及保留目录冲突。
- */
-const SKILL_FAMILIES = new Set(['coding', 'prd', 'testing']);
+/** 再导出技能族清单：唯一来源是 `core/assets/layout.ts`，此处禁止再抄一份。 */
+export { SKILL_FAMILIES };
 
 /**
  * 是否应跳过该 skills 短路径。
  */
 export function shouldSkipSkillShortPath(shortPath: string): boolean {
   const normalized = shortPath.replace(/\\/g, '/');
-  if (normalized === 'README.md') {
+  const base = normalized.includes('/')
+    ? normalized.slice(normalized.lastIndexOf('/') + 1)
+    : normalized;
+  // 与 manifest ignoredFiles 兜底对齐：任意层级 README / .DS_Store 不安装
+  if (base === 'README.md' || base === '.DS_Store') {
     return true;
   }
   if (normalized.includes('/.workbuddy/') || normalized.startsWith('.workbuddy/')) {
+    return true;
+  }
+  // 已退役的族级 `_shared/`（2026-09-17 取消分发）：其中的文件不下发，
+  // 也不得被当成叶技能——否则会出现 phantom「_shared」技能。
+  if (normalized.includes('/_shared/')) {
     return true;
   }
   const top = normalized.split('/')[0];
@@ -58,7 +65,7 @@ export function shouldSkipSkillShortPath(shortPath: string): boolean {
 
 /**
  * 从 skills 资产相对路径取出顶层目录名（兼容旧调用）。
- * 例：`clarify/SKILL.md` → `clarify`；`coding/clarify/x` → `coding`。
+ * 例：`specify/SKILL.md` → `specify`；`coding/specify/x` → `coding`。
  */
 export function getSkillDirNameFromShortPath(shortPath: string): string | null {
   const normalized = shortPath.replace(/\\/g, '/');
@@ -155,6 +162,46 @@ async function writePrefixedTextJob(job: CopyJob, prefix: string): Promise<CopyR
 }
 
 /**
+ * 判断共享模板是否在分发时丢掉注释。
+ * 目前只有 workflow 游标模板：注释只服务仓库维护，落到用户项目后不保留。
+ */
+function templateDropsComments(shortPath: string): boolean {
+  const normalized = shortPath.replace(/\\/g, '/');
+  const base = normalized.includes('/')
+    ? normalized.slice(normalized.lastIndexOf('/') + 1)
+    : normalized;
+  return base === 'workflow-template.yaml';
+}
+
+/**
+ * 按 YAML 模板分发：覆盖策略与 `keepComments` 由调用方决定。
+ */
+function makeYamlTemplateCopyJob(
+  label: string,
+  src: string,
+  dest: string,
+  overwrite: boolean,
+  keepComments: boolean,
+): CopyJob {
+  const job: CopyJob = {
+    label,
+    src,
+    dest,
+    type: 'file',
+    overwrite,
+  };
+  job.write = async () => {
+    const existed = await fileExists(job.dest);
+    if (existed && !job.overwrite) {
+      return { job, result: 'skipped' };
+    }
+    await writeYamlFromTemplate(job.src, job.dest, { keepComments });
+    return { job, result: 'copied' };
+  };
+  return job;
+}
+
+/**
  * 构造带分隔符替换的拷贝任务。
  */
 function makePrefixedCopyJob(
@@ -209,7 +256,9 @@ function collectSkillLeafRoots(assets: Assets): SkillLeafRoot[] {
  * 从技能资产相对路径解析出技能根（相对 skills 根）与文件所在目录。
  * 返回 null 表示该文件不是可校验的技能叶文件。
  */
-function resolveSkillAssetLocation(shortPath: string): { skillRootRel: string; fileDirRel: string } | null {
+function resolveSkillAssetLocation(
+  shortPath: string,
+): { skillRootRel: string; fileDirRel: string } | null {
   const normalized = shortPath.replace(/\\/g, '/');
   if (shouldSkipSkillShortPath(normalized)) {
     return null;
@@ -232,12 +281,15 @@ function resolveSkillAssetLocation(shortPath: string): { skillRootRel: string; f
  * 扫描技能资产，找出「逃出技能自身目录」的 `../` 相对引用与幽灵占位符 {{SKILL_NAME_PREFIX}}。
  *
  * 背景：flat 安装布局把每个叶技能平铺为独立目录（如 `polaris-coding-tweak/`），
- * 源文件里的跨技能 `../clarify/...`、跨层 `../../../../policies/...` 相对路径在 flat 下必然断裂。
+ * 源文件里的跨技能 `../specify/...`、跨层 `../../../../policies/...` 相对路径在 flat 下必然断裂。
  * 正确做法是技能名引用（`use_skill` / `/命令`）或技能内自包含路径（`./policies/`、`./templates/`）。
  * 安装器只替换 `{{SKN_SPR}}`，不重写 `../` 与 `{{SKILL_NAME_PREFIX}}`，因此源资产扫描等价于产物扫描。
  */
 export async function findSkillAssetRefViolations(assets: Assets): Promise<string[]> {
-  const targets: { file: Assets['langDirAssets'][number]['files'][number]; location: { skillRootRel: string; fileDirRel: string } }[] = [];
+  const targets: {
+    file: Assets['langDirAssets'][number]['files'][number];
+    location: { skillRootRel: string; fileDirRel: string };
+  }[] = [];
   for (const skillAsset of assets.langDirAssets.filter((a) => a.dir === 'skills')) {
     for (const file of skillAsset.files) {
       const location = resolveSkillAssetLocation(file.shortPath);
@@ -287,6 +339,7 @@ export async function validateSkillAssetsNoCrossSkillParentRefs(assets: Assets):
 
 /**
  * 拷贝 Polaris skills 与包内公共内容到指定平台。
+ * @returns 拷贝计数与落盘文件清单（清单含未改写的既有文件，供 update 清理陈旧产物）
  */
 export async function copyPolarisSkillsForPlatform(
   polarisSkillsBaseDir: string,
@@ -294,7 +347,7 @@ export async function copyPolarisSkillsForPlatform(
   skillsLayout: SkillsLayout,
   overwrite: boolean,
   assets: Assets,
-): Promise<{ copied: number; skipped: number }> {
+): Promise<CopyStats> {
   // 构建期校验：命中跨技能 ../ 引用或幽灵占位符即阻断安装（防回归）。
   await validateSkillAssetsNoCrossSkillParentRefs(assets);
 
@@ -307,10 +360,23 @@ export async function copyPolarisSkillsForPlatform(
   );
   for (const sharedDir of sharedDirs) {
     for (const file of sharedDir.files) {
+      const dest = path.join(polarisSkillsBaseDir, sharedDir.dir, file.shortPath);
+      if (sharedDir.dir === 'templates' && file.shortPath.endsWith('.yaml')) {
+        jobs.push(
+          makeYamlTemplateCopyJob(
+            'shared_templates',
+            file.fullPath,
+            dest,
+            overwrite,
+            !templateDropsComments(file.shortPath),
+          ),
+        );
+        continue;
+      }
       jobs.push({
         label: 'shared_' + sharedDir.dir,
         src: file.fullPath,
-        dest: path.join(polarisSkillsBaseDir, sharedDir.dir, file.shortPath),
+        dest,
         type: 'file',
         overwrite,
       });
@@ -322,15 +388,20 @@ export async function copyPolarisSkillsForPlatform(
   );
   for (const contentDir of contentDirs) {
     for (const file of contentDir.files) {
-      jobs.push(
-        makePrefixedCopyJob(
-          contentDir.dir,
-          file.fullPath,
-          path.join(polarisSkillsBaseDir, contentDir.dir, file.shortPath),
-          overwrite,
-          prefix,
-        ),
-      );
+      const dest = path.join(polarisSkillsBaseDir, contentDir.dir, file.shortPath);
+      if (contentDir.dir === 'templates' && file.shortPath.endsWith('.yaml')) {
+        jobs.push(
+          makeYamlTemplateCopyJob(
+            contentDir.dir,
+            file.fullPath,
+            dest,
+            overwrite,
+            !templateDropsComments(file.shortPath),
+          ),
+        );
+        continue;
+      }
+      jobs.push(makePrefixedCopyJob(contentDir.dir, file.fullPath, dest, overwrite, prefix));
     }
   }
 
@@ -381,7 +452,10 @@ export async function copyPolarisSkillsForPlatform(
     }
   }
 
-  return runCopyJobs(jobs);
+  const result = await runCopyJobs(jobs);
+  return {
+    copied: result.copied,
+    skipped: result.skipped,
+    files: result.results.map((entry) => entry.job.dest),
+  };
 }
-
-export { SKILL_FAMILIES };

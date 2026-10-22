@@ -44,9 +44,18 @@ export function getWorkflowTemplateYamlSrc(): string {
   return path.join(getSharedTemplatesDir(), 'workflow-template.yaml');
 }
 
-/** 返回 shared .gitignore 源：`assets/shared/.gitignore` */
+/** 返回任务 state 模板源：`assets/shared/templates/<filename>` */
+export function getTaskStateTemplateSrc(filename: string): string {
+  return path.join(getSharedTemplatesDir(), filename);
+}
+
+/**
+ * 返回 shared .gitignore 模板源：`assets/shared/gitignore.template`。
+ * 不直接叫 `.gitignore`：npm 发布永远剔除 .gitignore 文件，且全局 gitignore 也会把它挡在版本库外；
+ * 安装时由调用方写出为 `.polaris/.gitignore`。
+ */
 export function getSharedGitignoreSrc(): string {
-  return path.join(getSharedDir(), '.gitignore');
+  return path.join(getSharedDir(), 'gitignore.template');
 }
 
 //---------------------------------
@@ -66,11 +75,53 @@ export type AssetManifest = {
   langContentDirs: string[];
   langFiles: string[];
   sharedDirs: string[];
+  /** 安装时跳过的路径：精确、`dir/name` 树下同名、或纯 basename（如 `README.md`） */
+  ignoredFiles?: string[];
 
   langDirAssets: AssetDir[];
   langFileAssets: AssetFile[];
   sharedAssets: AssetDir[];
 };
+
+/**
+ * 将 ignoredFiles 规范为 posix 路径集合（trim、反斜杠→`/`、去空）。
+ */
+export function normalizeIgnoredFiles(list: string[] | undefined): Set<string> {
+  const out = new Set<string>();
+  if (!list) return out;
+  for (const raw of list) {
+    const normalized = raw.trim().replace(/\\/g, '/');
+    if (normalized) out.add(normalized);
+  }
+  return out;
+}
+
+/**
+ * 判断相对语言根 / shared 根的路径是否应忽略。
+ * - 精确匹配：`skills/README.md`
+ * - 仅 basename：`README.md` / `.DS_Store` → 任意目录下同名文件
+ * - `dir/name`：该 dir 树下任意同名 basename（如 `skills/.DS_Store` → `skills/prd/.DS_Store`）
+ */
+export function isIgnoredAssetPath(relFromRoot: string, ignored: Set<string>): boolean {
+  const rel = relFromRoot.replace(/\\/g, '/');
+  if (!rel || ignored.size === 0) return false;
+  if (ignored.has(rel)) return true;
+
+  const base = rel.includes('/') ? rel.slice(rel.lastIndexOf('/') + 1) : rel;
+
+  for (const pattern of ignored) {
+    if (!pattern.includes('/')) {
+      if (base === pattern) return true;
+      continue;
+    }
+    const slash = pattern.lastIndexOf('/');
+    const prefix = pattern.slice(0, slash);
+    const patternBase = pattern.slice(slash + 1);
+    if (base !== patternBase) continue;
+    if (rel === pattern || rel.startsWith(`${prefix}/`)) return true;
+  }
+  return false;
+}
 
 export type AssetDir = {
   dir: string;
@@ -101,9 +152,22 @@ export async function loadManifestConfig(assetsDir: string): Promise<AssetManife
 export async function readAssets(lang: Languages = 'zh'): Promise<Assets> {
   const assetsDir = getAssetsDir();
   const manifest = await loadManifestConfig(assetsDir);
-  const langDirAssets =  await collectContentPaths(path.join(assetsDir, lang), manifest.langContentDirs);
-  const langFileAssets =  await collectFilePaths(path.join(assetsDir, lang), manifest.langFiles);
-  const sharedAssets =  await collectContentPaths(path.join(assetsDir, 'shared'), manifest.sharedDirs);
+  const ignored = normalizeIgnoredFiles(manifest.ignoredFiles);
+  const langDirAssets = await collectContentPaths(
+    path.join(assetsDir, lang),
+    manifest.langContentDirs,
+    ignored,
+  );
+  const langFileAssets = await collectFilePaths(
+    path.join(assetsDir, lang),
+    manifest.langFiles,
+    ignored,
+  );
+  const sharedAssets = await collectContentPaths(
+    path.join(assetsDir, 'shared'),
+    manifest.sharedDirs,
+    ignored,
+  );
   return {
     langDirAssets,
     langFileAssets,
@@ -112,22 +176,27 @@ export async function readAssets(lang: Languages = 'zh'): Promise<Assets> {
 }
 
 /**
- * 收集指定目录下的文件，返回目录及文件绝对路径列表
- * @param assetsDir assets 目录
- * @param contentDirs 内容目录列表
- * @returns 
+ * 收集指定目录下的文件，返回目录及文件绝对路径列表。
+ * `ignored` 中的键为相对语言/shared 根的精确路径（如 `skills/README.md`）。
  */
 async function collectContentPaths(
   assetsDir: string,
   contentDirs: string[],
+  ignored: Set<string> = new Set(),
 ): Promise<AssetDir[]> {
   const dirs = new Array<AssetDir>();
   for (const contentDir of contentDirs) {
     const scanRoot = path.join(assetsDir, contentDir);
     const paths = new Array<AssetFile>();
     const files = await walkFilesSafe(scanRoot, scanRoot);
-    
+    const contentDirNorm = contentDir.replace(/\\/g, '/');
+
     for (const file of files) {
+      const shortPath = file.replace(/\\/g, '/');
+      const relFromRoot = `${contentDirNorm}/${shortPath}`;
+      if (isIgnoredAssetPath(relFromRoot, ignored)) {
+        continue;
+      }
       paths.push({
         shortPath: file,
         fullPath: path.join(assetsDir, contentDir, file),
@@ -142,12 +211,20 @@ async function collectContentPaths(
   return dirs;
 }
 
+/**
+ * 收集语言根下的单文件资产；命中 ignored 的 shortPath 跳过。
+ */
 async function collectFilePaths(
   assetsDir: string,
   files: string[],
+  ignored: Set<string> = new Set(),
 ): Promise<AssetFile[]> {
   const assetFiles = new Array<AssetFile>();
   for (const file of files) {
+    const shortPath = file.replace(/\\/g, '/');
+    if (isIgnoredAssetPath(shortPath, ignored)) {
+      continue;
+    }
     assetFiles.push({
       shortPath: file,
       fullPath: path.join(assetsDir, file),

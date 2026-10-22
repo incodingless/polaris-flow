@@ -21,6 +21,9 @@ task_id: ""
 kind: requirement
 
 # 需求名称
+req_name: ""
+
+# 需求中文名称
 req_name_cn: ""
 
 # 需求编号前缀

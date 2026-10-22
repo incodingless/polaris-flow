@@ -15,10 +15,33 @@ export interface FetchResult {
   version: string;
 }
 
-const GIT_ENV: NodeJS.ProcessEnv = {
-  ...process.env,
-  GIT_TERMINAL_PROMPT: '0',
-};
+/** 组装 git 子进程环境：默认 HTTP/1.1，不覆盖用户已设置的 GIT_HTTP_VERSION */
+export function getGitEnv(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    GIT_TERMINAL_PROMPT: '0',
+    GIT_HTTP_VERSION: process.env.GIT_HTTP_VERSION || 'HTTP/1.1',
+  };
+}
+
+/**
+ * 按镜像改写 GitHub URL（镜像来源：显式传入 mirror > 环境变量 POLARIS_GITHUB_MIRROR）。
+ * 镜像含 github.com 时替换主机前缀；否则把原 URL 接到镜像基址后面。
+ */
+export function rewriteGithubRepoUrl(repo: string, mirror?: string): string {
+  const m = (mirror ?? process.env.POLARIS_GITHUB_MIRROR)?.trim();
+  if (!m) {
+    return repo;
+  }
+  const base = m.replace(/\/$/, '');
+  if (!repo.startsWith('https://github.com')) {
+    return repo;
+  }
+  if (base.includes('github.com')) {
+    return repo.replace('https://github.com', base);
+  }
+  return `${base}/${repo}`;
+}
 
 const LS_REMOTE_TIMEOUT_MS = 60_000;
 const CLONE_TIMEOUT_MS = 180_000;
@@ -29,7 +52,7 @@ function runGitShell(command: string, timeoutMs: number): string {
     encoding: 'utf-8',
     timeout: timeoutMs,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: GIT_ENV,
+    env: getGitEnv(),
   });
 }
 
@@ -41,10 +64,15 @@ export type ResolveVersionResult = {
 };
 
 /** 解析 >= minVersion 的最新 semver tag；无 tag 时返回 null（使用 HEAD） */
-export function resolveVersion(repo: string, minVersion: string): ResolveVersionResult {
+export function resolveVersion(
+  repo: string,
+  minVersion: string,
+  mirror?: string,
+): ResolveVersionResult {
+  const gitRepo = rewriteGithubRepoUrl(repo, mirror);
   let output: string;
   try {
-    output = runGitShell(`git ls-remote --tags --sort=-v:refname ${repo}`, LS_REMOTE_TIMEOUT_MS);
+    output = runGitShell(`git ls-remote --tags --sort=-v:refname ${gitRepo}`, LS_REMOTE_TIMEOUT_MS);
   } catch {
     return {
       version: null,
@@ -74,7 +102,12 @@ export function resolveVersion(repo: string, minVersion: string): ResolveVersion
 }
 
 /** shallow clone 到临时目录 */
-export async function fetchRepo(repo: string, version: string | null): Promise<FetchResult> {
+export async function fetchRepo(
+  repo: string,
+  version: string | null,
+  mirror?: string,
+): Promise<FetchResult> {
+  const gitRepo = rewriteGithubRepoUrl(repo, mirror);
   const tmpDir = path.join(
     os.tmpdir(),
     `polaris-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -83,16 +116,16 @@ export async function fetchRepo(repo: string, version: string | null): Promise<F
 
   try {
     if (version === null) {
-      runGitShell(`git clone --depth 1 ${repo} ${tmpDir}`, CLONE_TIMEOUT_MS);
+      runGitShell(`git clone --depth 1 ${gitRepo} ${tmpDir}`, CLONE_TIMEOUT_MS);
       return { localPath: tmpDir, version: 'HEAD' };
     }
 
     const tagRef = `v${version}`;
 
     try {
-      runGitShell(`git clone --depth 1 --branch ${tagRef} ${repo} ${tmpDir}`, CLONE_TIMEOUT_MS);
+      runGitShell(`git clone --depth 1 --branch ${tagRef} ${gitRepo} ${tmpDir}`, CLONE_TIMEOUT_MS);
     } catch {
-      runGitShell(`git clone --depth 1 --branch ${version} ${repo} ${tmpDir}`, CLONE_TIMEOUT_MS);
+      runGitShell(`git clone --depth 1 --branch ${version} ${gitRepo} ${tmpDir}`, CLONE_TIMEOUT_MS);
     }
 
     return { localPath: tmpDir, version };

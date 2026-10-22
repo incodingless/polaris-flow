@@ -37,7 +37,3 @@
 ## 误判陷阱检测
 
 全部未命中。
-
-## 建议下一步
-
-**SKIP** — 可直接 `/psfl:clarify` 或 `/ezfl:propose`，explore 可跳过。

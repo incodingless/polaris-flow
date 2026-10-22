@@ -1,7 +1,8 @@
-change_tasks:
+coding_tasks:
   - task_id: add-feature-x
-    phase: propose
+    phase: plan
     worktree_path: ""
     started_at: "2026-01-01T00:00:00Z"
 requirement_tasks: []
 testcase_tasks: []
+prototype_tasks: []

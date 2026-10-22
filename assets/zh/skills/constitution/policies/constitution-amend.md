@@ -34,10 +34,12 @@
 **修改摘要**：{{SUMMARY}}
 **版本号变更**：{{OLD}} → {{NEW}}
 **影响范围**：
-- [ ] design.md 中的 Constitution Alignment 节需更新
+- [ ] design.md 中的「原则与依据」节需更新
 - [ ] 已通过审计的变更是否需要重新审计
 - [ ] 其他受影响文档
 ```
+
+**落盘**：报告写入 `openspec/memory/constitution-amend-<YYYYMMDD>.md`（与宪法同目录，作修正留痕）；纯咨询性试算（用户最终未确认修改）可不落盘。
 
 ### 4. 用户确认后执行
 

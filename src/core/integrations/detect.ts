@@ -219,22 +219,34 @@ async function findSuperpowersInPluginCache(cacheRoot: string): Promise<string |
   return null;
 }
 
-/** which 探测命令是否在 PATH 中 */
+/** 探测命令是否在 PATH 中（POSIX 用内建 `command -v`，避免依赖最小化 Linux 缺失的外部 `which`） */
 function commandAvailable(command: string): boolean {
   try {
-    const checker = process.platform === 'win32' ? 'where' : 'which';
-    execFileSync(checker, [command], { stdio: 'ignore', timeout: 10_000 });
+    if (process.platform === 'win32') {
+      execFileSync('where', [command], { stdio: 'ignore', timeout: 10_000 });
+      return true;
+    }
+    execFileSync('sh', ['-c', 'command -v "$1"', 'sh', command], {
+      stdio: 'ignore',
+      timeout: 10_000,
+    });
     return true;
   } catch {
     return false;
   }
 }
 
-/** 解析命令绝对路径 */
+/** 解析命令绝对路径（POSIX 用内建 `command -v` 输出路径，不依赖外部 `which`） */
 function resolveCommandPath(command: string): string {
   try {
-    const checker = process.platform === 'win32' ? 'where' : 'which';
-    const out = execFileSync(checker, [command], {
+    if (process.platform === 'win32') {
+      const out = execFileSync('where', [command], {
+        encoding: 'utf-8',
+        timeout: 10_000,
+      });
+      return out.split(/\r?\n/)[0]?.trim() || command;
+    }
+    const out = execFileSync('sh', ['-c', 'command -v "$1"', 'sh', command], {
       encoding: 'utf-8',
       timeout: 10_000,
     });
@@ -444,14 +456,19 @@ export function getInstallHints(platformId: string, pluginName: PluginName): str
         hints.push('  - 或：npx skills add obra/superpowers -a codebuddy');
         break;
       case 'trae':
-        hints.push('  - Trae：npx skills add obra/superpowers -a trae');
+        hints.push('  - Trae：npx skills add obra/superpowers -y --agent trae');
         hints.push('  - 全局：写入 ~/.trae/skills/；项目级：在项目根执行');
+        break;
+      case 'trae-cn':
+        hints.push('  - Trae-CN：npx skills add obra/superpowers -y --agent trae-cn');
+        hints.push('  - 全局：写入 ~/.trae-cn/skills/；项目级：在项目根执行');
         break;
       case 'qoder':
         hints.push('  - Qoder：npx skills add obra/superpowers -a qoder');
         hints.push('  - 全局：写入 ~/.qoder/skills/；项目级：在项目根执行');
         break;
       default:
+        hints.push('  - Trae-CN：npx skills add obra/superpowers -y --agent trae-cn');
         hints.push('  - Trae：执行 polaris install 选择 superpowers 插件');
         hints.push('  - CodeBuddy：打开 Plugin Marketplace → 搜索 superpowers → Install');
         hints.push('  - Claude Code：打开 plugin 设置 → Add plugin → superpowers');

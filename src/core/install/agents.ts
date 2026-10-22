@@ -8,6 +8,7 @@ import { ensureDir, fileExists } from '../../utils/file-system.js';
 import { Assets } from '../assets/manifest.js';
 import { type Platform } from '../domain/platforms.js';
 import { loadPolarisConfig, resolveAgentModel } from '../config/polaris-project-config.js';
+import type { CopyStats } from './types.js';
 
 /** 资产相对路径中的 agent 分组 → 平台 agents 目录下的文件名 */
 function parseAgentAssetPath(shortPath: string): { group: string; fileName: string } | null {
@@ -28,6 +29,7 @@ function parseAgentAssetPath(shortPath: string): { group: string; fileName: stri
 /**
  * 拷贝 assets/<lang>/agents 下的 md 到 .<platform>/agents/，并按平台改写 tools / model。
  * 分组目录（如 review/）仅用于解析 model 槽位；落盘文件名为 basename。
+ * @returns 拷贝计数与落盘文件清单（含未改写的既有文件）
  */
 export async function copyPolarisAgents(
   projectPath: string,
@@ -35,11 +37,12 @@ export async function copyPolarisAgents(
   overwrite: boolean,
   asset: Assets,
   platform: Platform,
-): Promise<{ copied: number; skipped: number }> {
+): Promise<CopyStats> {
   const agentAssetDirs = asset.langDirAssets.filter((a) => a.dir === 'agents');
 
   let copied = 0;
   let skipped = 0;
+  const files: string[] = [];
   const config = await loadPolarisConfig(projectPath);
   await ensureDir(agentsDir);
 
@@ -50,6 +53,7 @@ export async function copyPolarisAgents(
 
       const model = resolveAgentModel(config, parsed.group);
       const dest = path.join(agentsDir, parsed.fileName);
+      files.push(dest);
       if ((await fileExists(dest)) && !overwrite) {
         skipped += 1;
         continue;
@@ -64,7 +68,7 @@ export async function copyPolarisAgents(
     }
   }
 
-  return { copied, skipped };
+  return { copied, skipped, files };
 }
 
 /**

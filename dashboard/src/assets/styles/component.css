@@ -1,0 +1,122 @@
+
+/*按钮组件*/
+.input {
+    height: 32px;
+    padding: 0 var(--spacing-12);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-normal);
+    color: var(--text-secondary);
+    font-size: var(--font-base);
+    transition: var(--transition);
+    outline: none;
+}
+.input:focus {
+    border-color: var(--primary);
+    box-shadow: var(--glow-primary);
+}
+.input::placeholder {
+    color: var(--text-disabled);
+}
+
+/*输入框 / 下拉框*/
+.input {
+    height: 32px;
+    padding: 0 var(--spacing-12);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-normal);
+    color: var(--text-secondary);
+    font-size: var(--font-base);
+    transition: var(--transition);
+    outline: none;
+}
+.input:focus {
+    border-color: var(--primary);
+    box-shadow: var(--glow-primary);
+}
+.input::placeholder {
+    color: var(--text-disabled);
+}
+
+/*状态标签（核心）*/
+.tag {
+    height: 24px;
+    padding: 0 var(--spacing-8);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 标签类型 */
+.tag-success { background: var(--badge-success-bg); color: var(--badge-success-text); }
+.tag-info { background: var(--badge-info-bg); color: var(--badge-info-text); }
+.tag-warning { background: var(--badge-warning-bg); color: var(--badge-warning-text); }
+.tag-disabled { background: var(--badge-disabled-bg); color: var(--badge-disabled-text); }
+
+/* 空心标签（任务卡片阶段） */
+.tag-outline {
+  background: transparent;
+  border: 1px solid currentColor;
+}
+.tag-outline-warning { color: var(--warning); }
+.tag-outline-success { color: var(--success); }
+
+/*卡片/面板*/
+.card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-16);
+    box-shadow: var(--shadow-card);
+    transition: var(--transition);
+}
+
+.card:hover {
+    background: var(--bg-hover);
+    box-shadow: var(--glow-hover);
+}
+  /* 大圆角卡片（成就/数据面板） */
+.card-xl {
+    border-radius: var(--radius-xl);
+}
+
+
+/*进度条*/
+.progress {
+    width: 100%;
+    height: 8px;
+    background: var(--border-normal);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.progress-bar {
+    height: 100%;
+    background: var(--primary-light);
+    box-shadow: var(--glow-primary);
+    border-radius: var(--radius-sm);
+}
+
+
+/*侧边导航*/
+.sidebar {
+    width: 200px;
+    background: var(--bg-sidebar);
+    height: 100vh;
+}
+.sidebar-item {
+    height: 40px;
+    padding: 0 var(--spacing-16);
+    display: flex;
+    align-items: center;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition);
+}
+.sidebar-item:hover { background: var(--bg-hover); }
+.sidebar-item.active {
+    background: var(--primary-bg);
+    color: var(--primary-light);
+    border-left: 3px solid var(--primary);
+}

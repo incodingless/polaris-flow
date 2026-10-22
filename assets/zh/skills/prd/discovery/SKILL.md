@@ -39,7 +39,7 @@ version: 0.7
 
 1. 大写 ASCII（`A-Z`、`0-9`、连字符 `-`），长度 2–16，不得以连字符开头或结尾
 2. **由用户在确认任务命名时直接输入**（见 Step 2.6.1）；用户未提供时**禁止**自动派生或默认填充
-3. **唯一性**：与 `$REPO_ROOT/.polaris/tasks/` 下已有任务的 `naming.req_prefix` 冲突时，回显冲突并请用户改填（如追加 `-2`、`-3` 或换用更长片段），不得静默消歧
+3. **唯一性**：与 `$REPO_ROOT/.polaris/tasks/` 下已有任务的 `req_prefix` 冲突时，回显冲突并请用户改填（如追加 `-2`、`-3` 或换用更长片段），不得静默消歧
 4. **一经确认全程不变**：后续所有编号、锚点、交付文档名均以此为命名空间。确需变更时视同需求变更——记录前后对比与依据，并同步修订已产出的全部文档（见 Step 7.4）
 
 ### 编号命名空间（下游阶段消费）
@@ -61,18 +61,22 @@ version: 0.7
 
 ## 流程
 
-> **上下文整理通用规则**：每个 Step 收尾时，统一释放该步的中间推导草稿、重复条目、冗余对话与已闭环问题的原始草稿；仅保留已确认结论、剩余待澄清项、变更记录、隐含假设清单（下文各「整理上下文」子步骤只列本步需保留的关键产出）。
+> **压缩上下文通用规则**：每个 Step 收尾时，统一释放该步的中间推导草稿、重复条目、冗余对话与已闭环问题的原始草稿；仅保留已确认结论、剩余待澄清项、变更记录、隐含假设清单（下文各「压缩上下文」子步骤只列本步需保留的关键产出）。
+>
+> **用词与模板的唯一来源**：`./policies/auto-transition.md` 的「压缩时机与恢复清单」。注意「压缩上下文」**不同于**「新开会话」（后者 = 用户关闭窗口重开、历史归零）。**禁止**在步骤中途提压缩，**禁止**用 shell 命令或摘要伪造压缩。
 
 ### Step 0: 设置产物语言
 
-读取 `.polaris/config.yaml` 的 `language`（规范化 ID，如 `en`、`zh`）；未配置时回退到当前用户请求语言。本阶段所有提问与澄清摘要均采用该语言。
+**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本阶段所有提问与澄清摘要均采用 `$LANG`。
 
-### Step 1: 状态检查及中断恢复
+### Step 1: 初始化任务
+
+#### 1.1 状态检查及中断恢复
 
 使用 SessionStart 注入的路径（本 skill 内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
 
 - 环境变量 `$PLUGIN_ROOT` / `$REPO_ROOT`（Trae `env`、 Cursor `env`、Claude `CLAUDE_ENV_FILE`，或 Agent 上下文中的同名赋值）
-- 仍无 `$PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
+- 仍无 `$PLUGIN_ROOT` → 停止并报告阻塞原因（SessionStart 未注入环境变量），提示用户重启会话以触发 SessionStart
 
 ```bash
 if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.sh" ]; then
@@ -80,8 +84,7 @@ if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.sh" ]; t
   exit 2
 fi
 
-ACTIVE_RESULT=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes \
-  --kind requirement --skill discovery --repo-root "$REPO_ROOT")
+ACTIVE_RESULT=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind requirement --skill discovery --repo-root "$REPO_ROOT")
 ACTIVE_EXIT=$?
 echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 ```
@@ -92,11 +95,11 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 | ------------- | ---- | -------- |
 | 0 且数组非空 | 存在未完结需求任务 | 按决策点协议询问 A/B/C/D（见下） |
 | 0 且数组为空 | 无活跃需求任务 | 进入 Step 2 开启新任务 |
-| 非 0 | 参数/环境错误 | 按 H12 阻断 |
+| 非 0 | 参数/环境错误 | 停止并报告阻塞原因（按 stderr） |
 
 存在活跃任务时，**必须**按 `./policies/decision-point.md` 暂停询问：
 
-- **A. 续写最新一个**：`task_id` = 列表最后一项 → 进入 Step 1.5
+- **A. 继续最近任务**：`task_id` = 列表最后一项 → 进入 Step 1.5
 - **B. 选择一个**：列出所有 `task_id` 候选让用户选择之后，再发出以下询问：
 
   > 当前选择任务 <task_id>，请确认以下操作：
@@ -120,7 +123,7 @@ done
 
 - **D. 取消退出**：结束本 skill
 
-#### Step 1.5：读取任务进展，继续执行任务
+#### 1.5 读取任务进展，继续执行任务
 
 读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`，按状态值进入对应步骤：
 
@@ -131,9 +134,9 @@ done
 | `phase=draft` 或更后 | 提示用户该任务已过 discovery，引导到对应后续技能 |
 | 无法判定 | 按 `./policies/decision-point.md` 询问用户从哪个步骤继续 |
 
-**命名标识补齐**（续写既有任务时先查 `state.yaml` 的 `naming` 块）：
+**命名标识补齐**（续写既有任务时先查 `state.yaml`）：
 
-| `naming` 状态 | 后续动作 |
+|  状态 | 后续动作 |
 |---|---|
 | 缺失 / `status: pending` | 补走 **Step 2.6.1** 确认中文名与编号前缀后，再进入对应步骤继续 |
 | `status: confirmed` | 直接沿用，后续步骤的编号与文档名一律以该前缀为准 |
@@ -191,7 +194,7 @@ done
 |---|---|---|
 | 0 | `ok` | 目录与 `state.yaml` 已建，继续下一个 |
 | 1 | `existing` | **立即中断**：报告冲突目录，请用户改名或删除后重试；**禁止**向既有任务目录写入内容 |
-| 2 | — | 参数/环境错误，按 H12 阻断 |
+| 2 | — | 参数/环境错误，停止并报告阻塞原因（按 stderr） |
 
 **② 写需求内容**（基础任务档案）：为每个新建目录写入《需求基线》初稿，路径 `$REPO_ROOT/.polaris/tasks/<任务名>/req_baseline.md`。
 
@@ -207,17 +210,15 @@ done
 
 未知章节保留模板占位，**禁止**编造内容。
 
-3. **写入命名标识占位**（`state.yaml`，直接编辑，无专用脚本）——中文名与编号前缀的唯一权威存储，下游 draft / refine / ship 均读此处；本步只建占位，实际值在 2.6.1 用户确认后回填：
+3. **写入命名标识占位**（`task-state-entry`）——中文名与编号前缀的唯一权威存储，下游 draft / refine / ship 均读此处；本步只建占位，实际值在 2.6.1 用户确认后回填：
 
-```yaml
-naming:
-  req_name_cn: ""                 # 待 2.6.1 用户选择/输入后回填
-  req_prefix: ""                  # 待 2.6.1 用户输入后回填，大写，如 UAP / CRM-ORDER
-  status: pending                 # pending → confirmed（2.6.1 确认后改写）
-  confirmed_at: null
+```bash
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
+  --repo-root "$REPO_ROOT" --task-id "$TASK" \
+  --req-name "" --req-name-cn "" --req-prefix ""
 ```
 
-> 每个任务目录都要写，一个都不少；`status: pending` 期间下游阶段读到即视为**未定稿命名**，须按各自技能的补齐流程处理。
+> 每个任务目录都要写，一个都不少；`req_prefix` 为空期间下游阶段读到即视为**未定稿命名**，须按各自技能的补齐流程处理。
 
 4. 全部写入后输出：`[polaris-flow PRD] 已创建 N 个需求任务：<任务名列表>`
 
@@ -247,7 +248,7 @@ done
 | 只确认清单本身（如「没问题」） | **不算选择** | 重新发问——确认清单 ≠ 选中某一项 |
 | 对清单提出调整 | 先调整 | 调整后重新发问，不得沿用调整前的选择 |
 
-**选项上限**：单次询问的选项数上限为 4 个。任务多于 4 个时先按业务系统分组，两级串行询问——第 1 级选业务系统，第 2 级选该系统下的任务；**禁止**把全部任务一次性罗列进单次询问。
+**选项上限**：单次询问的选项数上限以 `./policies/ask-question-react.md` 的「平台询问工具注册表」为准（当前 10 个）。任务多于上限时先按业务系统分组，两级串行询问——第 1 级选业务系统，第 2 级选该系统下的任务；**禁止**把全部任务一次性罗列进单次询问。
 
 **发问执行**：按 `./policies/decision-point.md` 暂停并发问（工具名经平台注册表查得，不得写死）。推荐项只能作为说明，不得代替用户选择。
 
@@ -275,7 +276,7 @@ done
 
 | 用户答复 | 判定 | 后续动作 |
 |---|---|---|
-| 选中文名候选 + 给出前缀 | 命名齐备 | 写入 `req_baseline.md` 元数据区、第 1 章需求名称与 `state.yaml` 的 `naming`（回填 `req_name_cn` / `req_prefix`，`status` 置 `confirmed`、写 `confirmed_at`），落盘后进入 Step 3 |
+| 选中文名候选 + 给出前缀 | 命名齐备 | 写入 `req_baseline.md` 元数据区、第 1 章需求名称与 `state.yaml`（回填 `req_name_cn` / `req_prefix`，`status`），落盘后进入 Step 3 |
 | 中文名自拟 + 给出前缀 | 命名齐备 | 同上（自拟中文名经合规校验后写入） |
 | 只给了其中一项 | 命名不全 | 回显已填项，请用户补齐另一项，不得默认补全 |
 | 对中文名候选或前缀提出调整 | 命名调整 | 按调整后值重新回显并再次确认 |
@@ -295,7 +296,7 @@ done
 
 1. 直接读取 2.5 已写入的 `V0.1` 初稿，**增量写入**，不重新初始化、不覆盖已有章节
 2. 向选中项写入：需求唯一标识、复杂度初判结果（总分、分项得分、等级、是否触发强制升档）、初始化时间、执行状态（由「未启动」改为「进行中」）
-3. 上下文释放规则
+3. 压缩上下文规则
    - 释放：目录全量扫描结果、无关文件列表、冗余文件元数据
    - 保留：需求唯一标识、复杂度等级、断点状态、输出目录路径
 
@@ -345,7 +346,7 @@ done
 - 第5章 方案与本质需求对应说明
 - 第9章 附录（参考资源清单、术语释义表）
 
-2. 上下文释放规则
+2. 压缩上下文规则
 
 - 释放：原始需求全文、逐句拆解草稿、全部原始扫描文本、未命中检索结果、无关文档片段、原始代码全文、拆解中间稿、方案推导过程、零散要素草稿
 - 保留：源文件元数据、核心关键词集合、待补维度清单、核心诉求摘要、提炼后的约束条目、隐性上下文清单、术语定义、资源引用标识、复杂度最终等级、最终版五要素画像、约束清单、方案对应关系
@@ -450,7 +451,7 @@ done
 5. 结束条件
    所有问题均得到明确答复，或用户确认剩余未明确项全部转为「后续待跟进」。
 
-#### 4.4 上下文整理
+#### 4.4 压缩上下文
 
 按通用规则释放中间产物，保留：业务层已确认结论、剩余待澄清问题（如有）、变更记录、隐含假设清单。
 
@@ -486,7 +487,7 @@ done
 1. 需求基线文档路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`，第 6 章写入候选功能架构草案，醒目标注「候选方案，待澄清确认」
 2. 所有架构衍生模糊点同步纳入待澄清问题池（不写入澄清纪要，待阶段4统一处理）
 
-#### 5.3 整理上下文
+#### 5.3 压缩上下文
 
 按通用规则释放中间产物，保留：候选功能模块树、模块依赖关系、架构衍生模糊点、已有能力映射结果、L1 验证结果。
 
@@ -529,7 +530,7 @@ done
 - 第3章 需求变更记录（业务层相关变更）
 - 第4章 隐含假设与风险清单（业务层相关假设）
 
-#### 6.3 整理上下文
+#### 6.3 压缩上下文
 
 按通用规则释放中间产物，保留：架构层已确认结论、候选方案确认结果、剩余待澄清问题（如有）、变更记录。
 
@@ -561,7 +562,7 @@ done
 
 **命名与编号一致性（必检）**：
 
-- 《需求基线》元数据区、第 1 章需求名称、《需求澄清纪要》头部、`state.yaml` 的 `naming` ——四处**中文名完全一致**
+- 《需求基线》元数据区、第 1 章需求名称、《需求澄清纪要》头部、`state.yaml`中的 `req_name`, `req_name_cn`, `req_prefix`等**中文名完全一致**
 - 上述四处的**编号前缀完全一致**，且满足「大写 ASCII、2–16 位、不以连字符开头结尾」
 - 第 6 章功能模块明细表的规则 ID（`R001`）能按编号前缀推导至终稿 `{前缀}-BR-1xx`，映射关系可追溯
 - 与 `$REPO_ROOT/.polaris/tasks/` 下其它已确认任务的前缀无冲突；有冲突须回到 2.6.1 由用户改填
@@ -605,21 +606,42 @@ done
 
 用户明确确认后：
 
-1. 推进 workflow 阶段至 draft
+1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `draft` 就在这一步）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id" --set phase=draft
+bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
+  --phase discovery --next-phase draft
 ```
 
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（直接编辑，无专用脚本）：
+2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+   先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
+   —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 
-```yaml
-phase: draft
-discovery:
-  status: completed
-  finished_at: "<ISO>"   # 保留既有 started_at
+```text
+[polaris-flow 需求工程] 需求探索 - 阶段完成，状态已落盘。
+下一步：/<SKILL>（建议新开会话 | 可同会话继续）。
+恢复：先读 .polaris/tasks/<task_id>/req_baseline.md 的「需求唯一标识」与各章完成情况、req_clarify_summary.md 的「问题闭环明细」，再从下一步技能的 Step 0 开始。
 ```
 
-3. 清空上下文并输出：
+---
 
-`[polaris-flow 需求工程] 需求探索 - 阶段完成，即将进入 [编写初稿] 阶段。可执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}draft。`
+## 上下文压缩恢复
+
+重载：`task_id`、任务目录下已落盘的《需求基线》`req_baseline.md` 与《需求澄清纪要》`req_clarify_summary.md`、`state.yaml` 的 `discovery.status`、本技能停在哪个 Step。
+
+- **恢复依据就是落盘产物** —— `state.yaml` 只存身份与指针、不存进度（产物即状态）
+- 停在 **Step 1**（有活跃任务但未选择）→ 按 `./policies/decision-point.md` 重新询问 A/B/C/D，**不得**替用户选
+- 停在 **Step 2–3**（目录已建、基线初稿已写）→ 读 `req_baseline.md` 已写入的章节，从未完成的维度继续拆解
+- 停在 **Step 4–6**（澄清阶段）→ 读 `req_clarify_summary.md` 的「问题闭环明细」，从未闭环的模糊点继续澄清
+- 停在 **Step 7** → 只补终版输出与阶段推进，**不重做**前面的澄清
+- 「压缩上下文」与「恢复清单」的用词、提示语模板见 `./policies/auto-transition.md` 的「压缩时机与恢复清单」
+
+## 自动衔接下一阶段
+
+按 `./policies/auto-transition.md` 执行 —— manual / auto 两种模式的行为、提示语模板与执行序，
+**以该文件为唯一来源，本技能不内联副本**。关键命令：
+
+```bash
+polaris-flow state next <change-name>
+```

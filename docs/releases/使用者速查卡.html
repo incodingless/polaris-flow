@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Polaris Flow 使用者速查卡</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #e8eaf0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: #1f2329;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 8mm auto;
+    padding: 9mm 10mm 6mm;
+    background: #ffffff;
+    box-shadow: 0 2px 16px rgba(0,0,0,.15);
+  }
+  @media print {
+    html, body { background: #ffffff; }
+    .page { margin: 0; box-shadow: none; }
+  }
+  .head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .head h1 { font-size: 22px; color: #1a3f8f; letter-spacing: .5px; white-space: nowrap; }
+  .head .meta { font-size: 11px; color: #8a93a6; }
+  .block { border: 1.2px solid #1e4e9e; border-radius: 6px; margin-bottom: 6px; overflow: hidden; }
+  .block > .bar {
+    background: #1e4e9e; color: #fff;
+    font-size: 13px; font-weight: 600;
+    padding: 3.5px 10px; letter-spacing: .3px;
+  }
+  .block > .bar .dim { font-weight: 400; font-size: 11px; opacity: .85; margin-left: 6px; }
+  .block > .body { padding: 6px 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #c6cfdf; padding: 2px 6px; font-size: 10.5px; text-align: left; vertical-align: middle; }
+  th { background: #eef2fa; color: #1a3f8f; font-weight: 600; }
+  td.cmd, .cmd { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 10px; color: #1a5cc8; white-space: nowrap; font-weight: 600; }
+  td.desc { color: #444; }
+  tr.hl td { background: #f5f8fe; }
+  .cols { display: flex; gap: 8px; }
+  .col { flex: 1; border: 1px solid #c6cfdf; border-radius: 5px; padding: 6px 9px; }
+  .col h3 { font-size: 12px; margin-bottom: 4px; }
+  .col.bad h3 { color: #c0392b; }
+  .col.dev h3 { color: #1a3f8f; }
+  .col ul { list: none; }
+  .col li { font-size: 10.5px; line-height: 1.55; padding-left: 11px; position: relative; color: #333; }
+  .col.bad li::before { content: "✕"; position: absolute; left: 0; color: #c0392b; font-size: 10px; top: 1px; }
+  .col.dev li::before { content: "▸"; position: absolute; left: 0; color: #1a5cc8; font-size: 10px; top: 1px; }
+  .col b { color: #c0392b; }
+  .col.dev b { color: #1a3f8f; }
+  .disc th:first-child, .disc td:first-child { width: 15%; }
+  .disc b { color: #c0392b; }
+  .chain { display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; margin-bottom: 5px; }
+  .chain .tag {
+    background: #eaf1fb; border: 1px solid #b9cdea; border-radius: 10px;
+    color: #1a5cc8; font-size: 11px; font-weight: 600;
+    padding: 1.5px 8px; white-space: nowrap;
+  }
+  .chain .arrow { color: #444; font-size: 12px; margin: 0 3px; }
+  .chain .you { font-size: 10.5px; color: #c0392b; font-weight: 600; }
+  .modes .row { font-size: 10.5px; color: #444; line-height: 1.6; margin-bottom: 3px; }
+  .modes b { color: #1a3f8f; }
+  .modes .you { color: #c0392b; font-weight: 600; }
+  .tpl {
+    background: #f4f6fa; border: 1px solid #d5dce8; border-radius: 5px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10.5px; line-height: 1.7; color: #333;
+    padding: 7px 10px; white-space: pre-wrap;
+  }
+  .note { font-size: 10px; color: #666; margin-top: 4px; line-height: 1.5; }
+  .foot { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; font-size: 10px; color: #98a0b0; }
+  .foot .ver { margin-left: auto; text-align: right; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="head">
+    <h1>Polaris Flow 使用者速查卡</h1>
+    <span class="meta">v1.0 · 2026-10-19 · 面向工具链使用者：装上它 → 用它干活 → 配合它 → 别踩坑</span>
+  </div>
+
+  <div class="block">
+    <div class="bar">① 装上它 / 照看它<span class="dim">polaris --help 仅列这些；hooks 运行时命令走 polaris-flow，不用记</span></div>
+    <div class="body" style="padding:0;">
+      <table>
+        <tr><th style="width:24%">命令</th><th style="width:44%">什么时候用</th><th>要点</th></tr>
+        <tr><td class="cmd">polaris init</td><td class="desc">第一次用：装工作流 + Harness 环境</td><td class="desc">需访问 GitHub；不通时设 <span class="cmd">POLARIS_GITHUB_MIRROR</span> 镜像，或用 <span class="cmd">POLARIS_SUPERPOWERS_PATH</span> 指向已下载的本地目录</td></tr>
+        <tr><td class="cmd">polaris doctor</td><td class="desc">装了没、环境对不对</td><td class="desc">诊断环境、schema 与 skill 安装状态，先跑它再排查</td></tr>
+        <tr><td class="cmd">polaris status</td><td class="desc">现在有什么任务、进行到哪了</td><td class="desc">当前 change 与工作流状态</td></tr>
+        <tr><td class="cmd">polaris dashboard</td><td class="desc">想看一眼全局进度</td><td class="desc">本地工作台，API 与界面同端口；<span class="cmd">--api-only</span> 供开发联调</td></tr>
+        <tr><td class="cmd">polaris update</td><td class="desc">升级：程序本体 / 工作流资产 / 第三方依赖</td><td class="desc">可只更一类，例 <span class="cmd">update --only skills</span>；<span class="cmd">--prune</span> 清陈旧产物；<span class="cmd">--lang zh</span> 切语言</td></tr>
+        <tr><td class="cmd">polaris uninstall</td><td class="desc">卸载</td><td class="desc">占位功能，尚未实现</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="bar">② 命令对号入座<span class="dim">13 个命令 · 按场景选，右列是开工前你要备好的东西</span></div>
+    <div class="body" style="padding:0;">
+      <table>
+        <tr><th style="width:23%">你的场景</th><th style="width:22%">命令</th><th style="width:29%">它干什么</th><th>开工前你要有</th></tr>
+        <tr><td>想法模糊，要写成正式需求</td><td class="cmd">/psfl:prd</td><td class="desc">需求基线 + 澄清纪要</td><td class="desc">一句话想法即可；已有文档可作附加材料</td></tr>
+        <tr><td>PRD 定稿了，能不能开工</td><td class="cmd">/psfl:prd:readiness</td><td class="desc">五维打分：PASS / CONDITIONAL / FAIL</td><td class="desc">定稿终稿（FAIL 会打回，不让你带病开工）</td></tr>
+        <tr><td>有需求，做页面原型</td><td class="cmd">/psfl:prototype</td><td class="desc">先出蓝图 → 你确认 → HTML 原型 → 归档</td><td class="desc">需求基线 / 定稿 PRD / 建设方案，任一可读</td></tr>
+        <tr><td>原型做好，把关一次</td><td class="cmd">/psfl:prototype:review</td><td class="desc">只出评审报告，不改文件、不归档</td><td class="desc">原型 .html 路径（必需，缺了会停下来要）</td></tr>
+        <tr><td>改个小地方（文案 / 字段 / 参数）</td><td class="cmd">/psfl:coding:tweak</td><td class="desc">最快通道，一次会话跑完</td><td class="desc">做什么 + 对哪个对象 + 至少 2 项细节</td></tr>
+        <tr><td>实现一个功能（多模块协作）</td><td class="cmd">/psfl:coding:normal</td><td class="desc">常规档，含规格契约与任务拆分</td><td class="desc">同上</td></tr>
+        <tr><td>复杂 / 高风险（跨服务跨系统）</td><td class="cmd">/psfl:coding:sdd</td><td class="desc">完整阶段链，带深度设计</td><td class="desc">同上</td></tr>
+        <tr><td>线上故障，用户在受影响</td><td class="cmd">/psfl:maintance:hotfix</td><td class="desc">生产通道：先保现场，再改</td><td class="desc">现象 + 时间线 + 影响面 + 变更清单（会问你补齐）</td></tr>
+        <tr><td>测试提了缺陷</td><td class="cmd">/psfl:maintance:bugfix</td><td class="desc">测试通道，收尾归档故障记录</td><td class="desc">复现步骤 / 实际结果 / 预期结果 / 环境版本</td></tr>
+        <tr><td>写「怎么算做完」的判据</td><td class="cmd">/psfl:testing:acceptance</td><td class="desc">GWT 格式验收标准清单</td><td class="desc">需求条目 / 功能点清单</td></tr>
+        <tr><td>设计测试用例</td><td class="cmd">/psfl:testing:create-testcase</td><td class="desc">测试计划 + 用例集</td><td class="desc">定稿 PRD 且含验收标准</td></tr>
+        <tr><td>用例集找漏测</td><td class="cmd">/psfl:testing:review-testcase</td><td class="desc">只出评审报告，不改用例、不阻断</td><td class="desc">待评审用例集路径</td></tr>
+        <tr><td>看看代码写得怎么样</td><td class="cmd">/psfl:flow → M11</td><td class="desc">五维系统化审查（可选 SonarQube）</td><td class="desc">指定代码范围</td></tr>
+        <tr class="hl"><td><b>拿不准用哪个</b></td><td class="cmd">/psfl:flow</td><td class="desc">总入口：问清意图，判档并路由</td><td class="desc">一句话目标即可</td></tr>
+      </table>
+      <div class="note">暂不可用（会明确告诉你缺什么，不静默跳过）：R01 编写用户需求、M12 重构代码。需求文档四步走：<span class="cmd">/psfl:prd</span>（写）→ <span class="cmd">/psfl:prd:readiness</span>（验）→ 开发三档（做）→ retro（复盘，可选）。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="bar">③ 拿不准？走总入口<span class="dim">/psfl:flow · 只做选择与路由，不替你决定</span></div>
+    <div class="body">
+      <div class="chain">
+        <span class="tag">1 选类别：需求/原型/开发/测试/维护</span><span class="arrow">→</span>
+        <span class="tag">2 选功能</span><span class="arrow">→</span>
+        <span class="tag">3 给附加上下文（文件/目录/说明，可无）</span><span class="arrow">→</span>
+        <span class="tag">加载对应技能</span>
+      </div>
+      <div class="note">开发类进入后判档：入口先粗判（只升不降），<b>最终档位在澄清阶段末尾定，定了就冻结</b>。快捷路径：首次输入直接给编号（如 C02）或功能名，跳过前两步。<b>中断了怎么办</b>：重新输入当前命令名即可续跑，系统自动恢复在途任务并转交对应阶段，不用手动换命令。</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>权威源：assets/zh/commands/（命令定义）· docs/command-usage-guide.md（命令详解）· docs/使用帮助.md（上手）</span>
+    <span class="ver">Polaris Flow · 使用者卡 · 1/2</span>
+  </div>
+
+</div>
+
+<div class="page">
+
+  <div class="block">
+    <div class="bar">④ 三档流程与你的事<span class="dim">每个阶段都会停下来等你确认一次——这是设计如此，不是卡住</span></div>
+    <div class="body">
+      <div class="modes">
+        <div class="row"><b>简单 tweak：</b>澄清 <span class="you">←跟你确认理解对不对</span> → 任务规划 <span class="you">←计划给你过目</span> → 构建 → 验收 <span class="you">←结果你验收</span> → 交付。一次会话跑完。</div>
+        <div class="row"><b>常规 normal：</b>澄清 → 提案 <span class="you">←方案你点头才动笔</span> → 任务规划 → 构建 → 验收 → 交付。</div>
+        <div class="row"><b>严格 sdd：</b>澄清 → 提案 → 深度设计（可选，提案结束时问你要不要深化）→ 任务规划 → 构建 → 验收 → 交付。</div>
+        <div class="row"><b>修复 Bug：</b>诊断与方案 <span class="you">←方案确认后才动手（可换方案 / 可转常规档）</span> → 实现与自验 → 关单归档。生产通道先保现场再改。</div>
+      </div>
+      <div class="note">澄清末尾可能升档（不会悄悄降）；交付后想说复盘，直接提 retro。越权确认一律不算数，见 ⑥。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="bar">⑤ 5 个不要 &amp; 何时换通道</div>
+    <div class="body">
+      <div class="cols">
+        <div class="col bad">
+          <h3>✕ 最常犯的错</h3>
+          <ul>
+            <li>需求说不清就开工 → 至少「<b>做什么 + 对哪个对象 + 2 项细节</b>」</li>
+            <li>提示新开会话还硬续 → 丢上下文，<b>照做</b></li>
+            <li>嫌确认多想跳过 → <b>便宜时确认</b>比改完 20 个文件返工划算</li>
+            <li>半路变复杂还硬扛 → 听提示<b>切 normal / sdd</b></li>
+            <li>想让评估往低判 → 宁严勿松，<b>只升不降</b></li>
+          </ul>
+        </div>
+        <div class="col dev">
+          <h3>▸ 何时换通道</h3>
+          <ul>
+            <li>一眼就是小改动 → 直达 <b>/psfl:coding:tweak</b></li>
+            <li>线上告警 → 直达 <b>/psfl:maintance:hotfix</b>，先保现场</li>
+            <li>根因不明 / 跨 3+ 模块 / 表结构变更 / API 破坏性改动 → <b>退回 /psfl:coding:normal</b></li>
+            <li>只想评现成文档 / 原型 / 用例 → review 类<b>只出报告，不阻断流程</b></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="bar">⑥ 硬纪律（不可破 · 速记）</div>
+    <div class="body" style="padding:0;">
+      <table class="disc">
+        <tr><th>类别</th><th>规则</th></tr>
+        <tr><td>命令名</td><td>Claude Code / Trae 用 <b>:</b> 分隔；<b>Cursor 换成 -</b>（如 <span class="cmd">/psfl-coding-normal</span>），词不变</td></tr>
+        <tr><td>判档</td><td>拿不准一律 <span class="cmd">/psfl:flow</span>；复杂度<b>只升不降</b>；澄清末尾定档后冻结，不反复横跳</td></tr>
+        <tr><td>开工门槛</td><td>「做什么 + 对哪个对象 + ≥2 项细节」，缺了<b>不放行</b>——防产出和意图错位</td></tr>
+        <tr><td>确认</td><td><b>明确整体确认才算数</b>；「差不多」「可以吧」、沉默一律不算</td></tr>
+        <tr><td>推进</td><td>每阶段<b>停一次等你确认</b>；中断了输入当前命令名即可续跑，不用换命令</td></tr>
+        <tr><td>评审类</td><td><span class="cmd">prototype:review</span> / <span class="cmd">testing:review-testcase</span> / <span class="cmd">prd:readiness</span> <b>只出报告</b>：不改文件、不推流程</td></tr>
+        <tr><td>发布</td><td>发布 / 灰度 / 回滚<b>始终由人执行</b>，工具只负责把该确认的问你</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="bar">⑦ 标准开场模板（贴给 AI 即可）</div>
+    <div class="body">
+      <div class="tpl">用 /psfl:flow。需求：[一句话说清做什么 + 对哪个对象 + 关键细节]。
+材料：[PRD 路径 / 设计稿 / 目标代码路径，没有就删掉这行]。
+按流程走：先澄清 → 评估复杂度判档 → 把评分依据给我看 → 再开工。</div>
+      <div class="note">跨平台提醒：Cursor 侧把命令里的 <b>:</b> 全换成 <b>-</b>。开发类没需求不放行——这是防止产出和你的意图错位。</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>配套：docs/command-usage-guide.md（命令详解）· docs/使用帮助.md（上手）· README-zh.md（安装）</span>
+    <span class="ver">Polaris Flow · 使用者卡 · 2/2</span>
+  </div>
+
+</div>
+
+</body>
+</html>

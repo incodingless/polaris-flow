@@ -5,8 +5,8 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    // Dashboard 前端在浏览器运行，跳过 Node lint 规则
-    ignores: ['dist/', 'node_modules/', 'bin/', 'scripts/', 'assets/', 'src/dashboard/web/'],
+    // 前端在仓库根的 dashboard/（不属 src/），lint 脚本本就只扫 src/，无需在此列 ignore
+    ignores: ['dist/', 'node_modules/', 'bin/', 'scripts/', 'assets/'],
   },
   {
     rules: {

@@ -25,13 +25,13 @@ export async function runTasksLint(filePath: string): Promise<TasksLintResult> {
   const violations: string[] = [];
 
   if (/Constitution\s*(Compliance\s*)?Audit/i.test(text)) {
-    violations.push('含 Constitution Audit 任务组(应由 /ezfl:audit 阶段处理)');
+    violations.push('含 Constitution Audit 任务组(应由 /polaris:coding:audit 阶段处理)');
   }
 
   const docSyncIdx = lines.findIndex((l) => /Documentation Sync/i.test(l));
   const checkLines = docSyncIdx >= 0 ? lines.slice(0, docSyncIdx + 1) : lines;
   if (checkLines.some((l) => /^\s*git\s+(commit|add)/.test(l))) {
-    violations.push('含 git commit/add 步骤(应由 /ezfl:ship 阶段处理)');
+    violations.push('含 git commit/add 步骤(应由 /polaris:coding:ship 阶段处理)');
   }
 
   if (
@@ -39,7 +39,7 @@ export async function runTasksLint(filePath: string): Promise<TasksLintResult> {
       text,
     )
   ) {
-    violations.push('含 superpowers 执行入口 header(应使用 easy-flow 标准格式)');
+    violations.push('含 superpowers 执行入口 header(应使用 polaris-flow 标准格式)');
   }
 
   const totalLines = lines.length;

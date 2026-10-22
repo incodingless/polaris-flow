@@ -54,7 +54,17 @@ export const SOURCES: SkillSource[] = [
     name: 'openspec',
     type: 'npm',
     npmPackage: '@fission-ai/openspec',
+    // npm 通道之外的 git clone 回退通道（组件安装按 npm → git 镜像 → 本地目录 顺序尝试）
+    repo: 'https://github.com/Fission-AI/OpenSpec',
     minVersion: '1.4.0',
+  },
+  {
+    id: 'codegraph',
+    name: 'codegraph',
+    type: 'npm',
+    npmPackage: '@colbymchenry/codegraph',
+    repo: 'https://github.com/colbymchenry/codegraph',
+    minVersion: '1.0.0',
   },
 ];
 
@@ -72,6 +82,24 @@ export function getSuperpowersSource(): SkillSource {
   const source = SOURCES.find((s) => s.id === 'superpowers');
   if (!source) {
     throw new Error('Superpowers source is not configured');
+  }
+  return source;
+}
+
+/** 返回 openspec npm 来源；未配置则抛错 */
+export function getOpenspecSource(): SkillSource {
+  const source = SOURCES.find((s) => s.id === 'openspec');
+  if (!source) {
+    throw new Error('OpenSpec source is not configured');
+  }
+  return source;
+}
+
+/** 返回 codegraph npm 来源；未配置则抛错 */
+export function getCodegraphSource(): SkillSource {
+  const source = SOURCES.find((s) => s.id === 'codegraph');
+  if (!source) {
+    throw new Error('Codegraph source is not configured');
   }
   return source;
 }

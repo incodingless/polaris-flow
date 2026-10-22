@@ -12,8 +12,20 @@ import { PLATFORMS, type Platform, getPlatformContextDir } from '../domain/platf
 import { printCommandErrorDetails } from '../command-error.js';
 import { copyDirContents, copyFile, ensureDir, fileExists } from '../../utils/file-system.js';
 import { readJsonObjectOrEmpty } from '../../utils/json-io.js';
-import { getNodeToolExecutable } from '../deps/npm.js';
+import {
+  getNodeToolExecutable,
+  getNpmGlobalPrefix,
+  isNpmGlobalPrefixWritable,
+  printNpmPrefixNotWritableHint,
+} from '../deps/npm.js';
 import { getBaseDir } from './detect.js';
+import { getOpenspecSource } from '../assets/sources.js';
+import { resolveInstallChannelConfig } from '../install/channels.js';
+import {
+  buildNpmGlobalInstallArgs,
+  installCliFromGitRepo,
+  installCliFromLocalDir,
+} from '../install/cli-installer.js';
 
 import type { InstallScope } from '../config/polaris-project-config.js';
 
@@ -177,17 +189,24 @@ function restoreDefaultConfig(backup: ConfigBackup | null): void {
 
 function isCommandAvailable(command: string): boolean {
   try {
-    const checker = process.platform === 'win32' ? 'where' : 'which';
-    execFileSync(checker, [command], { stdio: 'ignore', timeout: 10_000 });
+    if (process.platform === 'win32') {
+      execFileSync('where', [command], { stdio: 'ignore', timeout: 10_000 });
+      return true;
+    }
+    // 用 POSIX 内建 `command -v` 探测：最小化 Linux（如 CentOS）默认不带外部 `which`
+    execFileSync('sh', ['-c', 'command -v "$1"', 'sh', command], {
+      stdio: 'ignore',
+      timeout: 10_000,
+    });
     return true;
   } catch {
     return false;
   }
 }
 
-function buildOpenSpecCliInstallArgs(): string[] {
+function buildOpenSpecCliInstallArgs(registry?: string): string[] {
   // CLI 工具始终全局安装，避免在目标项目目录产生 node_modules
-  return ['install', '-g', '@fission-ai/openspec@latest'];
+  return buildNpmGlobalInstallArgs('@fission-ai/openspec@latest', registry);
 }
 
 /** 清理旧版 init 在目标项目误装的本地 OpenSpec CLI 产物 */
@@ -198,7 +217,7 @@ async function cleanupLegacyLocalOpenSpecInstall(projectPath: string): Promise<v
   }
 
   const packageJsonPath = path.join(projectPath, 'package.json');
-  let shouldCleanup = false;
+  let shouldCleanup: boolean;
 
   if (!(await fileExists(packageJsonPath))) {
     shouldCleanup = true;
@@ -239,24 +258,66 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
   }
   const label = alreadyInstalled ? 'Upgrading' : 'Installing';
   console.warn(`    ${label} OpenSpec CLI (global)...`);
+
+  // 全局目录不可写时 npm install -g 必失败（EACCES），提前给出 root 定向提示
+  const npmPrefix = getNpmGlobalPrefix();
+  if (!alreadyInstalled && npmPrefix && isNpmGlobalPrefixWritable(npmPrefix) === false) {
+    printNpmPrefixNotWritableHint('sudo npm install -g @fission-ai/openspec@latest', npmPrefix);
+    return 'failed';
+  }
+
+  const source = getOpenspecSource();
+  const channel = await resolveInstallChannelConfig();
+
+  // --- 1. npm 通道 ---
   try {
-    execFileSync(getNpmExecutable(), buildOpenSpecCliInstallArgs(), {
+    execFileSync(getNpmExecutable(), buildOpenSpecCliInstallArgs(channel.npmRegistry), {
       stdio: 'inherit',
       timeout: 120_000,
       shell: process.platform === 'win32',
     });
-    return isCommandAvailable('openspec') ? 'ready' : 'failed';
-  } catch (error) {
-    if (alreadyInstalled) {
-      console.warn(
-        `    OpenSpec upgrade failed, using existing version: ${(error as Error).message}`,
-      );
+    if (isCommandAvailable('openspec')) {
       return 'ready';
     }
-    console.error(`    Failed to install OpenSpec CLI: ${(error as Error).message}`);
+  } catch (error) {
+    console.warn(`    OpenSpec npm 安装失败，回退 git 镜像通道...`);
     printCommandErrorDetails(error);
-    return 'failed';
   }
+
+  // --- 2. git 镜像通道 ---
+  if (source.repo) {
+    console.warn(`    ↳ git 镜像通道: ${source.repo} ...`);
+    const ok = await installCliFromGitRepo(
+      source.repo,
+      source.minVersion,
+      channel.githubMirror,
+      channel.npmRegistry,
+    );
+    if (ok && isCommandAvailable('openspec')) {
+      return 'ready';
+    }
+  }
+
+  // --- 3. 本地目录通道 ---
+  const localPath = channel.localPaths.openspec;
+  if (localPath) {
+    if (!(await fileExists(localPath))) {
+      console.warn(`    ↳ 本地目录不存在: ${localPath}`);
+    } else {
+      console.warn(`    ↳ 本地目录通道: ${localPath} ...`);
+      const ok = installCliFromLocalDir(localPath, channel.npmRegistry);
+      if (ok && isCommandAvailable('openspec')) {
+        return 'ready';
+      }
+    }
+  }
+
+  if (alreadyInstalled) {
+    console.warn(`    OpenSpec upgrade failed, using existing version`);
+    return 'ready';
+  }
+  console.error(`    Failed to install OpenSpec CLI`);
+  return 'failed';
 }
 
 /** 判断是否为 OpenSpec 技能目录名 */

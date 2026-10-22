@@ -1,0 +1,195 @@
+{
+  "target": "/Users/weiliu/Documents/work/projects/polaris/polaris-flow/assets/zh/skills/prototype/build/evals/fixtures/defects-hidden-states.html",
+  "generatedAt": "2026-09-15T03:26:18.507Z",
+  "node": "v22.22.2",
+  "browser": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "options": {
+    "layers": [
+      1,
+      2,
+      3
+    ],
+    "sizes": [
+      "1366x768",
+      "1440x900",
+      "1920x1080"
+    ],
+    "contrastMin": 4.5,
+    "strict": true
+  },
+  "layers": [
+    {
+      "id": 1,
+      "name": "静态检查",
+      "ran": true,
+      "required": true,
+      "hard": 0,
+      "warn": 0,
+      "skipped": false,
+      "note": ""
+    },
+    {
+      "id": 2,
+      "name": "无头浏览器逐页冒烟",
+      "ran": true,
+      "required": true,
+      "hard": 1,
+      "warn": 1,
+      "skipped": false,
+      "note": ""
+    },
+    {
+      "id": 3,
+      "name": "黄金流 + 三档分辨率",
+      "ran": true,
+      "required": true,
+      "hard": 1,
+      "warn": 0,
+      "skipped": false,
+      "note": ""
+    }
+  ],
+  "scriptStats": {
+    "scriptsChecked": 2,
+    "pages": 4,
+    "jumps": 14,
+    "uses": 40,
+    "tokens": 23
+  },
+  "findings": [
+    {
+      "layer": 2,
+      "severity": "HARD",
+      "id": "L2-7",
+      "title": "页面内容存在但全部不可见",
+      "detail": "标记里有内容，渲染后可见文本却几乎为空——通常是状态层 / 分页容器没被激活（缺少 display 生效的类名或属性）。用户点进去看到的是空屏（§27.1：不是空白壳）。",
+      "evidence": [
+        "contract-review：innerHTML 6407 字符，可见文本仅 0 字符（激活方式 fn:goto）"
+      ]
+    },
+    {
+      "layer": 2,
+      "severity": "WARN",
+      "id": "L2-6",
+      "title": "页面内容偏少",
+      "detail": "可见文本不足 60 字符。可能是合理的极简页面，也可能是状态区未渲染，请人工确认。",
+      "evidence": [
+        "workbench：可见文本 32 字符 / innerHTML 3965（激活方式 fn:goto）"
+      ]
+    },
+    {
+      "layer": 3,
+      "severity": "HARD",
+      "id": "L3-7",
+      "title": "黄金任务流未走通",
+      "detail": "在第 2 步「expect \"待我处理\"」中断：可见文本中未出现该子串。链路中断后剩余 8 步未执行。",
+      "evidence": [
+        "PASS 步骤1 page workbench",
+        "FAIL 步骤2 expect \"待我处理\" — 可见文本中未出现该子串"
+      ]
+    }
+  ],
+  "layer2": {
+    "skipped": false,
+    "pages": 4,
+    "errors": 0,
+    "detail": {
+      "ok": true,
+      "innerWidth": 1366,
+      "innerHeight": 681,
+      "docScrollW": 1366,
+      "docClientW": 1366,
+      "bodyScrollW": 1366,
+      "mode": "smoke",
+      "pages": [
+        {
+          "id": "workbench",
+          "how": "fn:goto",
+          "found": true,
+          "visible": true,
+          "len": 3965,
+          "vlen": 32,
+          "overflow": []
+        },
+        {
+          "id": "contract-list",
+          "how": "fn:goto",
+          "found": true,
+          "visible": true,
+          "len": 5321,
+          "vlen": 75,
+          "overflow": []
+        },
+        {
+          "id": "contract-review",
+          "how": "fn:goto",
+          "found": true,
+          "visible": true,
+          "len": 6407,
+          "vlen": 0,
+          "overflow": []
+        },
+        {
+          "id": "contract-create",
+          "how": "fn:goto",
+          "found": true,
+          "visible": true,
+          "len": 3181,
+          "vlen": 63,
+          "overflow": []
+        }
+      ],
+      "flow": [],
+      "errors": []
+    }
+  },
+  "layer3": {
+    "sizes": [
+      {
+        "size": "1366x768",
+        "ok": true,
+        "docOverflow": 0,
+        "offenders": 0,
+        "pages": 4,
+        "errors": 0
+      },
+      {
+        "size": "1440x900",
+        "ok": true,
+        "docOverflow": 0,
+        "offenders": 0,
+        "pages": 4,
+        "errors": 0
+      },
+      {
+        "size": "1920x1080",
+        "ok": true,
+        "docOverflow": 0,
+        "offenders": 0,
+        "pages": 4,
+        "errors": 0
+      }
+    ],
+    "flow": {
+      "skipped": false,
+      "steps": 10,
+      "passed": 1,
+      "log": [
+        {
+          "i": 0,
+          "action": "page workbench",
+          "ok": true,
+          "reason": ""
+        },
+        {
+          "i": 1,
+          "action": "expect \"待我处理\"",
+          "ok": false,
+          "reason": "可见文本中未出现该子串"
+        }
+      ]
+    }
+  },
+  "hard": 2,
+  "warn": 1
+}

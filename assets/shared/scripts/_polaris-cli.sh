@@ -35,12 +35,10 @@ _polaris_cli_selfheal() {
   esac
 }
 
-_polaris_cli_tty() {
-  if { true > /dev/tty; } 2>/dev/null; then
-    printf '%s\n' "$*" > /dev/tty
-  else
-    printf '%s\n' "$*" >&2
-  fi
+# 提示语统一写 stderr——不再优先 /dev/tty：宿主 hook 与测试都是管道捕获，
+# tty 直写会让消息绕过 stdout/stderr，调用方与测试无法读到（曾致本地集成测试必挂）。
+_polaris_cli_msg() {
+  printf '%s\n' "$*" >&2
 }
 
 # 查找 polaris-flow 并 exec 子命令；找不到则提示并 exit 1
@@ -52,9 +50,9 @@ exec_polaris() {
   if command -v polaris-flow >/dev/null 2>&1; then
     exec polaris-flow "$subcmd" "$@" --platform @PLATFORM_ID@
   fi
-  _polaris_cli_tty "[polaris-flow][FAIL] polaris-flow CLI not found — hook requires a global install"
-  _polaris_cli_tty "                  Install: npm install -g @polaris/polaris-flow"
-  _polaris_cli_tty "                  Then retry (or run: polaris-flow ${subcmd} …)"
-  _polaris_cli_tty "                  Note: interactive CLI remains 'polaris' (init/status/…)"
+  _polaris_cli_msg "[polaris-flow][FAIL] polaris-flow CLI not found — hook requires a global install"
+  _polaris_cli_msg "                  Install: npm install -g @polaris/polaris-flow"
+  _polaris_cli_msg "                  Then retry (or run: polaris-flow ${subcmd} …)"
+  _polaris_cli_msg "                  Note: interactive CLI remains 'polaris' (init/status/…)"
   exit 1
 }

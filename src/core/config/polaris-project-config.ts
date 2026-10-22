@@ -8,7 +8,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists, ensureDir } from '../../utils/file-system.js';
 import { getPolarisConfigPath, getPolarisDir, type InstallScope } from '../assets/polaris-paths.js';
-import { HarnessType, Platform } from '../domain/platforms.js';
+import { HarnessType, Platform, HostForm } from '../domain/platforms.js';
 import os from 'os';
 
 export { getPolarisConfigPath } from '../assets/polaris-paths.js';
@@ -26,11 +26,20 @@ export type VerifyMode = 'light' | 'heavy';
 export type AutoTransition = 'auto' | 'off';
 /** 开发模式，可选值: tdd-测试驱动开发 | none-非测试驱动开发 */
 export type BuildMode = 'tdd' | 'none';
-/** 工作流类型，可选值: sdd | tweak | bugfix | full */
-export type WorkflowType = 'sdd' | 'tweak' | 'bugfix' | 'full';
-/** 任务阶段 */
-export type TaskPhase =
-  'idle' | 'clarify' | 'propose' | 'design' | 'plan' | 'build' | 'verify' | 'delivery' | string;
+/** 工作流类型，可选值: sdd | tweak | bugfix | strict（sdd / bugfix 为历史值） */
+export type WorkflowType = 'sdd' | 'tweak' | 'bugfix' | 'strict';
+/**
+ * 任务阶段。
+ *
+ * **刻意退化为 `string`，不再手写联合**（D16）：这里曾列 `idle | specify | ... | string`，
+ * 末尾的 `| string` 让它形同虚设；更要紧的是它是**第二处枚举** —— 5 类 kind 的阶段序列
+ * 各不相同，一个联合类型表达不了，而写在这里就必然与阶段表漂移。
+ *
+ * 合法值的唯一真相是 `src/core/config/task-kind-layout.ts` 的 `TASK_KIND_LAYOUTS[*].phases`
+ * （TS 无法从常量派生字面量联合，所以枚举正确性由守卫测试承担：
+ * `test/ts/task-kind-phases.test.ts`），写入时另由 `src/core/hooks/phase-validation.ts` 拦截。
+ */
+export type TaskPhase = string;
 
 /** 语言, 可选值: en-英文 | zh-中文 */
 
@@ -62,6 +71,11 @@ export type ProjectPolarisConfig = {
   phase?: TaskPhase;
   auto_transition?: AutoTransition;
   context_compression?: ContextCompression;
+  /**
+   * 宿主形态（`ide` | `cli`）。缺省 = 未声明 → 压缩提示降级为双形式。
+   * 语义与消费见 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §5.6.3。
+   */
+  host_form?: HostForm;
   review_mode?: ReviewMode;
   build_mode?: BuildMode;
   models?: PolarisModelSlots;
@@ -174,13 +188,15 @@ function formatPolarisConfigYaml(config: ProjectPolarisConfig): string {
     '# 工作流状态',
     `workflow: '${config.workflow ?? ''}'`,
     `phase: '${config.phase ?? ''}'`,
-    `auto_transition: ${config.auto_transition ?? true}`,
+    `auto_transition: ${config.auto_transition ?? 'off'}`,
     '',
     '# 功能开关',
     '# context_compression: off | beta',
-    `context_compression: ${config.context_compression ?? 'off'}`,
+    `context_compression: ${config.context_compression ?? 'beta'}`,
     '# review_mode: off | standard | thorough',
     `review_mode: ${config.review_mode ?? 'off'}`,
+    '# host_form: ide | cli（留空 = 未声明，压缩提示降级为双形式）',
+    `host_form: '${config.host_form ?? ''}'`,
     '',
   );
 

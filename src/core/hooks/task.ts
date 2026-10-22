@@ -1,14 +1,16 @@
 /**
- * Clarify / discovery / testcase 任务生命周期：init（建目录 + state）与 finalize（draft → 正式 id）。
+ * 任务生命周期：init（建目录 + 复制 state 模板 + 初始化补丁）与 finalize（draft → 正式 id）。
  * 由 `polaris task-init` / `polaris task-finalize` 调用。
  *
- * - change / testcase：先建 draft-*，再由 finalize（或后续流程）落到正式 id
- * - requirement：不建 draft，须传正式 taskId，直接初始化任务目录
+ * - coding / testcase：先建 draft-*，再由 finalize（或后续流程）落到正式 id
+ * - requirement / prototype：不建 draft，须传正式 taskId，直接初始化任务目录
  */
 import { mkdir, rename, readFile, writeFile } from 'fs/promises';
 import path from 'path';
+import type { Document } from 'yaml';
 
-import { getPolarisConfigPath } from '../config/polaris-project-config.js';
+import { getPolarisConfigPath, loadPolarisConfig } from '../config/polaris-project-config.js';
+import { getTaskStateTemplateSrc } from '../assets/manifest.js';
 import {
   getTaskDir,
   getTaskIntentionPath,
@@ -16,23 +18,22 @@ import {
   getTaskKindDir,
   getTaskKindRelPath,
   getTaskKindStatePath,
+  getTaskStateLockPath,
   getTaskStatePath,
 } from '../assets/polaris-paths.js';
-import { getTaskKindLayout } from '../config/task-kind-layout.js';
 import {
-  createDefaultRequirementState,
-  saveRequirementStateToFile,
-} from '../config/requirement-state.js';
-import {
-  createDefaultTaskState,
-  patchTaskStateFile,
-  saveTaskStateToFile,
-} from '../config/task-state.js';
-import { createDefaultTestcaseState, saveTestcaseStateToFile } from '../config/testcase-state.js';
+  getTaskKindLayout,
+  type TaskBootstrapFile,
+  type TaskInitPatches,
+  type TaskKindLayout,
+} from '../config/task-kind-layout.js';
+import { patchTaskStateFile } from '../config/task-state.js';
 import type { WorkflowTaskKind } from '../config/workflow-state.js';
 import { fileExists } from '../../utils/file-system.js';
+import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { runDraftCreate } from './draft-create.js';
 import { runWorkflowEntry } from './workflow-entry.js';
+import { acquireExclusiveLock, WorkflowLockError } from './workflow-lock.js';
 
 export type InitResult = {
   exitCode: number;
@@ -49,7 +50,7 @@ export type FinalizeResult = {
 
 /** init 可选参数 */
 export type InitOptions = {
-  /** 正式任务 id；usesDraft=false 的 kind（如 requirement）必填 */
+  /** 正式任务 id；usesDraft=false 的 kind（如 requirement / prototype）必填 */
   taskId?: string;
 };
 
@@ -58,59 +59,108 @@ export type TaskInitResult = InitResult;
 /** @deprecated 使用 FinalizeResult */
 export type TaskFinalizeResult = FinalizeResult;
 
+/** 解析后的任务身份（直建或 draft） */
+type ResolvedIdentity =
+  | {
+      ok: true;
+      mode: 'direct' | 'draft';
+      taskId: string;
+      dir: string;
+    }
+  | {
+      ok: false;
+      result: InitResult;
+    };
+
+/** 将补丁占位符替换为实际值 */
+function resolvePatchValue(
+  raw: string,
+  vars: {
+    taskId: string;
+    now: string;
+    intentionRel: string;
+    planRel: string;
+    mainRepoRoot: string;
+    worktreeDir: string;
+    installTime: string;
+  },
+): string {
+  switch (raw) {
+    case '$taskId':
+      return vars.taskId;
+    case '$now':
+      return vars.now;
+    case '$intentionRel':
+      return vars.intentionRel;
+    case '$planRel':
+      return vars.planRel;
+    case '$mainRepoRoot':
+      return vars.mainRepoRoot;
+    case '$worktreeDir':
+      return vars.worktreeDir;
+    case '$installTime':
+      return vars.installTime;
+    default:
+      return raw;
+  }
+}
+
+/** init 补丁变量（含从项目 config 解析的仓库根 / 工作树目录 / 安装时间） */
+type InitPatchVars = {
+  taskId: string;
+  now: string;
+  intentionRel: string;
+  planRel: string;
+  mainRepoRoot: string;
+  worktreeDir: string;
+  installTime: string;
+};
+
+/** 对 state 模板文档应用 initPatches（点路径写入对应节点） */
+function applyInitPatches(doc: Document, patches: TaskInitPatches, vars: InitPatchVars): void {
+  for (const [dotted, raw] of Object.entries(patches)) {
+    doc.setIn(dotted.split('.'), resolvePatchValue(raw, vars));
+  }
+}
+
 /**
- * 向已创建的任务目录写入 state 与 bootstrap 文件。
+ * 按 kind 对应 state 模板写出任务 state.yaml。
+ * 不保留模板注释；初始化补丁写在同一份文档上。
  */
-async function writeKindStateAndBootstrap(
+async function materializeStateFromTemplate(
   root: string,
   kind: WorkflowTaskKind,
   taskId: string,
-  taskDir: string,
+  layout: TaskKindLayout,
+  vars: InitPatchVars,
 ): Promise<void> {
-  const layout = getTaskKindLayout(kind);
   const statePath = getTaskKindStatePath(root, kind, taskId);
-
-  if (layout.stateFactory === 'change') {
-    const state = createDefaultTaskState({
-      changeId: taskId,
-      phase: layout.initialPhase,
-      kind: 'change',
-    });
-    state.intention = {
-      path: getTaskIntentionRelPath(taskId),
-    };
-    state.clarify = {
-      status: 'in_progress',
-      draft_dir: taskId,
-    };
-    await saveTaskStateToFile(statePath, state);
-  } else if (layout.stateFactory === 'requirement') {
-    const state = createDefaultRequirementState({
-      taskId,
-      phase: layout.initialPhase,
-    });
-    state.discovery = {
-      status: 'in_progress',
-      started_at: new Date().toISOString(),
-      finished_at: '',
-    };
-    await saveRequirementStateToFile(statePath, state);
-  } else {
-    const planRel = getTaskKindRelPath(kind, taskId, 'testcase_plan.md');
-    const state = createDefaultTestcaseState({
-      taskId,
-      phase: layout.initialPhase,
-      planPath: planRel,
-    });
-    state.discovery = {
-      status: 'in_progress',
-      started_at: new Date().toISOString(),
-      finished_at: '',
-    };
-    await saveTestcaseStateToFile(statePath, state);
+  const templateSrc = getTaskStateTemplateSrc(layout.stateTemplate);
+  if (!(await fileExists(templateSrc))) {
+    throw new Error(`state 模板不存在: ${templateSrc}`);
   }
+  const now = new Date().toISOString();
+  await writeYamlFromTemplate(templateSrc, statePath, {
+    keepComments: false,
+    transform: (doc) => {
+      const parsed = doc.toJS();
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error(`state 模板无法解析为对象: ${templateSrc}`);
+      }
+      applyInitPatches(doc, layout.initPatches, {
+        ...vars,
+        taskId,
+        now,
+        intentionRel: getTaskIntentionRelPath(taskId),
+        planRel: getTaskKindRelPath(kind, taskId, 'testcase_plan.md'),
+      });
+    },
+  });
+}
 
-  for (const file of layout.bootstrapFiles) {
+/** 写入 layout.bootstrapFiles */
+async function writeBootstrapFiles(taskDir: string, files: TaskBootstrapFile[]): Promise<void> {
+  for (const file of files) {
     const abs = path.join(taskDir, file.relPath);
     await mkdir(path.dirname(abs), { recursive: true });
     await writeFile(abs, file.content, 'utf-8');
@@ -118,8 +168,71 @@ async function writeKindStateAndBootstrap(
 }
 
 /**
+ * 解析 init 身份：直建须 --task-id；draft 走 draft-create。
+ * 失败时返回 ok:false 并携带 InitResult。
+ */
+async function resolveInitIdentity(
+  root: string,
+  kind: WorkflowTaskKind,
+  layout: TaskKindLayout,
+  options: InitOptions,
+): Promise<ResolvedIdentity> {
+  if (!layout.usesDraft) {
+    const taskId = (options.taskId ?? '').trim();
+    if (!taskId) {
+      return {
+        ok: false,
+        result: {
+          exitCode: 2,
+          message: `kind=${kind} 不使用 draft，须提供 --task-id`,
+        },
+      };
+    }
+    const dir = getTaskKindDir(root, kind, taskId);
+    if (await fileExists(dir)) {
+      return {
+        ok: false,
+        result: {
+          exitCode: 1,
+          payload: {
+            status: 'existing',
+            kind,
+            task_id: taskId,
+            existing: [taskId],
+          },
+        },
+      };
+    }
+    return { ok: true, mode: 'direct', taskId, dir };
+  }
+
+  const draft = await runDraftCreate(root, kind);
+  if (draft.exitCode === 1) {
+    return {
+      ok: false,
+      result: {
+        exitCode: 1,
+        payload: { status: 'existing', existing: draft.existing, kind },
+      },
+    };
+  }
+  if (draft.exitCode !== 0) {
+    return {
+      ok: false,
+      result: { exitCode: 2, message: `draft-create 返回 exit ${draft.exitCode}` },
+    };
+  }
+  return {
+    ok: true,
+    mode: 'draft',
+    taskId: draft.draft_name,
+    dir: draft.draft_dir,
+  };
+}
+
+/**
  * 按 kind 初始化任务目录 + state.yaml（不写 workflow append）。
- * requirement 不走 draft，须提供 options.taskId。
+ * 流水线：解析身份 → mkdir → 复制模板 → 初始化补丁 → bootstrapFiles。
  */
 export async function init(
   repoRoot: string,
@@ -140,68 +253,58 @@ export async function init(
   }
 
   const layout = getTaskKindLayout(kind);
+  const resolved = await resolveInitIdentity(root, kind, layout, options);
+  if (!resolved.ok) {
+    return resolved.result;
+  }
 
-  if (!layout.usesDraft) {
-    const taskId = (options.taskId ?? '').trim();
-    if (!taskId) {
-      return {
-        exitCode: 2,
-        message: `kind=${kind} 不使用 draft，须提供 --task-id`,
-      };
-    }
-    const taskDir = getTaskKindDir(root, kind, taskId);
-    if (await fileExists(taskDir)) {
-      return {
-        exitCode: 1,
-        payload: {
-          status: 'existing',
-          kind,
-          task_id: taskId,
-          existing: [taskId],
-        },
-      };
-    }
-    await mkdir(taskDir, { recursive: true });
-    await writeKindStateAndBootstrap(root, kind, taskId, taskDir);
+  // 从项目 config 解析仓库根 / 工作树目录 / 安装时间，替换模板占位符与样例值
+  const config = await loadPolarisConfig(root);
+  const patchVars: InitPatchVars = {
+    taskId: '',
+    now: '',
+    intentionRel: '',
+    planRel: '',
+    mainRepoRoot: config?.main_repo_root || root,
+    worktreeDir: config?.worktree_dir || `${root}/.worktrees`,
+    installTime: new Date(config?.install_time ?? Date.now()).toISOString(),
+  };
+
+  try {
+    await mkdir(resolved.dir, { recursive: true });
+    await materializeStateFromTemplate(root, kind, resolved.taskId, layout, patchVars);
+    await writeBootstrapFiles(resolved.dir, layout.bootstrapFiles);
+  } catch (err) {
+    return {
+      exitCode: 2,
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  if (resolved.mode === 'direct') {
     return {
       exitCode: 0,
       payload: {
         status: 'ok',
         kind,
-        task_id: taskId,
-        task_dir: taskDir,
+        task_id: resolved.taskId,
+        task_dir: resolved.dir,
       },
     };
   }
-
-  const draft = await runDraftCreate(root, kind);
-  if (draft.exitCode === 1) {
-    return {
-      exitCode: 1,
-      payload: { status: 'existing', existing: draft.existing, kind },
-    };
-  }
-  if (draft.exitCode !== 0) {
-    return { exitCode: 2, message: `draft-create 返回 exit ${draft.exitCode}` };
-  }
-
-  const draftDir = draft.draft_dir;
-  await mkdir(draftDir, { recursive: true });
-  await writeKindStateAndBootstrap(root, kind, draft.draft_name, draftDir);
-
   return {
     exitCode: 0,
     payload: {
       status: 'ok',
       kind,
-      draft_name: draft.draft_name,
-      draft_dir: draftDir,
+      draft_name: resolved.taskId,
+      draft_dir: resolved.dir,
     },
   };
 }
 
 /**
- * draft → 正式 change_id，并 rename-active（仅 change 路径；本期未泛化 kind）。
+ * draft → 正式 change_id，并 rename-active（仅 coding 路径；本期未泛化 kind）。
  */
 export async function finalize(
   repoRoot: string,
@@ -234,19 +337,33 @@ export async function finalize(
   await rename(draftDir, targetDir);
 
   const intentionRel = getTaskIntentionRelPath(changeId);
-  await patchTaskStateFile(stateYaml, {
-    change_id: changeId,
-    task_id: changeId,
-    phase: 'clarify',
-    intention: {
-      path: intentionRel,
-    },
-    clarify: {
-      status: 'completed',
-      draft_dir: '',
-      path: intentionRel,
-    },
-  });
+  // state 写入与 `task-state-entry` 的写 op 共用同一把 `task-state-<id>.lock` —— 此前这里
+  // 直接 patchTaskStateFile（无锁），与并发写者（技能的 set / complete-phase）存在覆盖窗口。
+  let stateLock;
+  try {
+    stateLock = await acquireExclusiveLock(getTaskStateLockPath(root, changeId), 'task-finalize');
+  } catch (err) {
+    if (err instanceof WorkflowLockError) {
+      return { exitCode: 1, message: err.message };
+    }
+    throw err;
+  }
+  try {
+    await patchTaskStateFile(stateYaml, {
+      change_id: changeId,
+      task_id: changeId,
+      phase: 'specify',
+      runtime: {
+        specify: {
+          intention_path: intentionRel,
+          status: 'completed',
+          finished_at: new Date().toISOString(),
+        },
+      },
+    });
+  } finally {
+    stateLock.release();
+  }
 
   if (await fileExists(intention)) {
     let body = await readFile(intention, 'utf-8');
@@ -256,8 +373,8 @@ export async function finalize(
 
   const wf = await runWorkflowEntry({
     op: 'rename-active',
-    skill: 'clarify',
-    kind: 'change',
+    skill: 'specify',
+    kind: 'coding',
     repoRoot: root,
     from: draftName,
     to: changeId,

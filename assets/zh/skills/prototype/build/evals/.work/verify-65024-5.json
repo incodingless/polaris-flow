@@ -1,0 +1,109 @@
+{
+  "target": "/Users/weiliu/Documents/work/projects/polaris/polaris-flow/assets/zh/skills/prototype/build/example/prototype.html",
+  "generatedAt": "2026-09-15T03:26:21.236Z",
+  "node": "v22.22.2",
+  "browser": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "options": {
+    "layers": [
+      1,
+      2
+    ],
+    "sizes": [
+      "1366x768",
+      "1440x900",
+      "1920x1080"
+    ],
+    "contrastMin": 4.5,
+    "strict": true
+  },
+  "layers": [
+    {
+      "id": 1,
+      "name": "静态检查",
+      "ran": true,
+      "required": true,
+      "hard": 0,
+      "warn": 0,
+      "skipped": false,
+      "note": ""
+    },
+    {
+      "id": 2,
+      "name": "无头浏览器逐页冒烟",
+      "ran": true,
+      "required": true,
+      "hard": 0,
+      "warn": 0,
+      "skipped": false,
+      "note": ""
+    }
+  ],
+  "scriptStats": {
+    "scriptsChecked": 2,
+    "pages": 4,
+    "jumps": 14,
+    "uses": 40,
+    "tokens": 23
+  },
+  "findings": [],
+  "layer2": {
+    "skipped": false,
+    "pages": 4,
+    "errors": 0,
+    "detail": {
+      "ok": true,
+      "innerWidth": 1366,
+      "innerHeight": 681,
+      "docScrollW": 1366,
+      "docClientW": 1366,
+      "bodyScrollW": 1366,
+      "mode": "smoke",
+      "pages": [
+        {
+          "id": "workbench",
+          "how": "fn:goto",
+          "found": true,
+          "visible": true,
+          "len": 3967,
+          "vlen": 454,
+          "overflow": []
+        },
+        {
+          "id": "contract-list",
+          "how": "fn:goto",
+          "found": true,
+          "visible": true,
+          "len": 5323,
+          "vlen": 428,
+          "overflow": []
+        },
+        {
+          "id": "contract-review",
+          "how": "fn:goto",
+          "found": true,
+          "visible": true,
+          "len": 6409,
+          "vlen": 448,
+          "overflow": []
+        },
+        {
+          "id": "contract-create",
+          "how": "fn:goto",
+          "found": true,
+          "visible": true,
+          "len": 3183,
+          "vlen": 267,
+          "overflow": []
+        }
+      ],
+      "flow": [],
+      "errors": []
+    }
+  },
+  "layer3": {
+    "skipped": true,
+    "reason": "未指定第 3 层"
+  },
+  "hard": 0,
+  "warn": 0
+}

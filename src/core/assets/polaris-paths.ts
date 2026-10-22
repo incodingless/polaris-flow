@@ -62,6 +62,19 @@ export function getWorkflowConfigPath(projectPath: string): string {
   return path.join(getPolarisDir(projectPath), 'workflow.yaml');
 }
 
+/** 返回 `.polaris/.cache` 目录 */
+export function getPolarisCacheDir(projectPath: string): string {
+  return path.join(getPolarisDir(projectPath), '.cache');
+}
+
+/**
+ * 返回 SessionStart 写入的 subagent-probe 快照路径。
+ * `.polaris/.cache/subagent-probe.json`
+ */
+export function getSubagentProbeCachePath(projectPath: string): string {
+  return path.join(getPolarisCacheDir(projectPath), 'subagent-probe.json');
+}
+
 /** 返回 `.polaris/.locks` 目录 */
 export function getLocksDir(projectPath: string): string {
   return path.join(getPolarisDir(projectPath), '.locks');
@@ -70,6 +83,15 @@ export function getLocksDir(projectPath: string): string {
 /** 返回 `.polaris/.locks/workflow.lock` */
 export function getWorkflowLockPath(projectPath: string): string {
   return path.join(getLocksDir(projectPath), 'workflow.lock');
+}
+
+/**
+ * 返回 `.polaris/.locks/task-state-<taskId>.lock`。
+ * taskId 中不安全路径字符替换为 `_`，避免越出 locks 目录。
+ */
+export function getTaskStateLockPath(projectPath: string, taskId: string): string {
+  const safe = taskId.replace(/[^a-zA-Z0-9._-]+/g, '_');
+  return path.join(getLocksDir(projectPath), `task-state-${safe}.lock`);
 }
 
 /** 返回 `.polaris/sessions` 目录 */
@@ -120,15 +142,12 @@ export function getTaskIntentionRelPath(taskId: string): string {
 //        按 kind 的任务路径
 //---------------------------------
 
-/**
- * 返回 kind 对应的 `.polaris` 一级目录名。
- * change / requirement → tasks；testcase → testcases。
- */
+/** kind → `.polaris` 下一级目录：testcase → testcases，其余 → tasks */
 export function getTaskStorageSegment(kind: WorkflowTaskKind): TaskStorageSegment {
   return kind === 'testcase' ? 'testcases' : 'tasks';
 }
 
-/** 返回 `.polaris/tasks` 或 `.polaris/testcases` */
+/** 返回 `.polaris/<segment>/`（tasks 或 testcases） */
 export function getTaskKindRootDir(projectPath: string, kind: WorkflowTaskKind): string {
   return path.join(getPolarisDir(projectPath), getTaskStorageSegment(kind));
 }
@@ -152,6 +171,24 @@ export function getTaskKindStatePath(
 }
 
 /**
+ * 任务 `state.yaml` 的**实际位置**（恢复分发与面板读取的统一入口）。
+ *
+ * `worktree_path` 来自 `workflow.yaml` 条目：空 = 任务在主仓，非空 = 任务目录已被
+ * `worktree-create` 搬进 worktree（主仓副本改名为 `<id>.snapshot`，见 `hooks/worktree.ts`）。
+ * **不要**用「主仓路径不存在就回退」的写法猜 —— 猜错会把 worktree 里的任务读成"没有状态"，
+ * 那是这条链路上出过的真实故障。位置只有一个来源：条目的 `worktree_path`。
+ */
+export function resolveTaskStatePath(
+  projectRoot: string,
+  kind: WorkflowTaskKind,
+  taskId: string,
+  worktreePath?: string,
+): string {
+  const wt = (worktreePath ?? '').trim();
+  return wt ? getTaskKindStatePath(wt, kind, taskId) : getTaskKindStatePath(projectRoot, kind, taskId);
+}
+
+/**
  * 返回相对仓库根的 posix 路径：`.polaris/<segment>/<taskId>/<file>`。
  */
 export function getTaskKindRelPath(
@@ -160,11 +197,6 @@ export function getTaskKindRelPath(
   file: string,
 ): string {
   return path.posix.join('.polaris', getTaskStorageSegment(kind), taskId, file);
-}
-
-/** 返回 `.polaris/testcases` 目录 */
-export function getTestcasesDir(projectPath: string): string {
-  return path.join(getPolarisDir(projectPath), 'testcases');
 }
 
 //---------------------------------
@@ -176,9 +208,14 @@ export function getArchiveDir(projectPath: string): string {
   return path.join(getPolarisDir(projectPath), 'archive');
 }
 
-/** 返回 `.polaris/archive/<changeId>` 目录 */
+/** 返回 `.polaris/archive/<taskId>` 目录 */
+export function getTaskArchiveDir(projectPath: string, taskId: string): string {
+  return path.join(getArchiveDir(projectPath), taskId);
+}
+
+/** @deprecated 使用 getTaskArchiveDir */
 export function getChangeArchiveDir(projectPath: string, changeId: string): string {
-  return path.join(getArchiveDir(projectPath), changeId);
+  return getTaskArchiveDir(projectPath, changeId);
 }
 
 /** 返回 `.polaris/metrics` 目录 */

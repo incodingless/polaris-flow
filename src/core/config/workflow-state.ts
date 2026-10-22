@@ -1,52 +1,78 @@
 /**
  * `.polaris/workflow.yaml` 工作流游标读写。
- * 与 polaris-config（项目静态配置）分离：本文件描述三类任务列表游标。
+ * 与 polaris-config（项目静态配置）分离：本文件描述四类任务列表游标。
  */
-import { copyFile, mkdir, readFile, writeFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists } from '../../utils/file-system.js';
+import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { getWorkflowTemplateYamlSrc } from '../assets/manifest.js';
 import { getWorkflowConfigPath } from '../assets/polaris-paths.js';
 
-/** 任务游标条目（三列表共用结构） */
+/**
+ * 任务游标条目（多列表共用结构）。
+ *
+ * **刻意不含 `phase`**：阶段（"下一步该谁接手"）的唯一存放处是任务的
+ * `.polaris/tasks/<id>/state.yaml`（字段 `phase`），读取位置由本条的 `worktree_path` 决定
+ * —— 空 = 主仓；非空 = worktree 内副本。条目只回答「有哪些在途任务」+「任务在哪」。
+ */
 export type WorkflowTaskEntry = {
   task_id: string;
-  phase: string;
+  /** 任务工作树绝对路径；空表示任务仍在主仓（state.yaml 也就读主仓） */
   worktree_path: string;
   started_at: string;
+  /** debug 族通道：bugfix | hotfix；其余 kind 省略或为空串 */
+  channel?: string;
 };
 
 /** 任务类型 → YAML 列表键 */
-export type WorkflowTaskKind = 'change' | 'requirement' | 'testcase';
+export type WorkflowTaskKind = 'coding' | 'requirement' | 'testcase' | 'prototype' | 'debug';
 
 /** kind 对应的 YAML 顶层键名 */
-export type WorkflowTaskListKey = 'change_tasks' | 'requirement_tasks' | 'testcase_tasks';
+export type WorkflowTaskListKey =
+  'coding_tasks' | 'requirement_tasks' | 'testcase_tasks' | 'prototype_tasks' | 'debug_tasks';
 
 /** `.polaris/workflow.yaml` 根结构 */
 export type WorkflowState = {
-  change_tasks: WorkflowTaskEntry[];
+  coding_tasks: WorkflowTaskEntry[];
   requirement_tasks: WorkflowTaskEntry[];
   testcase_tasks: WorkflowTaskEntry[];
+  prototype_tasks: WorkflowTaskEntry[];
+  debug_tasks: WorkflowTaskEntry[];
 };
 
 export const WORKFLOW_TASK_KINDS: readonly WorkflowTaskKind[] = [
-  'change',
+  'coding',
   'requirement',
   'testcase',
+  'prototype',
+  'debug',
 ] as const;
+
+/** CLI / 报错用的 kind 合法值串 */
+export const WORKFLOW_TASK_KIND_HELP = WORKFLOW_TASK_KINDS.join('|');
+
+/** 缺少或非法 --kind 时的统一报错文案 */
+export function workflowTaskKindErrorMessage(): string {
+  return `缺少或非法 --kind（须为 ${WORKFLOW_TASK_KIND_HELP}）`;
+}
 
 /** 将 kind 映射为 YAML 列表键；非法 kind 返回 null */
 export function listKeyForKind(kind: string | undefined): WorkflowTaskListKey | null {
   switch (kind) {
-    case 'change':
-      return 'change_tasks';
+    case 'coding':
+      return 'coding_tasks';
     case 'requirement':
       return 'requirement_tasks';
     case 'testcase':
       return 'testcase_tasks';
+    case 'prototype':
+      return 'prototype_tasks';
+    case 'debug':
+      return 'debug_tasks';
     default:
       return null;
   }
@@ -54,7 +80,13 @@ export function listKeyForKind(kind: string | undefined): WorkflowTaskListKey | 
 
 /** 解析并校验 kind；非法则返回 null */
 export function parseWorkflowTaskKind(raw: string | undefined): WorkflowTaskKind | null {
-  if (raw === 'change' || raw === 'requirement' || raw === 'testcase') {
+  if (
+    raw === 'coding' ||
+    raw === 'requirement' ||
+    raw === 'testcase' ||
+    raw === 'prototype' ||
+    raw === 'debug'
+  ) {
     return raw;
   }
   return null;
@@ -86,12 +118,14 @@ export function getWorkflowCursorPath(repoRoot: string): string {
   return getWorkflowStatePath(repoRoot);
 }
 
-/** 空骨架（三列表） */
+/** 空骨架（多列表） */
 export function emptyWorkflowState(): WorkflowState {
   return {
-    change_tasks: [],
+    coding_tasks: [],
     requirement_tasks: [],
     testcase_tasks: [],
+    prototype_tasks: [],
+    debug_tasks: [],
   };
 }
 
@@ -100,13 +134,13 @@ export function emptyWorkflowCursor(): WorkflowState {
   return emptyWorkflowState();
 }
 
-/** 将原始 YAML 条目规范化为 WorkflowTaskEntry */
+/** 将原始 YAML 条目规范化为 WorkflowTaskEntry（忽略历史遗留的 `phase` 键） */
 function normalizeTaskEntry(raw: Record<string, unknown>): WorkflowTaskEntry {
   return {
     task_id: String(raw.task_id ?? ''),
-    phase: String(raw.phase ?? ''),
     worktree_path: String(raw.worktree_path ?? ''),
     started_at: String(raw.started_at ?? ''),
+    channel: String(raw.channel ?? ''),
   };
 }
 
@@ -127,9 +161,11 @@ function normalizeWorkflowState(raw: unknown): WorkflowState {
   }
   const obj = raw as Record<string, unknown>;
   return {
-    change_tasks: normalizeTaskList(obj.change_tasks),
+    coding_tasks: normalizeTaskList(obj.coding_tasks),
     requirement_tasks: normalizeTaskList(obj.requirement_tasks),
     testcase_tasks: normalizeTaskList(obj.testcase_tasks),
+    prototype_tasks: normalizeTaskList(obj.prototype_tasks),
+    debug_tasks: normalizeTaskList(obj.debug_tasks),
   };
 }
 
@@ -155,7 +191,7 @@ export async function loadWorkflowCursor(repoRoot: string): Promise<WorkflowStat
 }
 
 /**
- * 若缺失则物化 workflow.yaml：优先拷贝模板，否则写三空列表骨架。
+ * 若缺失则物化 workflow.yaml：有模板则写出无注释数据，否则写五空列表骨架。
  */
 export async function ensureWorkflowStateFile(repoRoot: string): Promise<string> {
   const filePath = getWorkflowStatePath(repoRoot);
@@ -165,11 +201,11 @@ export async function ensureWorkflowStateFile(repoRoot: string): Promise<string>
   await mkdir(path.dirname(filePath), { recursive: true });
   const templateSrc = getWorkflowTemplateYamlSrc();
   if (await fileExists(templateSrc)) {
-    await copyFile(templateSrc, filePath);
+    await writeYamlFromTemplate(templateSrc, filePath, { keepComments: false });
     return filePath;
   }
   const skeleton =
-    'change_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\n';
+    'coding_tasks: []\nrequirement_tasks: []\ntestcase_tasks: []\nprototype_tasks: []\ndebug_tasks: []\n';
   await writeFile(filePath, skeleton, 'utf-8');
   return filePath;
 }
@@ -180,16 +216,18 @@ export async function ensureWorkflowCursorFile(repoRoot: string): Promise<string
 }
 
 /**
- * 写回 workflow.yaml（稳定字段顺序：change → requirement → testcase）。
+ * 写回 workflow.yaml（稳定字段顺序：coding → requirement → testcase → prototype → debug）。
  */
 export async function saveWorkflowState(repoRoot: string, state: WorkflowState): Promise<void> {
   const filePath = getWorkflowStatePath(repoRoot);
   await mkdir(path.dirname(filePath), { recursive: true });
 
   const ordered: Record<string, unknown> = {
-    change_tasks: state.change_tasks.length === 0 ? [] : state.change_tasks,
+    coding_tasks: state.coding_tasks.length === 0 ? [] : state.coding_tasks,
     requirement_tasks: state.requirement_tasks.length === 0 ? [] : state.requirement_tasks,
     testcase_tasks: state.testcase_tasks.length === 0 ? [] : state.testcase_tasks,
+    prototype_tasks: state.prototype_tasks.length === 0 ? [] : state.prototype_tasks,
+    debug_tasks: state.debug_tasks.length === 0 ? [] : state.debug_tasks,
   };
 
   const text = stringifyYaml(ordered, { lineWidth: 0 });

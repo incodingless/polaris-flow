@@ -1,10 +1,10 @@
 # ship-lock — ship 阶段串行互斥锁 policy
 
-> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` skill 的 Step 0 调用。承载完整的锁获取 / 释放 / stale 恢复流程；SKILL.md 中只保留入口引用与 HARD-GATE 锚点。
+> 由 `polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` skill 的 Step 1 调用。承载完整的锁获取 / 释放 / stale 恢复流程；SKILL.md 中只保留入口引用与 HARD-GATE 锚点。
 
 ## 目的
 
-ship 是 easy-flow 中唯一会**写主仓共享资源**的阶段（`workflow.yaml` 全文重写、`.polaris/metrics/` 目录合回、`.polaris/overrides.log` 追加、`/opsx:archive` 移动 `openspec/changes/`、`git rebase` + `git merge --ff-only` 主分支 HEAD）。多 worktree 同时 ship 会让上述资源出现 read-modify-write 竞争或 git 引用冲突。本 policy 用文件锁把整个 ship 流程串行化：**同一台机器同一时刻只允许一个 ship 在跑**。
+ship 是 polaris-flow 中唯一会**写主仓共享资源**的阶段（`workflow.yaml` 全文重写、`.polaris/metrics/` 目录合回、`.polaris/overrides.log` 追加、`/opsx:archive` 移动 `openspec/changes/`、`git rebase` + `git merge --ff-only` 主分支 HEAD）。多 worktree 同时 ship 会让上述资源出现 read-modify-write 竞争或 git 引用冲突。本 policy 用文件锁把整个 ship 流程串行化：**同一台机器同一时刻只允许一个 ship 在跑**。
 
 跨机器并发不在本 policy scope（lock 文件不入仓，仅本机生效）；多人协作通过 git 分支 + PR 处理。
 
@@ -15,11 +15,11 @@ ship 是 easy-flow 中唯一会**写主仓共享资源**的阶段（`workflow.ya
   - 例：`refactor-sdk-api-0701c0 12345 1717000000 2026-05-28T19:00:00Z`
 - 不入仓：`.polaris/.gitignore` 已包含 `.locks/`（由 SessionStart 维护）
 
-## Step 0 流程（在 ship Step 1 之前执行）
+## Step 1 流程（在 ship Step 2 之前执行）
 
 ### 0.1 解析 main_repo_root 与 change_id
 
-通过 `scripts/change-locate.sh`(无 phase 限定)定位本会话 change_tasks entry,取 `change_id`(及 `worktree_path` 用于解析 main_repo_root)。零/多匹配按脚本退出码阻断,**不获取锁**——脚本 stderr 已含统一阻断话术。
+通过 `scripts/change-locate.sh`(无 phase 限定)定位本会话 coding_tasks entry,取 `change_id`(及 `worktree_path` 用于解析 main_repo_root)。零/多匹配按脚本退出码阻断,**不获取锁**——脚本 stderr 已含统一阻断话术。
 
 ### 0.2 检测既有锁
 
@@ -73,7 +73,7 @@ trap 'rm -f "$LOCK_FILE"' EXIT INT TERM HUP
 ### 0.4 状态行输出
 
 ```
-[polaris-flow] ship lock 已获取：change_id=<change_id> pid=<PID>，进入 Step 1
+[polaris-flow] ship lock 已获取：change_id=<change_id> pid=<PID>，进入 Step 2
 ```
 
 ## 失败处理
@@ -88,13 +88,13 @@ trap 'rm -f "$LOCK_FILE"' EXIT INT TERM HUP
 
 ## 不变量
 
-- 一次 ship 流程恰好持有一次锁（Step 0 获取 → trap 释放）
+- 一次 ship 流程恰好持有一次锁（Step 1 获取 → trap 释放）
 - 锁内容字段顺序固定：`change_id PID unix_ts ISO`，便于运维 grep
 - 锁文件不进入 git（`.locks/` 在 `.polaris/.gitignore` 中）
 - 30min 阈值是**双倍正常 ship 上限**的兜底，不是性能目标——ship 本身应在 5-15min 完成
 
 ## 与 SKILL.md 的关系
 
-- HARD-GATE：禁止跳过 Step 0 直接进入 Step 1
-- Step 0 一句引用本 policy
-- 解析 change_id 的逻辑当前**与 SKILL.md Step 1 共享**——后续如抽公共 policy（`resolve-change-id.md`），两处同步替换
+- HARD-GATE：禁止跳过 Step 1 直接进入 Step 2
+- Step 1 一句引用本 policy
+- 解析 change_id 的逻辑当前**与 SKILL.md Step 2 共享**——后续如抽公共 policy（`resolve-change-id.md`），两处同步替换

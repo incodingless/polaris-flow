@@ -1,0 +1,48 @@
+{
+  "target": "/Users/weiliu/Documents/work/projects/polaris/polaris-flow/assets/zh/skills/prototype/build/evals/.work/e2-good.html",
+  "generatedAt": "2026-09-15T03:26:18.693Z",
+  "node": "v22.22.2",
+  "browser": null,
+  "options": {
+    "layers": [
+      1
+    ],
+    "sizes": [
+      "1366x768",
+      "1440x900",
+      "1920x1080"
+    ],
+    "contrastMin": 4.5,
+    "strict": false
+  },
+  "layers": [
+    {
+      "id": 1,
+      "name": "静态检查",
+      "ran": true,
+      "required": true,
+      "hard": 0,
+      "warn": 0,
+      "skipped": false,
+      "note": ""
+    }
+  ],
+  "scriptStats": {
+    "scriptsChecked": 1,
+    "pages": 2,
+    "jumps": 2,
+    "uses": 5,
+    "tokens": 19
+  },
+  "findings": [],
+  "layer2": {
+    "skipped": true,
+    "reason": "未指定第 2 层"
+  },
+  "layer3": {
+    "skipped": true,
+    "reason": "未指定第 3 层"
+  },
+  "hard": 0,
+  "warn": 0
+}

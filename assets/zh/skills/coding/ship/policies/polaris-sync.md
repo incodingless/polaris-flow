@@ -1,6 +1,6 @@
 # harness-sync — worktree 产物合回 policy
 
-> 由 `ship` skill 的 Step 3.4.5 调用。**实际执行由脚本 `scripts/harness-sync.sh` 确定性完成**——主代理只负责调用脚本 + 处理 exit 2 的用户交互,**禁止**在脚本之外做任何额外的文件拷贝动作。
+> 由 `ship` skill 的 Step 4.4.5 调用。**实际执行由脚本 `scripts/harness-sync.sh` 确定性完成**——主代理只负责调用脚本 + 处理 exit 2 的用户交互,**禁止**在脚本之外做任何额外的文件拷贝动作。
 
 ## 脚本位置
 
@@ -10,16 +10,16 @@ bash "$PLUGIN_ROOT/scripts/harness-sync.sh" <worktree_path> <origin_repo> <chang
 
 ## 触发条件
 
-由 `ship` Step 3 触发，满足任一即执行：
+由 `ship` Step 4 触发，满足任一即执行：
 
 - 3.3 用户选 A（已 PR 合并 / 不需本地合并）或 B（本地合并）
 - 3.2 检测到 `ALREADY_MERGED=1`（`finishing-a-development-branch` 已合并过）
 
-3.6 选项 C（保留 worktree）**跳过本 policy**——产物仍在 worktree 内，记录 `ship.harness_sync = "skipped_worktree_retained"`。
+3.6 选项 C（保留 worktree）**跳过本 policy**——产物仍在 worktree 内，记录 `runtime.ship.harness_sync = "skipped_worktree_retained"`。
 
 ## 关键约束
 
-本 policy 必须在 ship Step 3.5（`git worktree remove`）**之前**执行。worktree 一旦移除其内部 `.polaris/` 即随之删除，`metrics` / `overrides.log` / `changes/<change_id>/state.yaml` 终态 / `pre_design.md` 修订**不可恢复**。
+本 policy 必须在 ship Step 4.5（`git worktree remove`）**之前**执行。worktree 一旦移除其内部 `.polaris/` 即随之删除，`metrics` / `overrides.log` / `changes/<change_id>/state.yaml` 终态 / `pre_design.md` 修订**不可恢复**。
 
 主代理**禁止**在脚本之外做任何额外的文件拷贝动作——合回范围已由脚本写死,无需 prompt 层重复约束。
 

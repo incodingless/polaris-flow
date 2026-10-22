@@ -33,8 +33,8 @@
 
 ## 5. 后续
 
-- 继续度量：对进行中 change 跑 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}verify`（worktree 场景需经 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}ship` 合回）
-- 新变更：`/polaris{{SKN_SPR}}coding{{SKN_SPR}}clarify` 或 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}propose`
+- 继续度量：对进行中 change 跑完 `verify` 阶段（worktree 场景需经 `ship` 阶段合回主仓）
+- 新变更：从入口技能重新进入（`tweak` / `normal` / `strict`）
 
 ## 约束速查
 
@@ -44,4 +44,4 @@
 | 改进建议与因果解读 | `[LLM_SELF_CHECK]` |
 
 - 度量计算不得「估一个差不多的数」  
-- 改进建议不得脱离 Step 2–3 的证据
+- 改进建议不得脱离 Step 3–4 的证据

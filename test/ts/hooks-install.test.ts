@@ -15,6 +15,7 @@ import { PLATFORMS } from '../../src/core/domain/platforms.js';
 
 const claude = PLATFORMS.find((p) => p.id === 'claude')!;
 const trae = PLATFORMS.find((p) => p.id === 'trae')!;
+const traeCn = PLATFORMS.find((p) => p.id === 'trae-cn')!;
 
 async function loadAssets() {
   return readAssets('zh');
@@ -30,6 +31,9 @@ describe('resolveHooksConfigPath', () => {
     );
     expect(resolveHooksConfigPath('/tmp/.claude', claude, 'global')).toBe(
       path.join('/tmp/.claude', 'settings.json'),
+    );
+    expect(resolveHooksConfigPath('/tmp/proj/.trae', traeCn, 'project', '/tmp/home')).toBe(
+      path.join('/tmp/home', '.trae-cn', 'hooks.json'),
     );
   });
 });
@@ -119,6 +123,74 @@ describe('installPolarisHooksForPlatform Trae', () => {
       hooks: Record<string, unknown>;
     };
     expect(parsed.hooks.CustomEvent).toBeUndefined();
+    expect(parsed.hooks.SessionStart).toBeTruthy();
+  });
+});
+
+describe('installPolarisHooksForPlatform Trae-CN', () => {
+  it('项目级安装写入用户目录 hooks.json，command 指向 .trae 下的脚本', async () => {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-hooks-trae-cn-'));
+    const baseDir = path.join(tmpDir, '.trae');
+    const homeDir = path.join(tmpDir, 'home');
+    await mkdir(baseDir, { recursive: true });
+    const asset = await loadAssets();
+
+    const result = await installPolarisHooksForPlatform(
+      baseDir,
+      traeCn,
+      'project',
+      asset,
+      false,
+      homeDir,
+    );
+    expect(result.installed).toBe(true);
+
+    const dest = path.join(homeDir, '.trae-cn', 'hooks.json');
+    const raw = await readFile(dest, 'utf-8');
+    const parsed = JSON.parse(raw) as {
+      version?: number;
+      hooks?: { SessionStart?: Array<{ hooks?: Array<{ command?: string }> }> };
+    };
+    expect(parsed.version).toBe(1);
+    expect(parsed.hooks?.SessionStart?.length).toBeGreaterThan(0);
+    expect(raw).toContain('.trae/skills/polaris/hooks/session-start.sh');
+    expect(raw).not.toContain('.trae-cn/skills/');
+    await expect(readFile(path.join(baseDir, 'settings.local.json'), 'utf-8')).rejects.toThrow();
+  });
+
+  it('已有用户 hooks 时合并 SessionStart，不删掉原事件', async () => {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-hooks-trae-cn-merge-'));
+    const homeDir = path.join(tmpDir, 'home');
+    const dest = path.join(homeDir, '.trae-cn', 'hooks.json');
+    await mkdir(path.dirname(dest), { recursive: true });
+    await writeFile(
+      dest,
+      JSON.stringify({
+        version: 1,
+        hooks: {
+          Stop: [{ hooks: [{ type: 'command', command: 'echo user' }] }],
+        },
+      }),
+      'utf-8',
+    );
+    const asset = await loadAssets();
+
+    const result = await installPolarisHooksForPlatform(
+      path.join(tmpDir, '.trae'),
+      traeCn,
+      'project',
+      asset,
+      true,
+      homeDir,
+    );
+    expect(result.installed).toBe(true);
+
+    const parsed = JSON.parse(await readFile(dest, 'utf-8')) as {
+      version?: number;
+      hooks: Record<string, unknown>;
+    };
+    expect(parsed.version).toBe(1);
+    expect(parsed.hooks.Stop).toBeTruthy();
     expect(parsed.hooks.SessionStart).toBeTruthy();
   });
 });

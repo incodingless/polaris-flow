@@ -1,5 +1,5 @@
 /**
- * 支持的 AI 编码平台定义（skillsDir、rules、hooks、skillsLayout）与平台/插件路径助手。
+ * 支持的 AI 编码平台定义（skillsDir、rules、hooks、skillsLayout、supportsSubagent）与平台/插件路径助手。
  * 对齐 OpenSpec AI_TOOLS 配置思路；不写盘，仅提供元数据与路径辅助函数。
  */
 import path from 'path';
@@ -22,6 +22,37 @@ export const PLATFORM_ROOT_DIR_NAMES = ['skills', 'commands', 'agents'] as const
 /** 技能目录布局：nested 嵌套进 polaris；flat 子 skill 扁平为 polaris-<family>-<skill>（如 Trae） */
 export type SkillsLayout = 'nested' | 'flat';
 
+/**
+ * 命令目录布局。与 `SkillsLayout` **互相独立**（如 Trae：技能 flat、命令 nested）。
+ * - `nested`（默认）：`<contextDir>/commands/psfl/<相对路径>`，命令名 = 相对路径的 `/` → `:`
+ *   （如 `commands/psfl/coding/normal.md` → `/psfl:coding:normal`）
+ * - `flat`：`<contextDir>/commands/psfl-<相对路径，/ → ->.md`，命令名 = 文件名
+ *   （如 `commands/psfl-coding-normal.md` → `/psfl-coding-normal`）
+ *
+ * `flat` 用于 **Cursor**：官方行为是 **CLI 只读 `.cursor/commands/` 顶层的 `.md`、跳过全部子目录**
+ * （IDE 才递归扫描）。因此即便保留 `polaris/` 这一层，CLI 也读不到 —— 必须去掉命名空间目录，
+ * 改用 `polaris-` 文件名前缀（与 OpenSpec 的 `opsx-*.md` 同构）。
+ */
+export type CommandLayout = 'nested' | 'flat';
+
+/**
+ * 宿主形态。同一平台在 IDE 与 CLI 下的**上下文压缩入口不同**（如 Trae：IDE 点面板按钮、CLI 输入 `/compact`），
+ * 故压缩提示须按形态分派。缺省（未声明）= 未知，消费方降级为双形式提示。
+ */
+export type HostForm = 'ide' | 'cli';
+
+/**
+ * 上下文压缩动作，按宿主形态分列。
+ *
+ * 取值是**给用户看的操作描述**（如「点击上下文面板上的『压缩』按钮」「输入 `/compact`」），
+ * 不是可执行命令 —— 现有五个平台都没有把压缩暴露给 agent 程序化调用。
+ * 依据见 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §5.6.1。
+ */
+export type CompressionAction = {
+  ide?: string;
+  cli?: string;
+};
+
 /** 平台元数据：探测路径、skills/rules/hooks 能力与布局 */
 export interface Platform {
   id: string;
@@ -38,8 +69,20 @@ export interface Platform {
 
   /** 技能安装布局，默认 nested */
   skillsLayout: SkillsLayout;
+  /** 命令安装布局，默认 nested；与 skillsLayout 互相独立 */
+  commandLayout?: CommandLayout;
   /** 是否支持 PreToolUse hooks */
   supportsHooks?: boolean;
+  /**
+   * 是否支持派发独立 subagent（与 platform-probe.md 能力列同源）。
+   * false → SessionStart / probe 记 platform_degradation=inline。
+   */
+  supportsSubagent: boolean;
+  /**
+   * 上下文压缩动作（按宿主形态）。用于技能衔接提示语。
+   * 改本表须同步 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §5.6.1。
+   */
+  compressionAction: CompressionAction;
   hooksConfigFile: string;
   /** Hook 配置写入格式 */
   hookFormat?: 'claude-code' | 'trae' | 'trae-cn';
@@ -134,12 +177,9 @@ export function getSkillsLayout(platform: Platform): SkillsLayout {
   return platform.skillsLayout ?? 'nested';
 }
 
-/** 返回平台 settings 相对路径（project→settings.local.json，global→settings.json） */
-export function getSettingsFilePath(platform: Platform, scope: InstallScope): string {
-  // Project scope → settings.local.json (not committed)
-  // Global scope → settings.json
-  const fileName = scope === 'project' ? 'settings.local.json' : 'settings.json';
-  return `${platform.skillsDir}/${fileName}`;
+/** 返回平台命令布局，缺省为 nested */
+export function getCommandLayout(platform: Platform): CommandLayout {
+  return platform.commandLayout ?? 'nested';
 }
 
 /**
@@ -260,6 +300,12 @@ export const PLATFORMS: Platform[] = [
     rulesFormat: 'md',
     skillsLayout: 'nested',
     supportsHooks: true,
+    supportsSubagent: true,
+    /** Claude Code 的 IDE 与 CLI 是同一套宿主，压缩入口一致 */
+    compressionAction: {
+      ide: '输入 /compact（可带焦点，如 /compact focus on X）',
+      cli: '输入 /compact（可带焦点，如 /compact focus on X）',
+    },
     /** project/global 实际文件由 hooks.ts 按 scope 选择 settings.local.json / settings.json */
     hooksConfigFile: 'settings.local.json',
     hookFormat: 'claude-code',
@@ -279,7 +325,15 @@ export const PLATFORMS: Platform[] = [
     rulesDir: 'rules',
     rulesFormat: 'mdc',
     skillsLayout: 'nested',
+    /** Cursor CLI 只读 `.cursor/commands/` 顶层 `.md`、跳过全部子目录 → 命令必须扁平落盘 */
+    commandLayout: 'flat',
     supportsHooks: true,
+    supportsSubagent: true,
+    /** Cursor 的 IDE 与 CLI 压缩入口一致 */
+    compressionAction: {
+      ide: '输入 /summarize',
+      cli: '输入 /summarize',
+    },
     /** project/global 实际文件由 hooks.ts 按 scope 选择 settings.local.json / settings.json */
     hooksConfigFile: 'settings.local.json',
     hookFormat: 'claude-code',
@@ -299,6 +353,12 @@ export const PLATFORMS: Platform[] = [
     rulesFormat: 'md',
     skillsLayout: 'flat',
     supportsHooks: true,
+    supportsSubagent: true,
+    /** Trae IDE 的面板压缩按钮仅 SOLO Agent 可用；CLI 走斜杠命令 */
+    compressionAction: {
+      ide: '点击上下文使用率面板上的「压缩」按钮',
+      cli: '输入 /compact',
+    },
     hooksConfigFile: 'hooks.json',
     hookFormat: 'claude-code',
     detectionPaths: ['.trae'],
@@ -317,10 +377,101 @@ export const PLATFORMS: Platform[] = [
     rulesFormat: 'md',
     skillsLayout: 'flat',
     supportsHooks: true,
+    supportsSubagent: true,
+    /** 与 trae 同源（国内版） */
+    compressionAction: {
+      ide: '点击上下文使用率面板上的「压缩」按钮',
+      cli: '输入 /compact',
+    },
     hooksConfigFile: 'hooks.json',
     hookFormat: 'trae',
     detectionPaths: ['.trae-cn'],
     openspecToolId: 'trae',
     agentToolMap: TRAE_AGENT_TOOL_MAP,
   },
+  {
+    id: 'qoder',
+    name: 'Qoder',
+    contextDir: '.qoder',
+    globalContextDir: '.qoder',
+    skillsDir: 'skills',
+    commandsDir: 'commands',
+    agentsDir: 'agents',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    skillsLayout: 'nested',
+    supportsHooks: false,
+    /** 宿主强制无独立 subagent，probe / SessionStart 记 inline */
+    supportsSubagent: false,
+    /** 压缩按钮在用量超过 40% 时才可用；对话早期与生成中禁用 */
+    compressionAction: {
+      ide: '点击 Smart Context Control 的「压缩当前会话」按钮',
+      cli: '输入 /compact',
+    },
+    hooksConfigFile: 'settings.json',
+    hookFormat: 'claude-code',
+    detectionPaths: ['.qoder'],
+    openspecToolId: 'qoder',
+    agentToolMap: {},
+  },
 ];
+
+/** SessionStart / probe 用的平台级退化结论 */
+export type PlatformDegradation = null | 'inline' | 'unsupported';
+
+/** 平台 subagent 能力解析结果 */
+export type SubagentCapability = {
+  supportsSubagent: boolean;
+  platformDegradation: PlatformDegradation;
+};
+
+/**
+ * 按 platformId 从 PLATFORMS 解析是否支持 subagent 及退化结论。
+ * 未登记 → unsupported；已登记且 supportsSubagent=false → inline；支持 → degradation=null。
+ */
+export function resolveSubagentCapability(platformId: string): SubagentCapability {
+  const id = platformId.trim();
+  if (!id) {
+    return { supportsSubagent: false, platformDegradation: 'unsupported' };
+  }
+  const platform = PLATFORMS.find((p) => p.id === id);
+  if (!platform) {
+    return { supportsSubagent: false, platformDegradation: 'unsupported' };
+  }
+  if (!platform.supportsSubagent) {
+    return { supportsSubagent: false, platformDegradation: 'inline' };
+  }
+  return { supportsSubagent: true, platformDegradation: null };
+}
+
+/**
+ * 归一宿主形态原始值。只认 'ide' / 'cli'；其余（含空串、undefined、未知字符串）→ null。
+ * 由 config 的 `host-form` 或未来的运行时探测提供。
+ */
+export function normalizeHostForm(raw: unknown): HostForm | null {
+  return raw === 'ide' || raw === 'cli' ? raw : null;
+}
+
+/**
+ * 解析某平台在某宿主形态下的**压缩操作描述**（给用户看的提示语片段）。
+ *
+ * - 形态已知 → 取该形态的动作；
+ * - 形态未知（null）→ 返回两种形态描述的**合并**（「或」连接），即降级为双形式提示；
+ *   两侧描述相同（如 Claude Code / Cursor）时去重，只留一条；
+ * - 平台未登记或未声明动作 → 空串（消费方按「无提示」处理）。
+ */
+export function resolveCompressionAction(platformId: string, hostForm?: HostForm | null): string {
+  const platform = PLATFORMS.find((p) => p.id === platformId.trim());
+  const action = platform?.compressionAction;
+  if (!action) {
+    return '';
+  }
+  if (hostForm === 'ide') {
+    return action.ide ?? action.cli ?? '';
+  }
+  if (hostForm === 'cli') {
+    return action.cli ?? action.ide ?? '';
+  }
+  const parts = Array.from(new Set([action.ide, action.cli].filter((x): x is string => !!x)));
+  return parts.join('；或 ');
+}

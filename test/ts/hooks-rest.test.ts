@@ -26,15 +26,15 @@ describe('draft-create / task-init / task-finalize', () => {
   it('新建 draft；同 kind 重复则 existing', async () => {
     const root = await tmpDir('polaris-draft-');
     await mkdir(path.join(root, '.polaris'), { recursive: true });
-    const r1 = await runDraftCreate(root, 'change');
+    const r1 = await runDraftCreate(root, 'coding');
     expect(r1.exitCode).toBe(0);
     if (r1.exitCode !== 0) return;
-    const r2 = await runDraftCreate(root, 'change');
+    const r2 = await runDraftCreate(root, 'coding');
     expect(r2.exitCode).toBe(1);
     if (r2.exitCode === 1) expect(r2.existing.length).toBeGreaterThan(0);
   });
 
-  it('task-init change 写 state；finalize 重命名并 rename-active', async () => {
+  it('task-init coding 写 state；finalize 重命名并 rename-active', async () => {
     const root = await tmpDir('polaris-task-');
     await mkdir(path.join(root, '.polaris'), { recursive: true });
     await writeFile(
@@ -43,19 +43,19 @@ describe('draft-create / task-init / task-finalize', () => {
       'utf-8',
     );
 
-    const init = await runTaskInit(root, 'change');
+    const init = await runTaskInit(root, 'coding');
     expect(init.exitCode).toBe(0);
     const draftName = String(init.payload?.draft_name);
     expect(draftName.startsWith('draft-')).toBe(true);
-    expect(init.payload?.kind).toBe('change');
+    expect(init.payload?.kind).toBe('coding');
 
     await runWorkflowEntry({
       op: 'append-active',
-      skill: 'clarify',
-      kind: 'change',
+      skill: 'specify',
+      kind: 'coding',
       repoRoot: root,
       taskId: draftName,
-      phase: 'clarify',
+      phase: 'specify',
       worktreePath: '',
       startedAt: '2026-07-21T00:00:00Z',
     });
@@ -79,7 +79,7 @@ describe('draft-create / task-init / task-finalize', () => {
       'utf-8',
     );
     expect(stateRaw).toContain('change_id: feat-abc123');
-    expect(stateRaw).toMatch(/phase:\s*clarify/);
+    expect(stateRaw).toMatch(/phase:\s*specify/);
   });
 
   it('task-init requirement 须 --task-id，直建正式目录（无 draft）', async () => {
@@ -112,6 +112,36 @@ describe('draft-create / task-init / task-finalize', () => {
     expect(again.exitCode).toBe(1);
   });
 
+  it('task-init prototype 须 --task-id，直建正式目录（无 draft）', async () => {
+    const root = await tmpDir('polaris-proto-');
+    await mkdir(path.join(root, '.polaris'), { recursive: true });
+    await writeFile(
+      path.join(root, '.polaris', 'config.yaml'),
+      "language: zh\nplatform: claude\n",
+      'utf-8',
+    );
+
+    const missing = await runTaskInit(root, 'prototype');
+    expect(missing.exitCode).toBe(2);
+
+    const init = await runTaskInit(root, 'prototype', { taskId: 'contract-review-proto' });
+    expect(init.exitCode).toBe(0);
+    expect(init.payload?.kind).toBe('prototype');
+    expect(init.payload?.task_id).toBe('contract-review-proto');
+    expect(init.payload?.draft_name).toBeUndefined();
+
+    const stateRaw = await readFile(
+      path.join(root, '.polaris', 'tasks', 'contract-review-proto', 'state.yaml'),
+      'utf-8',
+    );
+    expect(stateRaw).toMatch(/kind:\s*prototype/);
+    expect(stateRaw).toMatch(/phase:\s*blueprint/);
+    expect(stateRaw).toMatch(/status:\s*in_progress/);
+
+    const again = await runTaskInit(root, 'prototype', { taskId: 'contract-review-proto' });
+    expect(again.exitCode).toBe(1);
+  });
+
   it('task-init testcase 落 testcases/ 并写 testcase_plan.md', async () => {
     const root = await tmpDir('polaris-tc-');
     await mkdir(path.join(root, '.polaris'), { recursive: true });
@@ -140,7 +170,7 @@ describe('draft-create / task-init / task-finalize', () => {
     expect(stateRaw).toMatch(/phase:\s*discovery/);
   });
 
-  it('跨 kind 不互阻：change draft 存在时仍可 init requirement', async () => {
+  it('跨 kind 不互阻：coding draft 存在时仍可 init requirement', async () => {
     const root = await tmpDir('polaris-cross-');
     await mkdir(path.join(root, '.polaris'), { recursive: true });
     await writeFile(
@@ -149,7 +179,7 @@ describe('draft-create / task-init / task-finalize', () => {
       'utf-8',
     );
 
-    const changeInit = await runTaskInit(root, 'change');
+    const changeInit = await runTaskInit(root, 'coding');
     expect(changeInit.exitCode).toBe(0);
 
     const reqInit = await runTaskInit(root, 'requirement', { taskId: 'req-feature-x' });
@@ -157,15 +187,17 @@ describe('draft-create / task-init / task-finalize', () => {
     expect(reqInit.payload?.kind).toBe('requirement');
     expect(reqInit.payload?.task_id).toBe('req-feature-x');
 
-    const changeAgain = await runTaskInit(root, 'change');
+    const changeAgain = await runTaskInit(root, 'coding');
     expect(changeAgain.exitCode).toBe(1);
   });
 
-  it('draft-create 拒绝 requirement（不使用 draft）', async () => {
+  it('draft-create 拒绝 requirement / prototype（不使用 draft）', async () => {
     const root = await tmpDir('polaris-nodraft-');
     await mkdir(path.join(root, '.polaris'), { recursive: true });
-    const r = await runDraftCreate(root, 'requirement');
-    expect(r.exitCode).toBe(2);
+    const req = await runDraftCreate(root, 'requirement');
+    expect(req.exitCode).toBe(2);
+    const proto = await runDraftCreate(root, 'prototype');
+    expect(proto.exitCode).toBe(2);
   });
 });
 
@@ -245,7 +277,7 @@ describe('harness-sync / ship-cleanup', () => {
     await runWorkflowEntry({
       op: 'append-active',
       skill: 't',
-      kind: 'change',
+      kind: 'coding',
       repoRoot: root,
       taskId: 'feat-abc123',
       phase: 'delivery',

@@ -51,6 +51,12 @@ describe('generatePolarisConfig', () => {
     expect((layout.docs as { root: string }).root).toBe(
       path.join(path.resolve(tmpDir), 'docs'),
     );
+    const docs = layout.docs as Record<string, string>;
+    expect(docs.prd).toBe('prd');
+    expect(docs.prototype).toBe('prototype');
+    expect(docs.architecture).toBe('architecture');
+    expect(docs.design).toBe('design');
+    expect(docs.testcases).toBe('testcases');
   });
 
   it('已存在且 overwrite=false 时不改文件', async () => {

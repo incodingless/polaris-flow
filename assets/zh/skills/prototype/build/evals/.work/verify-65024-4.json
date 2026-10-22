@@ -1,0 +1,59 @@
+{
+  "target": "/Users/weiliu/Documents/work/projects/polaris/polaris-flow/assets/zh/skills/prototype/build/evals/.work/e2-bad.html",
+  "generatedAt": "2026-09-15T03:26:18.878Z",
+  "node": "v22.22.2",
+  "browser": null,
+  "options": {
+    "layers": [
+      1
+    ],
+    "sizes": [
+      "1366x768",
+      "1440x900",
+      "1920x1080"
+    ],
+    "contrastMin": 4.5,
+    "strict": false
+  },
+  "layers": [
+    {
+      "id": 1,
+      "name": "静态检查",
+      "ran": true,
+      "required": true,
+      "hard": 1,
+      "warn": 0,
+      "skipped": false,
+      "note": ""
+    }
+  ],
+  "scriptStats": {
+    "scriptsChecked": 1,
+    "pages": 2,
+    "jumps": 2,
+    "uses": 5,
+    "tokens": 19
+  },
+  "findings": [
+    {
+      "layer": 1,
+      "severity": "HARD",
+      "id": "L1-9",
+      "title": "文本 Token 对比度不达标",
+      "detail": "§14.3 要求文本 Token 对白底不低于 4.5:1（原型常投影演示），且与取值来源无关。",
+      "evidence": [
+        "--text-placeholder: #a9afc0 → 对白底 2.19:1，低于 4.5:1；对页面背景 Token 同样不达标：--bg-page 仅 2.02:1、--bg-section 仅 2.08:1"
+      ]
+    }
+  ],
+  "layer2": {
+    "skipped": true,
+    "reason": "未指定第 2 层"
+  },
+  "layer3": {
+    "skipped": true,
+    "reason": "未指定第 3 层"
+  },
+  "hard": 1,
+  "warn": 0
+}

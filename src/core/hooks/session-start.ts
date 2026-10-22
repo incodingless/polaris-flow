@@ -3,7 +3,7 @@
  * 由 `polaris session-start` CLI 与薄包装 session-start.sh 调用。
  */
 import { randomBytes } from 'crypto';
-import { copyFile, mkdir, readFile, writeFile, appendFile } from 'fs/promises';
+import { mkdir, readFile, writeFile, appendFile } from 'fs/promises';
 import path from 'path';
 
 import {
@@ -20,13 +20,14 @@ import {
   getWorkflowConfigPath,
 } from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
+import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { createHookIo, type HookIo } from './hook-io.js';
 import {
   checkPluginPresence,
   getInstallHints,
   type PluginPresenceOptions,
 } from '../integrations/detect.js';
-import { PLATFORMS, Platform } from '../domain/platforms.js';
+import { PLATFORMS, Platform, normalizeHostForm, type HostForm } from '../domain/platforms.js';
 import { getPolarisPluginRootPath } from '../assets/layout.js';
 
 export { resolveReviewAgentModel } from '../config/polaris-project-config.js';
@@ -44,9 +45,9 @@ const GITIGNORE_ENTRIES = [
 ] as const;
 
 const REVIEW_AGENTS = [
-  'propose-review-agent',
+  'plan-reviewer',
   'design-review-agent',
-  'plan-review-agent',
+  'tasks-review-agent',
   'openspec-review-agent',
 ] as const;
 
@@ -56,6 +57,12 @@ export type SessionStartPaths = {
   platformId: string;
   contextDir: string;
   pluginRoot: string;
+  /**
+   * 宿主形态（`ide` | `cli`）。来源于 `.polaris/config.yaml` 的 `host_form`；
+   * 未声明或无法解析 → `null`（消费方降级为双形式压缩提示）。
+   * 语义见 `docs/specs/2026-09-22-context-boundary-and-compaction-design.md` §5.6.3。
+   */
+  hostForm: HostForm | null;
 };
 
 export type SessionStartResult = {
@@ -135,7 +142,7 @@ async function checkOpenspec(
     io.hint('注意：下游 skill 调用裸名 openspec；请将 openspec-cn 软链/别名为 openspec');
     return false;
   }
-  io.warn('openspec CLI not found — polaris-flow 的 propose/design/build/ship 依赖 openspec 命令');
+  io.warn('openspec CLI not found — polaris-flow 的 plan/design/build/ship 依赖 openspec 命令');
   for (const line of getInstallHints(platform.id, 'openspec')) {
     io.hint(line);
   }
@@ -196,7 +203,7 @@ async function checkConfig(
       const workflowSrc = path.join(pluginRoot, 'templates', 'workflow-template.yaml');
       if (await fileExists(workflowSrc)) {
         try {
-          await copyFile(workflowSrc, workflowDst);
+          await writeYamlFromTemplate(workflowSrc, workflowDst, { keepComments: false });
           io.ok('materialized .polaris/workflow.yaml (from template)');
         } catch {
           io.warn(`failed to write ${workflowDst} (skills will lazily create it on first write)`);
@@ -327,6 +334,7 @@ export async function runSessionStart(
     platformId,
     contextDir: platform.contextDir,
     pluginRoot,
+    hostForm: null,
   };
 
   const runWarn = async (fn: () => Promise<boolean>) => {
@@ -348,6 +356,8 @@ export async function runSessionStart(
     io.fail(`polaris config not found for platform '${platformId}'`);
     return { warnCount: 1, failCount: 1, exitCode: 1, paths };
   }
+  // 宿主形态：显式声明优先；未声明 → null，消费方降级为双形式提示（探测增强见批 6）
+  paths.hostForm = normalizeHostForm(config.host_form);
   const model = resolveReviewAgentModel(config);
   await runWarn(() => syncReviewAgents(io, projectPath, platform, model));
 

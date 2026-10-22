@@ -1,6 +1,6 @@
 # 领域模型专项生成策略
 
-> **调用方**：design skill Step 3.2（用户已勾选「领域 / 领域模型」专项后）。  
+> **调用方**：design skill Step 4.2（用户已勾选「领域 / 领域模型」专项后）。  
 > **产物**：`openspec/changes/<change_id>/domain-model-design.md`（变更根目录扁平；禁止 `design/` 子目录）。
 
 ## 核心原则
@@ -8,7 +8,7 @@
 - **输入真相**：以已落盘的 `detailed-design.md` 为主；辅以高层 `design.md`、`proposal.md`、`specs/*/spec.md`、`intention.md`（若有）。**禁止**用 DDD 术语脑补业务对象
 - **结构骨架**：必须 `read_file ./templates/domain-model-disign-template.md`，按模板章节落盘；不得另起一套目录结构
 - **实践透镜**：生成前 `read_file ./references/ddd-domain-model-practices.md`，用其中检查项做划分与自检；**不得**把参考文当作第二需求源
-- **深化不扩 scope**：不得借本专项扩大 propose 已锁定的目标 / Non-goals；缺口只允许标注并留给 Spec Patch
+- **深化不扩 scope**：不得借本专项扩大 plan 已锁定的目标 / Non-goals；缺口只允许标注并留给 Spec Patch
 - **纯领域视角**：本文件写限界上下文、实体/值对象/聚合、领域服务与事件、一致性规则；**禁止**堆砌表结构 DDL、HTTP 契约、框架代码（那些归 data-model / restful-api / repository 专项）
 
 ---
@@ -24,7 +24,7 @@
 | 5 | `specs/*/spec.md`、`intention.md` | 若有；验收与选型约束 |
 | 6 | 已有 `domain-model-design.md` | 若有；修订而非静默重写无关章节 |
 
-`detailed-design.md` 缺失 → **阻断**，回 skill Step 3.1。
+`detailed-design.md` 缺失 → **阻断**，回 skill Step 4.1。
 
 ---
 
@@ -68,6 +68,6 @@
 
 ## 4. 完成后
 
-- 本 policy **不**单独派发审查 subagent；专项与 `detailed-design.md` 一并进入 skill **Step 4**（`design-review-agent` / Outside Voice）
+- 本 policy **不**单独派发审查 subagent；专项与 `detailed-design.md` 一并进入 skill **Step 5**（`design-review-agent` / Outside Voice）
 - 若用户在预检中界定了「范围外」，落盘文首用短表列出范围内外，避免评审按全模板苛责
 - 需要修订时：先读现有 `domain-model-design.md` + 最新 `detailed-design.md`，再局部更新

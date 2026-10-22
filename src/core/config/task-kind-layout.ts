@@ -1,6 +1,10 @@
 /**
- * 任务类型布局表：集中声明 change / requirement / testcase 的存储根、初始 phase 与 bootstrap 文件。
- * 供 task-init / draft-create 按 `--kind` 分支初始化。
+ * 任务类型布局表：集中声明 coding / requirement / testcase / prototype / debug 的存储根、
+ * state 模板、初始化补丁、bootstrap 文件，以及**阶段序列与各阶段产物**。
+ * 供 task-init / draft-create / Dashboard 扫描层使用。
+ *
+ * `phases` 是「kind → 阶段」的单一真相：Dashboard 的步骤条、进度、分组全部由它派生，
+ * 不再依赖任何 YAML 流程定义（旧 `config/tasks.yaml` 已随 polaris-cli 退役）。
  */
 import { parseWorkflowTaskKind, type WorkflowTaskKind } from './workflow-state.js';
 import type { TaskStorageSegment } from '../assets/polaris-paths.js';
@@ -11,52 +15,309 @@ export type TaskBootstrapFile = {
   content: string;
 };
 
+/**
+ * 初始化补丁：点路径 → 字面量或占位符。
+ * 占位符：`$taskId` | `$now` | `$intentionRel` | `$planRel`
+ */
+export type TaskInitPatches = Record<string, string>;
+
+/**
+ * 阶段定义：`code` 即 `state.yaml` 的 `phase` 取值，是本表与 state 的接缝。
+ *
+ * **权威口径 = 本表**（受版本控制、可 diff、可评审）。与之必须保持一致的守门件两份：
+ * ① 各 kind 的 `state.yaml` 模板注释（`assets/shared/templates/*.yaml` —— 入仓，且随安装落盘）；
+ * ② `docs/specs/2026-09-18-dashboard-api-contract.md` §6.2 的枚举表（由 `task-kind-phases.test.ts` 对齐）。
+ * 与之矛盾的 `workflow-template.yaml` 注释与 `2026-09-16-debug-workflow-design.md` 属陈旧文本，
+ * 不作为实现依据。`assets/zh/skills/README.md` §阶段一览 是**人读概览**，不作裁定依据（该文件不入仓）。
+ */
+export type KindPhaseDef = {
+  /** 阶段名，与 `state.yaml.phase` 一致 */
+  code: string;
+  /** 中文显示名 */
+  name: string;
+  /** 所属 UI 分组名（Dashboard 的步骤条按分组分段） */
+  group: string;
+  /**
+   * 可选阶段（仅 coding 的 design：仅 strict 工作流走）。
+   * UI 规则：当前 phase 已越过它时渲染为「已跳过」，而非「已完成」。
+   */
+  optional?: boolean;
+  /**
+   * 旁路阶段：可出现在 `state.yaml.phase`，但不属推进游标的主序列，
+   * 不计入进度分母（仅 coding 的 retro）。
+   */
+  bypass?: boolean;
+  /**
+   * 该阶段对应的技能名（族的相对名）。**缺省 = 同名（`code`）**。
+   *
+   * 显式 `null` = 「无自动衔接」，两种情形（都在本表逐条登记，不留隐性默认）：
+   *   - **入口阶段**：coding `specify` / requirement·testcase `discovery` /
+   *     prototype `blueprint` / debug `diagnose` —— 由入口命令显式进入，不走 `state next`
+   *   - **旁路阶段**：coding `retro` —— 可出现在 state.yaml，但不属推进游标的主序列
+   */
+  skill?: string | null;
+};
+
+/** 产物定义 */
+export type KindArtifactDef = {
+  /** 该产物归属的阶段 code */
+  phase: string;
+  /**
+   * 相对项目根的 posix 路径，可含 `<id>` 占位。
+   * 多项为「任一存在即命中」，用于产物随阶段迁移的情形
+   * （如 intention 先落 `.polaris/` 再迁 `openspec/`）。
+   */
+  relPaths: string[];
+  kind: 'file' | 'dir';
+  /** 是否逐项校验复选框（`tasks.md`） */
+  checkboxes?: boolean;
+};
+
 /** 单种任务类型的目录与初始化约定 */
 export type TaskKindLayout = {
   kind: WorkflowTaskKind;
   /** `.polaris` 下的一级目录名 */
   storageSegment: TaskStorageSegment;
   initialPhase: string;
-  /** 选用哪套 state 工厂 */
-  stateFactory: 'change' | 'requirement' | 'testcase';
+  /** `assets/shared/templates/` 下的 state 模板文件名 */
+  stateTemplate: string;
+  /** 复制模板后写入的初始化覆盖 */
+  initPatches: TaskInitPatches;
   /**
    * 是否走 draft-* 临时目录。
    * false 时须传正式 task_id，直接初始化 `.polaris/<segment>/<task_id>/`。
    */
   usesDraft: boolean;
-  /** init 时在 task 目录内创建的文件（相对路径） */
+  /** init 时在任务目录内创建的文件（相对路径） */
   bootstrapFiles: TaskBootstrapFile[];
+  /** 阶段序列（含旁路；旁路用 `bypass` 标记） */
+  phases: KindPhaseDef[];
+  /**
+   * 该 kind 下**各工作流的阶段子序列**（按游标推进顺序）；缺省 = 全序列。
+   *
+   * 唯一真相：`phasesForMode` / `nextPhaseForMode` / `isPhaseInMode` 三个派生函数都读它，
+   * **技能与命令不复制这张表**。未登记的 mode（含空串、历史值）落回全序列 —— 存量不崩。
+   */
+  modePhases?: Record<string, string[]>;
+  /** 面向界面的中文类型名（单一真相，前端不再自持一份） */
+  label: string;
+  /** 各阶段产物（**只登记已核实的路径**，不确定的不写） */
+  artifacts: KindArtifactDef[];
 };
 
-/** 三种任务类型的布局表 */
+/** 五种任务类型的布局表 */
 export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
-  change: {
-    kind: 'change',
+  coding: {
+    kind: 'coding',
+    label: '开发',
     storageSegment: 'tasks',
-    initialPhase: 'clarify',
-    stateFactory: 'change',
+    initialPhase: 'specify',
+    stateTemplate: 'state.example.yaml',
+    initPatches: {
+      kind: 'coding',
+      change_id: '$taskId',
+      task_id: '$taskId',
+      phase: 'specify',
+      main_repo_root: '$mainRepoRoot',
+      worktree_dir: '$worktreeDir',
+      install_time: '$installTime',
+      'runtime.specify.intention_path': '$intentionRel',
+      'runtime.specify.status': 'in_progress',
+      'runtime.specify.started_at': '$now',
+    },
     usesDraft: true,
     bootstrapFiles: [],
+    phases: [
+      { code: 'specify', name: '澄清', group: '澄清与方案', skill: null },
+      { code: 'plan', name: '提案', group: '澄清与方案' },
+      { code: 'design', name: '深度设计', group: '澄清与方案', optional: true },
+      { code: 'tasks', name: '任务规划', group: '实现' },
+      { code: 'build', name: '构建', group: '实现' },
+      { code: 'verify', name: '验收', group: '收口' },
+      { code: 'ship', name: '交付', group: '收口' },
+      { code: 'retro', name: '复盘', group: '旁路', bypass: true, skill: null },
+    ],
+    // 三条工作流的阶段子序列（按游标推进顺序）。技能与命令一律从 `phasesForMode` 取，不复制本表。
+    modePhases: {
+      tweak: ['specify', 'tasks', 'build', 'verify', 'ship'],
+      normal: ['specify', 'plan', 'tasks', 'build', 'verify', 'ship'],
+      strict: ['specify', 'plan', 'design', 'tasks', 'build', 'verify', 'ship'],
+    },
+    artifacts: [
+      {
+        phase: 'specify',
+        relPaths: ['.polaris/tasks/<id>/intention.md', 'openspec/changes/<id>/intention.md'],
+        kind: 'file',
+      },
+      { phase: 'plan', relPaths: ['openspec/changes/<id>/proposal.md'], kind: 'file' },
+      { phase: 'plan', relPaths: ['openspec/changes/<id>/design.md'], kind: 'file' },
+      { phase: 'plan', relPaths: ['openspec/changes/<id>/specs'], kind: 'dir' },
+      { phase: 'design', relPaths: ['openspec/changes/<id>/detailed-design.md'], kind: 'file' },
+      {
+        phase: 'tasks',
+        relPaths: ['openspec/changes/<id>/tasks.md'],
+        kind: 'file',
+        checkboxes: true,
+      },
+      {
+        phase: 'verify',
+        relPaths: ['openspec/changes/<id>/reviews/verify-report.md'],
+        kind: 'file',
+      },
+      { phase: 'ship', relPaths: ['.polaris/archive/<id>'], kind: 'dir' },
+    ],
   },
   requirement: {
     kind: 'requirement',
+    label: '需求',
     storageSegment: 'tasks',
     initialPhase: 'discovery',
-    stateFactory: 'requirement',
+    stateTemplate: 'prd-state.example.yaml',
+    initPatches: {
+      task_id: '$taskId',
+      phase: 'discovery',
+      'discovery.status': 'in_progress',
+      'discovery.started_at': '$now',
+    },
     usesDraft: false,
     bootstrapFiles: [],
+    phases: [
+      { code: 'discovery', name: '澄清', group: '澄清与草稿', skill: null },
+      { code: 'draft', name: '草稿', group: '澄清与草稿' },
+      { code: 'refine', name: '完善', group: '完善与交付' },
+      { code: 'ship', name: '交付', group: '完善与交付' },
+    ],
+    // 依据 `assets/zh/skills/prd/README.md` §产物布局
+    artifacts: [
+      { phase: 'discovery', relPaths: ['.polaris/tasks/<id>/req_baseline.md'], kind: 'file' },
+      {
+        phase: 'discovery',
+        relPaths: ['.polaris/tasks/<id>/req_clarify_summary.md'],
+        kind: 'file',
+      },
+      { phase: 'draft', relPaths: ['.polaris/tasks/<id>/prd-draft.md'], kind: 'file' },
+      { phase: 'draft', relPaths: ['.polaris/tasks/<id>/_baseline_index.json'], kind: 'file' },
+      { phase: 'draft', relPaths: ['.polaris/tasks/<id>/_key_points.json'], kind: 'file' },
+      { phase: 'refine', relPaths: ['.polaris/tasks/<id>/prd-final-v1.0.md'], kind: 'file' },
+      // ship 迁移到 $PRD_DOC_DIR，默认 $REPO_ROOT/docs/prd/
+      { phase: 'ship', relPaths: ['docs/prd'], kind: 'dir' },
+    ],
   },
   testcase: {
     kind: 'testcase',
+    label: '测试用例',
     storageSegment: 'testcases',
     initialPhase: 'discovery',
-    stateFactory: 'testcase',
+    stateTemplate: 'testcase-state.example.yaml',
+    initPatches: {
+      task_id: '$taskId',
+      phase: 'discovery',
+      plan_path: '$planRel',
+      'discovery.status': 'in_progress',
+      'discovery.started_at': '$now',
+    },
     usesDraft: true,
     bootstrapFiles: [
       {
         relPath: 'testcase_plan.md',
         content: '# testcase plan: <TBD>\n\n<!-- Skill 填充正文 -->\n',
       },
+    ],
+    phases: [
+      { code: 'discovery', name: '澄清', group: '澄清与草稿', skill: null },
+      { code: 'draft', name: '草稿', group: '澄清与草稿' },
+      { code: 'refine', name: '完善', group: '完善与交付' },
+      { code: 'ship', name: '交付', group: '完善与交付' },
+    ],
+    // 依据 `assets/zh/skills/testing/<阶段>/SKILL.md` 各自的「落盘」约定登记，不猜。
+    artifacts: [
+      { phase: 'discovery', relPaths: ['.polaris/testcases/<id>/testcase_plan.md'], kind: 'file' },
+      { phase: 'draft', relPaths: ['.polaris/testcases/<id>/test-cases.md'], kind: 'file' },
+      {
+        phase: 'refine',
+        relPaths: [
+          '.polaris/testcases/<id>/test-cases-nonfunctional.md',
+          '.polaris/testcases/<id>/test-cases-interface.md',
+          '.polaris/testcases/<id>/test-cases-automation.md',
+          '.polaris/testcases/<id>/testcase-review-report.md',
+        ],
+        kind: 'file',
+      },
+      { phase: 'ship', relPaths: ['.polaris/testcases/<id>/testcase-report.md'], kind: 'file' },
+      // ship 交付到 $CASE_DOC_DIR，默认 $REPO_ROOT/docs/testcases/<id>/（PROJECT_DOCS_SUBDIRS 已含 testcases）
+      { phase: 'ship', relPaths: ['docs/testcases'], kind: 'dir' },
+    ],
+  },
+  prototype: {
+    kind: 'prototype',
+    label: '原型',
+    storageSegment: 'tasks',
+    initialPhase: 'blueprint',
+    stateTemplate: 'prototype-state.example.yaml',
+    initPatches: {
+      task_id: '$taskId',
+      phase: 'blueprint',
+      'blueprint.status': 'in_progress',
+      'blueprint.started_at': '$now',
+    },
+    usesDraft: false,
+    bootstrapFiles: [],
+    phases: [
+      { code: 'blueprint', name: '原型蓝图', group: '蓝图', skill: null },
+      { code: 'build', name: '原型构建', group: '构建与评审' },
+      // 服务型技能：由 `ship` Step 1 内部派发（入口 B），或用户独立触发（flow R12）。
+      // `build` 出口直接置 `phase=ship`，故游标不会落在 `review` —— 已知不被游标写入，**仍保留同名映射**
+      // （`2026-09-19-phase-truth-unification-design.md` 已记录该键；改 `bypass: true` 会牵动 Dashboard 契约与两处断言）。
+      { code: 'review', name: '原型评审', group: '构建与评审' },
+      { code: 'ship', name: '交付', group: '交付' },
+    ],
+    // build/review 的产物是原型 HTML，文件名由 blueprint 决定、无固定名，故不登记。
+    artifacts: [
+      { phase: 'blueprint', relPaths: ['.polaris/tasks/<id>/blueprint.md'], kind: 'file' },
+      { phase: 'blueprint', relPaths: ['.polaris/tasks/<id>/task-card.md'], kind: 'file' },
+      { phase: 'ship', relPaths: ['docs/prototype'], kind: 'dir' },
+    ],
+  },
+  debug: {
+    kind: 'debug',
+    label: '缺陷修复',
+    storageSegment: 'tasks',
+    // 三阶段：diagnose → patch → closeout（2026-09-17 合并）。
+    // 原 triage 起始阶段与 runtime.triage.* 属六段时代遗留，已一并改正，否则新建
+    // 的 debug 任务会写成 phase: triage、在面板上显示「未知阶段」。
+    initialPhase: 'diagnose',
+    stateTemplate: 'debug-state.example.yaml',
+    initPatches: {
+      task_id: '$taskId',
+      phase: 'diagnose',
+      'runtime.diagnose.status': 'in_progress',
+      'runtime.diagnose.started_at': '$now',
+    },
+    usesDraft: false,
+    bootstrapFiles: [],
+    phases: [
+      { code: 'diagnose', name: '诊断与方案', group: '诊断', skill: null },
+      { code: 'patch', name: '实现与自验', group: '修复与关单' },
+      { code: 'closeout', name: '关闭 Bug', group: '修复与关单' },
+    ],
+    // 依据 `assets/zh/skills/debug/closeout/references/artifacts.md`（debug 族产物契约）。
+    // 注意：debug 归档落 docs/troubleshooting/<id>/，**不用** .polaris/archive/。
+    artifacts: [
+      { phase: 'diagnose', relPaths: ['.polaris/tasks/<id>/diagnose-brief.md'], kind: 'file' },
+      { phase: 'diagnose', relPaths: ['.polaris/tasks/<id>/reviews/rca-report.md'], kind: 'file' },
+      {
+        phase: 'diagnose',
+        relPaths: ['.polaris/tasks/<id>/tasks.md'],
+        kind: 'file',
+        checkboxes: true,
+      },
+      { phase: 'patch', relPaths: ['.polaris/tasks/<id>/verification.md'], kind: 'file' },
+      {
+        phase: 'closeout',
+        relPaths: ['.polaris/tasks/<id>/reviews/bugfix-report.md'],
+        kind: 'file',
+      },
+      { phase: 'closeout', relPaths: ['docs/troubleshooting/<id>'], kind: 'dir' },
     ],
   },
 };
@@ -69,4 +330,231 @@ export function getTaskKindLayout(kind: WorkflowTaskKind): TaskKindLayout {
 /** 解析并校验 kind；非法则返回 null（与 workflow-state 同源） */
 export function parseTaskKind(raw: string | undefined): WorkflowTaskKind | null {
   return parseWorkflowTaskKind(raw);
+}
+
+/**
+ * 取 kind 的阶段序列。
+ * 默认排除旁路阶段（coding 的 retro）——旁路可出现在 state 里，但不推进游标、不计入进度。
+ */
+export function getKindPhases(
+  kind: WorkflowTaskKind,
+  options: { includeBypass?: boolean } = {},
+): KindPhaseDef[] {
+  const { includeBypass = false } = options;
+  return TASK_KIND_LAYOUTS[kind].phases.filter((p) => includeBypass || !p.bypass);
+}
+
+/**
+ * 该**工作流**的阶段序列（按游标推进顺序）。
+ *
+ * `mode` 未登记（含空串、历史值）→ 落回该 kind 的**全序列** ⇒ 存量任务行为不变。
+ * 旁路阶段（coding `retro`）不属于任何档的序列；传 `includeBypass` 时追加在末尾。
+ */
+export function phasesForMode(
+  kind: WorkflowTaskKind,
+  mode: string,
+  options: { includeBypass?: boolean } = {},
+): KindPhaseDef[] {
+  const layout = TASK_KIND_LAYOUTS[kind];
+  const codes = layout.modePhases?.[normalizeMode(mode)];
+  const picked = codes
+    ? codes
+        .map((code) => layout.phases.find((p) => p.code === code))
+        .filter((p): p is KindPhaseDef => Boolean(p))
+    : layout.phases.filter((p) => !p.bypass);
+  const { includeBypass = false } = options;
+  if (!includeBypass) return picked;
+  return [...picked, ...layout.phases.filter((p) => p.bypass)];
+}
+
+/**
+ * 该工作流下 `phase` 的**下一段**；已是末段 / 阶段不在本档序列 / 未登记 → `null`。
+ *
+ * 消费方：`task-state-entry complete-phase` 的**缺省** `--next-phase` ——
+ * 阶段技能不再写死下一段，改由本表派生（`plan` 的 design / tasks 二分支仍显式传入）。
+ */
+export function nextPhaseForMode(
+  kind: WorkflowTaskKind,
+  mode: string,
+  phase: string,
+): string | null {
+  const code = normalizePhase(phase);
+  if (!code) return null;
+  const seq = phasesForMode(kind, mode).map((p) => p.code);
+  const i = seq.indexOf(code);
+  if (i < 0 || i >= seq.length - 1) return null;
+  return seq[i + 1];
+}
+
+/** `phase` 是否属于该工作流的阶段序列（**旁路阶段恒为 false**） */
+export function isPhaseInMode(kind: WorkflowTaskKind, mode: string, phase: string): boolean {
+  const code = normalizePhase(phase);
+  if (!code) return false;
+  return phasesForMode(kind, mode).some((p) => p.code === code);
+}
+
+/** 取 kind 的 UI 分组名序列（按首次出现顺序，只含主序列的组） */
+export function getKindGroups(kind: WorkflowTaskKind): string[] {
+  const groups: string[] = [];
+  for (const phase of getKindPhases(kind)) {
+    if (!groups.includes(phase.group)) {
+      groups.push(phase.group);
+    }
+  }
+  return groups;
+}
+
+/** phase 所属分组；未登记返回 null（调用方据此走「未知阶段」兜底） */
+export function phaseGroupOf(kind: WorkflowTaskKind, phase: string): string | null {
+  const found = TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === phase);
+  return found ? found.group : null;
+}
+
+/** phase 在主序列中的序号（从 0）；未登记或为旁路阶段返回 -1 */
+export function phaseIndexIn(kind: WorkflowTaskKind, phase: string): number {
+  return getKindPhases(kind).findIndex((p) => p.code === phase);
+}
+
+/**
+ * phase 是否为该 kind 的合法取值（**含旁路**）。
+ * 用于「未知值不崩」的兜底判定：为 false 时调用方显示原值并标注，不抛错。
+ */
+export function isKnownPhase(kind: WorkflowTaskKind, phase: string): boolean {
+  return TASK_KIND_LAYOUTS[kind].phases.some((p) => p.code === phase);
+}
+
+/** 归一 phase：去空白 + 别名折叠。空串原样返回 */
+export function normalizePhase(phase: string): string {
+  const raw = (phase ?? '').trim();
+  return raw;
+}
+
+/**
+ * 游标 phase → **应执行的技能名**（族的相对名，如 `plan`）；无后续返回 null。
+ *
+ * 语义前提（见 `docs/specs/2026-09-19-phase-truth-unification-design.md` §4.1）：
+ * 技能在**出口**把游标设成"接下来要执行的阶段"，所以游标 phase 即待执行阶段
+ * ⇒ `phase → 技能` **同名映射**为默认，例外只在本表的 `skill` 字段上逐条登记。
+ *
+ * **刻意不维护第二张转移表**：下一阶段由技能自己决定（`coding/plan` 的 design/tasks
+ * 二分支就是证据），任何集中式转移图都注定与技能分支冲突 —— 那张图会漂移，而漂移的
+ * 表现是"跳过某个阶段"，不报错。
+ *
+ * 返回 null 的四种情形：空/未知阶段、入口阶段、旁路阶段、技能名未对齐的族。
+ */
+export function skillForPhase(kind: WorkflowTaskKind, phase: string): string | null {
+  const code = normalizePhase(phase);
+  if (!code) return null;
+  const def = TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === code);
+  if (!def) return null;
+  if (def.skill === null) return null;
+  return def.skill ?? def.code;
+}
+
+/**
+ * **恢复分发**用：游标 `phase` → 该由哪个技能接手（族的相对名）。
+ *
+ * 与 `skillForPhase` 的**唯一差别**：入口阶段返回同名技能（coding `specify` → `specify`）
+ * ——「该进哪个技能」正是它要回答的问题；`skillForPhase` 对入口阶段返回 `null`
+ * （语义是「无下一段可自动衔接」，服务于出口的 `state next`）。
+ *
+ * 返回 `null`：空 / 未知阶段、旁路阶段（coding `retro`）。
+ *
+ * **2026-10-14 起不再读 `mode`**：`channelSkill`（单体通道技能的配套）已删，
+ * 三档的阶段一律交给**同名阶段技能**。⚠️ `phase` 不在本档序列时**仍按同名回落、不阻断** ——
+ * 存量任务（如 `mode=tweak` + `phase=plan`）因此照常可路由。
+ * 消费方：`workflow-entry get-active-changes --format full`（技能 Step 0 的分发判据）。
+ */
+export function skillForModePhase(kind: WorkflowTaskKind, phase: string): string | null {
+  const code = normalizePhase(phase);
+  if (!code) return null;
+  const def = TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === code);
+  if (!def || def.bypass) return null;
+  return def.skill ?? def.code;
+}
+
+/**
+ * 工作流（`state.yaml.workflow.mode`）的中文显示名。
+ *
+ * 取值沿用 assets 里既有的中文口径（`tweak`「简单档」、`normal`「常规」，
+ * `strict` = 端到端全走、门禁不跳步），**不另造词**。
+ * 未登记 / 空值返回空串 —— 显示层据此退回「只显英文」，不猜。
+ *
+ * ⚠️ `strict` 的旧名 `full` 已退役（2026-10-14）：`full` 与 `verify_mode` 的取值
+ * **同名不同义**，同一份 `state.yaml` 里两个 `full` 指向不同维度，故更名。
+ */
+export const WORKFLOW_MODE_LABELS: Record<string, string> = {
+  tweak: '简单',
+  normal: '常规',
+  strict: '严格',
+};
+
+/** 归一工作流名（历史别名 → 现行值）；空值原样返回 */
+export function normalizeMode(mode: string): string {
+  const raw = (mode ?? '').trim();
+  return raw;
+}
+
+/** 工作流中文名；未登记返回空串 */
+export function modeLabel(mode: string): string {
+  return WORKFLOW_MODE_LABELS[normalizeMode(mode)] ?? '';
+}
+
+/**
+ * 阶段中文显示名（= 阶段表 `KindPhaseDef.name`）。
+ * 未登记阶段、历史别名、空值返回空串 —— 不猜。
+ */
+export function phaseLabel(kind: WorkflowTaskKind, phase: string): string {
+  const code = normalizePhase(phase);
+  if (!code) return '';
+  return TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === code)?.name ?? '';
+}
+
+/**
+ * **技能**的中文显示名，供候选列表显示成 `中文(英文)`。
+ *
+ * 来源只有两处、都用既有表，**不新增映射**：
+ *   1. 技能名命中该 kind 的阶段码 → 取该阶段中文名
+ *      （`specify`→澄清、`plan`→提案、`build`→构建、`design`→深度设计 …）
+ *   2. 否则命中通道名 → 取通道中文名（单技能通道：`tweak`→简单、`normal`→常规）
+ *
+ * 都未命中返回空串（显示层退回只显英文），**不猜**。
+ */
+export function skillLabel(kind: WorkflowTaskKind, skill: string): string {
+  const name = (skill ?? '').trim();
+  if (!name) return '';
+  const byPhase = TASK_KIND_LAYOUTS[kind].phases.find((p) => p.code === name)?.name;
+  return byPhase ?? modeLabel(name);
+}
+
+/**
+ * 写入相位时的合法取值：该 kind 已登记阶段（含旁路）∪ 已登记别名 ∪ `{ idle, '' }`。
+ *
+ * 为什么要原语级校验（A 案的 G3）：写错 phase 名现在**什么都不报**，要等几个月后
+ * 面板显示「未知阶段」才被发现。校验把这件事提前到提交前。
+ *
+ * `idle` 刻意**不入 phases 表**（D15）：它是「无阶段」空值而非阶段，不进进度条；
+ * 但必须被白名单接受 —— 存量数据与 `initPatches` 默认值都会写它。
+ */
+export function isWritablePhase(kind: WorkflowTaskKind, phase: string): boolean {
+  const raw = (phase ?? '').trim();
+  if (raw === '' || raw === 'idle') return true;
+  return TASK_KIND_LAYOUTS[kind].phases.some((p) => p.code === raw);
+}
+
+/** 校验失败时打印的合法集合（含 `idle` 与别名，便于直接照抄） */
+export function writablePhaseList(kind: WorkflowTaskKind): string {
+  const codes = TASK_KIND_LAYOUTS[kind].phases.map((p) => p.code);
+  return [...codes, 'idle'].join(' | ');
+}
+
+/** 取 kind 的界面显示名（单一真相；前端不再自持一份类型名表） */
+export function getKindLabel(kind: WorkflowTaskKind): string {
+  return TASK_KIND_LAYOUTS[kind].label;
+}
+
+/** 取 kind 的产物定义；传 phase 则只取该阶段的 */
+export function getKindArtifacts(kind: WorkflowTaskKind, phase?: string): KindArtifactDef[] {
+  const all = TASK_KIND_LAYOUTS[kind].artifacts;
+  return phase === undefined ? [...all] : all.filter((a) => a.phase === phase);
 }

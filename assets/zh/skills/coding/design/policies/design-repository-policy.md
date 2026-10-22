@@ -1,6 +1,6 @@
 # 仓储专项生成策略
 
-> **调用方**：design skill Step 3.2（用户已勾选「仓储服务」专项后）。  
+> **调用方**：design skill Step 4.2（用户已勾选「仓储服务」专项后）。  
 > **产物**：`openspec/changes/<change_id>/repository-design.md`（变更根目录扁平；禁止 `design/` 子目录）。  
 > **定位**：基于领域模型的**抽象存储层**设计；为下游 `data-model-design.md` 提供持久化边界依据。**不写**具体库表实现。
 
@@ -10,7 +10,7 @@
 - **结构骨架**：必须 `read_file ./templates/repository-design-template.md`
 - **实践透镜**：生成前 `read_file ./references/ddd-repository-practices.md`；不得把参考文当作第二需求源
 - **抽象与实现分离**：只定义仓储**接口与行为契约**；禁止 SQL、ORM、驱动、框架代码、建表 DDL、索引全文
-- **深化不扩 scope**：不得扩大 propose 已锁定的目标 / Non-goals
+- **深化不扩 scope**：不得扩大 plan 已锁定的目标 / Non-goals
 
 ### 设计约束（必须遵守）
 
@@ -95,6 +95,6 @@
 
 ## 5. 完成后
 
-- 本 policy **不**单独派发审查 subagent（忽略任何「openspec-reviewer / 分批冻结」旧指令）；专项与 `detailed-design.md` 一并进入 skill **Step 4**（`design-review-agent` / Outside Voice）
+- 本 policy **不**单独派发审查 subagent（忽略任何「openspec-reviewer / 分批冻结」旧指令）；专项与 `detailed-design.md` 一并进入 skill **Step 5**（`design-review-agent` / Outside Voice）
 - 文首可列预检范围内外
 - 修订时：先读现有 `repository-design.md` + 最新 `domain-model-design.md`

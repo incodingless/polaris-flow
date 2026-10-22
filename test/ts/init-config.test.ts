@@ -25,14 +25,22 @@ describe('initPolarisConfig', () => {
     expect(layout.openspec).toBe(path.join(tmp, 'openspec'));
     expect((layout.tasks as { root: string }).root).toBe(path.join(tmp, '.polaris', 'tasks'));
     expect((layout.docs as { root: string }).root).toBe(path.join(tmp, 'docs'));
+    const docs = layout.docs as Record<string, string>;
+    expect(docs.prd).toBe('prd');
+    expect(docs.prototype).toBe('prototype');
+    expect(docs.architecture).toBe('architecture');
+    expect(docs.design).toBe('design');
+    expect(docs.testcases).toBe('testcases');
     expect(config.platforms).toEqual(['claude']);
     expect(config.platform).toBeUndefined();
 
     const wfRaw = await readFile(path.join(tmp, '.polaris', 'workflow.yaml'), 'utf-8');
     expect(wfRaw).not.toMatch(/^version:/m);
     expect(wfRaw).not.toMatch(/^install-time:/m);
-    expect(wfRaw).toContain('change_tasks:');
+    expect(wfRaw).not.toMatch(/^\s*#/m);
+    expect(wfRaw).toContain('coding_tasks:');
     expect(wfRaw).toContain('requirement_tasks:');
     expect(wfRaw).toContain('testcase_tasks:');
+    expect(wfRaw).toContain('prototype_tasks:');
   });
 });

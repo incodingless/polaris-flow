@@ -3,6 +3,7 @@
  */
 import { init } from '../../core/hooks/task.js';
 import { getTaskKindLayout, parseTaskKind } from '../../core/config/task-kind-layout.js';
+import { workflowTaskKindErrorMessage } from '../../core/config/workflow-state.js';
 
 export type TaskInitCommandOptions = {
   kind: string;
@@ -16,7 +17,7 @@ export async function taskInitCommand(
 ): Promise<void> {
   const kind = parseTaskKind(options.kind);
   if (!kind) {
-    console.error('[task-init] 阻断：缺少或非法 --kind（须为 change|requirement|testcase）');
+    console.error(`[task-init] 阻断：${workflowTaskKindErrorMessage()}`);
     process.exitCode = 2;
     return;
   }

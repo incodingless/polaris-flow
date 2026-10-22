@@ -1,5 +1,5 @@
 /**
- * `polaris state next <change-name>` 命令：阶段守卫推进后的自动衔接。
+ * `polaris-flow state next <change-name>` 命令：阶段守卫推进后的自动衔接。
  * 读 workflow 游标 phase + auto_transition，stdout 输出 `NEXT: auto|manual|done`。
  */
 import { formatStateNextOutput, runStateNext } from '../../core/hooks/state-next.js';
