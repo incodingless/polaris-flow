@@ -127,6 +127,10 @@ polaris doctor           # 自检 node / bash / git / openspec / schema / 技能
 
 **公司网络访问 GitHub 不通时**：`polaris init` 安装 Superpowers 依赖 github.com。设 `POLARIS_GITHUB_MIRROR`（镜像基址）或 `POLARIS_SUPERPOWERS_PATH`（指向已下载的本地目录）即可绕过。
 
+**init 会装两个图表工具**：`archify`（架构 / 时序 / 数据流 / ERD / 类图等 10 类结构化图，带 schema 校验）与 `diagram-design`（13 类编辑级视觉图，可吃 Mermaid 源码）。它们落在 `.claude\skills\archify\` 与 `.claude\skills\diagram-design\`，**不进 `polaris\` 命名空间、不占命令菜单**——只在你要出一张「能贴进文档、发给人看」的图时才用得上。设计文档正文的图仍是 Mermaid，由 `design` 阶段产出。
+
+安装走「GitHub 优先、本地兜底」：先把技能拉到 `%USERPROFILE%\.polaris\components\bundled-skills\`（已有则跳过），再拷进项目。**网络慢或超时只会打印一行失败提示，不影响 init 其余步骤**；本地已有副本时照常安装。离线安装包已内置这两个技能，不会联网。想指定本地源：`$env:POLARIS_BUNDLED_SKILLS_SOURCE = 'D:\path\to\bundled-skills'; polaris init`（指定后不联网）。
+
 ```powershell
 # 仅当前窗口有效
 $env:POLARIS_GITHUB_MIRROR = 'https://你的镜像基址'

@@ -1,11 +1,12 @@
 /**
- * 拷贝 Polaris skills 与包内公共内容（adapters/policies/templates/hooks 脚本）到平台目录。
- * 不负责 commands / agents / rules / hooks 注册——由 installPolarisForPlatform 显式编排。
+ * 拷贝 Polaris skills 与包内公共内容（adapters/policies/templates/hooks 脚本）到平台目录。 * 不负责 commands / agents / rules / hooks 注册——由 installPolarisForPlatform 显式编排。
  *
  * 安装流水线：
  * 1. 按 nested/flat 复制技能目录（源为 family/skill 或顶层叶技能）
  * 2. 替换 {{SKN_SPR}}（nested → `:` ；flat → `-`）
  * 3. 将语言包顶层 policies 注入每个叶技能的 policies/（同名按 overwrite 覆盖）
+ *
+ * 附带技能（第三方工具）不在此处处理：见 `core/integrations/bundled-skills.ts`。
  */
 import path from 'path';
 import { readFile, writeFile } from 'fs/promises';

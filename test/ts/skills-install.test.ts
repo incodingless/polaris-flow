@@ -2,7 +2,7 @@
  * installPolarisForPlatform / skills 布局的集成单测。
  */
 import path from 'path';
-import { mkdtemp, access, readFile, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, access, readFile, writeFile } from 'fs/promises';
 import os from 'os';
 import { describe, expect, it } from 'vitest';
 
@@ -15,6 +15,10 @@ import {
   validateSkillAssetsNoCrossSkillParentRefs,
 } from '../../src/core/install/skills.js';
 import { readAssets, type Assets } from '../../src/core/assets/manifest.js';
+import {
+  BUNDLED_SKILL_SPECS,
+  isBundledSkillPresent,
+} from '../../src/core/integrations/bundled-skills.js';
 import { parseSkillAssetPath } from '../../src/core/assets/layout.js';
 import { PLATFORMS } from '../../src/core/domain/platforms.js';
 
@@ -303,14 +307,26 @@ describe('validateSkillAssetsNoCrossSkillParentRefs', () => {
       for (const shortPath of assetFiles.filter(
         (p) => p.startsWith('coding/') && (p.includes('/templates/') || p.includes('/references/')),
       )) {
-        expect(await read(shortPath), `${shortPath} 不得出现技能名加斜杠`).not.toContain('/polaris');
-      }
-      for (const name of ['specify', 'plan', 'design', 'tasks', 'build', 'verify', 'ship', 'intake']) {
-        const content = await read(`coding/${name}/SKILL.md`);
-        const frontmatter = content.split('---')[1] ?? '';
-        expect(frontmatter, `coding/${name}/SKILL.md 的 description 不得出现技能名加斜杠`).not.toContain(
+        expect(await read(shortPath), `${shortPath} 不得出现技能名加斜杠`).not.toContain(
           '/polaris',
         );
+      }
+      for (const name of [
+        'specify',
+        'plan',
+        'design',
+        'tasks',
+        'build',
+        'verify',
+        'ship',
+        'intake',
+      ]) {
+        const content = await read(`coding/${name}/SKILL.md`);
+        const frontmatter = content.split('---')[1] ?? '';
+        expect(
+          frontmatter,
+          `coding/${name}/SKILL.md 的 description 不得出现技能名加斜杠`,
+        ).not.toContain('/polaris');
       }
 
       // 执行层：入口只有一个 = intake ⇒ 正文不得出现原语，且 Step 1 必须是「接收交接」
@@ -397,4 +413,116 @@ describe('validateSkillAssetsNoCrossSkillParentRefs', () => {
     expect(violations.length).toBe(1);
     expect(violations[0]).toContain('{{SKILL_NAME_PREFIX}}');
   });
+});
+
+/**
+ * 附带技能（第三方工具，如 archify / diagram-design）。
+ *
+ * 它们是「交付图」工具，不是 Polaris 工作流的一环：落 skills 根目录的独立目录、
+ * 不改写 {{SKN_SPR}}、不做 policies 注入、维护者文档不下发。
+ *
+ * 源目录由 `POLARIS_BUNDLED_SKILLS_SOURCE` 指向。真实源在 `devops/vendor/bundled-skills`，
+ * 那是开发态资产（不入 git、不入 npm 包），因此这里用 fixture —— 测试不依赖仓库里有没有真实技能。
+ */
+describe('bundled skills 安装（第三方工具，不进技能族）', () => {
+  it('BUNDLED_SKILL_SPECS 全部钉死版本（否则同一 polaris 版本在不同日期装出不同内容）', () => {
+    for (const spec of BUNDLED_SKILL_SPECS) {
+      expect(
+        Boolean(spec.version || spec.commit),
+        `${spec.name} 缺 version / commit，会随上游默认分支漂移`,
+      ).toBe(true);
+    }
+  });
+  /** 造一个最小源目录：两个技能各含 SKILL.md、references/ 与 PROVENANCE.md */
+  async function makeBundledSource(): Promise<string> {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'polaris-bundled-src-'));
+    for (const name of ['archify', 'diagram-design']) {
+      await mkdir(path.join(dir, name, 'references'), { recursive: true });
+      await writeFile(
+        path.join(dir, name, 'SKILL.md'),
+        `---\nname: ${name}\n---\n\n# ${name}\n`,
+        'utf-8',
+      );
+      await writeFile(path.join(dir, name, 'references', 'note.md'), 'ref\n', 'utf-8');
+      await writeFile(path.join(dir, name, 'PROVENANCE.md'), '# 来源\n', 'utf-8');
+    }
+    return dir;
+  }
+
+  /** 用指定源目录跑一次安装，返回安装根目录 */
+  async function installWithSource(source: string, platform = claude): Promise<string> {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-bundled-'));
+    const previous = process.env.POLARIS_BUNDLED_SKILLS_SOURCE;
+    process.env.POLARIS_BUNDLED_SKILLS_SOURCE = source;
+    try {
+      await installPolarisForPlatform(tmpDir, platform, true, 'zh', 'project');
+    } finally {
+      if (previous === undefined) {
+        delete process.env.POLARIS_BUNDLED_SKILLS_SOURCE;
+      } else {
+        process.env.POLARIS_BUNDLED_SKILLS_SOURCE = previous;
+      }
+    }
+    return tmpDir;
+  }
+
+  it('版本标记与钉值不一致时视为缺失（否则改了钉值老用户永远不更新）', async () => {
+    const source = await makeBundledSource();
+    const spec = { name: 'archify', repo: 'owner/repo', version: '9.9.9' };
+
+    // 没有标记文件（历史副本）→ 按缺失处理，宁可重拉一次
+    expect(await isBundledSkillPresent(source, 'archify', spec)).toBe(false);
+
+    await writeFile(path.join(source, 'archify', '.polaris-bundled-ref'), '9.9.9\n', 'utf-8');
+    expect(await isBundledSkillPresent(source, 'archify', spec)).toBe(true);
+
+    // 钉值升了 → 再次视为缺失，触发重新拉取
+    expect(await isBundledSkillPresent(source, 'archify', { ...spec, version: '9.9.10' })).toBe(
+      false,
+    );
+  });
+
+  it(
+    'claude：落 skills 根目录独立目录，维护者文档不下发',
+    { timeout: INSTALL_TIMEOUT },
+    async () => {
+      const source = await makeBundledSource();
+      const tmpDir = await installWithSource(source);
+
+      await access(path.join(tmpDir, '.claude/skills/archify/SKILL.md'));
+      await access(path.join(tmpDir, '.claude/skills/archify/references/note.md'));
+      await access(path.join(tmpDir, '.claude/skills/diagram-design/SKILL.md'));
+
+      // 不得被当成技能族成员：不进 polaris/，也不注入 policies
+      await expect(access(path.join(tmpDir, '.claude/skills/polaris/archify'))).rejects.toThrow();
+      await expect(access(path.join(tmpDir, '.claude/skills/archify/policies'))).rejects.toThrow();
+
+      // PROVENANCE 只服务维护者，不随安装下发
+      await expect(
+        access(path.join(tmpDir, '.claude/skills/archify/PROVENANCE.md')),
+      ).rejects.toThrow();
+    },
+  );
+
+  it('本地源缺失时跳过，不阻断安装', { timeout: INSTALL_TIMEOUT }, async () => {
+    const emptySource = await mkdtemp(path.join(os.tmpdir(), 'polaris-bundled-empty-'));
+    const tmpDir = await installWithSource(emptySource);
+
+    // 安装照常完成：polaris 技能在，附带技能不在
+    await access(path.join(tmpDir, '.claude/skills/polaris/coding/specify/SKILL.md'));
+    await expect(access(path.join(tmpDir, '.claude/skills/archify'))).rejects.toThrow();
+  });
+
+  it(
+    'flat 布局下同样落 skills 根目录（不扁平成 polaris- 前缀）',
+    { timeout: INSTALL_TIMEOUT },
+    async () => {
+      const source = await makeBundledSource();
+      const tmpDir = await installWithSource(source, trae);
+
+      const skillsRoot = path.join(tmpDir, '.trae/skills');
+      await access(path.join(skillsRoot, 'archify/SKILL.md'));
+      await expect(access(path.join(skillsRoot, 'polaris-archify'))).rejects.toThrow();
+    },
+  );
 });

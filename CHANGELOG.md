@@ -1,5 +1,30 @@
 # Changelog
 
+## What's Changed [0.2.0] - 2026-10-22
+
+### Added
+
+- **附带技能：`archify` + `diagram-design`**: `polaris init` 会安装两个第三方图表技能到平台 skills 根目录（`.claude/skills/archify/`、`.claude/skills/diagram-design/`）。分工是「设计文档正文用 Mermaid、交付图用它们」——`archify` 出结构化图（架构 / 时序 / 数据流 / 生命周期 / ERD / 类图等 10 类，JSON IR + schema 校验，可做架构 delta 对比），`diagram-design` 出编辑级视觉图（13 类，三种视觉变体，能吃 Mermaid / drawio / Excalidraw 源码）。两者都输出自包含 HTML，可导 PNG/SVG/PDF。选它们而不是把图塞回设计文档，是因为 `design-review-agent` 只读文本：HTML 或 `.drawio` 里的图既进不了 PR diff，也不在评审视野内
+- **安装通道与外部组件统一（GitHub 优先，本地兜底）**: 新增 `src/core/integrations/bundled-skills.ts`：`init` 先 `git clone --depth 1` 到 `~/.polaris/components/bundled-skills/`（已有副本则跳过），再把本地副本拷到各平台 skills 根目录。拉取失败或超时**只记 missing、不阻断 init**，本地已有副本照常安装；`POLARIS_BUNDLED_SKILLS_SOURCE` 可显式指定本地源（显式指定后不联网）。不接 `npx skills add`：它内部仍要 clone GitHub，等于同样的超时风险再付一次，且落盘目录由外部 CLI 决定（装错目录比装失败更糟）
+- **版本一律钉死（可复现）**: `BUNDLED_SKILL_SPECS` 是升级上游版本的**唯一入口**——`archify` 钉 tag `3.2.0`，`diagram-design` 上游没有 release tag，钉 commit SHA。为此新增 `fetchRepoAtCommit()`：`git fetch --depth 1 origin <sha>` 后 checkout（`clone --branch` 不认 SHA）。同一 polaris 版本在任何机器、任何日期装到的技能内容一致
+- **源统一收在 `devops/vendor/bundled-skills/`**: 与 `superpowers/` 同性质——本地后备副本，优先从上游下载，**不提交 git**（`.gitignore: devops/vendor/*`）。`package.sh` 打包时拷进 `release/components/bundled-skills/`，随离线包一并分发，`install.sh` 的 preseed 落到 `~/.polaris/components/` 后走同一条本地通道
+- **`copyDirContents` 支持 `shouldCopy` 过滤**: 附带技能按目录整拷，同时用谓词过滤掉 `PROVENANCE.md` / `README.md` 与 `archify/examples/*.html`（15 个渲染成品，12MB；同目录 33 个 `.json` schema 示例保留）。不采用「拷完再删」——删除动作既多余，又会触发沙箱拦截
+- **安装手册补充**: macOS / Windows 两份手册在 `polaris init` 一节说明这两个技能装在哪、为什么不在命令菜单里、以及网络失败时的提示
+- **维护者升级工具 `devops/sync-bundled-skills.mjs`**: 检查模式对比钉值与上游最新（只读）；`--update` 一条命令改完三处——钉值、`vendor/` 整目录、`PROVENANCE.md`——拉取失败不留半成品。不做定时自动升级：技能升级会改变行为且无测试覆盖，是否升级由发版前人工决定
+- **本地副本带版本标记 `.polaris-bundled-ref`**: 修复「装过一次就永不更新」——此前只以 `SKILL.md` 是否存在判断副本齐备，改钉值后老用户（含开发机）永远拿不到新版；现在标记与钉值不一致即视为缺失并重拉。标记本身不随安装下发
+- **维护者入口 `devops/dev.sh`**: 一条命令看清「现在是什么状态、该按什么顺序做」。顶部状态区（分支 / 版本 / 未提交改动 / CHANGELOG 顶部是否与 `package.json` 一致），下接按「日常 / 发版」分组的命令菜单，编号可直接当参数用（`bash devops/dev.sh 5`）以便脚本化。**菜单不复制各脚本的参数**（参数归脚本自己的用法头部，`h <编号>` 现读），发版项会先跑前置检查（版本号未升 / CHANGELOG 不一致 / 工作区脏 → 要求二次确认）
+
+### Tests
+
+- `skills-install.test.ts` 新增 `bundled skills 安装` 用例组（fixture 源，不依赖真实技能）：落 skills 根目录且不进 `polaris/`、不注入 `policies/`、`PROVENANCE.md` 不下发、本地源缺失时跳过且不阻断安装、trae flat 布局下不被扁平化成 `polaris-archify`、版本标记与钉值不一致时判为缺失
+
+### Fixed
+
+- **附带技能拉取的目标 URL 拼错**: `fetchRepo` / `fetchRepoAtCommit` 期望完整 URL（镜像改写只对 `https://github.com` 前缀生效），此前传的是 `owner/repo`，导致 `git` 报「does not appear to be a git repository」且失败被吞成「没装上」。现统一拼成完整 URL
+- **拉取失败原因被吞**: `ensureBundledSkillsSource` 原先只返回 `missing` 名单，`init` 只打印技能名，无法区分网络问题与配置问题；现额外返回 `errors`（每个技能一行原因），`init` 逐条打印
+
+> 技能判据侧改动（`design` 阶段的图表要求与主审 S3.5 / S4.1 / S4.7 / S1 判定口径）按双语言约定，待英文同步后补记本 Changelog。
+
 ## What's Changed [0.1.2] - 2026-10-13
 ### Added
 

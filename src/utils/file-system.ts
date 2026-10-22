@@ -110,24 +110,50 @@ export async function walkFilesSafe(
   return results;
 }
 
+/** 目录递归拷贝选项 */
+export type CopyDirOptions = {
+  /** 返回 false 表示跳过该文件；入参是相对源目录的 posix 路径（如 `archify/PROVENANCE.md` 的 `PROVENANCE.md`） */
+  shouldCopy?: (relPath: string) => boolean;
+};
+
 /**
  * 递归将源目录内容拷贝到目标目录（目标不存在则创建）。
  * 源目录不存在时静默返回。
  */
-export async function copyDirContents(srcDir: string, destDir: string): Promise<void> {
+export async function copyDirContents(
+  srcDir: string,
+  destDir: string,
+  options: CopyDirOptions = {},
+): Promise<void> {
   if (!(await fileExists(srcDir))) {
     return;
   }
   await ensureDir(destDir);
+  await copyDirLevel(srcDir, destDir, '', options);
+}
+
+/**
+ * 目录递归拷贝的单层实现，`relPrefix` 累积相对路径供 `shouldCopy` 判定。
+ */
+async function copyDirLevel(
+  srcDir: string,
+  destDir: string,
+  relPrefix: string,
+  options: CopyDirOptions,
+): Promise<void> {
   const entries = await readdir(srcDir, { withFileTypes: true });
   for (const entry of entries) {
+    const rel = relPrefix ? `${relPrefix}/${entry.name}` : entry.name;
     const srcPath = path.join(srcDir, entry.name);
     const destPath = path.join(destDir, entry.name);
     if (entry.isDirectory()) {
-      await copyDirContents(srcPath, destPath);
-    } else {
-      await copyFile(srcPath, destPath);
+      await copyDirLevel(srcPath, destPath, rel, options);
+      continue;
     }
+    if (options.shouldCopy && !options.shouldCopy(rel)) {
+      continue;
+    }
+    await copyFile(srcPath, destPath);
   }
 }
 

@@ -58,6 +58,13 @@
   - **仍然有效的教训（版本无关）**：验收判据 = **tarball 可直接下载 + 全新缓存 `npm pack`/`npm i` 通过**；`201` / `+ pkg@ver` / metadata 200 只证明元数据写入，不证明可安装（本机 ~/.npm 缓存会伪装成功，须 `--cache <新目录> --prefer-online`）。
   - 操作细节单源：《docs/releases/发布操作指南.md》通道 A + `release.sh`；记忆不复制步骤。
 
+## 资产类别：bundled-skills vs skills（2026-10-22 起）
+- `assets/shared/bundled-skills/<name>/` = **附带第三方技能**：`polaris init` 装到 `platformSkillsDir/<name>/`，**不进 `polaris/` 命名空间、不改 `{{SKN_SPR}}`、不做 policies 注入**，不受「无跨技能 `../` 引用」校验。manifest `sharedDirs` 已登记 `bundled-skills`；安装逻辑 = `skills.ts` 的 **Step 4**（`BUNDLED_SKILLS_DIR`）。
+- 判据：**是不是 Polaris 工作流的一个阶段？** 是 → `assets/<lang>/skills/`；只是被顺手调用的工具 → `bundled-skills/`。
+- 拷贝走**目录级任务 + `copyDirContents` 的 `shouldCopy` 白名单**（1 任务/技能），既避免逐文件 I/O 随上游体积膨胀，又让 `ignoredFiles`（`PROVENANCE.md`/`README.md`）仍然生效——**不要改成「拷完再删」**，沙箱会拦 node `fs.rm`。
+- 当前内容：`archify`（v3.2.0，MIT，已删 `examples/*.html` 12MB）、`diagram-design`（cathrynlavery 上游 v2.6，MIT，全留）。各带 `PROVENANCE.md`（上游 commit/版本/裁剪/升级方式），升级**手动**、不接自动同步。
+- 与设计文档的关系：正文图仍是 Mermaid（design 阶段 + 主审 S3.5）；这两个只出**交付图**（HTML/PNG，给人看），不进评审链。
+
 ## Windows 支持（2026-10-21 裁定）
 - **bash 是硬依赖，非可选**：`assets/shared/hooks.json` 模板、`src/core/install/hooks.ts:62`（硬编码 `bash "…"`）、`doctor.ts:135`、`verify/SKILL.md` 的 scorers 调用，共 27 个 `.sh`。全仓 `grep win32|process.platform` **零结果**（无 Windows 分支）。⇒ Windows 缺 bash 时：安装与 `polaris init` 都成功、**hook 静默失效不报错**。
 - 裁定 = **A+B，不做 C**：A 文档分平台 + B 新增 `install.ps1`（`install.sh` 等价物）；C（把 hook/scorers 改写成 Node 跨平台）明确不做。理由：Git for Windows 提供的 `bash.exe` 同时解决 install 与 hook 两件事。
