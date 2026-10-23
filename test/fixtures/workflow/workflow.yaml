@@ -1,6 +1,8 @@
-version: 1
-changes:
-  - id: add-feature-x
-    title: Demo change
-    status: active
-    worktree: /tmp/demo-worktree
+coding_tasks:
+  - task_id: add-feature-x
+    phase: plan
+    worktree_path: ""
+    started_at: "2026-01-01T00:00:00Z"
+requirement_tasks: []
+testcase_tasks: []
+prototype_tasks: []

@@ -1,7 +1,7 @@
 import path from 'path';
 
 import { hasDiagnosticFailure, runDiagnostics } from '../core/doctor.js';
-import type { InstallScope } from '../core/types.js';
+import type { InstallScope } from '../core/config/polaris-project-config.js';
 
 export type DoctorOptions = {
   json?: boolean;

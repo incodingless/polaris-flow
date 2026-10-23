@@ -1,0 +1,62 @@
+# polaris-flow 全局在途任务索引
+# 路径：.polaris/workflow.yaml（在init时物化空模板，创建新任务时 append 条目，任务完结时删除条目）
+#
+# 职责：
+#   - 列出所有"未完结"的任务（`*_tasks`）
+#   - **只回答两个问题**：有哪些在途任务、任务在哪（worktree）
+#   - **不记阶段** —— 阶段（"接下来要执行的阶段"）的唯一存放处是任务自己的
+#     `.polaris/tasks/<task_id>/state.yaml` 的顶层 `phase`，位置由本条的
+#     `worktree_path` 决定（空 = 主仓；非空 = worktree 内同名路径）
+#
+# 并发安全：每个任务在各自数组中各占一项，多个 specify 同时进行时
+# 各自只 append 自己的 entry，再各自维护 tasks/<task_id>/state.yaml，互不覆盖。
+# 注：task等同于 Openspec的change概念
+coding_tasks: []
+# 每项结构（4 个字段；**不含 phase**）：
+#   - task_id: refactor-sdk-api-0701c0
+#     worktree_path: ""                  # 空表示该任务仍在主仓（state.yaml 也读主仓）；plan 后填 worktree 绝对路径
+#     started_at: 2026-05-25T14:30:00Z   # task 创建时间（specify Step 1）
+
+# 职责：
+#   - 列出所有未完结的「需求」任务（requirement_tasks）
+#   - 同样只回答「有哪些在途任务」「任务在哪」；阶段在
+#     .polaris/tasks/<task_id>/state.yaml（与 coding 同根；靠 state.kind 区分）
+#
+# 并发安全：每个需求任务在 requirement_tasks 中各占一项，多个 discovery 同时进行时
+# 各自只 append 自己的 entry，再各自维护 tasks/<task_id>/state.yaml，互不覆盖。
+requirement_tasks: []
+# 每项结构（4 个字段；**不含 phase**）：
+#   - task_id: refactor-sdk-api-0701c0
+#     worktree_path: ""                  # 空表示该需求任务仍在主仓；draft 后填 worktree 绝对路径
+#     started_at: 2026-05-25T14:30:00Z   # task 创建时间（discovery Step 1）
+
+testcase_tasks: []
+# 每项结构（4 个字段；**不含 phase**）：
+#   - task_id: refactor-sdk-api-0701c0
+#     worktree_path: ""                  # 空表示该测试任务仍在主仓
+#     started_at: 2026-05-25T14:30:00Z   # task 创建时间
+
+
+# 职责：
+#   - 列出所有未完结的「原型」任务（prototype_tasks）
+#   - 阶段在 .polaris/tasks/<task_id>/state.yaml（与 coding/requirement 同根；靠 state.kind 区分）
+#
+# 并发安全：每个原型任务在 prototype_tasks 中各占一项，多个 blueprint 同时进行时
+# 各自只 append 自己的 entry，再各自维护 tasks/<task_id>/state.yaml，互不覆盖。
+prototype_tasks: []
+# 每项结构（4 个字段；**不含 phase**）：
+#   - task_id: contract-review-proto
+#     worktree_path: ""                  # 空表示该原型任务仍在主仓
+#     started_at: 2026-05-25T14:30:00Z   # task 创建时间（blueprint Step 2）
+
+# 职责：
+#   - 列出所有未完结的「缺陷修复」任务（debug_tasks）
+#   - 阶段在 .polaris/tasks/<issue_id>/state.yaml（与 coding/requirement/prototype 同根；靠 state.kind 区分）
+#
+# 并发安全：每个缺陷任务在 debug_tasks 中各占一项，互不覆盖。
+debug_tasks: []
+# 每项结构（4 个字段；**不含 phase**）：
+#   - task_id: 2026-09-16-fix-page-500
+#     channel: bugfix                   # bugfix-测试缺陷 | hotfix-生产故障（仅 debug 族有）
+#     worktree_path: ""                  # 空表示该任务仍在主仓
+#     started_at: 2026-05-25T14:30:00Z   # task 创建时间

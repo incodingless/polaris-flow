@@ -107,6 +107,9 @@ skippedLabel:
 failedLabel:
   en: "Failed:"
   zh: 失败：
+failedComponentSuperpowers:
+  en: "Failed component: Superpowers (GitHub unreachable; Polaris itself may still be installed)"
+  zh: 失败组件：Superpowers（无法访问 GitHub；Polaris 本身可能已安装成功）
 failedStatus:
   en: failed
   zh: 失败

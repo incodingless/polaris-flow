@@ -4,13 +4,13 @@ Polaris Flow 是面向 AI 编码环境的一站式工作流平台，覆盖**安�
 
 ## 核心能力
 
-| 能力 | 说明 | 主要目录 |
-| --- | --- | --- |
-| **安装** | 在用户项目及支持的 AI 平台中初始化工作流工具链 | `src/commands/init.ts`、`src/core/` |
-| **工作流配置** | 内置并配置 OpenSpec schema（backend / frontend / test 等） | `assets/`、`src/core/` |
-| **Skills** | 打包并向目标平台分发工作流 Skill（中英文） | `assets/skills/`、`assets/skills-zh/`、`assets/manifest.json` |
-| **Dashboard** | 本地只读可视化 `openspec/changes/` 工作流状态 | `src/dashboard/` |
-| **生命周期** | status、doctor、update、uninstall 等运维命令 | `src/commands/` |
+| 能力           | 说明                                                       | 主要目录                                                      |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------------------- |
+| **安装**       | 在用户项目及支持的 AI 平台中初始化工作流工具链             | `src/commands/init.ts`、`src/core/`                           |
+| **工作流配置** | 内置并配置 OpenSpec schema（backend / frontend / test 等） | `assets/`、`src/core/`                                        |
+| **Skills**     | 打包并向目标平台分发工作流 Skill（中英文）                 | `assets/skills/`、`assets/skills-zh/`、`assets/manifest.json` |
+| **Dashboard**  | 本地工作台：单进程在同一端口同时提供 API 与 Web UI         | `dashboard/`（前端）、`src/dashboard/`（API）                 |
+| **生命周期**   | status、doctor、update、uninstall 等运维命令               | `src/commands/`                                               |
 
 ## 环境要求
 
@@ -23,17 +23,128 @@ Polaris Flow 是面向 AI 编码环境的一站式工作流平台，覆盖**安�
 pnpm install
 pnpm run build
 pnpm test
-node bin/polaris-flow.js --version
+node bin/polaris.js --version
 ```
 
-## 计划命令
+一键构建（install + build，可选 lint/test）见 [docs/build.sh.md](docs/build.sh.md)。
 
-- `polaris-flow init` — 为项目初始化工作流，安装工作流、Harness环境
-- `polaris-flow status` — 展示当前change与工作流状态
-- `polaris-flow dashboard` — 启动本地Dashboard
-- `polaris-flow doctor` — 诊断环境、schema 与 skill 安装状态
-- `polaris-flow update` — 更新 schema、skills 与依赖
-- `polaris-flow uninstall` — 卸载已安装组件
+## 用户命令（`polaris`）
+
+仅下列命令出现在 `polaris --help`；hooks/scripts 运行时命令走 `polaris-flow`（不列入用户 CLI）。
+
+- `polaris init` — 为项目初始化工作流，安装工作流、Harness环境
+- `polaris status` — 展示当前change与工作流状态
+- `polaris dashboard` — 启动本地工作台（单进程单端口，API 与前端同端口；`--api-only` 供前端 HMR 开发）
+- `polaris doctor` — 诊断环境、schema 与 skill 安装状态
+- `polaris update` — 更新程序本体、工作流资产与第三方依赖（范围可选）
+- `polaris uninstall` — 卸载已安装组件（占位，尚未实现）
+
+### `polaris update` 更新范围
+
+分三层，可单独选择；缺省全量。
+
+| 层        | 成员                                         | 说明                                                                                             |
+| --------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `program` | —                                            | CLI 程序本体（npm 包）。探测实际使用的包管理器后全局安装 `@latest`；`npx` 临时执行时降级为只提示 |
+| `assets`  | `skills` `commands` `agents` `rules` `hooks` | 按资产源指纹判断是否需要重写；已装平台的落盘内容与资产一致时整体跳过                             |
+| `deps`    | `openspec` `superpowers` `codegraph`         | 复用 init 侧的安装器                                                                             |
+
+| 选项              | 描述                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `--only <items>`  | 只更新列出的项（逗号分隔，可用组名）；与 `--skip` 互斥                              |
+| `--skip <items>`  | 跳过列出的项，其余按全量                                                            |
+| `--force`         | 忽略资产源指纹，强制重写所选类别                                                    |
+| `--prune`         | 删除 Polaris 独占目录下已不在资产清单中的陈旧产物（当前覆盖 `skills` / `commands`） |
+| `--lang <lang>`   | 技能语言：`zh` 或 `en`；缺省读 `.polaris/config.yaml`                               |
+| `--scope <scope>` | 安装范围：`project` 或 `global`；缺省读 `.polaris/config.yaml`                      |
+| `--json`          | 输出结构化 JSON                                                                     |
+
+例：`polaris update --only skills,commands`、`polaris update --skip deps`、`polaris update --only assets --prune`
+
+## Superpowers 安装与网络
+
+`polaris init` 安装 Superpowers 时会访问 GitHub（clone 与 `npx skills add` 都依赖 github.com）。国内或企业网络不通时：
+
+- `GIT_HTTP_VERSION`：Polaris 默认对 git 使用 `HTTP/1.1`，可自行覆盖
+- `POLARIS_GITHUB_MIRROR`：GitHub 镜像基址。含 `github.com` 时替换主机前缀，否则把原 URL 接到镜像后面
+- `POLARIS_SUPERPOWERS_PATH`：已 clone 的本地 `obra/superpowers` 目录，跳过网络
+
+手动安装示例：`npx skills add obra/superpowers -y --agent trae-cn`（agent 必须用平台 id，不要用 `Trae-CN`）
+
+## 阶段工作流
+
+Polaris Flow 把「开发类需求」按复杂度拆成三档；三档之外另有紧急 Bug 修复变体。每个阶段名是中英双轨：英文 token 用于 `phase` / `runtime.<x>` / `use_skill`，中文保留原有的语义称谓。
+
+> **沿革**：本项目 2026-09 完成三次阶段改名——clarify→specify（中文保留「澄清」）、plan→tasks（「任务规划」）、propose→plan（「提案」）。代码、状态块、skill 命名空间与本文档已统一对齐。
+
+### 1. SDD 工作流（P03 完整链路 — 跨服务 / 高风险）
+
+入口：`/psfl:coding:sdd` 或 `/psfl:flow` 自动评估路由 `complex` 档。
+
+```
+specify   →   plan   →   design (可选)  →   tasks  →   build  →   verify  →   ship  →   retro (可选)
+(澄清)        (提案)     (深度设计)         (任务规划) (编码构建)  (验收)      (交付)    (复盘)
+```
+
+产物：OpenSpec 四件套 + `detailed-design.md`（design 命中时）+ 专项设计文档。
+
+### 2. 常规需求工作流（P02 — 多模块协作、需规格契约）
+
+入口：`/psfl:coding:normal` 或 `/psfl:flow` 自动评估路由 `standard` 档。
+
+```
+specify   →   plan   →   design   →   tasks  →   build  →   verify  →   ship
+(澄清)        (提案)     (深度设计)  (任务规划) (编码构建)  (验收)      (交付)
+```
+
+P02 评测压缩：1 次合并主审（复用 `polaris:coding:tasks-review-agent`），不含独立 OV；tasks 一次写成终版细计划（无覆写阶段）。
+
+### 3. 小改动工作流（P01 — 单模块、快速变更）
+
+入口：`/psfl:coding:tweak` 或 `/psfl:flow` 自动评估路由 `simple` 档。
+
+```
+brief  →  tasks  →  build  →  ship
+(简报)    (任务规划) (编码构建) (交付)
+```
+
+跳过 brainstorming 与完整 plan；产物为 `change-brief.md` + `tasks.md`（ship 归档前补齐四件套）。
+
+### 4. 紧急 Bug 修复（P01 变体）
+
+入口：`/psfl:maintance:hotfix`。
+
+```
+bug  →  tasks  →  build  →  ship
+(根因) (任务规划) (编码构建) (交付)
+```
+
+**省略项**：exit-check、constitution 审计、task-split-precheck、artifact-backfill。
+
+**硬约束**：根因未定位 / 跨 3+ 模块 / schema 变更 / 对外 API breaking change → **强制回 `/psfl:coding:normal`**。
+
+**强 TDD**：bug 修复必须含 `<!-- TDD 任务 -->` 标记的回归测试用例。
+
+### 入口路由策略（`/psfl:flow`）
+
+`/psfl:flow` 在第一步类别询问之前会做：
+
+1. **前置需求预检**：识别开发意图（4 选 1：动作+目标+2 项 / 关键字 ≥ 80 字 / 附加文件含需求要素 / 引用 PRD·OpenSpec 制品目录）；开发类若无要求附带，最多 2 轮强制后仍空 → 强制 `complex` 档（让复杂度评估兜底）。
+2. **可选复杂度评估**：复用 idea-discovery 3 档；按评估结果自动路由：
+
+| 评估档     | 入口技能                                               | 链路                                                                        |
+| ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `simple`   | `polaris:coding:tweak`                                 | brief → tasks → build → ship                                                |
+| `standard` | `polaris:coding:normal`                                | specify → plan → design → tasks → build → verify → ship                     |
+| `complex`  | `polaris:coding:specify`（`/psfl:coding:sdd` 别名） | specify → plan → design(可选) → tasks → build → verify → ship → retro(可选) |
+
+需要拆分的需求并入 `complex`：由 specify 阶段的 `task-split-precheck` 接手拆分（规模检测 → 候选拆分清单 → 决策点 → 批量模式），入口不 STOP。
+
+复杂度评估仅对开发类强制；`/psfl:coding:tweak` / `/psfl:coding:normal` / `/psfl:coding:sdd` / `/psfl:maintance:hotfix` / `/psfl:maintance:bugfix` 直达技能命令不受此预检约束。需求类的 `/psfl:prd`（编写产品需求）与 `/psfl:prd:readiness`（需求就绪度评估）、原型类的 `/psfl:prototype`（制作原型）与 `/psfl:prototype:review`（评审已有原型）、测试类的 `/psfl:testing:create-testcase`（设计测试用例）、`/psfl:testing:acceptance`（编写验收标准）与 `/psfl:testing:review-testcase`（评审测试用例）同样是直达技能命令。
+
+具体见 `assets/zh/commands/flow.md` 零步的「0.4 自动评估」一节。
+
+> **命令名随平台变化**：Claude Code / Trae 用嵌套命名空间（`/psfl:coding:normal`）；**Cursor 侧是扁平名**（`/psfl-coding-normal`）——Cursor CLI 只读命令目录顶层的 `.md`，因此安装时会去掉 `polaris/` 层级、改用 `-` 连接。本文其余章节的 `/psfl:*` 写法均以 Claude Code 为准；Cursor 侧把 `:` 换成 `-` 并去掉 `polaris` 之后的层级即可。详见 `assets/zh/adapters/command-registration.md`。
 
 ## 许可证
 

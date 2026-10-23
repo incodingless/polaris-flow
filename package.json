@@ -1,6 +1,6 @@
 {
-  "name": "@polaris/polaris-flow",
-  "version": "0.1.0",
+  "name": "polaris-flow",
+  "version": "0.3.0",
   "description": "All-in-one Polaris workflow platform: install, OpenSpec schema, skills, and dashboard for AI coding environments",
   "keywords": [
     "polaris-flow",
@@ -12,10 +12,8 @@
   ],
   "license": "MIT",
   "type": "module",
-  "publishConfig": {
-    "access": "public"
-  },
   "bin": {
+    "polaris": "./bin/polaris.js",
     "polaris-flow": "./bin/polaris-flow.js"
   },
   "files": [
@@ -27,7 +25,9 @@
     "!dist/**/__tests__"
   ],
   "scripts": {
-    "build": "node build.js",
+    "build": "node devops/build.js",
+    "build:sh": "bash devops/build.sh",
+    "build:web": "npm --prefix dashboard run build",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -37,7 +37,7 @@
     "format": "prettier --write src/",
     "format:check": "prettier --check src/",
     "prepare": "husky && pnpm run build",
-    "prepublishOnly": "node scripts/prepublish-check.js && pnpm run build",
+    "prepublishOnly": "node devops/prepublish-check.js && pnpm run build",
     "postinstall": "node scripts/postinstall.js"
   },
   "lint-staged": {

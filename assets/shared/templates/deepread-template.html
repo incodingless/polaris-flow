@@ -1,0 +1,312 @@
+<!--
+═══════════════════════════════════════════════════════════════════
+ezfl-flow Deep-Read HTML 模板（v0.1 草稿，等待用户校验）
+用途：Law #6 中 Layer A 摘要 > 500 token 时，subagent 落盘此 HTML
+     供开发者与下游 agent 共同消费
+路径占位符：
+  {{command}}           当前 command 名（design / lock / build / audit / ship）
+  {{change_id}}         当前 change id
+  {{timestamp}}         ISO 8601 时间戳
+  {{trigger_reason}}    触发深读的具体原因（默认："Layer A 摘要超 500 token"）
+  {{subagent_name}}     产生此摘要的 subagent 名
+  {{subagent_model}}    产生此摘要的 subagent 模型
+  {{main_agent_model}}  主代理模型（用于差异性比对）
+  {{tier}}              当前变更档位 trivial/standard/critical
+  {{mode}}              当前仓库模式 solo/team
+  {{decision_summary}}  原 Layer A 摘要的核心决策（无字数限制版）
+  {{evidence_items}}    证据条目数组（HTML 片段，含文件路径 + 行号 + 代码节选）
+  {{recommendations}}   subagent 给主代理 / 开发者的下一步建议
+  {{full_context_html}} 完整上下文（可折叠展开），通常包含相关四件套节选
+  {{related_files}}     相关产物文件清单（路径 + 简述）
+  {{open_questions}}    subagent 在过程中遗留的开放问题
+═══════════════════════════════════════════════════════════════════
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ezfl-flow 深读报告 — {{command}} / {{change_id}}</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --warn-bg: #fff8c5;
+    --warn-fg: #7d4e00;
+    --critical-bg: #ffebe9;
+    --critical-fg: #cf222e;
+    --code-bg: #f6f8fa;
+    --section-bg: #ffffff;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Microsoft YaHei", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.65;
+    margin: 0;
+    padding: 24px;
+    max-width: 1100px;
+    margin-inline: auto;
+  }
+  header.report-header {
+    background: var(--section-bg);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    margin: 0 0 8px;
+    font-size: 1.25rem;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 6px 16px;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .meta-grid b { color: var(--fg); }
+  .trigger {
+    background: var(--warn-bg);
+    color: var(--warn-fg);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 12px;
+    font-size: 0.92rem;
+  }
+  .toc {
+    background: var(--section-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+  }
+  .toc strong { display: block; margin-bottom: 6px; }
+  .toc ol { margin: 0; padding-left: 20px; }
+  section {
+    background: var(--section-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 22px;
+    margin-bottom: 14px;
+  }
+  section h2 {
+    margin: 0 0 12px;
+    font-size: 1.1rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  section h3 {
+    margin: 14px 0 6px;
+    font-size: 1rem;
+  }
+  pre, code {
+    font-family: ui-monospace, "SF Mono", Consolas, "Microsoft YaHei Mono", monospace;
+    font-size: 0.88rem;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    overflow-x: auto;
+  }
+  code { background: var(--code-bg); padding: 1px 4px; border-radius: 3px; }
+  .evidence-item {
+    border-left: 3px solid var(--accent);
+    padding: 8px 12px;
+    background: #f0f7ff;
+    margin: 8px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .evidence-item .ref {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .recommendations li { margin-bottom: 6px; }
+  details {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 6px 0;
+  }
+  details summary {
+    cursor: pointer;
+    font-weight: 600;
+  }
+  details[open] summary { margin-bottom: 8px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .badge.tier-trivial   { background: #ddf4ff; color: #0969da; }
+  .badge.tier-standard  { background: #fff8c5; color: #7d4e00; }
+  .badge.tier-critical  { background: #ffebe9; color: #cf222e; }
+  .badge.mode-solo      { background: #dafbe1; color: #1a7f37; }
+  .badge.mode-team      { background: #ffd8b5; color: #9a6700; }
+  footer.report-footer {
+    color: var(--muted);
+    font-size: 0.82rem;
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .open-question {
+    background: #fff8c5;
+    border-left: 3px solid #d4a72c;
+    padding: 8px 12px;
+    margin: 6px 0;
+    border-radius: 0 4px 4px 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ 1. 报告头：触发原因 + 元信息 ═══════════ -->
+<header class="report-header">
+  <h1>ezfl-flow 深读报告：{{command}} 阶段决策摘要</h1>
+  <div class="meta-grid">
+    <div><b>Change ID</b>：<code>{{change_id}}</code></div>
+    <div><b>Command</b>：{{command}}</div>
+    <div><b>时间</b>：{{timestamp}}</div>
+    <div><b>Tier</b>：<span class="badge tier-{{tier}}">{{tier}}</span></div>
+    <div><b>Mode</b>：<span class="badge mode-{{mode}}">{{mode}}</span></div>
+    <div><b>子代理</b>：{{subagent_name}}（{{subagent_model}}）</div>
+    <div><b>主代理</b>：{{main_agent_model}}</div>
+  </div>
+  <div class="trigger">
+    <b>⚠️ 触发原因</b>：{{trigger_reason}}
+    <br>本报告由子代理在隔离上下文中产出；主代理已被通知"待判断（pending deepread）"，
+    当前 command 链已暂停，等待开发者阅读本报告并给出决策。
+  </div>
+</header>
+
+<!-- ═══════════ 目录（便于快速跳转） ═══════════ -->
+<nav class="toc">
+  <strong>目录</strong>
+  <ol>
+    <li><a href="#decision">决策摘要</a></li>
+    <li><a href="#evidence">关键证据</a></li>
+    <li><a href="#recommendations">下一步建议</a></li>
+    <li><a href="#open-questions">遗留开放问题</a></li>
+    <li><a href="#related-files">相关产物文件</a></li>
+    <li><a href="#full-context">完整上下文（可折叠）</a></li>
+  </ol>
+</nav>
+
+<!-- ═══════════ 2. 决策摘要（核心，等同于无限版 Layer A） ═══════════ -->
+<section id="decision">
+  <h2>1. 决策摘要</h2>
+  <p>本节内容即原 Layer A 摘要的"无字数限制版"。
+     所有让主代理 / 用户能完成路由判断的核心结论必须出现在这里。</p>
+
+  {{decision_summary}}
+</section>
+
+<!-- ═══════════ 3. 关键证据（文件引用 + 代码片段 + 评分依据） ═══════════ -->
+<section id="evidence">
+  <h2>2. 关键证据</h2>
+  <p>以下证据支撑上节的决策结论，每条包含来源定位（文件路径 + 行号或评分项）。</p>
+
+  {{evidence_items}}
+  <!--
+  示例 evidence_item HTML 片段：
+  <div class="evidence-item">
+    <div class="ref">openspec/changes/{{change_id}}/design.md L42-L58</div>
+    <p>设计文档中将限流策略实现为内存 token bucket，但未提及多实例场景下的同步机制。</p>
+    <pre><code>Decision: token bucket (in-memory)
+TODO: ... (该 TODO 未在 Phase 4 评审中被识别)</code></pre>
+  </div>
+  -->
+</section>
+
+<!-- ═══════════ 4. 下一步建议（subagent 给主代理 / 用户） ═══════════ -->
+<section id="recommendations">
+  <h2>3. 下一步建议</h2>
+  <p>子代理基于上述证据给出的建议，按推荐程度从高到低排列。</p>
+  <ol class="recommendations">
+    {{recommendations}}
+    <!--
+    示例：
+    <li><b>推荐</b>：将多实例同步问题升级为 design.md 的 Open Question，
+                  在进入 lock command 前补充 ADR。</li>
+    <li>替代方案：先按当前内存方案推进 build，把多实例风险写入 review-report.md
+                  的 Unresolved Decisions，作为 implementation drift 风险监控。</li>
+    -->
+  </ol>
+</section>
+
+<!-- ═══════════ 5. 遗留开放问题 ═══════════ -->
+<section id="open-questions">
+  <h2>4. 遗留开放问题</h2>
+  <p>子代理在产出过程中识别到、但尚无定论的问题，列在此处供开发者判断。</p>
+
+  {{open_questions}}
+  <!--
+  示例：
+  <div class="open-question">
+    <b>Q1</b>：限流阈值是否需要按用户身份分级？文档未明示。
+    <br>影响：如果分级，design 中需追加用户身份判定 scenario。
+  </div>
+  -->
+</section>
+
+<!-- ═══════════ 6. 相关产物文件清单 ═══════════ -->
+<section id="related-files">
+  <h2>5. 相关产物文件</h2>
+  <p>本次 command 涉及的全部产物文件，供深入阅读时定位。</p>
+
+  {{related_files}}
+  <!--
+  示例：
+  <ul>
+    <li><code>openspec/changes/{{change_id}}/proposal.md</code> — 提案原文</li>
+    <li><code>openspec/changes/{{change_id}}/design.md</code> — 架构设计（本报告主要分析对象）</li>
+    <li><code>openspec/changes/{{change_id}}/specs/rate-limiting.md</code> — 限流场景</li>
+    <li><code>openspec/changes/{{change_id}}/tasks.md</code> — 任务列表</li>
+    <li><code>.harness/metrics/{{change_id}}/{{command}}-{{timestamp}}.json</code> — 本次 metrics</li>
+  </ul>
+  -->
+</section>
+
+<!-- ═══════════ 7. 完整上下文（折叠区，token 重区） ═══════════ -->
+<section id="full-context">
+  <h2>6. 完整上下文（可折叠）</h2>
+  <p>以下区域包含完整的四件套相关节、子代理过程日志、scorer 详细评分等。
+     默认折叠，按需展开避免噪音。</p>
+
+  {{full_context_html}}
+  <!--
+  示例：
+  <details>
+    <summary>展开：完整 design.md 内容</summary>
+    <pre><code>... 完整 design.md 文本 ...</code></pre>
+  </details>
+  <details>
+    <summary>展开：scorer 详细评分日志</summary>
+    <pre><code>{ "spec_falsifiability": 78, "rationale": "..." }</code></pre>
+  </details>
+  -->
+</section>
+
+<!-- ═══════════ 报告尾 ═══════════ -->
+<footer class="report-footer">
+  本报告由 ezfl-flow {{command}} 阶段子代理生成 ·
+  Law #6 深读触发协议 ·
+  报告本身不进入主代理上下文 ·
+  主代理仅收到一行通知："{{command}} 已生成深读报告，路径：&lt;本文件路径&gt;，状态：pending deepread"
+</footer>
+
+</body>
+</html>

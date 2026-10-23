@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Polaris Flow 维护者速查卡</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #e8eaf0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: #1f2329;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 8mm auto;
+    padding: 9mm 10mm 6mm;
+    background: #ffffff;
+    box-shadow: 0 2px 16px rgba(0,0,0,.15);
+  }
+  @media print {
+    html, body { background: #ffffff; }
+    .page { margin: 0; box-shadow: none; }
+  }
+  .head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .head h1 { font-size: 22px; color: #1a3f8f; letter-spacing: .5px; white-space: nowrap; }
+  .head .meta { font-size: 11px; color: #8a93a6; }
+  .block { border: 1.2px solid #1e4e9e; border-radius: 6px; margin-bottom: 6px; overflow: hidden; }
+  .block > .bar {
+    background: #1e4e9e; color: #fff;
+    font-size: 13px; font-weight: 600;
+    padding: 3.5px 10px; letter-spacing: .3px;
+  }
+  .block > .bar .dim { font-weight: 400; font-size: 11px; opacity: .85; margin-left: 6px; }
+  .block > .body { padding: 6px 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #c6cfdf; padding: 2px 6px; font-size: 11px; text-align: left; vertical-align: middle; }
+  th { background: #eef2fa; color: #1a3f8f; font-weight: 600; }
+  td.cmd, .cmd { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 10.5px; color: #1a5cc8; white-space: nowrap; font-weight: 600; }
+  td.desc { color: #444; }
+  tr.hl td { background: #f5f8fe; }
+  .kind { font-weight: 600; color: #1a3f8f; white-space: nowrap; border-right: 1px solid #c6cfdf; }
+  .cols { display: flex; gap: 8px; }
+  .col { flex: 1; border: 1px solid #c6cfdf; border-radius: 5px; padding: 6px 9px; }
+  .col h3 { font-size: 12px; margin-bottom: 4px; color: #1a3f8f; }
+  .col ul { list-style: none; }
+  .col li { font-size: 11px; line-height: 1.55; padding-left: 11px; position: relative; color: #333; }
+  .col li::before { content: "▸"; position: absolute; left: 0; color: #1a5cc8; font-size: 10px; top: 1px; }
+  .col b, .disc b { color: #c0392b; }
+  .col .path { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 10px; color: #1a5cc8; }
+  .disc th:first-child, .disc td:first-child { width: 17%; }
+  .layers { display: flex; gap: 6px; }
+  .layer { flex: 1; border: 1px solid #c6cfdf; border-radius: 5px; padding: 6px 9px; background: #fafbfd; }
+  .layer h3 { font-size: 12px; margin-bottom: 3px; color: #1a3f8f; }
+  .layer h3 span { font-weight: 400; color: #8a93a6; font-size: 10.5px; }
+  .layer p { font-size: 11px; line-height: 1.55; color: #333; }
+  .chain { display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; margin-bottom: 6px; }
+  .chain .tag {
+    background: #eaf1fb; border: 1px solid #b9cdea; border-radius: 10px;
+    color: #1a5cc8; font-size: 11px; font-weight: 600;
+    padding: 1.5px 8px; white-space: nowrap;
+  }
+  .chain .arrow { color: #444; font-size: 12px; margin: 0 3px; }
+  .note { font-size: 10.5px; color: #666; margin-top: 5px; line-height: 1.5; }
+  .foot { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; font-size: 10px; color: #98a0b0; }
+  .foot .ver { margin-left: auto; text-align: right; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="head">
+    <h1>Polaris Flow 维护者速查卡</h1>
+    <span class="meta">v1.0 · 2026-10-19 · 受众：工作流维护者 · 配套：速查卡.html（团队推广版，勿混用）</span>
+  </div>
+
+  <div class="block">
+    <div class="bar">① 三层架构与四条铁则<span class="dim">入口 → 调度 → 执行</span></div>
+    <div class="body">
+      <div class="layers">
+        <div class="layer">
+          <h3>入口层 <span>tweak / normal / strict</span></h3>
+          <p>薄编排技能，<b>只声明档位</b>，不代做任务判定与阶段衔接。命令层（/psfl:*）同样只做「选择 + 路由」，不产任何产物。</p>
+        </div>
+        <div class="layer">
+          <h3>调度层 <span>intake</span></h3>
+          <p>执行层<b>唯一入口</b>。Step 1 恢复分发（在途优先）→ Step 2 入口粗判档 → Step 3 任务初始化（仅零在途）→ Step 4 转交。六出口：<span class="cmd">resume / handover / create / select / resolve-drafts / block</span>。</p>
+        </div>
+        <div class="layer">
+          <h3>执行层 <span>阶段技能</span></h3>
+          <p>specify → plan → design(可选) → tasks → build → verify → ship。阶段技能<b>不得互相调用、不得直接调 intake</b>；出口经 <span class="cmd">state next</span> 推进游标。retro 是调度层唯一豁免：由用户直接触发，不需 task_id。</p>
+        </div>
+      </div>
+      <div class="note">铁则：<b>档位升降唯一位置 = specify 出口</b>，过即冻结，其余阶段纯按 skill 字段转交；intake 复核只升不降；上游已给 task_id 时跳过枚举（机器交接免提问）。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="bar">② 档位与值域<span class="dim">写错一个字母，面板显示「未知阶段」</span></div>
+    <div class="body" style="padding:0;">
+      <table>
+        <tr><th style="width:22%">字段</th><th style="width:40%">合法值</th><th>说明</th></tr>
+        <tr><td class="cmd">workflow.mode</td><td class="cmd">tweak | normal | strict</td><td class="desc">中文名「工作流」；<b>full 已退役</b>（与 verify_mode 的 full 同名不同义），存量 full/delivery 不再识别</td></tr>
+        <tr><td class="cmd">complexity_level<br>risk_level / current_tier</td><td class="cmd">trivial | standard | critical</td><td class="desc">方向 critical &gt; standard &gt; trivial；分级→档位映射单源在 risk-signals.md §1，技能侧不内联</td></tr>
+        <tr><td class="cmd">phase</td><td class="cmd">specify | plan | design | tasks | build | verify | ship | retro</td><td class="desc">写入前用 <span class="cmd">writablePhaseList</span> 自查（含 idle）；空串/idle 合法，写错现在什么都不报，几个月后面板才暴露</td></tr>
+      </table>
+      <div class="chain" style="margin-top:7px;">
+        <span style="font-size:11px;color:#444;">入口预声明：</span>
+        <span class="tag">C01 → trivial → tweak</span><span class="arrow">·</span>
+        <span class="tag">C02 → standard → normal</span><span class="arrow">·</span>
+        <span class="tag">C03 → critical → strict</span>
+        <span style="font-size:11px;color:#444;margin-left:6px;">权威判定仍在 specify 出口</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="bar">③ 引用与命名红线<span class="dim">踩线即返工</span></div>
+    <div class="body" style="padding:0;">
+      <table class="disc">
+        <tr><th>类别</th><th>规则</th></tr>
+        <tr><td>技能引用</td><td><span class="cmd">polaris:coding:verify</span>（<b>无斜杠</b>）；命令引用 <span class="cmd">/psfl:coding:tweak</span>（带斜杠）；<b>「技能名加斜杠」是坏引用</b></td></tr>
+        <tr><td>菜单编号</td><td>C01 / M01 / R02 / P01 / T01 只属于<b>命令层</b>；技能内指路用技能名，禁止反向引用命令或菜单编号；档位用 tweak / normal / strict 表述</td></tr>
+        <tr><td>state 写入</td><td>一律 <span class="cmd">scripts/task-state-entry.sh</span>，<b>禁止直写 yaml 块</b>；字段缺失是常态（draft-create 只写 kind: coding，骨架不落盘），靠增量长出</td></tr>
+        <tr><td>候选呈现</td><td><span class="cmd">&lt;task_id&gt; (工作流：&lt;mode_label&gt;，阶段：&lt;phase_label&gt;，技能：&lt;skill_label&gt;)</span> 单行格式</td></tr>
+        <tr><td>双语言</td><td>先写 <span class="cmd">assets/zh/</span>，用户确认后再同步英文；<b>未同步前不写 Changelog</b>；改技能后测试全绿方可提交</td></tr>
+        <tr><td>配置归属</td><td>配置归代码，<b>禁止用 policy 承载配置表</b>；不保留向后兼容，删旧路径不加兼容层</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>权威源：src/core/config/task-kind-layout.ts（阶段/产物/档位唯一真相）· assets/zh/commands/（命令）· assets/zh/skills/（技能）</span>
+    <span class="ver">Polaris Flow · 维护者卡 · 1/2</span>
+  </div>
+
+</div>
+
+<div class="page">
+
+  <div class="block">
+    <div class="bar">④ 阶段 → 产物 → 归档矩阵<span class="dim">按 kind 五条链，落盘前先查这张表</span></div>
+    <div class="body" style="padding:0;">
+      <table>
+        <tr><th style="width:13%">类型</th><th style="width:15%">阶段（技能）</th><th>产物</th></tr>
+        <tr><td class="kind" rowspan="7">coding<br><span style="font-weight:400;font-size:10px;color:#8a93a6;">开发</span></td><td class="cmd">specify 澄清</td><td class="desc"><span class="path">.polaris/tasks/&lt;id&gt;/intention.md</span>（可迁 openspec/changes/&lt;id&gt;/）</td></tr>
+        <tr><td class="cmd">plan 提案</td><td class="desc"><span class="path">openspec/changes/&lt;id&gt;/{proposal.md, design.md, specs/}</span></td></tr>
+        <tr><td class="cmd">design 深度设计*</td><td class="desc"><span class="path">openspec/changes/&lt;id&gt;/detailed-design.md</span>（仅 strict；plan 出口询问是否深化）</td></tr>
+        <tr><td class="cmd">tasks 任务规划</td><td class="desc"><span class="path">openspec/changes/&lt;id&gt;/tasks.md</span>（复选框；set-checkbox 与 runtime.build 计数原子同步）</td></tr>
+        <tr><td class="cmd">build 构建</td><td class="desc">代码与回归测试（缺陷修复必含 TDD 标记的回归用例）</td></tr>
+        <tr><td class="cmd">verify 验收</td><td class="desc"><span class="path">openspec/changes/&lt;id&gt;/reviews/verify-report.md</span></td></tr>
+        <tr class="hl"><td class="cmd">ship 交付</td><td class="desc">归档 <span class="path">.polaris/archive/&lt;id&gt;/</span></td></tr>
+        <tr><td class="kind" rowspan="4">requirement<br><span style="font-weight:400;font-size:10px;color:#8a93a6;">需求 PRD</span></td><td class="cmd">discovery 澄清</td><td class="desc"><span class="path">req_baseline.md</span> + <span class="path">req_clarify_summary.md</span></td></tr>
+        <tr><td class="cmd">draft 草稿</td><td class="desc"><span class="path">prd-draft.md</span> + <span class="path">_baseline_index.json</span> + <span class="path">_key_points.json</span></td></tr>
+        <tr><td class="cmd">refine 完善</td><td class="desc"><span class="path">prd-final-v1.0.md</span>（内派 review / testability 双评审）</td></tr>
+        <tr class="hl"><td class="cmd">ship 交付</td><td class="desc">归档 <span class="path">docs/prd/</span>；R03 readiness FAIL 阻断并回退 refine</td></tr>
+        <tr><td class="kind" rowspan="4">testcase<br><span style="font-weight:400;font-size:10px;color:#8a93a6;">测试用例</span></td><td class="cmd">discovery 澄清</td><td class="desc"><span class="path">.polaris/testcases/&lt;id&gt;/testcase_plan.md</span></td></tr>
+        <tr><td class="cmd">draft 草稿</td><td class="desc"><span class="path">test-cases.md</span>（来源严格限定为定稿 PRD）</td></tr>
+        <tr><td class="cmd">refine 完善</td><td class="desc"><span class="path">test-cases-{nonfunctional,interface,automation}.md</span> + <span class="path">testcase-review-report.md</span>（review Critical 清零才放行）</td></tr>
+        <tr class="hl"><td class="cmd">ship 交付</td><td class="desc"><span class="path">testcase-report.md</span> → 归档 <span class="path">docs/testcases/&lt;id&gt;/</span></td></tr>
+        <tr><td class="kind" rowspan="3">prototype<br><span style="font-weight:400;font-size:10px;color:#8a93a6;">原型</span></td><td class="cmd">blueprint 蓝图</td><td class="desc"><span class="path">blueprint.md</span> + <span class="path">task-card.md</span>（人工确认后才建造）</td></tr>
+        <tr><td class="cmd">build 构建</td><td class="desc">高保真 HTML 原型（文件名由蓝图定，无固定名，故不登记）</td></tr>
+        <tr class="hl"><td class="cmd">ship 交付</td><td class="desc">归档 <span class="path">docs/prototype/</span>；review 是服务型技能，游标不落</td></tr>
+        <tr><td class="kind" rowspan="3">debug<br><span style="font-weight:400;font-size:10px;color:#8a93a6;">缺陷修复</span></td><td class="cmd">diagnose 诊断与方案</td><td class="desc"><span class="path">diagnose-brief.md</span> + <span class="path">reviews/rca-report.md</span> + <span class="path">tasks.md</span>（通道 hotfix / bugfix 由场景分流步判定）</td></tr>
+        <tr><td class="cmd">patch 实现与自验</td><td class="desc"><span class="path">verification.md</span>（hotfix 通道含五维独立验证）</td></tr>
+        <tr class="hl"><td class="cmd">closeout 关单</td><td class="desc"><span class="path">reviews/bugfix-report.md</span>；归档 <span class="path">docs/troubleshooting/&lt;id&gt;/</span>——<b>不用 .polaris/archive、不走 openspec、不交 ship</b></td></tr>
+      </table>
+      <div class="note">* design 为可选阶段：UI 规则是「已越过渲染为已跳过，而非已完成」。任务目录根：<span class="cmd">.polaris/tasks/&lt;id&gt;/</span>（testcase 族在 <span class="cmd">.polaris/testcases/&lt;id&gt;/</span>）；requirement / prototype / debug 不建 draft 目录，直接正式 task_id。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="bar">⑤ state.yaml 写入纪律<span class="dim">task-state-entry.sh 是唯一写入口</span></div>
+    <div class="body">
+      <div class="cols">
+        <div class="col">
+          <h3>写什么</h3>
+          <ul>
+            <li>阶段推进：<span class="cmd">complete-phase</span>，<b>--next-phase 可省</b>——缺省由 <span class="cmd">nextPhaseForMode</span> 按档位派生（plan→design/tasks 二分支仍显式传）</li>
+            <li>游标语义：出口把游标设成「接下来要执行的阶段」，<b>phase 即待执行阶段</b>，与技能同名映射</li>
+            <li>勾选同步：<span class="cmd">set-checkbox</span> 同锁内写 tasks.md + runtime.build 计数</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h3>别写什么</h3>
+          <ul>
+            <li>禁止直写 yaml 块；<b>worktree 块的 appendFile 是全仓唯一绕过处</b>，重复顶层键会让 yaml 库直接抛错、该文件此后全挂</li>
+            <li><span class="cmd">runtime.propose.*</span> 是孤儿段——propose 已改名 plan，正确路径 <span class="cmd">runtime.plan.*</span></li>
+            <li><span class="cmd">runtime.build.pause_reason</span> 等技能自造字段未登记类型，用前先查 state.example.yaml</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="bar">⑥ CLI 速查<span class="dim">polaris --help 仅列这些；hooks 运行时命令走 polaris-flow</span></div>
+    <div class="body" style="padding:0;">
+      <table>
+        <tr><th style="width:26%">命令</th><th>用途 / 要点</th></tr>
+        <tr><td class="cmd">polaris init</td><td class="desc">初始化工作流 + Harness 环境；Superpowers 依赖 GitHub——不通时用 <span class="cmd">POLARIS_GITHUB_MIRROR</span> 镜像或 <span class="cmd">POLARIS_SUPERPOWERS_PATH</span> 本地目录</td></tr>
+        <tr><td class="cmd">polaris status</td><td class="desc">当前 change 与工作流状态</td></tr>
+        <tr><td class="cmd">polaris dashboard</td><td class="desc">本地工作台，API 与前端同端口；<span class="cmd">--api-only</span> 供前端 HMR</td></tr>
+        <tr><td class="cmd">polaris doctor</td><td class="desc">诊断环境、schema 与 skill 安装状态</td></tr>
+        <tr><td class="cmd">polaris update</td><td class="desc">三层范围可单选：program（本体）/ assets（skills·commands·agents·rules·hooks，按指纹跳过）/ deps（openspec·superpowers·codegraph）。选项 <span class="cmd">--only --skip --force --prune --lang --scope --json</span>；例：<span class="cmd">update --only skills,commands</span></td></tr>
+        <tr><td class="cmd">polaris uninstall</td><td class="desc">卸载组件（占位，尚未实现）</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>配套：速查卡.html（团队推广版）· docs/command-usage-guide.md（命令详解）· docs/使用帮助.md（上手）</span>
+    <span class="ver">Polaris Flow · 维护者卡 · 2/2</span>
+  </div>
+
+</div>
+
+</body>
+</html>

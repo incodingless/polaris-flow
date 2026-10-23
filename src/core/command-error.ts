@@ -1,3 +1,7 @@
+/**
+ * 子进程/命令失败时的错误文本清理与打印。
+ * 供 OpenSpec、Superpowers 等安装路径复用。
+ */
 const ESC = String.fromCharCode(27);
 const ANSI_ESCAPE_PATTERN = new RegExp(`${ESC}\\[[0-9;?]*[a-zA-Z]`, 'g');
 const LOOSE_ESCAPE_PATTERN = new RegExp(`${ESC}\\[[^a-zA-Z\\r\\n]*`, 'g');

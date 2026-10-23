@@ -1,0 +1,79 @@
+/* ────────────────────────────────────────────────────────────────
+ * 评测夹具：一份「需求方提供的公司设计规范」（合规版）
+ *
+ * 用途：evals 用例 e2 —— 验证「取值可整套替换、命名不可替换」这条契约真的成立。
+ * 特征（刻意贴近真实交付物）：
+ *   · 有 :root 外壳，不是裸声明；
+ *   · 带与 Token 无关的规则（真实规范里一定有别的东西）；
+ *   · 取值与技能兜底基线**全部不同**，便于断言覆盖是否真的生效；
+ *   · 文本类 Token 对白底均 >= 4.5:1（最低 --text-placeholder 6.00:1）。
+ * ──────────────────────────────────────────────────────────────── */
+
+:root {
+  /* 品牌主色（企业蓝，替换兜底基线的紫） */
+  --primary-color: #0b6bcb;
+  --primary-hover: #095bb0;
+  --primary-active: #074a91;
+  --primary-light: rgba(11, 107, 203, 0.1);
+
+  /* 功能色 */
+  --success-color: #1f9254;
+  --warning-color: #d98600;
+  --error-color: #d92d20;
+  --info-color: #0b6bcb;
+
+  /* 文本色 —— 对白底 6.00:1 ~ 14.68:1 */
+  --title-color: #12324f;
+  --heading-color: rgba(17, 24, 39, 0.88);
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-placeholder: #5b6470;
+
+  /* 背景 */
+  --bg-page: #f4f6f9;
+  --bg-white: #ffffff;
+  --bg-section: #f7f9fc;
+
+  /* 边框与分隔线 */
+  --border-color: #d5dbe3;
+  --divider-color: #e3e8ef;
+  --divider-soft: #edf1f6;
+
+  /* 间距 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* 圆角 */
+  --radius-sm: 2px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* 阴影 */
+  --shadow-card: 0 1px 8px rgba(15, 23, 42, 0.06);
+
+  /* 字号刻度 */
+  --fs-caption: 12px;
+  --fs-sm: 13px;
+  --fs-body: 14px;
+  --fs-card-title: 15px;
+  --fs-section: 16px;
+  --fs-page-title: 24px;
+  --fs-kpi: 30px;
+  --fs-display: 34px;
+
+  /* 比例基线 */
+  --header-h: 60px;
+  --sidebar-w: 224px;
+  --page-pad-x: 24px;
+  --ctl-h: 36px;
+  --ctl-h-compact: 32px;
+}
+
+/* 真实规范里与 Token 无关的部分：脚手架与原型的 Token 区都不该受它影响 */
+body { -webkit-font-smoothing: antialiased; }
+.tabular { font-variant-numeric: tabular-nums; }

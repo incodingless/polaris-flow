@@ -1,3 +1,12 @@
+## 通用认知
+- Do not preserve backward compatibility. Removeobsolete paths instead of adding compatibility layers, fallbacks, or migrations
+- Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection.
+- Grow the system in layers. Start from the smallest version that works end to end, and add each new capability on topof a product that already works. Never trade a working product for unfinished complexity.
+- Keep components modular and concerns clearly separated.
+- Prefer established, well-maintained libraries when they reduce overall complexity or improve reliability. Do not reimplement common functionality without a clear reason.
+- Lean on the dependencies already in the projedct before writing your own implementation or adding packages. Do not assume a library lacks a capability without checking its documentatiion and types.
+- Make architectural decisions for the long term.Do not accept a stopgap that only works for now and is meant to be replaaced later
+
 
 ## 项目定位
 
@@ -6,7 +15,7 @@ Polaris Flow 是一站式工作流平台，不是单纯的 CLI 壳。本仓库�
 - **安装**：`init` / `doctor` / `update` / `uninstall` 命令及平台检测逻辑
 - **工作流 schema**：OpenSpec schema 模板与配置（`assets/` + `src/core/`）
 - **Skills**：中英文 Skill 包与 `manifest.json` 安装清单
-- **Dashboard**：本地工作流状态可视化（`src/dashboard/`）
+- **Dashboard**：本地工作台，单进程单端口。传输层在 `src/dashboard/`，前端子工程在 `dashboard/`，前端产物构建到 `dist/web/`
 
 ## 架构分层
 
@@ -15,9 +24,23 @@ src/cli/        → Commander 入口，只做命令注册
 src/commands/   → 命令编排（交互、选项解析、输出格式化）
 src/core/       → 平台无关业务逻辑（可单测）
 src/utils/      → 文件 I/O 等通用工具
-src/dashboard/  → Dashboard 服务与前端静态资源
+src/dashboard/  → Dashboard API（传输层：路由、静态托管；业务语义一律下沉 src/core/）
+dashboard/      → Dashboard 前端子工程（Vue + Vite，自带 package.json/lockfile，不参与 pnpm workspace）
 assets/         → 发布到 npm 的 skills、hooks等资产，由 init 分发到用户项目
 ```
+
+仓库结构（单仓）：
+
+```
+polaris-flow/
+├── src/            # CLI、命令编排、core、Dashboard API
+├── dashboard/      # Dashboard 前端子工程；由 devops/build.js 构建到 dist/web
+├── assets/         # 发布到 npm 的 skills / hooks 等资产
+├── devops/         # 维护者构建/发布/打包脚本（build/publish/package 等）
+└── dist/           # 构建产物：dist/*（后端 tsc）、dist/web（前端 vite）
+```
+
+`polaris-web` 与 `polaris-cli` 两仓已于 2026-09-18 并入本仓，不再单独存在。前端**不得**放进 `src/` 下 —— `lint-staged` / `format:check` / `lint` 三条 glob 均以仓库根锚定且只覆盖 `src/**`，放进去会被 prettier 重排（本仓 `semi: true`，前端风格是不写分号）。
 
 依赖方向：`cli → commands → core → utils`，禁止反向依赖。
 
@@ -41,7 +64,11 @@ assets/         → 发布到 npm 的 skills、hooks等资产，由 init 分发�
 ## 文档
 
 - 用户文档：README.md / README-zh.md
-- 专题文档：docs/
+- 专题文档：docs/，按类别归入子目录，命名统一加日期前缀 `YYYY-MM-DD-<slug>.md`：
+  - `docs/plans/`：计划 / 评审 / 审计 / 优化
+  - `docs/specs/`：设计 / 规格
+  - `docs/design/`：流程设计（长期）
+  - 计划/评审/设计类文档不得散落在仓库根目录，必须归入上述子目录；`git mv` 后同步修正文档间互指与 `CHANGELOG.md` 的引用
 - Skill 参考：assets/en/skills/reference/, assets/zh/skills/reference
 
 ## 测试
@@ -76,8 +103,13 @@ pnpm test           # 单元测试
 - 所有可选 grep 结果加 `|| true` 防止 `pipefail` 误杀
 - 新增脚本必须加入 `beforeEach` 的拷贝列表和 manifest.json
 
-脚本位置：
- - 
+脚本位置（按「面向谁」分三类，不要混放）：
+
+- **根目录** = 用户分发入口：`install.sh` / `install.ps1`（用户单独下载执行）
+- **`devops/`** = 维护者的构建·发布·打包脚本：`dev.sh`（入口：状态看板 + 命令菜单）、`build.js` / `build.sh`（构建）、`publish.sh`（发布到 Nexus）、`package.sh`（离线安装包打包）、`prepublish-check.js`（发布前密钥扫描）、`polaris-preseed.cjs`（bundle 预种）、`sync-bundled-skills.mjs`（附带技能版本检查与升级）
+- **`devops/vendor/`** = **外部引入组件的本地后备副本**（`superpowers/`、`bundled-skills/`、`tgz/`）：优先从 GitHub / npm 拉取，本地副本只为网络慢或下载超时时保住一次安装成功率；**不提交 git**（`.gitignore: devops/vendor/*`）。`package.sh` 负责把它们打进 `release/components/` 随离线包分发。
+- **`scripts/`** = 运行时安装辅助与内部工具：`postinstall.js`（npm 钩子）、`check_state_yaml_three_way.py`（state 校验）等
+- 判据：用户单独下载执行的放根目录；维护者构建/发布/打包放 `devops/`；运行时安装辅助与内部工具放 `scripts/`
 
 ## 脚本依赖关系
 
@@ -89,9 +121,16 @@ pnpm test           # 单元测试
 
 ## 双语言 Skill
 
-skill 优化时先写中文版本（`assets/zh/skills/`），用户确认后再修改英文版本（`assets/en/skills/`）。
+skill 优化时只写中文版本（`assets/zh/skills/`）。
 
-不能够直接修改Superpowers和OpenSpec的原始Skill
+## 编号边界（命令 vs 技能）
+
+flow 菜单编号（C/M/R/P/T 前缀码，如 C01、M11、P02）是**命令层**的 UI 概念，只允许出现在 `assets/*/commands/` 中。技能（`assets/*/skills/`）**禁止**引用菜单编号：
+
+- 技能间指路 → 用技能名（`polaris{{SKN_SPR}}<族>{{SKN_SPR}}<技能>`）
+- 开发档位概念 → 用模式名（`tweak` / `normal` / 完整链路），与 `workflow.mode` 词汇一致
+
+豁免：`prototype/blueprint` 的 Page ID 前缀（`<前缀>-P01`）是原型页面编号体系，与菜单编号无关。
 
 ## 中文术语翻译规范
 

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# task-entry.sh — 薄包装 → polaris task-entry
+#
+# `intake`（任务管理与调度层）专用的「进入任务」原语；业务逻辑在 TypeScript
+# （src/core/hooks/task-entry.ts）。执行层（节点技能）不得调用它。
+# 用法: task-entry.sh --kind coding --as intake --mode tweak --repo-root "$REPO_ROOT"
+# 成功 stdout 一行 JSON；参数/环境错误走 stderr + 非 0 退出码。
+
+_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=_polaris-cli.sh
+source "$_SELF/_polaris-cli.sh"
+_polaris_cli_selfheal "${BASH_SOURCE[0]}" "$@"
+exec_polaris task-entry "$@"

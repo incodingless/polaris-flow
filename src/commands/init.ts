@@ -1,37 +1,70 @@
+/**
+ * `polaris init` 命令编排：探测 → 交互选择（prompts）→ 安装 OpenSpec/Superpowers/Polaris → 结果展示。
+ * 不持有底层交互实现；选择与覆盖策略见 `./prompts`。
+ */
 import path from 'path';
+import os from 'os';
 
 import { t } from './i18n/index.js';
 import {
-  promptBulkOverwrite,
-  promptInstallOpenSpec,
-  promptInstallScope,
-  promptInstallSuperpowers,
-  promptOverwriteExisting,
-  promptPlatforms,
-  promptSkillLanguage,
-  type OverwriteMode,
+  InitPromptOptions,
+  buildInstallPlans,
+  selectLanguage,
+  selectPlatforms,
+  selectScope,
 } from './prompts.js';
-import { detectPlatforms, getBaseDir, hasSkills } from '../core/detect.js';
-import { installOpenSpec } from '../core/openspec.js';
-import { installSuperpowersForPlatforms } from '../core/superpowers.js';
-import { getLanguageSkillsDir, readAssetManifest } from '../core/manifest.js';
-import {copyPolarisRulesForPlatform, installPolarisHooksForPlatform, copyPolarisSkillsForPlatform, createWorkingDirs, getAssetsDir} from '../core/skills.js';
-import { PLATFORMS, type Platform } from '../core/platforms.js';
-import { printVersionInfo } from '../core/version.js';
-import type { InstallScope, SkillLanguage } from '../core/types.js';
+import { detectPlatforms, getBaseDir } from '../core/integrations/detect.js';
+import {
+  ensureBundledSkillsSource,
+  getBundledSkillsSourceDir,
+} from '../core/integrations/bundled-skills.js';
+import { installOpenSpec } from '../core/integrations/openspec.js';
+import {
+  installSuperpowersForPlatforms,
+  SUPERPOWERS_MIN_VERSION,
+} from '../core/integrations/superpowers.js';
+import {
+  writeLockFile,
+  type LockSourceEntry,
+  initPolarisConfig,
+  installPolarisForPlatform,
+} from '../core/install.js';
+import { getNpmPackageVersion } from '../core/deps/npm.js';
+import { getAssetsDir, getGlobalPolarisConfigSrc } from '../core/assets/manifest.js';
+import { getGlobalPolarisConfigPath } from '../core/assets/polaris-paths.js';
+import { getPlatformContextDir } from '../core/domain/platforms.js';
+import { resolveHooksConfigPath } from '../core/install/hooks.js';
+import { bold, dim, cyan, green, yellow, red, blue, drawBox } from '../utils/color.js';
+import {
+  loadPolarisConfig,
+  type InstallScope,
+  type Languages,
+} from '../core/config/polaris-project-config.js';
+import { initializePolarisCommonLayout } from '../core/install/layout.js';
+import { CODEGRAPH_PACKAGE, installCodegraph } from '../core/integrations/codegraph.js';
+import { fileExists } from '../utils/file-system.js';
+import { writeYamlFromTemplate } from '../utils/yaml-io.js';
+import { loadManifestConfig } from '../core/assets/manifest.js';
+import { readInstallSectionFromFile } from '../core/install/channels.js';
 
-export type InitOptions = {
-  yes?: boolean;
-  scope?: InstallScope;
-  overwrite?: boolean;
-  skipExisting?: boolean;
-  lang?: SkillLanguage;
-  json?: boolean;
+type InstallStatus = 'installed' | 'skipped' | 'failed';
+
+export type PluginInstallResult = {
+  id: string;
+  version: string;
+  status: InstallStatus;
 };
 
 export type InitPlatformResult = {
+  baseDir: string;
   platformId: string;
+  platformName: string;
+  openspec: InstallStatus;
+  superpowers: InstallStatus;
+  polaris: InstallStatus;
   skills: { copied: number; skipped: number };
+  commands: { copied: number; skipped: number };
+  agents: { copied: number; skipped: number };
   rules: { copied: number; skipped: number };
   hooks: { installed: boolean; reason?: string };
 };
@@ -39,215 +72,454 @@ export type InitPlatformResult = {
 export type InitResult = {
   projectPath: string;
   scope: InstallScope;
-  language: SkillLanguage;
+  language: Languages;
   platforms: string[];
-  openspec: string;
-  superpowers: string;
-  platformResults: InitPlatformResult[];
+  results: InitPlatformResult[];
 };
 
+/** 将平台资产失败与 Superpowers 组件失败分开，避免「已安装又失败」误报 */
+export function classifyInitSummary(results: InitPlatformResult[]): {
+  installed: InitPlatformResult[];
+  skipped: InitPlatformResult[];
+  platformFailed: InitPlatformResult[];
+  superpowersFailed: InitPlatformResult[];
+} {
+  return {
+    installed: results.filter(
+      (r) =>
+        r.polaris === 'installed' || r.superpowers === 'installed' || r.openspec === 'installed',
+    ),
+    skipped: results.filter(
+      (r) => r.polaris === 'skipped' && r.superpowers === 'skipped' && r.openspec === 'skipped',
+    ),
+    platformFailed: results.filter((r) => r.polaris === 'failed' || r.openspec === 'failed'),
+    superpowersFailed: results.filter((r) => r.superpowers === 'failed'),
+  };
+}
+
 type Logger = (message: string) => void;
+
+const OPENSPEC_PACKAGE = '@fission-ai/openspec';
+
+const POLARIS_BANNER = [
+  ``,
+  `${green('▄▄▄▄▄▄')}                                              ${red('██')}                ${green('▄▄▄▄▄▄▄▄')} ▄▄▄▄                         `,
+  `${green('██▀▀▀▀█▄')}                                            ${red('▀▀')}                ${green('██▀▀▀▀▀▀')} ▀▀██                         `,
+  `${green('██    ██')}  ▄████▄     ██       ▄█████▄   ██▄████   ████     ▄▄█████▄   ${green('██      ')}   ██       ▄████▄  ██      ██`,
+  `${green('██████▀ ')} ██▀  ▀██    ██       ▀ ▄▄▄██   ██▀         ██     ██▄▄▄▄ ▀   ${green('███████ ')}   ██      ██▀  ▀██ ▀█  ██  █▀`,
+  `${green('██      ')} ██    ██    ██      ▄██▀▀▀██   ██          ██      ▀▀▀▀██▄   ${green('██      ')}   ██      ██    ██  ██▄██▄██ `,
+  `${green('██      ')} ▀██▄▄██▀    ██▄▄▄   ██▄▄▄███   ██       ▄▄▄██▄▄▄  █▄▄▄▄▄██   ${green('██      ')}   ██▄▄▄   ▀██▄▄██▀  ▀██  ██▀ `,
+  `${green('▀▀      ')}   ▀▀▀▀       ▀▀▀▀    ▀▀▀▀ ▀▀   ▀▀       ▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀    ${green('██')}          ▀▀▀▀     ▀▀▀▀     ▀▀  ▀▀  `,
+  `${green('='.repeat(106))}`,
+  `  ${bold('OpenSpec')} + ${bold('Superpowers')} + ${bold('Polaris')} Workflow`,
+  ``,
+].join('\n');
 
 function createLogger(json: boolean): Logger {
   return json ? () => {} : (message: string) => console.log(message);
 }
 
-async function resolveOverwriteMode(
-  options: InitOptions,
-  lang: string | undefined,
-): Promise<OverwriteMode> {
-  if (options.overwrite) return true;
-  if (options.skipExisting) return false;
-  if (options.yes) return false;
-  return promptBulkOverwrite(lang);
+function statusSymbol(status: InstallStatus): string {
+  if (status === 'installed') return green('✓');
+  if (status === 'skipped') return dim('○');
+  return red('✗');
 }
 
-async function shouldOverwriteComponent(
-  exists: boolean,
-  overwriteMode: OverwriteMode,
-  lang: string | undefined,
-): Promise<boolean> {
-  if (!exists) return true;
-  if (overwriteMode === true) return true;
-  if (overwriteMode === false) return false;
-  return promptOverwriteExisting(lang);
+function statusLabel(status: InstallStatus, lang: Languages): string {
+  if (status === 'installed') return green('installed');
+  if (status === 'skipped') return dim(t(lang, 'skip'));
+  return red(t(lang, 'failedStatus'));
 }
 
-async function resolveInitConfig(
-  projectPath: string,
-  options: InitOptions,
-): Promise<{
-  scope: InstallScope;
-  language: SkillLanguage;
-  platforms: Platform[];
-  installOpenSpecCli: boolean;
-  installSuperpowers: boolean;
-  overwriteMode: OverwriteMode;
-}> {
-  const detected = await detectPlatforms(projectPath);
-  const langHint = options.lang;
+function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang: Languages): void {
+  const scopeLabel = scope === 'global' ? os.homedir() : 'project';
 
-  const scope =
-    options.scope ?? (options.yes ? 'project' : await promptInstallScope(langHint));
-  const language =
-    options.lang ?? (options.yes ? 'en' : await promptSkillLanguage(langHint));
+  console.log(
+    `\n  ${green(bold('✓'))}  ${bold(t(lang, 'setupComplete'))} ${dim(`${t(lang, 'summaryScope')} ${scopeLabel}`)}\n`,
+  );
 
-  let platforms: Platform[];
-  if (options.yes) {
-    platforms = PLATFORMS.filter((p) => detected.has(p.id));
-    if (platforms.length === 0) {
-      platforms = PLATFORMS.filter((p) => p.id === 'cursor' || p.id === 'claude');
+  const summary = classifyInitSummary(results);
+  const installed = summary.installed;
+  const skipped = summary.skipped;
+  const superpowersFailed = summary.superpowersFailed;
+  const platformAssetFailed = summary.platformFailed;
+
+  if (installed.length > 0) {
+    console.log(`  ${green(t(lang, 'installed'))}`);
+    for (const r of installed) {
+      console.log(`    ${green('✓')}  ${bold(r.platformName)} ${dim(`${r.baseDir}/skills/`)}`);
     }
-  } else {
-    platforms = await promptPlatforms(detected, langHint);
+  }
+  if (skipped.length > 0) {
+    console.log(
+      `  ${yellow(t(lang, 'skippedLabel'))}  ${skipped.map((r) => r.platformName).join(', ')}`,
+    );
+  }
+  if (platformAssetFailed.length > 0) {
+    console.log(
+      `  ${red(t(lang, 'failedLabel'))}   ${platformAssetFailed.map((r) => r.platformName).join(', ')}`,
+    );
+  }
+  if (superpowersFailed.length > 0) {
+    console.log(`  ${red(t(lang, 'failedComponentSuperpowers'))}`);
   }
 
-  if (platforms.length === 0) {
-    throw new Error(t(langHint, 'noPlatforms'));
-  }
-
-  const overwriteMode = await resolveOverwriteMode(options, langHint);
-
-  let installOpenSpecCli = true;
-  let installSuperpowersFlag = true;
-
-  if (!options.yes) {
-    installOpenSpecCli = await promptInstallOpenSpec(langHint);
-    installSuperpowersFlag = await promptInstallSuperpowers(langHint);
-  }
-
-  return {
-    scope,
-    language,
-    platforms,
-    installOpenSpecCli,
-    installSuperpowers: installSuperpowersFlag,
-    overwriteMode,
-  };
+  console.log(`\n  ${bold(t(lang, 'getStarted'))}`);
+  console.log(`    ${cyan(t(lang, 'getStartedPolaris'))}`);
+  console.log(`    ${cyan(t(lang, 'getStartedHotfix'))}`);
+  console.log(`    ${cyan(t(lang, 'getStartedTweak'))}\n`);
 }
 
-const POLARIS_BANNER = [
-  ``,
-  `  ${cyan('░█████████ ')}            ░██                     ░██            ${cyan('░██████████')}░██`,
-  `  ${cyan('░██     ░██')}            ░██                                    ${cyan('░██        ')}░██`,
-  `  ${cyan('░██     ░██')} ░███████   ░██  ░██████   ░██░████ ░██ ░███████   ${cyan('░██        ')}░██  ░███████  ░██    ░██    ░██`,
-  `  ${cyan('░█████████ ')} ░██    ░██ ░██       ░██  ░███     ░██░██         ${cyan('░█████████ ')}░██ ░██    ░██ ░██    ░██    ░██`,
-  `  ${cyan('░██        ')} ░██    ░██ ░██  ░███████  ░██      ░██ ░███████   ${cyan('░██        ')}░██ ░██    ░██  ░██  ░████  ░██ `,
-  `  ${cyan('░██        ')} ░██    ░██ ░██ ░██   ░██  ░██      ░██       ░██  ${cyan('░██        ')}░██ ░██    ░██   ░██░██ ░██░██  `,
-  `  ${cyan('░██        ')}  ░███████  ░██  ░█████░██ ░██      ░██ ░███████   ${cyan('░██        ')}░██  ░███████     ░███   ░███   `,
-  ``,
-].join('\n');
-
-export async function runInit(rawPath: string, options: InitOptions = {}): Promise<InitResult> {
-  const projectPath = path.resolve(rawPath || process.cwd());
+export async function runInit(rawPath: string, options: InitPromptOptions): Promise<InitResult> {
   const log = createLogger(Boolean(options.json));
 
+  const projectPath = path.resolve(rawPath || process.cwd());
+  const langHint = options.lang;
+
   if (!options.json) {
-    await printVersionInfo(log);
-    log(`${t(options.lang, 'settingUp')} ${projectPath}`);
+    log(`\n${POLARIS_BANNER}`);
+    log(`  ${dim(t(langHint, 'settingUp'))} ${bold(projectPath)}\n`);
+    log(
+      drawBox(
+        [
+          `${cyan('◆')}  OpenSpec + Superpowers + Polaris skills`,
+          `${cyan('◆')}  /polaris workflow commands`,
+        ],
+        42,
+      ),
+    );
+    log('');
   }
 
-  const config = await resolveInitConfig(projectPath, options);
-  const { scope, language, platforms, installOpenSpecCli, installSuperpowers, overwriteMode } =
-    config;
-  const baseDir = getBaseDir(scope, projectPath);
-  const languageSkillsDir = getLanguageSkillsDir(language);
+  const detectedPlatforms = await detectPlatforms(projectPath);
+  const scope = await selectScope(options, langHint);
+  // 已有 config 时沿用其语言：--yes 缺省为 zh，重装不该把既有语言改掉
+  const existingConfig = await loadPolarisConfig(projectPath);
+  const language = await selectLanguage(options, langHint, existingConfig?.language);
   const lang = language;
+  const platforms = await selectPlatforms(detectedPlatforms, options, lang);
 
-  const toolIds = [...new Set(platforms.map((p) => p.openspecToolId))];
-  const platformIds = platforms.map((p) => p.id);
+  if (platforms.length === 0) {
+    if (options.json) {
+      console.log(
+        JSON.stringify({ projectPath, scope, language, platforms: [], results: [] }, null, 2),
+      );
+      return { projectPath, scope, language, platforms: [], results: [] };
+    }
+    log(`\n  ${t(lang, 'noPlatforms')}\n`);
+    return { projectPath, scope, language, platforms: [], results: [] };
+  }
 
-  log(`${t(lang, 'installingOS')} ${toolIds.join(', ')}`);
-  const openspecStatus = await installOpenSpec(
-    projectPath,
-    toolIds,
-    scope,
-    installOpenSpecCli,
-  );
-
-  log(`${t(lang, 'installingSP')} ${platformIds.join(', ')}`);
-  const superpowersStatus = await installSuperpowersForPlatforms(
-    projectPath,
-    scope,
-    platformIds,
-    installSuperpowers,
-  );
-
+  const baseDir = getBaseDir(scope, projectPath);
+  const plans = await buildInstallPlans(baseDir, platforms, scope, options, lang);
+  const lockSources: LockSourceEntry[] = [];
   const platformResults: InitPlatformResult[] = [];
+  const pluginResults: PluginInstallResult[] = [];
+  // --- 1. OpenSpec ---
+  const osPlatforms = plans
+    .filter((p) => p.osAction !== 'skip' && p.platform.openspecToolId)
+    .map((p) => p.platform);
+  let osGlobalStatus: InstallStatus = 'skipped';
 
-  for (const platform of platforms) {
-    const hasPolaris = await hasSkills(baseDir, platform, 'polaris', platforms, scope);
-    const overwriteSkills = await shouldOverwriteComponent(
-      hasPolaris,
-      overwriteMode,
-      lang,
-    );
+  if (osPlatforms.length > 0) {
+    const osLabels = osPlatforms.map((p) => p.id).join(', ');
+    log(`\n  ${blue('⏳')} ${bold('OpenSpec')} ${dim(`${t(lang, 'installingOS')} ${osLabels}`)}`);
+    osGlobalStatus = await installOpenSpec(projectPath, osPlatforms, scope, true);
+    log(`  ${statusSymbol(osGlobalStatus)}  OpenSpec ${statusLabel(osGlobalStatus, lang)}`);
+    const installedVersion =
+      osGlobalStatus === 'installed' ? getNpmPackageVersion(OPENSPEC_PACKAGE) : '0.0.0';
 
-    const skills = await copyPolarisSkillsForPlatform(
-      baseDir,
-      platform,
-      overwriteSkills,
-      languageSkillsDir,
-      scope,
-    );
-    const rules = await copyPolarisRulesForPlatform(
-      baseDir,
-      platform,
-      overwriteSkills,
-      scope,
-      languageSkillsDir,
-    );
-    const hooks = await installPolarisHooksForPlatform(baseDir, platform, scope);
-
-    platformResults.push({
-      platformId: platform.id,
-      skills,
-      rules,
-      hooks,
+    pluginResults.push({
+      id: 'openspec',
+      version: installedVersion,
+      status: osGlobalStatus,
     });
 
-    if (!options.json) {
+    lockSources.push({
+      id: 'openspec',
+      version: installedVersion,
+    });
+  } else {
+    log(`\n  ${dim('○')}  OpenSpec ${dim(t(lang, 'skip'))}`);
+  }
+
+  // --- 2. Superpowers ---
+  const spPlatformIds = plans.filter((p) => p.spAction !== 'skip').map((p) => p.platform.id);
+  let spGlobalStatus: InstallStatus = 'skipped';
+
+  if (spPlatformIds.length > 0) {
+    log(`\n  ${blue('⏳')} ${bold('Superpowers')} ${dim(`>= ${SUPERPOWERS_MIN_VERSION}`)}...`);
+    const spResult = await installSuperpowersForPlatforms(projectPath, scope, spPlatformIds, true);
+    spGlobalStatus = spResult.status;
+    log(`  ${statusSymbol(spGlobalStatus)}  Superpowers ${statusLabel(spGlobalStatus, lang)}`);
+
+    pluginResults.push({
+      id: 'superpowers',
+      version: spResult.version,
+      status: spGlobalStatus,
+    });
+
+    if (spGlobalStatus === 'installed') {
+      lockSources.push({
+        id: 'superpowers',
+        version: spResult.version,
+      });
+    }
+  } else {
+    log(`\n  ${dim('○')}  Superpowers ${dim(t(lang, 'skip'))}`);
+  }
+
+  // --- 3. Codegraph ---
+  const shouldInstallCodegraph = plans.some((p) => p.codegraphAction !== 'skip');
+
+  if (shouldInstallCodegraph) {
+    log(`\n  ${blue('⏳')} ${bold('Codegraph')}...`);
+    const codegraphGlobalStatus = await installCodegraph(
+      projectPath,
+      scope,
+      shouldInstallCodegraph,
+    );
+    log(
+      `  ${statusSymbol(codegraphGlobalStatus)}  Codegraph ${statusLabel(codegraphGlobalStatus, lang)}`,
+    );
+
+    const codegraphVersion =
+      codegraphGlobalStatus === 'installed' ? getNpmPackageVersion(CODEGRAPH_PACKAGE) : '0.0.0';
+
+    pluginResults.push({
+      id: 'codegraph',
+      version: codegraphVersion,
+      status: codegraphGlobalStatus,
+    });
+
+    lockSources.push({
+      id: 'codegraph',
+      version: codegraphVersion,
+    });
+  } else {
+    log(`\n  ${dim('○')}  Codegraph ${dim(t(lang, 'skip'))}`);
+  }
+
+  // --- 4. 附带技能源（图表工具；GitHub 优先，本地兜底）---
+  // 注意：这里只负责把源拉到 ~/.polaris/components/bundled-skills，
+  // 真正的落盘在 installPolarisForPlatform 的 skills 步骤里做本地拷贝。
+  if (plans.some((p) => p.polarisAction !== 'skip')) {
+    log(
+      `\n  ${blue('⏳')} ${bold('Diagram')} ${dim(`(archify / diagram-design → ${getBundledSkillsSourceDir()})`)}...`,
+    );
+    const bundled = await ensureBundledSkillsSource();
+    if (bundled.missing.length === 0) {
+      log(`  ${statusSymbol('installed')}  Diagram ${statusLabel('installed', lang)}`);
+    } else {
       log(
-        `  ${platform.name}: ${skills.copied} ${t(lang, 'skillsCopiedSkipped')} ${skills.skipped} ${t(lang, 'hooksSkipped')}`,
+        `  ${statusSymbol('failed')}  Diagram ${statusLabel('failed', lang)} ${dim(bundled.missing.join(', '))}`,
+      );
+      for (const [name, reason] of Object.entries(bundled.errors)) {
+        log(`  ${dim(`↳ ${name}: ${reason}`)}`);
+      }
+      log(
+        `  ${dim('↳ 本地已有副本仍会安装。手动重试：POLARIS_GITHUB_MIRROR=<镜像> polaris init')}`,
       );
     }
   }
 
-  if (scope === 'project') {
-    await createWorkingDirs(projectPath);
-    const assetsDir = getAssetsDir();
-    const manifest = await readAssetManifest(assetsDir);
-    const versionPath = path.join(projectPath, '.polaris', 'installed-version');
-    const { writeFile } = await import('fs/promises');
-    await writeFile(versionPath, `${manifest.version}\n`, 'utf-8');
+  // --- 5. Polaris bundled（skills → commands → agents → rules → hooks）---
+  const polarisNeeded = plans.some((p) => p.polarisAction !== 'skip');
+  let polarisGlobalStatus: InstallStatus = 'skipped';
+
+  if (polarisNeeded) {
+    log(`\n  ${blue('⏳')} ${bold('Polaris')} ${dim('(bundled)')}...`);
+    try {
+      //----- 1. 创建Polaris公共工作目录结构与配置 -----
+      await initializePolarisCommonLayout(projectPath, scope);
+
+      //----- 2. 生成 Polaris 全局配置文件 -----
+      await generatePolarisGlobalConfig(
+        getGlobalPolarisConfigPath(),
+        Boolean(options.overwrite),
+        pluginResults,
+      );
+
+      //----- 3. 生成 Polaris 项目配置文件 -----
+      await initPolarisConfig(projectPath, language, scope, platforms, Boolean(options.overwrite));
+
+      //----- 4. 按选择的平台逐个安装 Polaris -----
+      for (const plan of plans) {
+        if (plan.polarisAction === 'skip') continue;
+
+        const result = await installPolarisForPlatform(
+          baseDir,
+          plan.platform,
+          plan.polarisAction === 'overwrite',
+          language,
+          scope,
+          projectPath,
+        );
+
+        platformResults.push({
+          baseDir: baseDir,
+          platformId: plan.platform.id,
+          platformName: plan.platform.name,
+          openspec:
+            plan.osAction !== 'skip' && plan.platform.openspecToolId ? osGlobalStatus : 'skipped',
+          superpowers: plan.spAction !== 'skip' ? spGlobalStatus : 'skipped',
+          polaris: 'installed',
+          skills: result.skills,
+          commands: result.commands,
+          agents: result.agents,
+          rules: result.rules,
+          hooks: result.hooks,
+        });
+
+        log(
+          `  ${green('✓')}  Polaris ${dim('→')} ${plan.platform.name} ${dim(`(${result.skills.copied} ${t(lang, 'skillsCopiedSkipped')} ${result.skills.skipped} ${t(lang, 'hooksSkipped')})`)}`,
+        );
+      }
+      polarisGlobalStatus = 'installed';
+
+      const assetsDir = getAssetsDir();
+      const manifest = await loadManifestConfig(assetsDir);
+
+      lockSources.push({ id: 'polaris', version: manifest.version });
+    } catch (err) {
+      log(`  ${red('✗')}  Polaris: ${red((err as Error).message)}`);
+      polarisGlobalStatus = 'failed';
+    }
+  } else {
+    log(`\n  ${dim('○')}  Polaris ${dim(t(lang, 'skip'))}`);
+  }
+
+  // --- 6. Hooks 安装结果汇报（已由 installPolarisForPlatform 注册）---
+  if (polarisGlobalStatus === 'installed') {
+    log(`\n  ${blue('⏳')} ${bold('Hooks')}...`);
+    for (const plan of plans) {
+      if (plan.polarisAction === 'skip') continue;
+
+      const result = platformResults.find((r) => r.platformId === plan.platform.id);
+      const hooks = result?.hooks ?? { installed: false };
+
+      if (hooks.installed) {
+        const hooksLocation = resolveHooksConfigPath(
+          getPlatformContextDir(plan.platform, scope, projectPath),
+          plan.platform,
+          scope,
+        );
+        log(
+          `  ${green('✓')}  Hooks ${dim('→')} ${plan.platform.name} ${dim(`(${hooksLocation})`)}`,
+        );
+      } else if (hooks.reason?.includes('already')) {
+        log(`  ${dim('○')}  Hooks: ${plan.platform.name} ${dim('already registered')}`);
+      } else if (hooks.reason === 'platform does not support hooks') {
+        log(`  ${dim('○')}  Hooks: ${plan.platform.name} ${dim('not supported')}`);
+      } else if (hooks.reason === 'no hooks defined in manifest') {
+        log(`  ${dim('○')}  Hooks: ${plan.platform.name} ${dim('none in manifest')}`);
+      }
+    }
+  }
+
+  // 补齐仅跳过 Polaris 但仍需记录状态的平台
+  for (const plan of plans) {
+    if (platformResults.some((r) => r.platformId === plan.platform.id)) continue;
+    platformResults.push({
+      baseDir: baseDir,
+      platformId: plan.platform.id,
+      platformName: plan.platform.name,
+      openspec:
+        plan.osAction !== 'skip' && plan.platform.openspecToolId ? osGlobalStatus : 'skipped',
+      superpowers: plan.spAction !== 'skip' ? spGlobalStatus : 'skipped',
+      polaris: plan.polarisAction === 'skip' ? 'skipped' : polarisGlobalStatus,
+      skills: { copied: 0, skipped: 0 },
+      commands: { copied: 0, skipped: 0 },
+      agents: { copied: 0, skipped: 0 },
+      rules: { copied: 0, skipped: 0 },
+      hooks: { installed: false },
+    });
+  }
+
+  if (lockSources.length > 0) {
+    await writeLockFile(
+      projectPath,
+      language,
+      scope,
+      platforms.map((p) => p.id),
+      lockSources,
+    );
   }
 
   const result: InitResult = {
     projectPath,
     scope,
     language,
-    platforms: platformIds,
-    openspec: openspecStatus,
-    superpowers: superpowersStatus,
-    platformResults,
+    platforms: platforms.map((p) => p.id),
+    results: platformResults,
   };
 
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));
   } else {
-    log('');
-    log(t(lang, 'setupComplete'));
-    log(`${t(lang, 'installed')} ${platformIds.join(', ')}`);
+    displaySummary(platformResults, scope, lang);
     log(t(lang, 'workingDirs'));
-    log(t(lang, 'getStarted'));
-    log(t(lang, 'getStartedPolaris'));
-    log(t(lang, 'getStartedHotfix'));
-    log(t(lang, 'getStartedTweak'));
   }
 
   return result;
 }
 
-export async function initCommand(projectPath: string, options: InitOptions): Promise<void> {
+export async function initCommand(projectPath: string, options: InitPromptOptions): Promise<void> {
   await runInit(projectPath, options);
+}
+
+/**
+ * 基于 polaris.example.yaml 生成全局 `~/.polaris/polaris.yaml`。
+ * 保留模板注释；写入 version / install-time / plugins。
+ * @param polarisGlobalConfigPath 全局配置路径
+ * @param overwrite 为 true 时即使文件已存在也按模板重写
+ * @param pluginResults 已安装插件列表，写入 plugins 字段
+ */
+async function generatePolarisGlobalConfig(
+  polarisGlobalConfigPath: string,
+  overwrite: boolean = false,
+  pluginResults: PluginInstallResult[],
+): Promise<void> {
+  const existed = await fileExists(polarisGlobalConfigPath);
+  if (!overwrite && existed) {
+    return;
+  }
+
+  // overwrite 重写时保留既有 install: 段（install.sh/ps1 预种或用户手配的镜像/本地目录，
+  // 不能随模板重置而丢失）
+  const existingInstall = existed
+    ? await readInstallSectionFromFile(polarisGlobalConfigPath)
+    : null;
+
+  // 始终从模板读，避免 overwrite 时读到旧目标
+  await writeYamlFromTemplate(getGlobalPolarisConfigSrc(), polarisGlobalConfigPath, {
+    keepComments: true,
+    transform: (doc) => {
+      doc.set('version', '0.1.0');
+      doc.set('install-time', new Date().toISOString());
+      doc.set(
+        'plugins',
+        pluginResults.map((p) => ({
+          id: p.id,
+          version: p.version,
+        })),
+      );
+      if (existingInstall) {
+        doc.setIn(['install', 'github-mirror'], existingInstall.githubMirror ?? '');
+        doc.setIn(['install', 'npm-registry'], existingInstall.npmRegistry ?? '');
+        doc.setIn(
+          ['install', 'local-paths', 'openspec'],
+          existingInstall.localPaths.openspec ?? '',
+        );
+        doc.setIn(
+          ['install', 'local-paths', 'superpowers'],
+          existingInstall.localPaths.superpowers ?? '',
+        );
+        doc.setIn(
+          ['install', 'local-paths', 'codegraph'],
+          existingInstall.localPaths.codegraph ?? '',
+        );
+      }
+    },
+  });
 }
