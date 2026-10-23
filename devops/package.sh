@@ -7,6 +7,10 @@
 #   ├─ install.ps1
 #   ├─ config.ini            # 扁平 KEY=VALUE（用户可编辑）
 #   ├─ bundle-manifest.json  # 组件版本清单（install.sh 记录 plugins 段用）
+#   ├─ 安装手册-*.md/.pdf     # 使用者文档：从 docs/releases/ 拷入
+#   ├─ 命令使用说明.md
+#   ├─ 使用帮助.md
+#   ├─ 使用者速查卡.pdf
 #   └─ components/
 #      ├─ openspec-<ver>.tgz   # npm pack 产物（离线免构建）
 #      ├─ codegraph-<ver>.tgz  # npm pack 产物
@@ -245,17 +249,61 @@ const m = {
 fs.writeFileSync(process.env.MANIFEST, JSON.stringify(m, null, 2) + "\n");
 '
 
+# --- 6.5 使用者文档（拷入 docs/releases 下的成品，随包分发）---
+# 离线包自带「怎么装、怎么用」：安装手册（双平台）、命令使用说明、使用帮助、使用者速查卡。
+# 缺失只告警不中断 —— PDF 是本地生成物（.gitignore 排除），没有源文件的人打不出来，
+# 不应因此让整包打包失败。清单写死而非 glob：release/ 里出现别的文档不该被自动带出去。
+# 计数用标量而非 ${#arr[@]}：macOS 自带 bash 3.2 对空数组 + set -u 会报 unbound variable。
+DOCS_SRC="$ROOT/docs/releases"
+RELEASE_DOCS=(
+  "安装手册-macOS.md"
+  "安装手册-Windows.md"
+  "安装手册-Windows.pdf"
+  "命令使用说明.md"
+  "使用帮助.md"
+  "使用者速查卡.pdf"
+)
+docs_copied=""
+docs_count=0
+for doc in "${RELEASE_DOCS[@]}"; do
+  if [ -f "$DOCS_SRC/$doc" ]; then
+    cp "$DOCS_SRC/$doc" "$OUT_DIR/"
+    docs_copied="${docs_copied}${doc} "
+    docs_count=$((docs_count + 1))
+  else
+    warn "缺少使用者文档 docs/releases/$doc（跳过）"
+  fi
+done
+if [ "$docs_count" -eq 0 ]; then
+  warn "一份使用者文档都没带上，离线包将不含安装手册"
+fi
+
 # --- 7. 可选 zip ---
 if [ "$DO_ZIP" = true ]; then
   info "打包 ${OUT_DIR}.zip ..."
   rm -f "${OUT_DIR}.zip"
-  (cd "$OUT_DIR" && zip -rq "../${OUT_DIR}.zip" .) || die "zip 打包失败"
+  # 必须用 bsdtar：macOS 自带 Info-ZIP 3.0 写中文文件名时不设 UTF-8 flag（0x800），
+  # Windows 解压按本地代码页解释 → 文档名全成乱码。bsdtar 会正确打标。
+  # 先取值再判断，不做 `tar --version | head -1 | grep -q`：head 提前退出会让上游 EPIPE，
+  # pipefail 下整条管道恒为非零，判断失效。
+  tar_flavor="$(tar --version 2>/dev/null | head -1 || true)"
+  case "$tar_flavor" in
+    *bsdtar*)
+      (cd "$OUT_DIR" && tar -a -cf "../${OUT_DIR}.zip" .) || die "zip 打包失败"
+      ;;
+    *)
+      warn "当前 tar 不是 bsdtar（GNU tar 不支持 -a 打 zip），回退到 zip"
+      warn "中文文件名在 Windows 上解压可能乱码；建议在 macOS 上打 zip"
+      (cd "$OUT_DIR" && zip -rq "../${OUT_DIR}.zip" .) || die "zip 打包失败"
+      ;;
+  esac
 fi
 
 info "完成:"
 echo "  install.sh/install.ps1/polaris-preseed.cjs"
 echo "  config.ini（npm-registry 默认 ${REGISTRY}）"
 echo "  bundle-manifest.json"
+echo "  使用者文档 ${docs_count} 份: ${docs_copied:-无}"
 echo "  components/superpowers@${superpowers_version}"
 echo "  components/openspec@${openspec_version}（tgz）"
 echo "  components/codegraph@${codegraph_version}（tgz）"

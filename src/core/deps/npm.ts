@@ -1,11 +1,17 @@
 /**
- * npm / npx 可执行文件与全局包版本查询。
+ * npm / npx 可执行文件、全局 prefix 可写性，以及伴生 CLI（openspec / codegraph）的
+ * 「装到哪、从哪找」决策。
+ *
+ * 关键约定：全局 npm 目录不可写时**不要求 sudo**，改装到 `~/.polaris/cli`（见
+ * `resolveCliInstallTarget`）。sudo 装出来的文件属主是 root，普通用户既改不了也升级不了。
  */
 
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
+
+import { getUserCliBinDir, getUserCliPrefixDir } from '../assets/polaris-paths.js';
 
 /** 按平台返回 npm 或 npx 可执行名（Windows 用 .cmd） */
 export function getNodeToolExecutable(
@@ -23,12 +29,15 @@ export function getNodeToolExecutable(
  */
 export function getNpmPackageVersion(packageName: string): string {
   try {
-    const npm = getNodeToolExecutable('npm');
-    const output = execSync(`${npm} list -g ${packageName} --json`, {
-      encoding: 'utf-8',
-      timeout: 15000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const output = execFileSync(
+      getNodeToolExecutable('npm'),
+      ['list', '-g', packageName, '--json'],
+      {
+        encoding: 'utf-8',
+        timeout: 15000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    );
     const data = JSON.parse(output);
     return data.dependencies?.[packageName]?.version ?? '0.0.0';
   } catch {
@@ -41,8 +50,7 @@ export function getNpmPackageVersion(packageName: string): string {
  */
 export function getNpmGlobalPrefix(): string | null {
   try {
-    const npm = getNodeToolExecutable('npm');
-    const output = execSync(`${npm} config get prefix`, {
+    const output = execFileSync(getNodeToolExecutable('npm'), ['config', 'get', 'prefix'], {
       encoding: 'utf-8',
       timeout: 15000,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -82,15 +90,119 @@ export function isNpmGlobalPrefixWritable(prefix: string): boolean | null {
   }
 }
 
+/** 伴生 CLI 的安装落点：全局（可写时）或用户目录（不可写时） */
+export type CliInstallTarget = {
+  /** global = 沿用 npm 默认全局 prefix；user = 装到 `~/.polaris/cli` */
+  kind: 'global' | 'user';
+  /** 传给 `npm install -g --prefix` 的前缀；global 时为 undefined */
+  prefix?: string;
+};
+
 /**
- * 打印 npm 全局 prefix 不可写的定向提示（与 install.sh「必须 root 安装」口径一致）。
- * @param sudoInstallCommand 带完整包名的 sudo 安装命令，供用户直接复制
- * @param prefix 已探测到的 prefix（缺省时现查一次）
+ * 决定伴生 CLI（openspec / codegraph）装到哪。
+ *
+ * 全局目录可写 → 走全局（系统级 node 之外最常见的情况：nvm / 官方安装包，prefix 属于当前用户）。
+ * 全局目录**不可写** → 装到 `~/.polaris/cli`，绝不引导 sudo：
+ *   sudo 装出来的文件属主是 root，普通用户后续 `polaris update` 升不了级、
+ *   甚至读不了 —— 这正是「必须 sudo 才能装」那类问题的真正代价。
+ * 取不到 prefix 或无法判定可写性时按可写处理，避免把能用的环境误降级到用户目录。
  */
-export function printNpmPrefixNotWritableHint(sudoInstallCommand: string, prefix?: string): void {
-  const npmPrefix = prefix ?? getNpmGlobalPrefix();
-  console.error(`    npm 全局目录不可写${npmPrefix ? `: ${npmPrefix}` : ''}（无写权限，EACCES）。`);
-  console.error(`    用 root 安装：${sudoInstallCommand}`);
+export function resolveCliInstallTarget(): CliInstallTarget {
+  const globalPrefix = getNpmGlobalPrefix();
+  if (!globalPrefix) return { kind: 'global' };
+  if (isNpmGlobalPrefixWritable(globalPrefix) !== false) return { kind: 'global' };
+  return { kind: 'user', prefix: getUserCliPrefixDir() };
+}
+
+/** 目录内查找可执行文件（Windows 依次试 .cmd/.exe/.ps1/无后缀） */
+function findExecutableInDir(dir: string, name: string): string | null {
+  const suffixes = process.platform === 'win32' ? ['.cmd', '.exe', '.ps1', ''] : [''];
+  for (const suffix of suffixes) {
+    const candidate = path.join(dir, `${name}${suffix}`);
+    try {
+      if (fs.statSync(candidate).isFile()) return candidate;
+    } catch {
+      // 不存在，继续试下一个后缀
+    }
+  }
+  return null;
+}
+
+/** 命令能否由当前 PATH 解析（用 POSIX 内建 `command -v`，最小化 Linux 无外部 `which`） */
+function isOnPath(name: string): boolean {
+  try {
+    if (process.platform === 'win32') {
+      execFileSync('where', [name], { stdio: 'ignore', timeout: 10_000 });
+      return true;
+    }
+    execFileSync('sh', ['-c', 'command -v "$1"', 'sh', name], {
+      stdio: 'ignore',
+      timeout: 10_000,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const pnpmBinDirCache = new Map<string, string | null>();
+
+/** pnpm 全局 bin 目录（pnpm 的全局安装不落在 npm prefix 下，需单独找）；失败缓存 null */
+function getPnpmGlobalBinDir(): string | null {
+  const key = process.platform;
+  const cached = pnpmBinDirCache.get(key);
+  if (cached !== undefined) return cached;
+
+  let resolved: string | null = null;
+  try {
+    const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+    const out = execFileSync(pnpm, ['bin', '-g'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 10_000,
+      shell: process.platform === 'win32',
+    }).trim();
+    resolved = out || null;
+  } catch {
+    // pnpm 未安装或未配置全局 bin
+  }
+  pnpmBinDirCache.set(key, resolved);
+  return resolved;
+}
+
+/**
+ * 定位伴生 CLI 可执行文件，按 PATH → 用户级 `~/.polaris/cli/bin` → pnpm 全局 bin 顺序解析。
+ *
+ * 返回绝对路径；PATH 已能解析时返回命令名本身。全部失败返回 null。
+ * 用户级 bin 不在 PATH 上也能被找到 —— 这是「没 sudo 也能装完就用」的前提。
+ */
+export function resolveCliExecutable(name: string): string | null {
+  if (isOnPath(name)) return name;
+
+  const userLevel = findExecutableInDir(getUserCliBinDir(), name);
+  if (userLevel) return userLevel;
+
+  const pnpmBin = getPnpmGlobalBinDir();
+  if (pnpmBin) {
+    const viaPnpm = findExecutableInDir(pnpmBin, name);
+    if (viaPnpm) return viaPnpm;
+  }
+  return null;
+}
+
+/**
+ * 用户级 bin 是否装了东西且不在 PATH 上 —— 用于 init 结束时提示加 PATH。
+ * @param executable 已解析到的可执行路径
+ */
+export function isUserLevelCliExecutable(executable: string): boolean {
+  const binDir = getUserCliBinDir();
+  const normalized = path.resolve(executable);
+  return normalized.startsWith(path.resolve(binDir) + path.sep);
+}
+
+/** 用户把用户级 CLI 加进 PATH 需要的一行 shell 配置 */
+export function formatUserCliPathHint(): string {
+  return `export PATH="${getUserCliBinDir()}:$PATH"`;
 }
 
 /**

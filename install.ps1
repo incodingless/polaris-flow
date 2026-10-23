@@ -9,9 +9,13 @@
         → 打印版本号与下一步提示。
     供不便使用 Git Bash 的 Windows 用户使用。
 
-    只做全局安装，不提供「装到自定义前缀」的方式。原因：polaris update 升级自身、
-    polaris init 安装 openspec 都直接写 npm 全局目录，装到别处只能得到一个
-    跑得起 --version 的残件。全局目录不可写时脚本直接报错，不给半可用方案。
+    只做全局安装 polaris-flow 本体，不提供「装到自定义前缀」的方式。原因：polaris update
+    升级自身要写 npm 全局目录，装到别处只能得到一个跑得起 --version 的残件。
+    全局目录不可写时脚本直接报错，不给半可用方案。
+
+    注意分工：polaris init 必须由普通用户执行 —— 用管理员身份跑 init 会让项目里的
+    .polaris/ 与平台目录归属管理员，用户之后改不了。init 需要的 openspec / codegraph
+    会自动装到 %USERPROFILE%\.polaris\cli，不需要管理员权限。
 
     Windows 与 Linux 的差别：Windows 官方安装包的 npm 前缀默认是 %APPDATA%\npm，
     本来就在当前用户名下、也在 PATH 里，正常不需要管理员。只有前缀被指向
@@ -221,8 +225,9 @@ elseif (Test-DirectoryWritable $globalPrefix) {
 else {
     Write-Host ''
     Write-ErrorMessage "npm 全局目录 $globalPrefix 当前用户不可写，装下去也不会是可用的安装。"
-    Write-Host '  原因：polaris init 安装 openspec、polaris update 升级自身都要写这个目录，'
-    Write-Host '        换成自定义 prefix 只能让 polaris 命令本身跑起来，后续步骤仍会失败。'
+    Write-Host '  原因：polaris update 升级自身要写这个目录，'
+    Write-Host '        换成自定义 prefix 只能让 polaris 命令本身跑起来，升级时仍会失败。'
+    Write-Host '        （polaris init 不受影响：它要的伴生 CLI 会自动装到用户目录）'
     Write-Host ''
     Write-Host '  选一条：'
     Write-Host '    1) 以管理员身份重新运行（推荐）'
@@ -283,11 +288,21 @@ else {
     Write-Host '  关掉终端重新打开后再执行：polaris --version'
 }
 
-# openspec 由 polaris init 安装；这里提前提示，避免 init 阶段才发现装不上
+# 伴生 CLI 由 polaris init 按需安装（全局不可写时落 %USERPROFILE%\.polaris\cli）。
+# 这里只提示管理员可选预装，省掉每个使用者首次 init 的下载等待。
+$MissingDeps = @()
 if (-not (Get-Command openspec -ErrorAction SilentlyContinue)) {
+    $MissingDeps += $OpenSpecPackage
+}
+if (-not (Get-Command codegraph -ErrorAction SilentlyContinue)) {
+    $MissingDeps += '@colbymchenry/codegraph@latest'
+}
+if ($MissingDeps.Count -gt 0) {
     Write-Host ''
-    Write-Host '建议顺带装好 OpenSpec（polaris init 会用到，先装可省一次等待）：'
-    Write-Host "    $npmExe install -g $OpenSpecPackage --registry $Registry"
+    Write-Host '可选：顺手预装伴生 CLI（不装也行，polaris init 会自动装到用户目录）：'
+    Write-Host "    $npmExe install -g $($MissingDeps -join ' ') --registry $Registry"
+    Write-Host ''
+    Write-Host '注意：初始化项目必须由普通用户执行，不要用管理员身份跑 polaris init。'
 }
 
 Write-Host ''

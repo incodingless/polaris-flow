@@ -4,9 +4,30 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveAction } from '../../src/commands/prompts.js';
-import { classifyInitSummary, runInit } from '../../src/commands/init.js';
+import { classifyInitSummary, evaluateRootGuard, runInit } from '../../src/commands/init.js';
 import type { InitPromptOptions } from '../../src/commands/prompts.js';
 import type { InitPlatformResult } from '../../src/commands/init.js';
+
+describe('evaluateRootGuard', () => {
+  it('普通用户（uid ≠ 0）一律放行', () => {
+    expect(evaluateRootGuard(501, undefined)).toBe('allow');
+    expect(evaluateRootGuard(1000, '0')).toBe('allow');
+  });
+
+  it('Windows 无 getuid（undefined）放行', () => {
+    expect(evaluateRootGuard(undefined, undefined)).toBe('allow');
+  });
+
+  it('root（uid = 0）默认拦截：项目文件会归属 root', () => {
+    expect(evaluateRootGuard(0, undefined)).toBe('block');
+    expect(evaluateRootGuard(0, '0')).toBe('block');
+    expect(evaluateRootGuard(0, 'true')).toBe('block');
+  });
+
+  it('POLARIS_ALLOW_ROOT=1 是容器 / CI 的逃生舱', () => {
+    expect(evaluateRootGuard(0, '1')).toBe('allow');
+  });
+});
 
 describe('resolveAction', () => {
   it('不存在时一律 install', () => {

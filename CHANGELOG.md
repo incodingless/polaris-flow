@@ -1,5 +1,31 @@
 # Changelog
 
+## What's Changed [0.4.0] - 2026-10-23
+
+### Added
+
+- **离线包自带使用者文档**: `package.sh` 从 `docs/releases/` 拷入 6 份成品到 `release/`——`安装手册-macOS.md`、`安装手册-Windows.md`、`安装手册-Windows.pdf`、`命令使用说明.md`、`使用帮助.md`、`使用者速查卡.pdf`。此前离线包只有安装介质，用户解压后没有任何「怎么装、怎么用」的说明，还得另外找文档。清单写死而非 glob，`release/` 里出现其它文档不会被自动带出去；任一文件缺失只告警不中断（PDF 是本地生成物，`.gitignore` 已排除，没有源文件的人打不出来）
+- **`--zip` 改用 bsdtar 打标 UTF-8 文件名**: macOS 自带 Info-ZIP 3.0 写中文文件名时不设 UTF-8 flag（`0x800`），Windows 解压按本地代码页解释 → 六份文档名全成乱码。改用 bsdtar 的 `tar -a -cf` 后中文名正确带标（实测 707 个条目中非 ASCII 名全部置位）；非 bsdtar 环境回退到 `zip` 并告警
+- **伴生 CLI 用户级安装通道（普通用户无需 sudo）**: 全局 npm 目录不可写时（如系统 node 的 `/usr`），OpenSpec / Codegraph 不再报 EACCES 并要求 root，改装到 `~/.polaris/cli`（`npm install -g --prefix`）。`resolveCliExecutable` 按 PATH → `~/.polaris/cli/bin` → pnpm 全局 bin 顺序定位，用户级目录不在 PATH 上也能直接按绝对路径执行；`openspec init` / `codegraph install` 的调用点同步改为使用解析出的绝对路径。init 结束时提示把 `~/.polaris/cli/bin` 加进 PATH（不加以不影响 polaris 内部调用）
+
+### Changed
+
+- **`polaris init` 拒绝以 root / sudo 运行**: `init` 会往项目目录写 `.polaris/` 与平台目录，以 root 运行后这些文件归属 root，普通用户既改不了文档也提交不了。检测 `process.getuid() === 0` 时直接拒绝并打印正确顺序（`sudo bash install.sh` 一次 + 普通用户 `polaris init`）与 `chown` 补救命令；容器 / CI 用 `POLARIS_ALLOW_ROOT=1` 放行
+- **init 启动时检测 git 缺失**: 未检测到 git 时提示 Superpowers / 图表技能的在线通道不可用、将回落到 `~/.polaris/components` 本地副本，不再让用户在日志里自己猜为什么 clone 失败
+- **`install.sh` 文案与预装清单对齐**: 结尾的预装建议从「只装 openspec」改为「openspec + codegraph 缺哪个列哪个」，并明确「sudo 只用于装 CLI，初始化项目必须由普通用户执行」；全局目录不可写的拒绝理由去掉已不成立的「init 会继续报 EACCES」，只保留 PATH 与 `polaris update` 两条
+- **`install.ps1` 同步同一口径**（保持 UTF-8 BOM + CRLF）: 头部注释、全局目录不可写的拒绝理由、结尾预装提示同步改写；结尾从「只提示 openspec」升级为按缺失情况列出 openspec / codegraph 的可选预装命令，并加一句「初始化项目不要用管理员身份」
+- **两份安装手册改准 sudo 分工**: `安装手册-macOS.md` 与 `安装手册-Windows.md` 删掉「`polaris init` 装 openspec 要写全局目录、所以必须 root」这个已失效的理由（保留 `polaris update` 升级本体与 PATH 两条真实理由）；新增「不要 sudo / 管理员身份跑 init」的醒目提示与 `chown` 补救命令；新增「伴生 CLI 落在 `~/.polaris/cli`」的落点说明与加 PATH 的一行命令；排障表补两条 root 归属相关现象
+
+### Fixed
+
+- **`npx skills add` 在非交互环境挂死**: 原命令 `npx skills add obra/superpowers -y` 的 `-y` 只传给了 skills CLI，npx 自己仍会停在 `Need to install the following packages: skills@1.7.4 / Ok to proceed? (y)` 等输入 —— CI、hook、管道里直接卡住（超时 300s 后 Superpowers 回退到 git 通道，git 又缺则整段失败）。改为 `npx --yes skills add ... -y`：`--yes` 给 npx 自动装包，`-y` 仍给 skills 跳过自身确认，两者缺一不可
+
+### Tests
+
+- **`cli-installer.test.ts`（新增 8 项）**: `buildNpmGlobalInstallArgs` 的 prefix 组装（无 prefix / 带 registry / 带 prefix / 空串忽略）；用户级 bin 路径固定为 `~/.polaris/cli/bin`；用户级绝对路径判定、PATH 裸命令名判定、PATH 提示文案
+- **`init.test.ts`（新增 4 项）**: `evaluateRootGuard` 的四种组合——普通用户放行、Windows 无 `getuid` 放行、root 默认拦截、`POLARIS_ALLOW_ROOT=1` 放行
+- **`superpowers.test.ts`（新增 1 项）**: `--yes` 必须在包名之前（`indexOf('--yes') < indexOf('skills')`），且 `-y` 仍独立存在、不是末位参数——防止再次把 npx 的自动确认与 skills 自身确认混为一谈
+
 ## What's Changed [0.3.0] - 2026-10-23
 
 ### Changed

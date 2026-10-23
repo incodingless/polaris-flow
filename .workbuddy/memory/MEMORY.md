@@ -70,9 +70,16 @@
 - 裁定 = **A+B，不做 C**：A 文档分平台 + B 新增 `install.ps1`（`install.sh` 等价物）；C（把 hook/scorers 改写成 Node 跨平台）明确不做。理由：Git for Windows 提供的 `bash.exe` 同时解决 install 与 hook 两件事。
 - `install.ps1` 三个必须保持的约束：① 调用 `npm.cmd` 而非 `npm`（PowerShell 的 `npm`→`npm.ps1` 被执行策略拦）；② 文件必须 **UTF-8 BOM + CRLF**（PowerShell 5.1 否则按 ANSI 解析 → 中文乱码）；③ bash 缺失只警告不阻断，且区分「已装 Git 但 `bin` 不在 PATH」与「未装」。
 - PowerShell 语法坑：`-split` 单段结果 `[0]` 取首字符 → 用 `String.Split()`；`npm prefix -g` 要 `Select-Object -First 1` 再 `.Trim()`。bash 的「变量后跟中文要 `${}`」坑**不适用**于 PowerShell。
-- **安装判据 = 全局目录可写，不是「是否 root」**（2026-10-21，与 Linux `sudo` 同源逻辑）：Windows 官方安装包的 npm 前缀默认 `%APPDATA%\npm`，本来就在当前用户名下、已在 PATH → **不需要管理员**；只有前缀被指到 `C:\Program Files` 类受保护路径才需管理员。判据统一为「装进一个 `polaris init` / `update` 也写得进去的全局目录」，`--prefix` 绕开一律禁止（会得到只能跑 `--version` 的残件）。`install.ps1` 用建临时文件探测（ACL 判断在 Windows 易误判），**目录不存在时向上找最近已存在祖先**再探测（全新 Node 上 `%APPDATA%\npm` 可能尚未创建，否则会误判不可写而拒绝安装）。
+- **安装判据 = 全局目录可写，不是「是否 root」**（2026-10-21，与 Linux `sudo` 同源逻辑）：Windows 官方安装包的 npm 前缀默认 `%APPDATA%\npm`，本来就在当前用户名下、已在 PATH → **不需要管理员**；只有前缀被指到 `C:\Program Files` 类受保护路径才需管理员。判据统一为「装进一个 `polaris init` / `update` 也写得进去的全局目录」，`polaris-flow` **本体**用 `--prefix` 绕开一律禁止（会得到只能跑 `--version` 的残件）；伴生 CLI 例外，见「伴生 CLI 安装通道 + root 护栏」节。`install.ps1` 用建临时文件探测（ACL 判断在 Windows 易误判），**目录不存在时向上找最近已存在祖先**再探测（全新 Node 上 `%APPDATA%\npm` 可能尚未创建，否则会误判不可写而拒绝安装）。
 - MAX_PATH 无风险：包内最长相对路径 93 + Windows 全局前缀 68 = 161 < 260。
 - 已清（2026-10-22）：`assets/` 下 60 个非分发文件（`assets/.workbuddy/` 32、`assets/tmp/` 14、`evals/.work/` 7、`.proto-verify.*.html` 7）已 `git rm` 并加 `.gitignore` 防复发；包内 748→688 文件。`assets/` 整目录进 `files` 且无过滤，往里放东西前先想「这是要发给用户的吗」。
+
+## 伴生 CLI 安装通道 + root 护栏（2026-10-23 修复，勿回退）
+- **两种 `--prefix` 待遇不同**：`polaris-flow` 本体用 `--prefix` 装 = 无效（`polaris update` 升级自身写不回全局 + 不在 PATH），install.sh 仍硬拒；**伴生 CLI（openspec / codegraph）用 `--prefix ~/.polaris/cli` 装 = 有效**，因为 `buildOpenSpecInitInvocation` / `codegraphCommand` 用的是 `resolveCliExecutable()` 解析出的**绝对路径**，不依赖 PATH。
+- 全局 npm 目录不可写时**不再引导 sudo**：`resolveCliInstallTarget()` 返回 `{kind:'user', prefix: ~/.polaris/cli}`，`npm install -g --prefix` 落用户目录。`printNpmPrefixNotWritableHint` 已删。
+- **`resolveCliExecutable(name)` 是伴生 CLI 定位的唯一入口**：PATH → `~/.polaris/cli/bin` → pnpm 全局 bin。`isCommandAvailable` 是它的薄封装（doctor 复用）；codegraph 的 `resolvePnpmGlobalCommand` 已合并进来。
+- **`polaris init` 拒绝 root**：`evaluateRootGuard(uid, POLARIS_ALLOW_ROOT)` → `uid===0` 且非 `'1'` 时打印 `rootNotAllowed` 并 exit 1。理由：init 写的 `.polaris/`、平台目录会变 root 归属，普通用户再也改不了。容器/CI 用 `POLARIS_ALLOW_ROOT=1`。
+- **git 缺失只提示不阻断**：`warnIfGitMissing()` —— Superpowers / 图表技能的在线通道要 git，有 `~/.polaris/components` 本地副本时仍能装完。
 
 ## state.yaml 双层字段语义（2026-10-19 裁定）
 - workflow.tdd_mode/build_mode/signals = workflow 层全局决策字段，必须由技能写入（tasks Step 3 / build Step 2.1 / specify 5.4.1 + verify Step 9）；runtime 同名/相应字段（tdd_policy、runtime.build.build_mode 等）= 运行细节记录。两层并存、不裁撤；build SKILL.md「刻意不做全局 tdd_mode」表述与本裁定冲突，待批③修正。
