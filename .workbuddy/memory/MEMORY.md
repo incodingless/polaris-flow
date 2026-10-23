@@ -26,7 +26,7 @@
 
 ## 用户约定
 - 配置归代码（禁止 policy 承载配置表）；写 `state.yaml` 一律走 `scripts/task-state-entry.sh`（禁直写 yaml 块）。
-- 双语言：先写中文（`assets/zh/skills/`），用户确认后再同步英文；未同步前不写 Changelog。当前英文版暂不处理。
+- 双语言：先写中文（`assets/zh/skills/`），用户确认后再同步英文。当前英文版暂不处理。**只要 zh 资产变动，就变更版本号**（写 Changelog + bump `package.json` version，不再「待英文同步后补记」）；版本位按 `docs/releases/发布操作指南.md` §一.1：修 Bug/改文案/内部重构=patch、新增命令/能力（兼容旧用法）=minor、破坏性变更=major。英文侧版本位尚未约定，按需再补。
 - 候选呈现（用户手定）：单行 `<task_id> (工作流：<mode_label>，阶段：<phase_label>，技能：<skill_label>)`。
 - 每轮改动后跑 26/26 技能测试通过方可提交。
 
@@ -58,6 +58,13 @@
   - **仍然有效的教训（版本无关）**：验收判据 = **tarball 可直接下载 + 全新缓存 `npm pack`/`npm i` 通过**；`201` / `+ pkg@ver` / metadata 200 只证明元数据写入，不证明可安装（本机 ~/.npm 缓存会伪装成功，须 `--cache <新目录> --prefer-online`）。
   - 操作细节单源：《docs/releases/发布操作指南.md》通道 A + `release.sh`；记忆不复制步骤。
 
+## 资产类别：bundled-skills vs skills（2026-10-22 起）
+- `assets/shared/bundled-skills/<name>/` = **附带第三方技能**：`polaris init` 装到 `platformSkillsDir/<name>/`，**不进 `polaris/` 命名空间、不改 `{{SKN_SPR}}`、不做 policies 注入**，不受「无跨技能 `../` 引用」校验。manifest `sharedDirs` 已登记 `bundled-skills`；安装逻辑 = `skills.ts` 的 **Step 4**（`BUNDLED_SKILLS_DIR`）。
+- 判据：**是不是 Polaris 工作流的一个阶段？** 是 → `assets/<lang>/skills/`；只是被顺手调用的工具 → `bundled-skills/`。
+- 拷贝走**目录级任务 + `copyDirContents` 的 `shouldCopy` 白名单**（1 任务/技能），既避免逐文件 I/O 随上游体积膨胀，又让 `ignoredFiles`（`PROVENANCE.md`/`README.md`）仍然生效——**不要改成「拷完再删」**，沙箱会拦 node `fs.rm`。
+- 当前内容：`archify`（v3.2.0，MIT，已删 `examples/*.html` 12MB）、`diagram-design`（cathrynlavery 上游 v2.6，MIT，全留）。各带 `PROVENANCE.md`（上游 commit/版本/裁剪/升级方式），升级**手动**、不接自动同步。
+- 与设计文档的关系：正文图仍是 Mermaid（design 阶段 + 主审 S3.5）；这两个只出**交付图**（HTML/PNG，给人看），不进评审链。
+
 ## Windows 支持（2026-10-21 裁定）
 - **bash 是硬依赖，非可选**：`assets/shared/hooks.json` 模板、`src/core/install/hooks.ts:62`（硬编码 `bash "…"`）、`doctor.ts:135`、`verify/SKILL.md` 的 scorers 调用，共 27 个 `.sh`。全仓 `grep win32|process.platform` **零结果**（无 Windows 分支）。⇒ Windows 缺 bash 时：安装与 `polaris init` 都成功、**hook 静默失效不报错**。
 - 裁定 = **A+B，不做 C**：A 文档分平台 + B 新增 `install.ps1`（`install.sh` 等价物）；C（把 hook/scorers 改写成 Node 跨平台）明确不做。理由：Git for Windows 提供的 `bash.exe` 同时解决 install 与 hook 两件事。
@@ -65,7 +72,7 @@
 - PowerShell 语法坑：`-split` 单段结果 `[0]` 取首字符 → 用 `String.Split()`；`npm prefix -g` 要 `Select-Object -First 1` 再 `.Trim()`。bash 的「变量后跟中文要 `${}`」坑**不适用**于 PowerShell。
 - **安装判据 = 全局目录可写，不是「是否 root」**（2026-10-21，与 Linux `sudo` 同源逻辑）：Windows 官方安装包的 npm 前缀默认 `%APPDATA%\npm`，本来就在当前用户名下、已在 PATH → **不需要管理员**；只有前缀被指到 `C:\Program Files` 类受保护路径才需管理员。判据统一为「装进一个 `polaris init` / `update` 也写得进去的全局目录」，`--prefix` 绕开一律禁止（会得到只能跑 `--version` 的残件）。`install.ps1` 用建临时文件探测（ACL 判断在 Windows 易误判），**目录不存在时向上找最近已存在祖先**再探测（全新 Node 上 `%APPDATA%\npm` 可能尚未创建，否则会误判不可写而拒绝安装）。
 - MAX_PATH 无风险：包内最长相对路径 93 + Windows 全局前缀 68 = 161 < 260。
-- 已知残留（未处理）：`assets/zh/skills/prototype/build/evals/fixtures/.proto-verify.*.html` 是测试残留，随 `assets` 入包。
+- 已清（2026-10-22）：`assets/` 下 60 个非分发文件（`assets/.workbuddy/` 32、`assets/tmp/` 14、`evals/.work/` 7、`.proto-verify.*.html` 7）已 `git rm` 并加 `.gitignore` 防复发；包内 748→688 文件。`assets/` 整目录进 `files` 且无过滤，往里放东西前先想「这是要发给用户的吗」。
 
 ## state.yaml 双层字段语义（2026-10-19 裁定）
 - workflow.tdd_mode/build_mode/signals = workflow 层全局决策字段，必须由技能写入（tasks Step 3 / build Step 2.1 / specify 5.4.1 + verify Step 9）；runtime 同名/相应字段（tdd_policy、runtime.build.build_mode 等）= 运行细节记录。两层并存、不裁撤；build SKILL.md「刻意不做全局 tdd_mode」表述与本裁定冲突，待批③修正。

@@ -10,14 +10,18 @@
 #   └─ components/
 #      ├─ openspec-<ver>.tgz   # npm pack 产物（离线免构建）
 #      ├─ codegraph-<ver>.tgz  # npm pack 产物
-#      └─ superpowers/         # 源码目录（钉 >= minVersion 的 tag）
+#      ├─ superpowers/         # 源码目录（钉 >= minVersion 的 tag）
+#      └─ bundled-skills/      # 附带技能（archify / diagram-design），随包分发给用户
 #
 # 适用边界：内网可达 Nexus、公网 GitHub 不可达。.tgz 的第三方依赖仍走 config.ini
 # 里的 npm registry，所以 bundle 不是纯离线件。
 #
-# 组件来源（内置 vendor 优先，避免频繁打包反复从 GitHub/npm 拉取）：
-#   devops/vendor/superpowers/   superpowers 完整仓库（含 skills/），提交进 git
-#   devops/vendor/tgz/*.tgz      本地缓存，不提交 git（*.tgz 被 gitignore）
+# 组件来源（本地 vendor 优先，避免频繁打包反复从 GitHub/npm 拉取）：
+#   devops/vendor/superpowers/       superpowers 完整仓库（含 skills/）
+#   devops/vendor/bundled-skills/    附带技能（图表工具），缺则由 init 从 GitHub 补齐
+#   devops/vendor/tgz/*.tgz          本地缓存
+#   ⚠️ 三者都**不提交 git**（.gitignore: `devops/vendor/*`）：它们是后备副本，
+#      优先从 GitHub 下载，本地副本只为网络慢/超时时保住一次安装成功率。
 #
 # 用法:
 #   bash devops/package.sh                     # 全默认：superpowers 用内置 vendor，CLI 取 latest
@@ -186,6 +190,18 @@ else
 fi
 cp -R "$SUPERPOWERS_VENDOR" "$OUT_DIR/components/superpowers"
 rm -f "$OUT_DIR/components/superpowers/.polaris-version"
+
+# --- 1.5 附带技能（图表工具 archify / diagram-design）---
+# 源与 superpowers 同性质：devops/vendor 下的本地副本，优先从 GitHub 拉、不提交 git。
+# 运行时 init 也会把缺的拉到 ~/.polaris/components/bundled-skills，打包时若 vendor 已有则复用。
+BUNDLED_VENDOR="$VENDOR_DIR/bundled-skills"
+if [ -d "$BUNDLED_VENDOR" ]; then
+  cp -R "$BUNDLED_VENDOR" "$OUT_DIR/components/bundled-skills"
+  info "附带技能已打入: $(ls "$BUNDLED_VENDOR" 2>/dev/null | tr '\n' ' ')"
+else
+  warn "未找到 ${BUNDLED_VENDOR}；离线包将不含 archify / diagram-design"
+  warn "补法：在有网环境跑到这一步——polaris init 会把缺的技能拉到 ~/.polaris/components/bundled-skills，再整体拷进 devops/vendor/bundled-skills"
+fi
 
 # --- 2/3. openspec / codegraph tarball ---
 openspec_version="$(pack_cli "$OPENSPEC_PACKAGE" "$OPENSPEC_VERSION" "$OUT_DIR/components" "openspec")"

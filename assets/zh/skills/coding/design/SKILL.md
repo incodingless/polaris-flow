@@ -11,6 +11,7 @@ description: "把 plan 阶段的高层 design.md 深化为可实施的详细技�
 - **禁止**跳过 Superpowers `brainstorming`（不可用则阻断，禁止用普通对话替代）
 - **禁止**跳过专项设计补充预检（`./policies/detailed-design-precheck.md`）：`detailed-design.md` 落盘后必须基于 proposal / design / detailed-design 给出专项建议，并经 decision-point 确认
 - **禁止**未读取 `./templates/detail-design-template.md` 就落盘 `detailed-design.md`（节名与节序以该模板为准）
+- **禁止**落盘无 Mermaid 图的 `detailed-design.md`（`## 1. 实现方案` 的主成功路径至少一张；载体、抽象度与图文配合以该模板「图表要求」为准）
 - **禁止**跳过预检结论落盘：`specialty-precheck.md` 未写入变更根目录即视为 Step 4.2 未执行
 - **禁止**未按 `./policies/decision-point.md` 获得用户对设计方案的明确确认，就落盘 `detailed-design.md`
 - **禁止**重写 OpenSpec `proposal.md` / 高层 `design.md` / `tasks.md` 的结构或范围（深化 ≠ 替代）
@@ -121,7 +122,9 @@ OpenSpec Context: openspec/changes/<task_id>/*.md
 
 路径：`openspec/changes/<task_id>/detailed-design.md`
 
-frontmatter 与六个必含节（实现方案 / 边界条件 / 技术风险与缓解 / 测试策略 / 专项设计索引 / Spec Patch 清单）以模板为准，本技能不复制其字段清单。
+frontmatter、`## 0. 继承锚点` 与六个必含节（实现方案 / 边界条件 / 技术风险与缓解 / 测试策略 / 专项设计索引 / Spec Patch 清单）以模板为准，本技能不复制其字段清单。
+
+**图不得缺席**：`## 1. 实现方案` 的主成功路径至少一张 Mermaid 图；载体、抽象度与「图后两段」的要求一律按模板「图表要求」，本技能不复制。
 
 有 Spec Patch 则同时改 `specs/*/spec.md`。  
 输出：`[polaris-flow 开发]深度设计: 编写并落盘 openspec/changes/<task_id>/detailed-design.md`
@@ -251,7 +254,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 ## 退出条件
 
-- `detailed-design.md` 已落盘、frontmatter 合法且节名与节序符合 `./templates/detail-design-template.md`
+- `detailed-design.md` 已落盘、frontmatter 合法且节名与节序符合 `./templates/detail-design-template.md`、`## 1. 实现方案` 含主路径 Mermaid 图
 - Step 3.3 用户已确认方案
 - Step 4.2 预检结论 `specialty-precheck.md` 已落盘
 - Step 5 主审已派发（或用户接受主审 SKIPPED）且无未消化 Critical

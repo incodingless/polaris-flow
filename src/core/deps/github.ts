@@ -146,3 +146,40 @@ export async function fetchRepo(
 export async function cleanupTemp(tmpDir: string): Promise<void> {
   await fs.rm(tmpDir, { recursive: true, force: true });
 }
+
+/**
+ * 按 commit SHA 取仓库：先建空仓再 `fetch --depth 1 <sha>`，最后 checkout FETCH_HEAD。
+ *
+ * 为什么不复用 `fetchRepo`：`git clone --branch` 只认分支与 tag，不认 SHA。
+ * 上游没有 tag 时（如 diagram-design），钉版本只能钉 SHA，故单列一条路径。
+ */
+export async function fetchRepoAtCommit(
+  repo: string,
+  commit: string,
+  mirror?: string,
+): Promise<FetchResult> {
+  const gitRepo = rewriteGithubRepoUrl(repo, mirror);
+  const tmpDir = path.join(
+    os.tmpdir(),
+    `polaris-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  );
+  await fs.mkdir(tmpDir, { recursive: true });
+
+  try {
+    runGitShell(`git -C "${tmpDir}" init -q`, CLONE_TIMEOUT_MS);
+    runGitShell(`git -C "${tmpDir}" remote add origin ${gitRepo}`, CLONE_TIMEOUT_MS);
+    runGitShell(`git -C "${tmpDir}" fetch --depth 1 origin ${commit}`, CLONE_TIMEOUT_MS);
+    runGitShell(`git -C "${tmpDir}" checkout -q FETCH_HEAD`, CLONE_TIMEOUT_MS);
+    return { localPath: tmpDir, version: commit };
+  } catch (error) {
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    const message = (error as Error).message;
+    if (message.includes('ETIMEDOUT') || message.includes('timed out')) {
+      throw new Error(
+        `git fetch timed out after ${CLONE_TIMEOUT_MS / 1000}s — check GitHub network access to ${repo}`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+}

@@ -106,7 +106,8 @@ pnpm test           # 单元测试
 脚本位置（按「面向谁」分三类，不要混放）：
 
 - **根目录** = 用户分发入口：`install.sh` / `install.ps1`（用户单独下载执行）
-- **`devops/`** = 维护者的构建·发布·打包脚本：`build.js` / `build.sh`（构建）、`publish.sh`（发布到 Nexus）、`package.sh`（离线安装包打包）、`prepublish-check.js`（发布前密钥扫描）、`polaris-preseed.cjs`（bundle 预种）
+- **`devops/`** = 维护者的构建·发布·打包脚本：`dev.sh`（入口：状态看板 + 命令菜单）、`build.js` / `build.sh`（构建）、`publish.sh`（发布到 Nexus）、`package.sh`（离线安装包打包）、`prepublish-check.js`（发布前密钥扫描）、`polaris-preseed.cjs`（bundle 预种）、`sync-bundled-skills.mjs`（附带技能版本检查与升级）
+- **`devops/vendor/`** = **外部引入组件的本地后备副本**（`superpowers/`、`bundled-skills/`、`tgz/`）：优先从 GitHub / npm 拉取，本地副本只为网络慢或下载超时时保住一次安装成功率；**不提交 git**（`.gitignore: devops/vendor/*`）。`package.sh` 负责把它们打进 `release/components/` 随离线包分发。
 - **`scripts/`** = 运行时安装辅助与内部工具：`postinstall.js`（npm 钩子）、`check_state_yaml_three_way.py`（state 校验）等
 - 判据：用户单独下载执行的放根目录；维护者构建/发布/打包放 `devops/`；运行时安装辅助与内部工具放 `scripts/`
 

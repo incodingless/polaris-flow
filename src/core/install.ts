@@ -23,6 +23,7 @@ import { installPolarisHooksForPlatform } from './install/hooks.js';
 import { initializeProjectLayout, resolveWorktreeRoot } from './install/layout.js';
 import { copyPolarisRules } from './install/rules.js';
 import { copyPolarisSkillsForPlatform } from './install/skills.js';
+import { copyBundledSkillsToPlatform } from './integrations/bundled-skills.js';
 import { POLARIS_ASSET_KINDS, type CopyStats, type PolarisAssetKind } from './install/types.js';
 import { Assets, readAssets } from './assets/manifest.js';
 import { ensureWorkflowStateFile } from './config/workflow-state.js';
@@ -132,10 +133,19 @@ export async function installPolarisForPlatform(
       )
     : emptyStats();
 
-  // 3.1.1 替换 scripts/_polaris-cli.sh 平台占位符，并为 hooks/scripts 设可执行位
-  // 脚本由 skills 步骤落盘；hooks 单独更新时也补一遍，保证可执行位与占位符已就绪（幂等）
+  // 3.1.1 替换 scripts/_polaris-cli.sh 平台占位符，并为 hooks/scripts 设可执行位  // 脚本由 skills 步骤落盘；hooks 单独更新时也补一遍，保证可执行位与占位符已就绪（幂等）
   if (selectedKinds('skills') || selectedKinds('hooks')) {
     await rewritePolarisCliPlatformId(platformLayout.skillsDir, platform.id);
+  }
+
+  // 3.1.2 附带技能（第三方图表工具）：本地组件目录 → 平台 skills 根目录
+  // 源由 init 的 ensureBundledSkillsSource 从 GitHub 拉取、或由离线包 preseed 写入；
+  // 此处只做本地拷贝，本地缺失时静默跳过（不阻断安装）。
+  if (selectedKinds('skills')) {
+    await copyBundledSkillsToPlatform(
+      getPlatformSkillsDir(platform, scope, projectPath),
+      overwrite,
+    );
   }
 
   // 3.2 复制命令（落盘路径按平台 commandLayout：nested 保留子目录；flat 扁平为 polaris-<路径>）

@@ -1,5 +1,49 @@
 # Changelog
 
+## What's Changed [0.3.0] - 2026-10-23
+
+### Changed
+
+- **概要设计（plan 的 `design.md`）产出「干练、重点突出」**: 六个规范让高层方案聚焦核心决策、不再平均用力——① 结论前置：开篇新增 `## 0. 核心结论`（核心架构决策清单 + 核心风险清单），决策与风险放最前；② 候选方案量化对比：`## 5.1` 强制 ≥2 方案 ×（性能 / 成本 / 复杂度 / 交付周期 / 运维门槛）5 维量化 + 推荐依据，未选方案附「背景 / 选型理由 / 取舍权衡」；③ 业务-技术映射：`### 4.12` 每个技术组件标业务场景 + 业务价值；④ 风险三件套：`### 4.11` 强制覆盖「过度设计 / 首版遗漏 / 最可能重构」；⑤ 粒度红线：禁表字段 / 具体错误码 / 方法名（`### 4.9` API 清单保留为「接口存在性契约」锚点）；⑥ 数据流闭环：`### 4.6` 必须含失败 / 降级 / 熔断分支。配套 Step 5.1 机械终检新增 5 项质量自检（不突破硬约束 / 无代码级细节 / 候选对比 / 风险三件套 / 业务映射）
+- **详细设计（design 的 `detailed-design.md`）「锚定概设 + 闭环完整」**: 新增 `## 0. 继承锚点` 前置节——一行一条引用 plan 高层 `design.md` 已冻结的不可突破决策，不复制原文（守住唯一源）；接口契约补「重试策略」「超时时间」（`restful-api` 专项 + 约束 A8）；数据模型补「事务隔离级别」「数据一致性方案」「分库分表」（`data-model` 专项 + 约束 M8）
+- **前置输入约束三层分列（specify 的 Premise Challenge）**: 6 类前提显式归为三层——硬约束（红线：算力 / 内存 / 并发 / 技术栈 / 合规 / 成本 / 周期，必覆盖）/ 判断输入（团队能力、现有系统基线，非红线）/ 优先级锚点（核心矛盾）；新增 `## 核心矛盾` 节（intention.md 的 Top3 全局主次，指导设计「抓核心、不平均用力」，流入 `design.md` `## 1. 概述`）
+- **防幻觉溯源 + 责任边界标注**: 概要设计强制规则新增「技术特性 / 版本能力 / 性能数据标来源，禁『经测试满足』等未证实结论，拿不准标 TBD / 待核验」；两份设计模板正文首行标注「本文为 AI 生成初稿，标注『待人工核验』的项需人工确认」，区分 AI 填充与人工终审职责
+
+## What's Changed [0.2.0] - 2026-10-22
+
+### Added
+
+- **附带技能：`archify` + `diagram-design`**: `polaris init` 会安装两个第三方图表技能到平台 skills 根目录（`.claude/skills/archify/`、`.claude/skills/diagram-design/`）。分工是「设计文档正文用 Mermaid、交付图用它们」——`archify` 出结构化图（架构 / 时序 / 数据流 / 生命周期 / ERD / 类图等 10 类，JSON IR + schema 校验，可做架构 delta 对比），`diagram-design` 出编辑级视觉图（13 类，三种视觉变体，能吃 Mermaid / drawio / Excalidraw 源码）。两者都输出自包含 HTML，可导 PNG/SVG/PDF。选它们而不是把图塞回设计文档，是因为 `design-review-agent` 只读文本：HTML 或 `.drawio` 里的图既进不了 PR diff，也不在评审视野内
+- **安装通道与外部组件统一（GitHub 优先，本地兜底）**: 新增 `src/core/integrations/bundled-skills.ts`：`init` 先 `git clone --depth 1` 到 `~/.polaris/components/bundled-skills/`（已有副本则跳过），再把本地副本拷到各平台 skills 根目录。拉取失败或超时**只记 missing、不阻断 init**，本地已有副本照常安装；`POLARIS_BUNDLED_SKILLS_SOURCE` 可显式指定本地源（显式指定后不联网）。不接 `npx skills add`：它内部仍要 clone GitHub，等于同样的超时风险再付一次，且落盘目录由外部 CLI 决定（装错目录比装失败更糟）
+- **版本一律钉死（可复现）**: `BUNDLED_SKILL_SPECS` 是升级上游版本的**唯一入口**——`archify` 钉 tag `3.2.0`，`diagram-design` 上游没有 release tag，钉 commit SHA。为此新增 `fetchRepoAtCommit()`：`git fetch --depth 1 origin <sha>` 后 checkout（`clone --branch` 不认 SHA）。同一 polaris 版本在任何机器、任何日期装到的技能内容一致
+- **源统一收在 `devops/vendor/bundled-skills/`**: 与 `superpowers/` 同性质——本地后备副本，优先从上游下载，**不提交 git**（`.gitignore: devops/vendor/*`）。`package.sh` 打包时拷进 `release/components/bundled-skills/`，随离线包一并分发，`install.sh` 的 preseed 落到 `~/.polaris/components/` 后走同一条本地通道
+- **`copyDirContents` 支持 `shouldCopy` 过滤**: 附带技能按目录整拷，同时用谓词过滤掉 `PROVENANCE.md` / `README.md` 与 `archify/examples/*.html`（15 个渲染成品，12MB；同目录 33 个 `.json` schema 示例保留）。不采用「拷完再删」——删除动作既多余，又会触发沙箱拦截
+- **安装手册补充**: macOS / Windows 两份手册在 `polaris init` 一节说明这两个技能装在哪、为什么不在命令菜单里、以及网络失败时的提示
+- **维护者升级工具 `devops/sync-bundled-skills.mjs`**: 检查模式对比钉值与上游最新（只读）；`--update` 一条命令改完三处——钉值、`vendor/` 整目录、`PROVENANCE.md`——拉取失败不留半成品。不做定时自动升级：技能升级会改变行为且无测试覆盖，是否升级由发版前人工决定
+- **本地副本带版本标记 `.polaris-bundled-ref`**: 修复「装过一次就永不更新」——此前只以 `SKILL.md` 是否存在判断副本齐备，改钉值后老用户（含开发机）永远拿不到新版；现在标记与钉值不一致即视为缺失并重拉。标记本身不随安装下发
+- **维护者入口 `devops/dev.sh`**: 一条命令看清「现在是什么状态、该按什么顺序做」。顶部状态区（分支 / 版本 / 未提交改动 / CHANGELOG 顶部是否与 `package.json` 一致），下接按「日常 / 发版」分组的命令菜单，编号可直接当参数用（`bash devops/dev.sh 5`）以便脚本化。**菜单不复制各脚本的参数**（参数归脚本自己的用法头部，`h <编号>` 现读），发版项会先跑前置检查（版本号未升 / CHANGELOG 不一致 / 工作区脏 → 要求二次确认）
+
+### Tests
+
+- `skills-install.test.ts` 新增 `bundled skills 安装` 用例组（fixture 源，不依赖真实技能）：落 skills 根目录且不进 `polaris/`、不注入 `policies/`、`PROVENANCE.md` 不下发、本地源缺失时跳过且不阻断安装、trae flat 布局下不被扁平化成 `polaris-archify`、版本标记与钉值不一致时判为缺失
+
+### Fixed
+
+- **附带技能拉取的目标 URL 拼错**: `fetchRepo` / `fetchRepoAtCommit` 期望完整 URL（镜像改写只对 `https://github.com` 前缀生效），此前传的是 `owner/repo`，导致 `git` 报「does not appear to be a git repository」且失败被吞成「没装上」。现统一拼成完整 URL
+- **拉取失败原因被吞**: `ensureBundledSkillsSource` 原先只返回 `missing` 名单，`init` 只打印技能名，无法区分网络问题与配置问题；现额外返回 `errors`（每个技能一行原因），`init` 逐条打印
+- **密钥扫描误拦 vendored 副本与工作记忆导致发布中断**: `devops/prepublish-check.js` 改为按相对路径整体跳过 `devops/vendor/`、`release/`、`.workbuddy/`。前者是第三方 vendored 副本（`.gitignore` 排除、不进 npm `files`），命中的是 `superpowers` 上游测试夹具里的假 token；`release/` 是 `package.sh` 的产物，内容就是 vendor 的副本，重复扫描只会放大同一批噪声；`.workbuddy/` 是 AI 工作记忆，按设计会记录「什么写法会命中密钥规则」，天然带 token 字面样例（`dev.sh` / `publish.sh` 的脏检查同样排除它）
+
+### Removed
+
+- **发布包内的非分发文件（60 个）**: `assets/` 整目录在 npm `files` 白名单内且无任何过滤，此前把内部资料一起发出去 —— 清掉 `assets/.workbuddy/memory/` 32 个（内部项目记忆，等于把仓库约定与历史决策随包发给每个用户）、`assets/tmp/skills/coding/{normal,tweak}/` 14 个（已弃用的技能旧版实现）、`assets/zh/skills/prototype/build/evals/.work/` 7 个与 `.proto-verify.*.html` 7 个（evals 测试残留）。包内文件 748 → 688、解压体积 5.02MB → 3.65MB；`.gitignore` 同步补四条规则（`assets/.workbuddy/`、`assets/tmp/`、`assets/**/evals/.work/`、`**/.proto-verify.*`）防复发
+
+### Changed
+
+- **`prd` 技能族防「篇幅膨胀 / 内容空洞 / 表述冗余」**: 需求文档生成此前只堵「空洞」（基线唯一来源 + 事实假设分离 + 锚点禁复制），不堵「冗余」（有而啰嗦）。本轮四层补齐：前置约束（读者定位「禁科普/禁铺垫」、文风负面清单、按复杂度三档的篇幅/条目上限 800/2000/4000 字）、过程管控（冗余自检「可无损删减 ≥20% 才达标」、极简主义者角色锚定）、后置精炼（refine 合并时全篇冗余扫描）、评审兜底（review 维度4「无模糊表述」扩充空泛词/铺垫句/同义重复）。落点 `assets/zh/skills/prd/` 的 draft / refine / review
+
+> 技能判据侧改动按双语言约定，待英文同步后补记本 Changelog：
+> - `design` 阶段：图表要求与主审 S3.5 / S4.1 / S4.7 / S1 判定口径。
+
 ## What's Changed [0.1.2] - 2026-10-13
 ### Added
 

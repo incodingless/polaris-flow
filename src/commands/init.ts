@@ -14,6 +14,10 @@ import {
   selectScope,
 } from './prompts.js';
 import { detectPlatforms, getBaseDir } from '../core/integrations/detect.js';
+import {
+  ensureBundledSkillsSource,
+  getBundledSkillsSourceDir,
+} from '../core/integrations/bundled-skills.js';
 import { installOpenSpec } from '../core/integrations/openspec.js';
 import {
   installSuperpowersForPlatforms,
@@ -296,7 +300,30 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
     log(`\n  ${dim('○')}  Codegraph ${dim(t(lang, 'skip'))}`);
   }
 
-  // --- 3. Polaris bundled（skills → commands → agents → rules → hooks）---
+  // --- 4. 附带技能源（图表工具；GitHub 优先，本地兜底）---
+  // 注意：这里只负责把源拉到 ~/.polaris/components/bundled-skills，
+  // 真正的落盘在 installPolarisForPlatform 的 skills 步骤里做本地拷贝。
+  if (plans.some((p) => p.polarisAction !== 'skip')) {
+    log(
+      `\n  ${blue('⏳')} ${bold('Diagram')} ${dim(`(archify / diagram-design → ${getBundledSkillsSourceDir()})`)}...`,
+    );
+    const bundled = await ensureBundledSkillsSource();
+    if (bundled.missing.length === 0) {
+      log(`  ${statusSymbol('installed')}  Diagram ${statusLabel('installed', lang)}`);
+    } else {
+      log(
+        `  ${statusSymbol('failed')}  Diagram ${statusLabel('failed', lang)} ${dim(bundled.missing.join(', '))}`,
+      );
+      for (const [name, reason] of Object.entries(bundled.errors)) {
+        log(`  ${dim(`↳ ${name}: ${reason}`)}`);
+      }
+      log(
+        `  ${dim('↳ 本地已有副本仍会安装。手动重试：POLARIS_GITHUB_MIRROR=<镜像> polaris init')}`,
+      );
+    }
+  }
+
+  // --- 5. Polaris bundled（skills → commands → agents → rules → hooks）---
   const polarisNeeded = plans.some((p) => p.polarisAction !== 'skip');
   let polarisGlobalStatus: InstallStatus = 'skipped';
 
@@ -362,7 +389,7 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
     log(`\n  ${dim('○')}  Polaris ${dim(t(lang, 'skip'))}`);
   }
 
-  // --- 4. Hooks 安装结果汇报（已由 installPolarisForPlatform 注册）---
+  // --- 6. Hooks 安装结果汇报（已由 installPolarisForPlatform 注册）---
   if (polarisGlobalStatus === 'installed') {
     log(`\n  ${blue('⏳')} ${bold('Hooks')}...`);
     for (const plan of plans) {
