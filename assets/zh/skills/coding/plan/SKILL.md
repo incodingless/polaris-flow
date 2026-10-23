@@ -150,6 +150,7 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 |---|---|---|
 | `## Reframe 历程` | `proposal.md` 的 Why / Context | 必须包含 |
 | `## 目标` | `proposal.md` 的目标相关节 | 必须包含 |
+| `## 核心矛盾` | `design.md` 的 `## 1. 概述`（核心矛盾 Top3） | 必须包含 |
 | `## 任务范围` | `proposal.md` 范围 / 非目标；并作为 `tasks.md` 任务划分依据 | 必须包含；任务为粗粒度，单任务约 20 分钟量级 |
 | `## 待决问题` | `proposal.md` 的 Open Questions / 待决 | 必须包含 |
 | `## 验收场景及标准` | `specs/` 需求与场景依据 | 必须体现 |
@@ -276,17 +277,23 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 1. **四件套存在且非空**：`proposal.md`、`design.md`、`tasks.md` 非空；`specs/` 为目录且含至少一个非空文件。任一失败 → 回 Step 4.4 / policy §3 补齐，不得进入 5.2
 2. **`proposal.md`**：含问题背景、目标、范围、非目标
 3. **`design.md`**：含高层架构决策、方案选型，且含  
-   `## 2. 前提`、`## 3. 原则与依据`、`## 5. 未选方案及拒绝理由`（节名与 `./templates/design-template.md` 同源）
-4. **`tasks.md`**：任务有明确描述；必须跑：
+   `## 0. 核心结论`（`### 0.1 核心架构决策清单` 与 `### 0.2 核心风险清单` 两表非空）、`## 2. 前提`、`## 3. 原则与依据`、`## 5. 未选方案及拒绝理由`（节名与 `./templates/design-template.md` 同源）
+4. **`design.md` 质量自检**（对照 `./templates/design-template.md` 强制规则，缺任一项 → 回 Step 4.4 / policy §3 补齐，不得进入 5.2）：
+   1. **不突破硬约束**：方案未突破 `intention.md` 的「前提 / 下游约束」
+   2. **无代码级细节**：未出现表字段、具体错误码、方法名 / 类名、实现级伪码
+   3. **候选方案量化对比**：`## 5.1` 含 ≥2 方案 ×（性能 / 成本 / 复杂度 / 交付周期 / 运维门槛）5 维对比 + 推荐依据
+   4. **风险三件套**：`### 4.11` 覆盖过度设计风险 / 首版遗漏风险 / 最可能重构的部分
+   5. **业务-技术映射**：`### 4.12` 每个技术组件有业务场景与业务价值
+5. **`tasks.md`**：任务有明确描述；必须跑：
    ```bash
    LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
    LINT_EXIT=$?
    ```
    - exit 0 → 通过  
    - exit 1 → **阻断**，输出 `$LINT_RESULT`，修正后重跑
-5. 生成 `design.md` 前已 `read_file ./templates/design-template.md`、生成 `tasks.md` 前已 `read_file ./templates/tasks-template.md`，均按其所列节顺序填充
+6. 生成 `design.md` 前已 `read_file ./templates/design-template.md`、生成 `tasks.md` 前已 `read_file ./templates/tasks-template.md`，均按其所列节顺序填充
 
-> **fallback**（无 intention、仅用户原始 prompt）：若 proposal/design 缺第 2/3 项部分节，可放宽不阻断，仅在摘要标 `(fallback)`；**四件套存在性与 `tasks-lint` 仍必须通过**。
+> **fallback**（无 intention、仅用户原始 prompt）：若 proposal/design 缺第 2/3 项部分节，可放宽不阻断，仅在摘要标 `(fallback)`；质量自检第 4.1 项（不突破硬约束）因无 intention 前提也一并放宽；**四件套存在性、质量自检 4.2–4.5、`tasks-lint` 仍必须通过**。
 
 #### 5.2 主审 — `plan-review-agent`
 

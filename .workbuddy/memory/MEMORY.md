@@ -26,7 +26,7 @@
 
 ## 用户约定
 - 配置归代码（禁止 policy 承载配置表）；写 `state.yaml` 一律走 `scripts/task-state-entry.sh`（禁直写 yaml 块）。
-- 双语言：先写中文（`assets/zh/skills/`），用户确认后再同步英文；未同步前不写 Changelog。当前英文版暂不处理。
+- 双语言：先写中文（`assets/zh/skills/`），用户确认后再同步英文。当前英文版暂不处理。**只要 zh 资产变动，就变更版本号**（写 Changelog + bump `package.json` version，不再「待英文同步后补记」）；版本位按 `docs/releases/发布操作指南.md` §一.1：修 Bug/改文案/内部重构=patch、新增命令/能力（兼容旧用法）=minor、破坏性变更=major。英文侧版本位尚未约定，按需再补。
 - 候选呈现（用户手定）：单行 `<task_id> (工作流：<mode_label>，阶段：<phase_label>，技能：<skill_label>)`。
 - 每轮改动后跑 26/26 技能测试通过方可提交。
 

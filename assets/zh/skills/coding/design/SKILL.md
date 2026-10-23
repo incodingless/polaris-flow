@@ -122,7 +122,7 @@ OpenSpec Context: openspec/changes/<task_id>/*.md
 
 路径：`openspec/changes/<task_id>/detailed-design.md`
 
-frontmatter 与六个必含节（实现方案 / 边界条件 / 技术风险与缓解 / 测试策略 / 专项设计索引 / Spec Patch 清单）以模板为准，本技能不复制其字段清单。
+frontmatter、`## 0. 继承锚点` 与六个必含节（实现方案 / 边界条件 / 技术风险与缓解 / 测试策略 / 专项设计索引 / Spec Patch 清单）以模板为准，本技能不复制其字段清单。
 
 **图不得缺席**：`## 1. 实现方案` 的主成功路径至少一张 Mermaid 图；载体、抽象度与「图后两段」的要求一律按模板「图表要求」，本技能不复制。
 
