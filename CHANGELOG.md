@@ -22,8 +22,18 @@
 
 - **附带技能拉取的目标 URL 拼错**: `fetchRepo` / `fetchRepoAtCommit` 期望完整 URL（镜像改写只对 `https://github.com` 前缀生效），此前传的是 `owner/repo`，导致 `git` 报「does not appear to be a git repository」且失败被吞成「没装上」。现统一拼成完整 URL
 - **拉取失败原因被吞**: `ensureBundledSkillsSource` 原先只返回 `missing` 名单，`init` 只打印技能名，无法区分网络问题与配置问题；现额外返回 `errors`（每个技能一行原因），`init` 逐条打印
+- **密钥扫描误拦 vendored 副本与工作记忆导致发布中断**: `devops/prepublish-check.js` 改为按相对路径整体跳过 `devops/vendor/`、`release/`、`.workbuddy/`。前者是第三方 vendored 副本（`.gitignore` 排除、不进 npm `files`），命中的是 `superpowers` 上游测试夹具里的假 token；`release/` 是 `package.sh` 的产物，内容就是 vendor 的副本，重复扫描只会放大同一批噪声；`.workbuddy/` 是 AI 工作记忆，按设计会记录「什么写法会命中密钥规则」，天然带 token 字面样例（`dev.sh` / `publish.sh` 的脏检查同样排除它）
 
-> 技能判据侧改动（`design` 阶段的图表要求与主审 S3.5 / S4.1 / S4.7 / S1 判定口径）按双语言约定，待英文同步后补记本 Changelog。
+### Removed
+
+- **发布包内的非分发文件（60 个）**: `assets/` 整目录在 npm `files` 白名单内且无任何过滤，此前把内部资料一起发出去 —— 清掉 `assets/.workbuddy/memory/` 32 个（内部项目记忆，等于把仓库约定与历史决策随包发给每个用户）、`assets/tmp/skills/coding/{normal,tweak}/` 14 个（已弃用的技能旧版实现）、`assets/zh/skills/prototype/build/evals/.work/` 7 个与 `.proto-verify.*.html` 7 个（evals 测试残留）。包内文件 748 → 688、解压体积 5.02MB → 3.65MB；`.gitignore` 同步补四条规则（`assets/.workbuddy/`、`assets/tmp/`、`assets/**/evals/.work/`、`**/.proto-verify.*`）防复发
+
+### Changed
+
+- **`prd` 技能族防「篇幅膨胀 / 内容空洞 / 表述冗余」**: 需求文档生成此前只堵「空洞」（基线唯一来源 + 事实假设分离 + 锚点禁复制），不堵「冗余」（有而啰嗦）。本轮四层补齐：前置约束（读者定位「禁科普/禁铺垫」、文风负面清单、按复杂度三档的篇幅/条目上限 800/2000/4000 字）、过程管控（冗余自检「可无损删减 ≥20% 才达标」、极简主义者角色锚定）、后置精炼（refine 合并时全篇冗余扫描）、评审兜底（review 维度4「无模糊表述」扩充空泛词/铺垫句/同义重复）。落点 `assets/zh/skills/prd/` 的 draft / refine / review
+
+> 技能判据侧改动按双语言约定，待英文同步后补记本 Changelog：
+> - `design` 阶段：图表要求与主审 S3.5 / S4.1 / S4.7 / S1 判定口径。
 
 ## What's Changed [0.1.2] - 2026-10-13
 ### Added

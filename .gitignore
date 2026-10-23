@@ -105,6 +105,14 @@ assets/*/skills/.workbuddy/
 assets/*/skills/*/.workbuddy/
 assets/*/skills/*/*/.workbuddy/
 
+# assets 整个目录进 npm files，这里的任何杂项都会随包发布 —— 只放要分发的东西
+# 2026-10-22：清掉 assets/.workbuddy/（内部记忆 32 个）、assets/tmp/（技能旧版 14 个）、
+# evals/.work/ 与 .proto-verify.*（测试残留 14 个）后加，防复发
+assets/.workbuddy/
+assets/tmp/
+assets/**/evals/.work/
+**/.proto-verify.*
+
 # 全局 gitignore 忽略所有 README.md，这里显式反向放行本仓需要的两份
 !dashboard/docs/README.md
 !/README.md
