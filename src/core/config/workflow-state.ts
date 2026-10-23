@@ -181,7 +181,7 @@ export async function loadWorkflowState(repoRoot: string): Promise<WorkflowState
   try {
     return normalizeWorkflowState(parseYaml(text));
   } catch (err) {
-    throw new Error(`无法解析 ${filePath}: ${(err as Error).message}`);
+    throw new Error(`无法解析 ${filePath}: ${(err as Error).message}`, { cause: err });
   }
 }
 

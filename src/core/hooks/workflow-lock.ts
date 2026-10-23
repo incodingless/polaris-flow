@@ -86,7 +86,7 @@ export async function acquireExclusiveLock(
       return { lockPath, release };
     }
 
-    let mtimeMs = 0;
+    let mtimeMs: number;
     try {
       mtimeMs = fs.statSync(lockPath).mtimeMs;
     } catch {
@@ -109,11 +109,7 @@ export async function acquireExclusiveLock(
       } catch {
         // ignore
       }
-      throw new WorkflowLockError(
-        `${label} 持续 ${spinMs / 1000}s 未能获取`,
-        holder,
-        lockPath,
-      );
+      throw new WorkflowLockError(`${label} 持续 ${spinMs / 1000}s 未能获取`, holder, lockPath);
     }
 
     await delay(pollMs);

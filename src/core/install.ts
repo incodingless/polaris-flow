@@ -7,12 +7,7 @@
  */
 import path from 'path';
 import { getCommandLayout, getPlatformSkillsDir, type Platform } from './domain/platforms.js';
-import {
-  type InstallScope,
-  type Languages,
-  loadPolarisConfig,
-  resolveReviewAgentModel,
-} from './config/polaris-project-config.js';
+import { type InstallScope, type Languages } from './config/polaris-project-config.js';
 
 import { getPolarisConfigPath, getPolarisGitignorePath } from './assets/polaris-paths.js';
 import { getConfigExampleYamlSrc, getSharedGitignoreSrc } from './assets/manifest.js';
@@ -25,7 +20,7 @@ import { copyPolarisRules } from './install/rules.js';
 import { copyPolarisSkillsForPlatform } from './install/skills.js';
 import { copyBundledSkillsToPlatform } from './integrations/bundled-skills.js';
 import { POLARIS_ASSET_KINDS, type CopyStats, type PolarisAssetKind } from './install/types.js';
-import { Assets, readAssets } from './assets/manifest.js';
+import { readAssets } from './assets/manifest.js';
 import { ensureWorkflowStateFile } from './config/workflow-state.js';
 import { copyIfMissing, fileExists } from '../utils/file-system.js';
 import { writeYamlFromTemplate } from '../utils/yaml-io.js';

@@ -1,4 +1,4 @@
-import { access, copyFile as fsCopyFile, mkdir, readFile, readdir, rm, stat } from 'fs/promises';
+import { access, copyFile as fsCopyFile, mkdir, readdir, rm, stat } from 'fs/promises';
 import path from 'path';
 
 /**

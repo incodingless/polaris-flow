@@ -32,7 +32,7 @@ export const SKILL_NAME_PREFIX_PLACEHOLDER = '{{SKN_SPR}}';
  * 匹配技能文本中的 `../` 相对引用（如 `../specify/x.md`、`../../../../policies/y.md`）。
  * 负向前瞻 `(?<!\.)` 排除 `.../`（省略号 / shell glob），避免误报。
  */
-const CROSS_SKILL_PARENT_REF_RE = /(?<!\.)\.\.\/[A-Za-z0-9._\-\/]+/g;
+const CROSS_SKILL_PARENT_REF_RE = /(?<!\.)\.\.\/[A-Za-z0-9._/-]+/g;
 
 /** 幽灵占位符：源码中从未定义 / 替换，安装后会原样残留，必须清理。 */
 const GHOST_SKILL_NAME_PLACEHOLDER = '{{SKILL_NAME_PREFIX}}';
