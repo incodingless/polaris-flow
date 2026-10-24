@@ -23,7 +23,7 @@ description: "把已锁定的需求/设计拆解为可执行任务清单 tasks.m
 - **禁止**跳过 Superpowers `writing-plans`（不可用则阻断；加载后必须按下方「骨架模式」落地，禁止原样照抄每步贴完整实现代码 / 每任务 commit）
 - **禁止**主代理在覆写 `tasks.md` 前未 `read_file templates/tasks-template.md`
 - **禁止**另写 `docs/superpowers/plans/*.md` 或 `.polaris/tasks/*/implementation-plan.md` 作为主产物——**唯一**实施计划是 `openspec/changes/<task_id>/tasks.md`（覆写，不是并列第二份）
-- **禁止**跳过 `tasks-lint.sh` 或脑补核对
+- **禁止**跳过 `tasks-lint.mjs` 或脑补核对
 - **禁止**跳过 Step 7 主审：必须派发 `tasks-review-agent`，并注入本 skill 的 `StandardsRoot`（agent 须读完 `policies/` + `references/` 标准文档；禁止主代理自审冒充）—— ⚠️ **仅 `normal` / `strict` 档**；`tweak` 档**本档豁免**（见 Step 7）
 - **禁止**跳过 Step 7 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）—— ⚠️ 随 Step 7 一并仅在 `normal` / `strict` 档适用
 - **禁止**在本阶段编写业务实现代码 / 调用 `/opsx:apply`（那是 build）
@@ -323,7 +323,7 @@ LINT_EXIT=$?
 > 🔻 **`tweak` 档：本档豁免（非缺失，审计勿补回）** —— 简单改动的 `tasks.md` 由 `intention.md` 直接推导、
 > 内容极简，独立主审的代价大于收益。
 > **本档跳过 Step 7 全部**（含 7.2 Outside Voice），**直接进 Step 8**（无评审结论可消化 → 直接进 Step 9）。
-> 本档的 `tasks.md` 质量由 **6.1 自审 + 6.2 `tasks-lint.sh` + Step 5 的任务定稿确认**三道保证。
+> 本档的 `tasks.md` 质量由 **6.1 自审 + 6.2 `tasks-lint.mjs` + Step 5 的任务定稿确认**三道保证。
 > 豁免依据见 `HARD-GATE` 的档位分叉表。
 
 本步**只负责派发**主审 subagent；评审标准在 `tasks-review-agent` 内。**禁止**主代理用「自检清单」冒充。
@@ -422,7 +422,7 @@ LINT_EXIT=$?
 | 用户回复 | 判定 | 后续 |
 |---|---|---|
 | 明确确认 | 完成 | 进入 9.1 |
-| 仅对某条反馈 | **不算确认** | 改写 → 重跑 6.2 `tasks-lint.sh` → **重新确认** |
+| 仅对某条反馈 | **不算确认** | 改写 → 重跑 6.2 `tasks-lint.mjs` → **重新确认** |
 | 模糊回复 / 沉默 | **不算确认** | 必须再问一次明确确认 |
 
 > `normal` / `strict` 档**不加**此步 —— 那道确认由 Step 7 的独立主审 + Step 8 的 findings 消化承担。
@@ -477,7 +477,7 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
 
 - `runtime.tasks.tdd_policy` 已确定：**`normal` / `strict` 档** = 用户明确选择（Step 3）；**`tweak` 档** = 档位派生
 - `tasks.md` 已按模板覆写，含与 `tdd_policy` 一致的 TDD/非TDD 标注、Files、Interfaces、可复制验证命令
-- `tasks-lint.sh` exit 0
+- `tasks-lint.mjs` exit 0
 - **`normal` / `strict` 档**：`tasks-review-agent` 已跑完且 STATUS 为 `DONE` 或用户已消化完的 `DONE_WITH_CONCERNS`
 - **`normal` / `strict` 档**：Outside Voice 已询问并完成（ran / 用户跳过）
 - **`tweak` 档**：Step 7 / 8 **豁免**（不得据此判为"退出条件未满足"）

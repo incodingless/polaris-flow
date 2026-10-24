@@ -80,7 +80,7 @@ WT_EXIT=$?
 - exit 0 → `$WT_RESULT` 含 JSON（`target_path` / `target_branch` / `snapshot_path`）；继续下方同步
 - exit 1 → **阻断**，stderr 有错误信息
 
-创建成功后，`worktree` 块（`created_by_polaris_flow` / `path` / `branch` / `origin_repo` / `created_at` / `status`）**已由 `worktree-create.sh` 在同一次调用内写入** —— 本技能**不再重复声明**，也不直接编辑 `state.yaml`；顶层 `phase` 由后续 `complete-phase` 推进。
+创建成功后，`worktree` 块（`created_by_polaris_flow` / `path` / `branch` / `origin_repo` / `created_at` / `status`）**已由 `worktree-create.mjs` 在同一次调用内写入** —— 本技能**不再重复声明**，也不直接编辑 `state.yaml`；顶层 `phase` 由后续 `complete-phase` 推进。
 
 同步主仓 workflow.yaml（脚本内含锁 / 写后校验，见 H12）：
 

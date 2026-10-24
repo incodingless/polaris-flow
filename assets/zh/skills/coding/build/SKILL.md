@@ -32,7 +32,7 @@ description: "按已评审的实施计划 tasks.md 完成编码实现。当用�
 | 深度设计（只读，`runtime.design.status=skipped` 时不存在） | `openspec/changes/<task_id>/detailed-design.md` |
 | 业务档案 | `.polaris/tasks/<task_id>/state.yaml` |
 | workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.mjs`） |
-| 批次游标（仅 `subagent_dispatch` 且 `batch_dispatch=true` 时） | `state.yaml` 的 `runtime.build.current_batch`（写入走 `task-state-entry.sh`） |
+| 批次游标（仅 `subagent_dispatch` 且 `batch_dispatch=true` 时） | `state.yaml` 的 `runtime.build.current_batch`（写入走 `task-state-entry.mjs`） |
 | implementer prompt 模板 | `./assets/implementer-prompt.md` |
 
 > **链路**：`specify → plan → (design 可选) → tasks → **build** → verify → ship`。  

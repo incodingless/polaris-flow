@@ -9,7 +9,7 @@ description: "verify 通过后完成交付：终验、分支收尾、worktree �
 本 skill **仅**负责：在 **verify 已完成** 的前提下，做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清理 workflow 游标。
 
 - **禁止**跳过 Step 1（ship lock）进入后续步骤（H11）
-- **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 4.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
+- **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 4.5 的产物合回（`policies/polaris-sync.md`）直接 `git worktree remove`（H9）
 - **禁止**未按 `./policies/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
 - **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 7.1
 - **tweak 快速工作流**：`workflow.mode=tweak` 时**必须**执行 Step 5.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
@@ -21,7 +21,7 @@ description: "verify 通过后完成交付：终验、分支收尾、worktree �
 
 ## 遵守的 Hard Stops
 
-H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、H12（写 workflow.yaml 须持 workflow.lock；本阶段清理走 `ship-cleanup.sh` / `workflow-entry.sh`）。
+H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、H12（写 workflow.yaml 须持 workflow.lock；本阶段清理走 `ship-cleanup.mjs` / `workflow-entry.mjs`）。
 
 ## 标识约定
 
@@ -279,7 +279,7 @@ openspec-cn archive "$task_id" --yes
 
 **必做**（含 `runtime.ship.archive=failed`：OpenSpec 目录仍在原位，仅清 polaris 游标与 tasks 档案）。
 
-调用 `ship-cleanup.sh`（删 `coding_tasks` 对应 entry + `rm -rf .polaris/tasks/<task_id>{,.snapshot}`）：
+调用 `ship-cleanup.mjs`（删 `coding_tasks` 对应 entry + `rm -rf .polaris/tasks/<task_id>{,.snapshot}`）：
 
 ```bash
 node "$PLUGIN_ROOT/scripts/ship-cleanup.mjs" "$task_id" "$ORIGIN_REPO" || exit 1

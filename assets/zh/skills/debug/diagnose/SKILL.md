@@ -155,7 +155,7 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set --repo-root "$REPO_ROOT" --
 #### 3.1.A 测试通道（bugfix）· worktree（可选）
 
 - **暂停等用户选**：是否创建 worktree 隔离本次修复（避免污染当前开发工作区）？
-  - **是**：走下方 3.1.A.A（`worktree-create.sh` + `task-state-entry` 写入 worktree 字段）
+  - **是**：走下方 3.1.A.A（`worktree-create.mjs` + `task-state-entry` 写入 worktree 字段）
   - **否**：走下方 3.1.A.B
 - 建 worktree 后，**后续代码改动**在 worktree 里执行；产物仍写主仓库
 

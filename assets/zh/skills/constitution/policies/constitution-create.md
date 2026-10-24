@@ -38,4 +38,4 @@
 
 ### 5. 验证有效性
 
-执行 `constitution-validity.sh` 确认 exit 0。
+执行 `constitution-validity.mjs` 确认 exit 0。

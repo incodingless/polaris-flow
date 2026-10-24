@@ -9,7 +9,7 @@ Constitution Audit 是「宪法注入点 D」的执行规则：逐条核对实�
 
 ## 前置条件
 
-1. `constitution-validity.sh` 返回 exit 0（宪法有效）
+1. `constitution-validity.mjs` 返回 exit 0（宪法有效）
 2. 若 exit 1 或 2 → 按 `constitution_required` 配置处理
 
 ## 审计流程

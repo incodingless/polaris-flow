@@ -65,10 +65,10 @@
 - 当前内容：`archify`（v3.2.0，MIT，已删 `examples/*.html` 12MB）、`diagram-design`（cathrynlavery 上游 v2.6，MIT，全留）。各带 `PROVENANCE.md`（上游 commit/版本/裁剪/升级方式），升级**手动**、不接自动同步。
 - 与设计文档的关系：正文图仍是 Mermaid（design 阶段 + 主审 S3.5）；这两个只出**交付图**（HTML/PNG，给人看），不进评审链。
 
-## Windows 支持（2026-10-21 裁定）
-- **bash 是硬依赖，非可选**：`assets/shared/hooks.json` 模板、`src/core/install/hooks.ts:62`（硬编码 `bash "…"`）、`doctor.ts`（`checkBash`）、`verify/SKILL.md` 的 scorers 调用，共 27 个 `.sh`。全仓 `grep win32|process.platform` **零结果**（无 Windows 分支）。⇒ Windows 缺 bash 时：安装与 `polaris init` 都成功、**hook 静默失效不报错**。**PowerShell 不能替代**，2026-10-21 裁定 C（改写成 Node 跨平台）不做。
+## Windows 支持（2026-10-21 裁定，部分结论 2026-10-24 已过时）
+- ⚠️ **已过时**：「bash 是硬依赖，非可选」结论已失效——hook 启动、`scorers/`、技能内部脚本已全部 node 化（`.mjs`），运行时不再依赖 bash；`doctor.checkBash`、`install.ps1` bash 警告均已删除。原 2026-10-21「裁定 C（改写成 Node 跨平台）不做」后来已实施（0.4.1→0.5.0 多轮 node 化，最终版本收敛为 0.5.0）。详见「Shell 边界」节。以下「Windows 安装判据」（install.ps1、MAX_PATH、root 护栏等）仍有效。
 - ⚠️ **「git 有、bash 无」的头号原因**（2026-10-23 用户现场）：Git for Windows 默认安装只把 `cmd\` 加进 PATH（含 `git.exe`），而 `bash.exe` 在 `bin\` 下、默认不加。`doctor` 的 `windowsGitBashCandidates()` 探测三个常见位置（Program Files / Program Files (x86) / `%LOCALAPPDATA%\Programs\Git\bin`，另含 `Git\usr\bin`）并直接打印 PATH 修复命令。修 PATH 后**必须重开终端**（`SetEnvironmentVariable` 不影响已打开窗口）。
-- 裁定 = **A+B，不做 C**：A 文档分平台 + B 新增 `install.ps1`（`install.sh` 等价物）；C（把 hook/scorers 改写成 Node 跨平台）明确不做。理由：Git for Windows 提供的 `bash.exe` 同时解决 install 与 hook 两件事。
+- 裁定演进：原 **A+B**（A 文档分平台 + B 新增 `install.ps1`）；C（hook/scorers 改写成 Node 跨平台）当时不做，**后来已做**（见「Shell 边界」节）。`install.ps1` 仍是 `install.sh` 的 Windows 等价物，其 BOM+CRLF 等约束不变。
 - `install.ps1` 三个必须保持的约束：① 调用 `npm.cmd` 而非 `npm`（PowerShell 的 `npm`→`npm.ps1` 被执行策略拦）；② 文件必须 **UTF-8 BOM + CRLF**（PowerShell 5.1 否则按 ANSI 解析 → 中文乱码）；③ bash 缺失只警告不阻断，且区分「已装 Git 但 `bin` 不在 PATH」与「未装」。
 - PowerShell 语法坑：`-split` 单段结果 `[0]` 取首字符 → 用 `String.Split()`；`npm prefix -g` 要 `Select-Object -First 1` 再 `.Trim()`。bash 的「变量后跟中文要 `${}`」坑**不适用**于 PowerShell。
 - **安装判据 = 全局目录可写，不是「是否 root」**（2026-10-21，与 Linux `sudo` 同源逻辑）：Windows 官方安装包的 npm 前缀默认 `%APPDATA%\npm`，本来就在当前用户名下、已在 PATH → **不需要管理员**；只有前缀被指到 `C:\Program Files` 类受保护路径才需管理员。判据统一为「装进一个 `polaris init` / `update` 也写得进去的全局目录」，`polaris-flow` **本体**用 `--prefix` 绕开一律禁止（会得到只能跑 `--version` 的残件）；伴生 CLI 例外，见「伴生 CLI 安装通道 + root 护栏」节。`install.ps1` 用建临时文件探测（ACL 判断在 Windows 易误判），**目录不存在时向上找最近已存在祖先**再探测（全新 Node 上 `%APPDATA%\npm` 可能尚未创建，否则会误判不可写而拒绝安装）。
@@ -85,3 +85,13 @@
 ## state.yaml 双层字段语义（2026-10-19 裁定）
 - workflow.tdd_mode/build_mode/signals = workflow 层全局决策字段，必须由技能写入（tasks Step 3 / build Step 2.1 / specify 5.4.1 + verify Step 9）；runtime 同名/相应字段（tdd_policy、runtime.build.build_mode 等）= 运行细节记录。两层并存、不裁撤；build SKILL.md「刻意不做全局 tdd_mode」表述与本裁定冲突，待批③修正。
 - 顶层 `verify_mode` = 保留且必须写入（verify 定档时与 runtime.verify.verify_mode 成对同步），模板「已废弃不读取」注释待批③改写（2026-10-19 裁定）。
+
+## Shell 边界（2026-10-24 裁定，勿回退）
+- **运行时已 100% node 化**：`polaris init` 与技能运行时（hook 启动 `session-start.mjs`、技能内部脚本、`scorers/`、`detect-test-command.mjs`、`analyze.mjs`）均为 `.mjs`，**运行时不再依赖 bash**。
+- 判定原则：**凡运行时会执行的脚本一律写 `.mjs`，禁止新增运行时 `.sh`**。
+- 保留 `.sh` 的边界（均为非运行时链，各自执行环境本就带 shell）：
+  - `install.sh`（根目录）= Linux 用户分发入口，Linux 正常自带 bash，保留。
+  - `devops/*.sh` = 维护者构建/发布/打包，开发者本机有 shell，保留。
+  - `test/shell/*.sh` = 测试脚本，保留。
+- 新增脚本先判「运行时 vs 非运行时」：运行时（hook/技能/scorer/安装辅助）→ `.mjs`；仅落在 `install.sh` / `devops/` / `test/shell/` 三类非运行时链才允许 `.sh`。
+- 权威源已同步：`AGENTS.md` §「Shell 脚本规范」新增「Shell 边界」小节。

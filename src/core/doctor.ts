@@ -56,79 +56,6 @@ async function checkCommand(name: string, command: string): Promise<DiagnosticIt
   };
 }
 
-/**
- * Git for Windows 的 bash.exe 常见位置。
- * Git 默认安装（"Git from the command line and also from 3rd-party software"）
- * 只把 `cmd\` 加进 PATH —— 那里有 git.exe，但 `bash.exe` 在 `bin\` 下，
- * 于是出现「git 可用、bash 找不到」这种最让人困惑的组合。
- */
-export function windowsGitBashCandidates(): string[] {
-  const candidates = [
-    'C:\\Program Files\\Git\\bin\\bash.exe',
-    'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
-    'C:\\Program Files\\Git\\usr\\bin\\bash.exe',
-  ];
-  const localAppData = process.env.LOCALAPPDATA;
-  if (localAppData) {
-    candidates.push(path.join(localAppData, 'Programs', 'Git', 'bin', 'bash.exe'));
-  }
-  return candidates;
-}
-
-/**
- * bash 诊断。宿主的 SessionStart hook、skill 的 scripts/*.mjs 薄包装与自包含脚本、
- * verify 打分器（scorers/*.mjs）以及 codereview 扫描脚本（analyze.mjs）均已改用 node，
- * skill 运行时不再依赖 bash；仅安装脚本 install.sh 与开发脚本 devops/*.sh 仍是 .sh。
- * 此项保留是为 install.sh / devops 场景给出可复制的修复命令，而不是只说「not found」。
- */
-async function checkBash(): Promise<DiagnosticItem> {
-  if (await isCommandAvailable('bash')) {
-    return { name: 'bash', status: 'ok', message: 'available' };
-  }
-
-  if (process.platform === 'win32') {
-    for (const candidate of windowsGitBashCandidates()) {
-      if (!(await fileExists(candidate))) continue;
-      const binDir = path.dirname(candidate);
-      return {
-        name: 'bash',
-        status: 'fail',
-        message: 'not found in PATH（Git 已安装，但它的 bin 目录没进 PATH）',
-        hint: [
-          `已找到 ${candidate}。Git 默认安装只把 cmd\\ 加进 PATH，而 bash.exe 在 bin\\ 下。`,
-          '',
-          '当前窗口立即生效：',
-          `  $env:Path = "${binDir};" + $env:Path`,
-          '',
-          '永久生效（之后重开终端）：',
-          `  [Environment]::SetEnvironmentVariable('Path', "${binDir};" + [Environment]::GetEnvironmentVariable('Path','User'), 'User')`,
-        ].join('\n'),
-      };
-    }
-
-    return {
-      name: 'bash',
-      status: 'fail',
-      message: 'not found in PATH',
-      hint: [
-        'polaris 的 skill 运行时已全部 node 化、不再依赖 bash；仅安装脚本 install.sh 与开发脚本 devops/*.sh 仍用 bash，Windows 上靠 Git for Windows 自带的 bash.exe；',
-        'PowerShell 不能替代它（.sh 里用了 POSIX 语法与 coreutils 命令）。',
-        '',
-        '装 Git for Windows（默认选项即可）：https://git-scm.com/download/win',
-        '装完确认 bash 可见：Get-Command bash',
-        '若仍找不到，把 C:\\Program Files\\Git\\bin 加入用户 PATH 后重开终端。',
-      ].join('\n'),
-    };
-  }
-
-  return {
-    name: 'bash',
-    status: 'fail',
-    message: 'not found in PATH',
-    hint: '装 bash：Debian/Ubuntu 用 `apt install bash`，RHEL/CentOS 用 `yum install bash`',
-  };
-}
-
 async function findSkillsLock(projectPath: string): Promise<string | null> {
   const candidates = [
     path.join(projectPath, 'skills-lock.json'),
@@ -207,7 +134,6 @@ export async function runDiagnostics(
   const checks: DiagnosticItem[] = [];
 
   checks.push(await checkNode());
-  checks.push(await checkBash());
   checks.push(await checkCommand('git', 'git'));
   checks.push(await checkCommand('openspec', 'openspec'));
   checks.push(await checkSkillsLock(projectPath));
