@@ -24,6 +24,12 @@ export async function runDoctor(
     for (const item of checks) {
       const icon = item.status === 'ok' ? '✓' : item.status === 'warn' ? '!' : '✗';
       console.log(`  ${icon} ${item.name}: ${item.message}`);
+      // hint 是给失败项的修复指引：缩进两格输出，保持与诊断行同一视觉层级
+      if (item.hint && item.status !== 'ok') {
+        for (const line of item.hint.split('\n')) {
+          console.log(line ? `      ${line}` : '');
+        }
+      }
     }
   }
 

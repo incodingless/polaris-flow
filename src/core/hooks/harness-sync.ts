@@ -80,7 +80,7 @@ export async function runHarnessSync(
   let metricsCount = 0;
   let overridesLines = 0;
   let hasState = false;
-  let hasPredesign = false;
+  const hasPredesign = false;
   let failures = 0;
   //TODO: 这段应该要删除
   const metricsDir = getMetricsDir(wt);

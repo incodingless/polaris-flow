@@ -52,7 +52,11 @@ function buildSuperpowersInstallCommand(
     throw new Error(`No skills CLI agent names resolved for platforms: ${platformIds.join(', ')}`);
   }
 
-  const args = ['skills', 'add', 'obra/superpowers', '-y'];
+  // `--yes` 必须放在包名之前 —— 那是给 npx 的：允许它自动安装 skills 包本体。
+  // 末尾的 `-y` 是给 skills CLI 的：跳过它自己的交互确认。两者缺一不可：
+  // 少了 npx 的 `--yes`，首次运行会停在 "Ok to proceed? (y)" 等输入，
+  // 非交互环境（CI / hook / 管道）直接挂死。
+  const args = ['--yes', 'skills', 'add', 'obra/superpowers', '-y'];
   if (scope === 'global') {
     args.push('-g');
   }

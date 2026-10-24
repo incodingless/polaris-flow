@@ -9,9 +9,13 @@
         → 打印版本号与下一步提示。
     供不便使用 Git Bash 的 Windows 用户使用。
 
-    只做全局安装，不提供「装到自定义前缀」的方式。原因：polaris update 升级自身、
-    polaris init 安装 openspec 都直接写 npm 全局目录，装到别处只能得到一个
-    跑得起 --version 的残件。全局目录不可写时脚本直接报错，不给半可用方案。
+    只做全局安装 polaris-flow 本体，不提供「装到自定义前缀」的方式。原因：polaris update
+    升级自身要写 npm 全局目录，装到别处只能得到一个跑得起 --version 的残件。
+    全局目录不可写时脚本直接报错，不给半可用方案。
+
+    注意分工：polaris init 必须由普通用户执行 —— 用管理员身份跑 init 会让项目里的
+    .polaris/ 与平台目录归属管理员，用户之后改不了。init 需要的 openspec / codegraph
+    会自动装到 %USERPROFILE%\.polaris\cli，不需要管理员权限。
 
     Windows 与 Linux 的差别：Windows 官方安装包的 npm 前缀默认是 %APPDATA%\npm，
     本来就在当前用户名下、也在 PATH 里，正常不需要管理员。只有前缀被指向
@@ -182,18 +186,31 @@ if ($bundleMode) {
 # bash 缺失不阻断安装，但必须明确告知：hook 与打分器是 bash 脚本，缺了会静默失效
 $bashCommand = Get-Command bash -ErrorAction SilentlyContinue
 if (-not $bashCommand) {
-    $portableBash = 'C:\Program Files\Git\bin\bash.exe'
+    # 与 src/core/doctor.ts 的 windowsGitBashCandidates() 保持一致
+    $gitBashCandidates = @(
+        'C:\Program Files\Git\bin\bash.exe',
+        'C:\Program Files (x86)\Git\bin\bash.exe',
+        'C:\Program Files\Git\usr\bin\bash.exe',
+        "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe"
+    )
+    $portableBash = $gitBashCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     Write-Host ''
     Write-Host '注意：PATH 中未找到 bash。' -ForegroundColor Yellow
     Write-Host '  Polaris Flow 的 hook 与 verify 打分器以 bash 脚本编写，缺少 bash 时：'
     Write-Host '    - polaris init 仍可完成，但写入宿主配置的 hook 不会生效'
     Write-Host '    - verify 阶段的打分器无法运行'
     Write-Host '  解决：安装 Git for Windows（https://git-scm.com/download/win），'
-    if (Test-Path $portableBash) {
-        Write-Host "        该机已存在 ${portableBash}，只需把 'C:\Program Files\Git\bin' 加入系统 PATH 后重开终端。"
+    if ($portableBash) {
+        $gitBinDir = Split-Path -Parent $portableBash
+        Write-Host "        该机已存在 $portableBash，只是它的 bin 目录没进 PATH。"
+        Write-Host '        加入用户 PATH（重开终端后生效）：'
+        # 单引号在 PowerShell 里不展开变量，这里用拼接，避免把 $gitBinDir 原样打出来
+        $pathFix = "          [Environment]::SetEnvironmentVariable('Path', '" + $gitBinDir + ";' + [Environment]::GetEnvironmentVariable('Path','User'), 'User')"
+        Write-Host $pathFix
     }
     else {
-        Write-Host "        安装时勾选把 Git 加入 PATH，或手动把 'C:\Program Files\Git\bin' 加入系统 PATH 后重开终端。"
+        Write-Host '        装 Git for Windows 时选默认选项即可（https://git-scm.com/download/win），'
+        Write-Host '        装完把 C:\Program Files\Git\bin 加入用户 PATH，再重开终端。'
     }
     Write-Host ''
 }
@@ -221,8 +238,9 @@ elseif (Test-DirectoryWritable $globalPrefix) {
 else {
     Write-Host ''
     Write-ErrorMessage "npm 全局目录 $globalPrefix 当前用户不可写，装下去也不会是可用的安装。"
-    Write-Host '  原因：polaris init 安装 openspec、polaris update 升级自身都要写这个目录，'
-    Write-Host '        换成自定义 prefix 只能让 polaris 命令本身跑起来，后续步骤仍会失败。'
+    Write-Host '  原因：polaris update 升级自身要写这个目录，'
+    Write-Host '        换成自定义 prefix 只能让 polaris 命令本身跑起来，升级时仍会失败。'
+    Write-Host '        （polaris init 不受影响：它要的伴生 CLI 会自动装到用户目录）'
     Write-Host ''
     Write-Host '  选一条：'
     Write-Host '    1) 以管理员身份重新运行（推荐）'
@@ -283,11 +301,21 @@ else {
     Write-Host '  关掉终端重新打开后再执行：polaris --version'
 }
 
-# openspec 由 polaris init 安装；这里提前提示，避免 init 阶段才发现装不上
+# 伴生 CLI 由 polaris init 按需安装（全局不可写时落 %USERPROFILE%\.polaris\cli）。
+# 这里只提示管理员可选预装，省掉每个使用者首次 init 的下载等待。
+$MissingDeps = @()
 if (-not (Get-Command openspec -ErrorAction SilentlyContinue)) {
+    $MissingDeps += $OpenSpecPackage
+}
+if (-not (Get-Command codegraph -ErrorAction SilentlyContinue)) {
+    $MissingDeps += '@colbymchenry/codegraph@latest'
+}
+if ($MissingDeps.Count -gt 0) {
     Write-Host ''
-    Write-Host '建议顺带装好 OpenSpec（polaris init 会用到，先装可省一次等待）：'
-    Write-Host "    $npmExe install -g $OpenSpecPackage --registry $Registry"
+    Write-Host '可选：顺手预装伴生 CLI（不装也行，polaris init 会自动装到用户目录）：'
+    Write-Host "    $npmExe install -g $($MissingDeps -join ' ') --registry $Registry"
+    Write-Host ''
+    Write-Host '注意：初始化项目必须由普通用户执行，不要用管理员身份跑 polaris init。'
 }
 
 Write-Host ''

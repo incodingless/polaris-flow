@@ -26,7 +26,6 @@ import { parseWorkflowTaskKind, type WorkflowTaskKind } from '../../core/config/
 import { runTasksLint } from '../../core/hooks/tasks-lint.js';
 import { runTaskStateEntry } from '../../core/hooks/task-state-entry.js';
 import { planDeliveryCleanup, runDeliveryCleanup } from '../../core/hooks/delivery-cleanup.js';
-import { runWorkflowEntry } from '../../core/hooks/workflow-entry.js';
 import {
   findPlanFile,
   listTaskFiles,

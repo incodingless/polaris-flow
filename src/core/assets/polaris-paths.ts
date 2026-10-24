@@ -28,6 +28,22 @@ export function getGlobalPolarisConfigPath(): string {
   return path.join(getPolarisHomeDir(), 'polaris.yaml');
 }
 
+/**
+ * 返回用户级 CLI 前缀 `~/.polaris/cli`。
+ *
+ * 全局 npm 目录（如系统 node 的 `/usr/lib/node_modules`）不可写时，OpenSpec / Codegraph
+ * 等伴生 CLI 装到这里，而不是要求用户 sudo —— sudo 装出来的东西属主是 root，
+ * 后续普通用户既升不了级也删不掉。
+ */
+export function getUserCliPrefixDir(): string {
+  return path.join(getPolarisHomeDir(), 'cli');
+}
+
+/** 返回用户级 CLI 可执行目录 `~/.polaris/cli/bin` */
+export function getUserCliBinDir(): string {
+  return path.join(getUserCliPrefixDir(), 'bin');
+}
+
 //---------------------------------
 //         项目 .polaris
 //---------------------------------

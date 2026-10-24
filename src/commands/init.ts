@@ -29,7 +29,12 @@ import {
   initPolarisConfig,
   installPolarisForPlatform,
 } from '../core/install.js';
-import { getNpmPackageVersion } from '../core/deps/npm.js';
+import {
+  getNpmPackageVersion,
+  resolveCliExecutable,
+  isUserLevelCliExecutable,
+  formatUserCliPathHint,
+} from '../core/deps/npm.js';
 import { getAssetsDir, getGlobalPolarisConfigSrc } from '../core/assets/manifest.js';
 import { getGlobalPolarisConfigPath } from '../core/assets/polaris-paths.js';
 import { getPlatformContextDir } from '../core/domain/platforms.js';
@@ -119,6 +124,62 @@ function createLogger(json: boolean): Logger {
   return json ? () => {} : (message: string) => console.log(message);
 }
 
+/**
+ * root 拦截判定（纯函数，便于单测）。
+ * @param uid `process.getuid()` 的结果；Windows 上为 undefined
+ * @param allowRoot `POLARIS_ALLOW_ROOT` 环境变量值
+ * @returns 'block' 表示拒绝执行
+ */
+export function evaluateRootGuard(
+  uid: number | undefined,
+  allowRoot: string | undefined,
+): 'allow' | 'block' {
+  if (uid !== 0) return 'allow';
+  return allowRoot === '1' ? 'allow' : 'block';
+}
+
+/**
+ * 拒绝以 root / sudo 运行 init。
+ *
+ * init 会往项目目录写 `.polaris/` 与平台目录（`.trae-cn/` 等）。以 root 运行时这些文件
+ * 归属 root，之后普通用户改不了文档、也提交不了 —— 这是实际踩过的坑，
+ * 而 root 对 init 本身没有任何必要性：全局 npm 目录不可写时伴生 CLI 会装到
+ * `~/.polaris/cli`（见 `resolveCliInstallTarget`）。容器 / CI 用 `POLARIS_ALLOW_ROOT=1` 放行。
+ */
+function assertNotRunningAsRoot(): void {
+  if (evaluateRootGuard(process.getuid?.(), process.env.POLARIS_ALLOW_ROOT) === 'allow') return;
+  // 此时还没做语言选择：按系统 locale 猜，zh 环境看中文
+  const locale = (process.env.LC_ALL ?? process.env.LANG ?? '').toLowerCase();
+  const lang: Languages = locale.includes('zh') ? 'zh' : 'en';
+  // stdout 而非 stderr：与 init 其余输出同一通道，避免部分终端把两股流打乱
+  console.log(t(lang, 'rootNotAllowed'));
+  process.exit(1);
+}
+
+/**
+ * git 缺失只影响在线拉取通道（Superpowers / 图表技能）。有 `~/.polaris/components`
+ * 本地副本时仍能装完，所以只提示不阻断。
+ */
+function warnIfGitMissing(log: Logger, lang: Languages): void {
+  if (resolveCliExecutable('git')) return;
+  log(`  ${yellow('!')}  ${t(lang, 'gitMissing')}`);
+}
+
+/**
+ * 伴生 CLI 装在用户目录时提示把 bin 加进 PATH。
+ * 不加也能用（polaris 内部按绝对路径调用），但用户手动跑 openspec / codegraph 会找不到。
+ */
+function warnIfCompanionCliInUserDir(log: Logger, lang: Languages): void {
+  const openspec = resolveCliExecutable('openspec');
+  const codegraph = resolveCliExecutable('codegraph');
+  const installedInUserDir = [openspec, codegraph].some(
+    (exe) => exe !== null && isUserLevelCliExecutable(exe),
+  );
+  if (!installedInUserDir) return;
+  log(`\n  ${yellow('!')}  ${t(lang, 'companionCliInUserDir')}`);
+  log(`       ${cyan(formatUserCliPathHint())}`);
+}
+
 function statusSymbol(status: InstallStatus): string {
   if (status === 'installed') return green('✓');
   if (status === 'skipped') return dim('○');
@@ -173,6 +234,7 @@ function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang
 export async function runInit(rawPath: string, options: InitPromptOptions): Promise<InitResult> {
   const log = createLogger(Boolean(options.json));
 
+  assertNotRunningAsRoot();
   const projectPath = path.resolve(rawPath || process.cwd());
   const langHint = options.lang;
 
@@ -209,6 +271,8 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
     log(`\n  ${t(lang, 'noPlatforms')}\n`);
     return { projectPath, scope, language, platforms: [], results: [] };
   }
+
+  warnIfGitMissing(log, lang);
 
   const baseDir = getBaseDir(scope, projectPath);
   const plans = await buildInstallPlans(baseDir, platforms, scope, options, lang);
@@ -458,6 +522,7 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
     console.log(JSON.stringify(result, null, 2));
   } else {
     displaySummary(platformResults, scope, lang);
+    warnIfCompanionCliInUserDir(log, lang);
     log(t(lang, 'workingDirs'));
   }
 

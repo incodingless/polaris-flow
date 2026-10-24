@@ -7,7 +7,6 @@ import { Assets } from '../assets/manifest.js';
 import { type Platform } from '../domain/platforms.js';
 import { runCopyJobs, type CopyJob } from '../../utils/file-system.js';
 import { Languages } from '../config/polaris-project-config.js';
-import { getAssetsDir } from '../assets/manifest.js';
 import type { CopyStats } from './types.js';
 
 /** 按平台 rulesFormat 拷贝 hard-stops 等规则文件 */

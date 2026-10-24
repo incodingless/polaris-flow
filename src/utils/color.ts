@@ -25,10 +25,12 @@ export const blue = wrap(34);
 export const gray = wrap(90);
 export const white = wrap(37);
 
+/** ANSI CSI 的 ESC（码点构造，避免正则字面量写入控制字符） */
+const ANSI_ESC = String.fromCharCode(0x1b);
+
 /** 计算字符串可见宽度（去掉 ANSI 转义） */
 export function visibleWidth(str: string): number {
-  // Strip ANSI escape sequences for width calculation
-  return str.replace(/\x1b\[[0-9;]*m/g, '').length;
+  return str.replace(new RegExp(`${ANSI_ESC}\\[[0-9;]*m`, 'g'), '').length;
 }
 
 /** 按可见宽度右侧补空格 */
