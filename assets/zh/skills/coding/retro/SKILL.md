@@ -81,7 +81,7 @@ description: "复盘与度量回顾：聚合 `.polaris/metrics/` 与 `.polaris/o
 
 ### Step 0：设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 本技能所有提问与产出物均采用 `$LANG`。
 

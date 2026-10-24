@@ -9,7 +9,7 @@
  * - additionalContext（Claude/Trae/Cursor 均可读入会话上下文）
  * - env（Cursor sessionStart stdout）
  * - CLAUDE_ENV_FILE（若宿主设置了该路径，追加 export）
- * - `.polaris/.cache/runtime-env`（供 skill bash `set -a; source …`）
+ * - `.polaris/.cache/runtime-env`（`KEY=value`，供 skill 兜底读取 `PLUGIN_ROOT` / `REPO_ROOT`）
  * - `.polaris/.cache/subagent-probe.json`（完整 probe 形快照，不塞进 additionalContext）
  */
 import { appendFile, mkdir, writeFile } from 'fs/promises';
@@ -105,7 +105,7 @@ export function formatSessionPathContext(
 }
 
 /**
- * 将路径写入 `.polaris/.cache/runtime-env`（KEY=value，可 source）。
+ * 将路径写入 `.polaris/.cache/runtime-env`（每行 KEY=value）。
  */
 async function persistRuntimeEnv(repoRoot: string, paths: SessionRuntimePaths): Promise<void> {
   await mkdir(getPolarisCacheDir(repoRoot), { recursive: true });

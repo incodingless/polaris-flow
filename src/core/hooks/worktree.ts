@@ -60,7 +60,7 @@ function git(cwd: string, args: string[], opts: GitOpts = {}): string {
 }
 
 /**
- * 创建隔离 worktree（对齐 worktree-create.sh）。
+ * 创建隔离 worktree（对齐 worktree-create.mjs）。
  */
 export async function create(changeId: string, mainRepoRoot: string): Promise<CreateResult> {
   if (!changeId || !mainRepoRoot) {
@@ -168,7 +168,7 @@ export async function create(changeId: string, mainRepoRoot: string): Promise<Cr
 }
 
 /**
- * 脏检查 + 分支是否已合入主干（对齐 worktree-merge-status.sh）。
+ * 脏检查 + 分支是否已合入主干（对齐 worktree-merge-status.mjs）。
  */
 export async function merge(
   worktreePath: string,
@@ -209,7 +209,7 @@ export async function merge(
 }
 
 /**
- * worktree rebase 到默认分支后，主仓 ff-only 合入（对齐 worktree-rebase-ff.sh）。
+ * worktree rebase 到默认分支后，主仓 ff-only 合入（对齐 worktree-rebase-ff.mjs）。
  */
 export async function rebase(
   worktreePath: string,

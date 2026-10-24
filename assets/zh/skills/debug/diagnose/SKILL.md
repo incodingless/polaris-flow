@@ -29,17 +29,17 @@ description: "缺陷修复通道的「诊断与方案」阶段（合并了原定
 
 ### Step 0: 设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本技能所有提问与产出物均采用 `$LANG`。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本技能所有提问与产出物均采用 `$LANG`。
 
 ### Step 1: 检查存量任务
 
 ```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.sh" ]; then
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.mjs" ]; then
   echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
   exit 2
 fi
 
-ACTIVE_RESULT=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind debug --repo-root "$REPO_ROOT")
+ACTIVE_RESULT=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind debug --repo-root "$REPO_ROOT")
 ACTIVE_EXIT=$?
 echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 ```
@@ -64,14 +64,14 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 
   ```bash
   rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind debug --skill diagnose --repo-root "$REPO_ROOT" --where-task-id "$task_id"
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind debug --skill diagnose --repo-root "$REPO_ROOT" --where-task-id "$task_id"
   ```
 - **C. 丢弃所有**：对每个 id 执行下列命令后，进入 Step 2
 
 ```bash
 for d in <ACTIVE_RESULT 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind debug --skill diagnose --repo-root "$REPO_ROOT" --where-task-id "$d"
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind debug --skill diagnose --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
 
@@ -143,9 +143,9 @@ done
 `issue_id` 已在 Step 2.1 确定（Jira 单号或手动命名），直接建目录与 state.yaml（`<channel>` 取 Step 2.2 判定结果 `bugfix` 或 `hotfix`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind debug --task-id "$issue_id"
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active --kind debug --skill <channel> --channel <channel> --task-id "$issue_id" --repo-root "$REPO_ROOT"
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" --set channel=<channel>
+node "$PLUGIN_ROOT/scripts/task-init.mjs" "$REPO_ROOT" --kind debug --task-id "$issue_id"
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" append-active --kind debug --skill <channel> --channel <channel> --task-id "$issue_id" --repo-root "$REPO_ROOT"
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" --set channel=<channel>
 ```
 
 ### Step 3：git 工作区准备（分通道）
@@ -169,7 +169,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --k
 ##### 3.1.A.A 用户选 A — 创建 worktree
 
 ```bash
-WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-create.sh" "$issue_id" "$REPO_ROOT")
+WT_RESULT=$(node "$PLUGIN_ROOT/scripts/worktree-create.mjs" "$issue_id" "$REPO_ROOT")
 WT_EXIT=$?
 ```
 
@@ -179,7 +179,7 @@ WT_EXIT=$?
 创建成功后，用 `task-state-entry` 写 state（从 `WT_RESULT` 解析 `target_path` / `target_branch`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" \
   --set worktree.created_by_polaris_flow=true \
   --set worktree.path="$target_path" \
@@ -188,14 +188,14 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   --set worktree.status=active \
   --set runtime.plan.worktree_decision=created
 
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$issue_id" --kind debug --phase diagnose
 ```
 
 同步主仓 workflow.yaml 的 worktree 路径（脚本内含锁 / 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind debug --skill diagnose --where-task-id "$issue_id" --set worktree-path="$target_path"
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" update-active --kind debug --skill diagnose --where-task-id "$issue_id" --set worktree-path="$target_path"
 ```
 
 输出 `[polaris-flow 调试]缺陷修复 - 隔离工作区已创建，基础分支：<target_branch>，工作区路径：<target_path>`。
@@ -205,12 +205,12 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind debug --skill
 不动 git。用 `task-state-entry` 写 state：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" \
   --set worktree.created_by_polaris_flow=false \
   --set runtime.plan.worktree_decision=declined
 
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$issue_id" --kind debug --phase diagnose
 ```
 
@@ -221,7 +221,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 1. 尝试创建修复分支（探测主干 → 脏检查 → 基于主干建 `hotfix/<issue_id>` 并切换）：
 
 ```bash
-HF_RESULT=$(bash "$PLUGIN_ROOT/scripts/hotfix-branch-create.sh" "$issue_id" "$REPO_ROOT")
+HF_RESULT=$(node "$PLUGIN_ROOT/scripts/hotfix-branch-create.mjs" "$issue_id" "$REPO_ROOT")
 HF_EXIT=$?
 ```
 
@@ -320,7 +320,7 @@ HF_EXIT=$?
 - 回填 `diagnose-brief.md`「修复方向」段（定稿）
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" ".polaris/tasks/<issue_id>/tasks.md"
+node "$PLUGIN_ROOT/scripts/tasks-lint.mjs" ".polaris/tasks/<issue_id>/tasks.md"
 ```
 
 - lint 真实校验项见 `./templates/tasks-template.md` 末节；「任务数 ≤5」「路径相对」lint 不校验，须自行核对
@@ -337,7 +337,7 @@ bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" ".polaris/tasks/<issue_id>/tasks.md"
 过门禁后推进到 patch：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --kind debug --task-id "$issue_id" \
   --phase diagnose --next-phase patch
 ```

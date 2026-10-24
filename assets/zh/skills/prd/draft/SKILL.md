@@ -25,7 +25,7 @@ version: 0.3
 ### Step 0：定位任务标识 + 入口校验
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind requirement --skill draft --repo-root "$REPO_ROOT" --phase draft)
+TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill draft --repo-root "$REPO_ROOT" --phase draft)
 RTID_EXIT=$?
 ```
 
@@ -53,7 +53,7 @@ RTID_EXIT=$?
 1. 更新 `state.yaml`：`phase: draft`，`draft.status: in_progress`。
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase draft
 ```
 
@@ -62,7 +62,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 执行脚本：
 
 ```bash
-LANG = $(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
+LANG = $(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")
 LANG_EXIT = $?
 ```
 
@@ -262,7 +262,7 @@ draft:
 1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `refine` 就在这一步）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
   --phase draft --next-phase refine
 ```

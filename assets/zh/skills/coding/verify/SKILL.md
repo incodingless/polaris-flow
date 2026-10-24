@@ -39,10 +39,10 @@ description: "验证 build 产出并落盘测试证据：编译检查、需求�
 | 测试证据（Step 7 / 11–13） | `openspec/changes/<task_id>/reviews/` 下随验证报告记录：命令 + 退出码 + 输出摘要 + commit SHA |
 | 基线红名单快照（Step 7.3，可选） | `openspec/changes/<task_id>/reviews/baseline-tests.*` |
 | 构建 / 测试执行配置 | `.polaris/config.yaml` 的 `test:` 段（模板见 `templates/config.example.yaml`） |
-| 命令探测脚本 | `$PLUGIN_ROOT/scripts/detect-test-command.sh`（五槽：`build` / `unit` / `contract` / `integration` / `smoke`） |
+| 命令探测脚本 | `$PLUGIN_ROOT/scripts/detect-test-command.mjs`（五槽：`build` / `unit` / `contract` / `integration` / `smoke`） |
 | Metrics | `.polaris/metrics/<timestamp>-metrics.json`（顶层） |
 | Constitution 规则 | `./policies/constitution-audit.md` |
-| workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
+| workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.mjs`） |
 
 > **链路**：`specify → plan → (design 可选) → tasks → build → **verify** → ship`。
 > Step 1–17 **按顺序执行，任一步未完成不得进入下一步**；两道硬闸门（Step 2 的 dirty 处置、Step 4 的编译闸门）不过即停。
@@ -63,7 +63,7 @@ description: "验证 build 产出并落盘测试证据：编译检查、需求�
 
 输出：`[polaris-flow 开发]验证 - 进入 Step 0: 设置产物语言`
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 本技能所有提问与产出物均采用 `$LANG`。
 
@@ -110,8 +110,8 @@ description: "验证 build 产出并落盘测试证据：编译检查、需求�
 通过后更新 `state.yaml`：`phase: verify`，`runtime.verify.status: in_progress`，`runtime.verify.blocked: false`（本轮重新判定）。
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase verify
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --set runtime.verify.blocked=false
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase verify
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --set runtime.verify.blocked=false
 ```
 输出：`[polaris-flow 开发]验证: 任务ID=<task_id> ; worktree=<path|main>`
 
@@ -142,7 +142,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --t
 
 ```
 读 config → [有 confirmed 值? 直接用，不再问]
-         → 无 → 调用 detect-test-command.sh 探测 → 展示（含判定依据）→ 人工确认点
+         → 无 → 调用 detect-test-command.mjs 探测 → 展示（含判定依据）→ 人工确认点
               → [确认 | 修正 → 按反馈类型分流] → 落盘 config → 可执行确认
 ```
 
@@ -150,7 +150,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --t
 
 ```bash
 for slot in build unit; do
-  bash "$PLUGIN_ROOT/scripts/detect-test-command.sh" --repo-root "$REPO_ROOT" --slot "$slot"
+  node "$PLUGIN_ROOT/scripts/detect-test-command.mjs" --repo-root "$REPO_ROOT" --slot "$slot"
 done
 ```
 
@@ -250,7 +250,7 @@ CI=true <test.commands.build>
 脚本定位（若缺失或不可执行 → 提示用户重启会话以触发 SessionStart 重写 `plugin_root`；仍不可用则 decision-point：A 阻断 / B 用户接受跳过并记 override）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/constitution-validity.sh"   # 0=有效 / 1=无效 / 2=不存在
+node "$PLUGIN_ROOT/scripts/constitution-validity.mjs"   # 0=有效 / 1=无效 / 2=不存在
 ```
 
 判定：
@@ -263,7 +263,7 @@ bash "$PLUGIN_ROOT/scripts/constitution-validity.sh"   # 0=有效 / 1=无效 / 2
 写入（走脚本，**禁止**直接编辑 `state.yaml`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.verify.constitution_valid=<true|false> \
   --set "runtime.verify.constitution_compliance=<pass|violations:<N>|skipped:<reason>>"
 ```
@@ -274,7 +274,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --t
 
 ```bash
 for s in audit-violation-rate constitution-violation-count complexity-scorer doc-sync-scorer; do
-  bash "$PLUGIN_ROOT/scorers/$s.sh"
+  node "$PLUGIN_ROOT/scorers/$s.mjs"
 done
 ```
 
@@ -341,7 +341,7 @@ CI=true <test.commands.unit>
 #### 8.1 覆盖率打分
 
 ```bash
-bash "$PLUGIN_ROOT/scorers/test-coverage-scorer.sh"
+node "$PLUGIN_ROOT/scorers/test-coverage-scorer.mjs"
 ```
 
 **覆盖率产物缺失**（项目的单测命令没开覆盖率）：记 `reason: 无覆盖率产物`，该维按缺失写入报告 —— **不得伪造分数**，也**不为它改项目的单测命令**（开不开覆盖率是项目侧决定）。
@@ -393,7 +393,7 @@ overall_score = round( Σ(score_i × w_i) / Σ(w_i) )
 写入（走脚本；`scorer_results` 用 JSON 字面量一次写入）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.verify.overall_score=<N> \
   --set 'runtime.verify.scorer_results=[{"scorer":"<name>","score":<0-100>,"reason":"<text>"}]'
 ```
@@ -413,7 +413,7 @@ else:  # team
 写入（走脚本）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.verify.score_level=<high|low>
 ```
@@ -467,7 +467,7 @@ git diff --stat <base-ref>...HEAD
 **写回**（这一处定、后面全用）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.verify.verify_mode=<light|full> \
   --set verify_mode=<light|full> \
@@ -505,9 +505,9 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 ```bash
 for slot in contract integration; do
-  bash "$PLUGIN_ROOT/scripts/detect-test-command.sh" --repo-root "$REPO_ROOT" --slot "$slot"
+  node "$PLUGIN_ROOT/scripts/detect-test-command.mjs" --repo-root "$REPO_ROOT" --slot "$slot"
 done
-[ "$verify_mode" = "full" ] && bash "$PLUGIN_ROOT/scripts/detect-test-command.sh" --repo-root "$REPO_ROOT" --slot smoke
+[ "$verify_mode" = "full" ] && node "$PLUGIN_ROOT/scripts/detect-test-command.mjs" --repo-root "$REPO_ROOT" --slot smoke
 ```
 
 **一次展示、一次确认**（不逐个问）。落盘同 Step 3：`test.commands.<slot>` + `source` + `confirmed_at`。
@@ -813,7 +813,7 @@ sonarqube: { enabled: true, gate_rule: "<quality_gate | blocker_critical | new_o
   - 用脚本写 state（**禁止**直接编辑 `state.yaml`）：
 
     ```bash
-    bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+    node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
       --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
       --set runtime.verify.semantics_review=<confirmed|skipped_by_user>
     ```
@@ -830,9 +830,9 @@ sonarqube: { enabled: true, gate_rule: "<quality_gate | blocker_critical | new_o
 2. 更新 `state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase verify --next-phase ship
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.verify.constitution_valid=<true|false> \
   --set "runtime.verify.constitution_compliance=<pass|violations:<N>|skipped:<reason>>" \

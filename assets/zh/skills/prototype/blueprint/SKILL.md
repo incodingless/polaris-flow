@@ -32,7 +32,7 @@ version: 1.1.0
 
 ### Step 0: 设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本技能所有提问与产出物均采用 `$LANG`。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本技能所有提问与产出物均采用 `$LANG`。
 
 ### Step 1: 初始化目录及任务
 
@@ -42,12 +42,12 @@ version: 1.1.0
 - 仍无 `$PLUGIN_ROOT` → 停止并报告阻塞原因（SessionStart 未注入环境变量），提示用户重启会话以触发 SessionStart
 
 ```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.sh" ]; then
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.mjs" ]; then
   echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
   exit 2
 fi
 
-ACTIVE_RESULT=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind prototype --skill blueprint --repo-root "$REPO_ROOT")
+ACTIVE_RESULT=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind prototype --skill blueprint --repo-root "$REPO_ROOT")
 ACTIVE_EXIT=$?
 echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 ```
@@ -73,14 +73,14 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 
   ```bash
   rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind prototype --skill blueprint --repo-root "$REPO_ROOT" --where-task-id "$task_id"
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind prototype --skill blueprint --repo-root "$REPO_ROOT" --where-task-id "$task_id"
   ```
 - **C. 丢弃所有**：对每个 id 执行下列命令后，进入 Step 2
 
 ```bash
 for d in <ACTIVE_RESULT 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind prototype --skill blueprint --repo-root "$REPO_ROOT" --where-task-id "$d"
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind prototype --skill blueprint --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
 
@@ -122,7 +122,7 @@ done
 **1. 建目录**：
 
 ```bash
-INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind prototype --task-id "$task_id")
+INIT_RESULT=$(node "$PLUGIN_ROOT/scripts/task-init.mjs" "$REPO_ROOT" --kind prototype --task-id "$task_id")
 INIT_EXIT=$?
 echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```
@@ -136,7 +136,7 @@ echo "INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 **2. 登记 workflow 游标**：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" append-active \
   --kind prototype --skill blueprint --repo-root "$REPO_ROOT" \
   --task-id "$task_id" --phase blueprint --worktree-path "" \
   --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -145,10 +145,10 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
 **3. 写入身份**到 `state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set-identity \
   --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --name "<原型名>" --page-prefix "<前缀>" --work-dir "<工作目录路径>"
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind prototype --phase blueprint
 ```
 
@@ -280,7 +280,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `build` 就在这一步）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind prototype \
   --phase blueprint --next-phase build
 ```

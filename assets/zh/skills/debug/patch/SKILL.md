@@ -31,7 +31,7 @@ description: "缺陷修复通道的「实现与自验」阶段：按 tasks.md �
 ### Step 0：定位任务标识 + 入口校验
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind debug --skill patch --repo-root "$REPO_ROOT" --phase patch)
+TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind debug --skill patch --repo-root "$REPO_ROOT" --phase patch)
 RTID_EXIT=$?
 ```
 
@@ -59,14 +59,14 @@ RTID_EXIT=$?
 1. 更新 `state.yaml`：`phase: patch`，`runtime.patch.status: in_progress`。
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind debug --phase patch
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind debug --phase patch
 ```
 
 2. 设置语言
 
 执行脚本：
 ```bash
-LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
+LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")
 LANG_EXIT=$?
 ```
 
@@ -132,7 +132,7 @@ mkdir -p "$REPO_ROOT/.polaris/tasks/<task_id>/reviews"
 **过门禁**（两通道相同）→ 推进到 `closeout`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --kind debug --task-id "$task_id" \
   --phase patch --next-phase closeout
 ```
@@ -153,7 +153,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
 - 用例失败、方案本身不成立 → 回 `debug:diagnose`，并同步在 `regressions[]` 留痕：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --kind debug --task-id "$task_id" --phase diagnose
 ```
 

@@ -98,8 +98,8 @@ describe('installPolarisForPlatform layout', () => {
       await access(path.join(tmpDir, '.claude/skills/polaris/testing/discovery/SKILL.md'));
       await access(path.join(tmpDir, '.claude/skills/polaris/adapters'));
       await access(path.join(tmpDir, '.claude/skills/polaris/hooks/session-start.mjs'));
-      await access(path.join(tmpDir, '.claude/skills/polaris/scripts/workflow-entry.sh'));
-      await access(path.join(tmpDir, '.claude/skills/polaris/scripts/_polaris-cli.sh'));
+      await access(path.join(tmpDir, '.claude/skills/polaris/scripts/workflow-entry.mjs'));
+      await access(path.join(tmpDir, '.claude/skills/polaris/scripts/_polaris-cli.mjs'));
       await access(path.join(tmpDir, '.polaris'));
 
       if (result.agents.copied > 0) {
@@ -184,8 +184,8 @@ describe('installPolarisForPlatform layout', () => {
       await access(path.join(tmpDir, '.trae/skills/polaris-prd-discovery/SKILL.md'));
       await access(path.join(tmpDir, '.trae/skills/polaris-testing-discovery/SKILL.md'));
       await access(path.join(tmpDir, '.trae/skills/polaris/hooks/session-start.mjs'));
-      await access(path.join(tmpDir, '.trae/skills/polaris/scripts/workflow-entry.sh'));
-      await access(path.join(tmpDir, '.trae/skills/polaris/scripts/_polaris-cli.sh'));
+      await access(path.join(tmpDir, '.trae/skills/polaris/scripts/workflow-entry.mjs'));
+      await access(path.join(tmpDir, '.trae/skills/polaris/scripts/_polaris-cli.mjs'));
       await expect(access(path.join(tmpDir, '.trae/skills/polaris-README.md'))).rejects.toThrow();
 
       const specify = await readFile(
@@ -253,7 +253,7 @@ describe('copyPolarisSkillsForPlatform', () => {
     );
 
     await access(path.join(tmpDir, '.claude/skills/polaris/coding/specify/SKILL.md'));
-    await access(path.join(tmpDir, '.claude/skills/polaris/scripts/workflow-entry.sh'));
+    await access(path.join(tmpDir, '.claude/skills/polaris/scripts/workflow-entry.mjs'));
     const workflowTpl = await readFile(
       path.join(skillsDir, 'templates', 'workflow-template.yaml'),
       'utf-8',
@@ -339,8 +339,8 @@ describe('validateSkillAssetsNoCrossSkillParentRefs', () => {
       }
 
       // 调度层：原语的唯一调用方；细则随 intake 安装（顶层 policies 已不再注入它）
-      expect(await read('coding/intake/SKILL.md')).toContain('task-entry.sh');
-      expect(await read('coding/intake/policies/task-entry.md')).toContain('task-entry.sh');
+      expect(await read('coding/intake/SKILL.md')).toContain('task-entry.mjs');
+      expect(await read('coding/intake/policies/task-entry.md')).toContain('task-entry.mjs');
 
       // 链外例外：retro 由**用户直接调用** —— 不经 intake、不被自动转交、不读任务游标
       // ⚠️ 断言覆盖 retro **整个技能目录**（含 templates / policies），不只是 SKILL.md

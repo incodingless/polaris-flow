@@ -26,7 +26,7 @@ version: 0.1
 ### Step 0：状态检查与中断恢复
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind testcase --skill ship --repo-root "$REPO_ROOT" --phase ship)
+TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind testcase --skill ship --repo-root "$REPO_ROOT" --phase ship)
 EXIT_CODE=$?
 ```
 
@@ -84,7 +84,7 @@ C3–C6 依赖「用例被执行」的数据，而**执行口径的唯一源是 
 **评估结论落盘**：`$REPO_ROOT/.polaris/testcases/<task_id>/testcase-report.md` 的准出节；并写 `state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --set ship.readiness=done \
   --set "ship.readiness_verdict=<PASS|CONDITIONAL|FAIL>"
@@ -120,7 +120,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 选 B 时记录风险接受理由，并在交付信息中标注「未通过准出评估，风险已接受」：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --set "ship.risk_acceptance=<理由>"
 ```
@@ -159,15 +159,15 @@ test -d "$SRC" || { echo "用例产物缺失：$SRC，请先完成 T01 编写测
 #### 3.3 更新任务状态
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind testcase --phase ship
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --set status=completed \
   --set "finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --set "delivered_to=$CASE_DOC_DIR" \
   --set "delivered_name=$task_id"
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind testcase --skill ship --repo-root "$REPO_ROOT" --where-task-id "$task_id"
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind testcase --skill ship --repo-root "$REPO_ROOT" --where-task-id "$task_id"
 ```
 
 输出：`[polaris-flow 测试用例] 准出与交付 - 已完成资产交付，当前任务成功完成。`

@@ -1,5 +1,5 @@
 /**
- * workflow.yaml RMW 入口（对齐 assets/shared/scripts/workflow-entry.sh）。
+ * workflow.yaml RMW 入口（对齐 assets/shared/scripts/workflow-entry.mjs）。
  * 持锁 → 解析 → 修改 → 写回 → 写后校验；由 `polaris workflow-entry` 调用。
  * `get-active-changes` 为只读：不持锁、不写盘，stdout 输出 task_id JSON 数组。
  * 任务列表由必填 `--kind`（coding|requirement|testcase|prototype|debug）选定；

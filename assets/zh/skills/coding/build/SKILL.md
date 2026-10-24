@@ -31,7 +31,7 @@ description: "按已评审的实施计划 tasks.md 完成编码实现。当用�
 | 评审报告（`tasks-review-agent` 写入） | `openspec/changes/<task_id>/reviews/tasks-review-report.md` |
 | 深度设计（只读，`runtime.design.status=skipped` 时不存在） | `openspec/changes/<task_id>/detailed-design.md` |
 | 业务档案 | `.polaris/tasks/<task_id>/state.yaml` |
-| workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`） |
+| workflow 游标 | `.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.mjs`） |
 | 批次游标（仅 `subagent_dispatch` 且 `batch_dispatch=true` 时） | `state.yaml` 的 `runtime.build.current_batch`（写入走 `task-state-entry.sh`） |
 | implementer prompt 模板 | `./assets/implementer-prompt.md` |
 
@@ -43,7 +43,7 @@ description: "按已评审的实施计划 tasks.md 完成编码实现。当用�
 
 ### Step 0：设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 本技能所有提问与产出物均采用 `$LANG`。
 
@@ -71,7 +71,7 @@ description: "按已评审的实施计划 tasks.md 完成编码实现。当用�
 通过后更新 `state.yaml`：`phase: build`，`runtime.build.status: in_progress`。
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase build
 ```
 输出：`[polaris-flow 开发]构建: task_id=<task_id> ; worktree=<path|main>`
@@ -107,7 +107,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 写入（走脚本，**禁止**直接编辑 `state.yaml`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.build.build_mode=<subagent_dispatch|inline> \
   --set workflow.build_mode=<同 build_mode 值>
@@ -126,7 +126,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 写入（走脚本；与 2.1 可合并为同一条 `set`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.build.review_mode=<off|standard|thorough>
 ```
@@ -146,7 +146,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 写入（走脚本；与 2.1 / 2.2 可合并为同一条 `set`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.build.batch_dispatch=<true|false>
 ```
@@ -248,7 +248,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 4. 落盘批次游标（走脚本，**禁止**直接编辑 `state.yaml`）：
 
    ```bash
-   bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+   node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
      --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
      --set runtime.build.current_batch=<N+1>
    ```
@@ -271,7 +271,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 - **paused**：按 apply 给出的原因与选项，用 decision-point 问用户，并用脚本把**原因与可选项**写入 `runtime.build.pause_reason`（恢复清单据此重载；恢复后置空）；用户选继续 → 同模式再次 `/opsx:apply`（不要重跑 Step 2，除非用户要求改模式）
 
   ```bash
-  bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
     --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
     --set "runtime.build.pause_reason=<原因与可选项摘要>"
   ```
@@ -328,10 +328,10 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 | `runtime.build.current_batch` | 空（全部分批结束，清空游标；inline 或单批派发无此字段） | 下方 `set` |
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase build --next-phase verify
 
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.build.build_mode=<subagent_dispatch|inline> \
   --set runtime.build.batch_dispatch=<true|false> \

@@ -21,7 +21,7 @@ hook 资产是**语言中立**的：源在 `assets/shared/hooks/`（**不是** `
 | --- | --- | --- | --- |
 | SessionStart | `startup` / `resume` | `hooks/session-start.mjs` | ① 依赖自检（openspec / `.polaris/` / `config.yaml` / superpowers 版本 / agents 是否落盘）；② 探测平台能力与 subagent 可用性；③ 把 `$PLUGIN_ROOT` / `$REPO_ROOT` 等写入 `.polaris/.cache/runtime-env` |
 
-> **不是 hook 的东西**：`constitution-validity.sh`、`scorers/*.sh` 等由技能在自己的流程步骤里**显式调用**（或经 CLI 子命令），不进宿主 hook 配置。
+> **不是 hook 的东西**：`constitution-validity.mjs`、`scorers/*.mjs` 等由技能在自己的流程步骤里**显式调用**（或经 CLI 子命令），不进宿主 hook 配置。
 
 ## 分发链
 
@@ -104,8 +104,8 @@ hook 资产是**语言中立**的：源在 `assets/shared/hooks/`（**不是** `
 
 ## PLUGIN_ROOT 与运行时环境
 
-- SessionStart 把 `$PLUGIN_ROOT` / `$REPO_ROOT` 等写入 `.polaris/.cache/runtime-env`（`KEY=value`，可被 `source`）。
-- 技能侧的取值顺序：① SessionStart 注入的环境变量；② 兜底 `set -a; source .polaris/.cache/runtime-env`；③ 两者皆无 → **停止并报告阻塞原因**（提示用户重启会话以触发 SessionStart），不得继续试跑。
+- SessionStart 把 `$PLUGIN_ROOT` / `$REPO_ROOT` 等写入 `.polaris/.cache/runtime-env`（每行 `KEY=value`）。
+- 技能侧的取值顺序：① SessionStart 注入的环境变量；② 兜底：读取 `.polaris/.cache/runtime-env`，取 `PLUGIN_ROOT` / `REPO_ROOT` 两行的值；③ 两者皆无 → **停止并报告阻塞原因**（提示用户重启会话以触发 SessionStart），不得继续试跑。
 - **不支持 hook 的宿主**（qoder）：退化为**运行时检测**，由命令 / 技能入口自行执行等价检查；平台能力由 `subagent-probe` 探测。
 
 ## 退化路径
@@ -122,5 +122,5 @@ hook 资产是**语言中立**的：源在 `assets/shared/hooks/`（**不是** `
 2. 在 `assets/shared/hooks.json` 注册事件（含 `matcher`）
 3. 现有平台的配置形态已有映射，**一般无需改安装代码**；只有新平台的配置形态不同，才动 `src/core/install/hooks.ts` 的 `resolveHooksConfigPath()`
 4. 若 command 形态与既有不同，**必须**扩展 `isManagedHookCommand()` 的识别，否则重复安装会写出重复注册
-5. hook 入口脚本用 **node（`.mjs`）** 启动（不依赖 bash），内部只做「定位全局 CLI + 转发」；`scripts/*.sh` 薄包装仍遵守 AGENTS.md 的 Shell 规范（禁 `sed -i`、可选 grep 结果加 `|| true`）
+5. hook 入口脚本、`scripts/*.mjs` 薄包装与自包含脚本（`detect-test-command.mjs`、`get-language-name.mjs`）、`scorers/*.mjs` 打分器都用 **node（`.mjs`）** 启动（不依赖 bash）；AGENTS.md 的 Shell 规范（禁 `sed -i`、可选 grep 结果加 `|| true`）仅适用于仍为 `.sh` 的开发/安装/测试脚本（`devops/`、`install.sh`、`test/shell/`）
 6. 入口脚本里**不写宿主分支** —— 宿主差异一律交给 CLI 与平台配置承担

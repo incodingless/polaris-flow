@@ -76,10 +76,10 @@ export function windowsGitBashCandidates(): string[] {
 }
 
 /**
- * bash 诊断。宿主的 SessionStart hook 已改用 node 启动，不再依赖 bash；
- * 但 skill 的 scripts/*.sh 薄包装与 verify 打分器（scorers/*.sh）仍是 .sh 脚本。
- * Windows 上缺 bash 时这些 skill 内脚本会静默失败，所以这一项仍须给出可复制的修复命令，
- * 而不是只说「not found」。
+ * bash 诊断。宿主的 SessionStart hook、skill 的 scripts/*.mjs 薄包装与自包含脚本、
+ * verify 打分器（scorers/*.mjs）以及 codereview 扫描脚本（analyze.mjs）均已改用 node，
+ * skill 运行时不再依赖 bash；仅安装脚本 install.sh 与开发脚本 devops/*.sh 仍是 .sh。
+ * 此项保留是为 install.sh / devops 场景给出可复制的修复命令，而不是只说「not found」。
  */
 async function checkBash(): Promise<DiagnosticItem> {
   if (await isCommandAvailable('bash')) {
@@ -111,7 +111,7 @@ async function checkBash(): Promise<DiagnosticItem> {
       status: 'fail',
       message: 'not found in PATH',
       hint: [
-        'polaris 的 verify 打分器与 skill 脚本（scripts/）仍是 .sh，Windows 上靠 Git for Windows 自带的 bash.exe；',
+        'polaris 的 skill 运行时已全部 node 化、不再依赖 bash；仅安装脚本 install.sh 与开发脚本 devops/*.sh 仍用 bash，Windows 上靠 Git for Windows 自带的 bash.exe；',
         'PowerShell 不能替代它（.sh 里用了 POSIX 语法与 coreutils 命令）。',
         '',
         '装 Git for Windows（默认选项即可）：https://git-scm.com/download/win',

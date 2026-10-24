@@ -35,7 +35,7 @@ version: 1.0.0
 ### Step 0：定位任务标识 + 入口校验
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind prototype --skill ship --repo-root "$REPO_ROOT" --phase ship)
+TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind prototype --skill ship --repo-root "$REPO_ROOT" --phase ship)
 RTID_EXIT=$?
 ```
 
@@ -117,7 +117,7 @@ RTID_EXIT=$?
 **产出**：`review_report.md`；用脚本写 `state.yaml`（`review` 取 `done` 或降级时的 `degraded`；`review_mode` 取 `subagent` 或 `inline`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --set ship.status=in_progress \
   --set ship.review=<done|degraded> \
@@ -162,7 +162,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 选 B 时用脚本记录风险接受理由，并在交付信息中标注「未通过评审，风险已接受」：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --set "ship.risk_acceptance=<理由>"
 ```
@@ -174,9 +174,9 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 从 `state.yaml` 取 `page_prefix` 与 `name`（`blueprint` 环节确认后写入，缺失时按 Step 0.5 的命名补齐流程处理）：
 
 ```bash
-PREFIX=$(bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" get \
+PREFIX=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --path page_prefix)
-NAME=$(bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" get \
+NAME=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --path name)
 
 PROTOTYPE_DOC_DIR="${PROTOTYPE_DOC_DIR:-$REPO_ROOT/docs/prototype/$NAME}"
@@ -202,12 +202,12 @@ mv -R $REPO_ROOT/.polaris/tasks/$task_id/prototype $PROTOTYPE_DOC_DIR
 1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind prototype --phase ship
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set-identity \
   --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --delivered-name "<归档后的原型文件名>"
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --set status=completed \
   --set "finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -218,7 +218,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 2. 将任务移出活跃列表：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind prototype --skill ship --where-task-id "$task_id" --repo-root "$REPO_ROOT"
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind prototype --skill ship --where-task-id "$task_id" --repo-root "$REPO_ROOT"
 ```
 
 3. 输出：`[polaris-flow 原型] 交付原型 - 已完成评审、确认与归档，当前任务成功完成。`

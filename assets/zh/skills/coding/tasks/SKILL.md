@@ -62,7 +62,7 @@ description: "把已锁定的需求/设计拆解为可执行任务清单 tasks.m
 - **主产物（覆写）**：`openspec/changes/<task_id>/tasks.md`
 - 计划主审报告：`openspec/changes/<task_id>/reviews/tasks-review-report.md`（由 Step 7 落盘）
 - Outside Voice 报告（若运行）：`openspec/changes/<task_id>/reviews/openspec-review-report.md`
-- workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`）
+- workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.mjs`）
 - 运行态：`.polaris/tasks/<task_id>/state.yaml`
 
 > **链路**：`tweak`：`specify → **tasks** → build → verify → ship`（**无 plan / design**）；
@@ -87,7 +87,7 @@ description: "把已锁定的需求/设计拆解为可执行任务清单 tasks.m
 
 ### Step 0：设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 本技能所有提问与产出物均采用 `$LANG`。
 
@@ -114,7 +114,7 @@ description: "把已锁定的需求/设计拆解为可执行任务清单 tasks.m
 通过后更新 `state.yaml`：`phase: tasks`，`runtime.tasks.status: in_progress`。
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase tasks
 ```
 输出：`[polaris-flow 开发]任务规划: task_id=<task_id> ; phase=tasks`
@@ -135,7 +135,7 @@ mv "$REPO_ROOT/.polaris/tasks/<task_id>/intention.md" \
 - 用脚本同步 intention 路径字段（与 `plan` Step 4.5 同构）；`--set` 与上面 `mv` **成对执行，不得只做其一**：
 
   ```bash
-  bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
     --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
     --set runtime.specify.intention_path=openspec/changes/<task_id>/intention.md
   ```
@@ -184,7 +184,7 @@ mv "$REPO_ROOT/.polaris/tasks/<task_id>/intention.md" \
 写入（走脚本，**禁止**直接编辑 `state.yaml`；本处就地落盘是为让**续跑**读得到，Step 9.1 会再写一次，幂等）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.tasks.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \
   --set workflow.tdd_mode=<同 tdd_policy 值>
@@ -311,7 +311,7 @@ read_file ./templates/tasks-template.md
 #### 6.2 脚本校验（禁止脑补）
 
 ```bash
-LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
+LINT_RESULT=$(node "$PLUGIN_ROOT/scripts/tasks-lint.mjs" "openspec/changes/$task_id/tasks.md")
 LINT_EXIT=$?
 ```
 
@@ -432,9 +432,9 @@ LINT_EXIT=$?
 更新 `state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase tasks --next-phase build
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.tasks.status=completed \
   --set runtime.tasks.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \

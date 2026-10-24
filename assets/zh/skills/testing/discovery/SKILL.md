@@ -49,7 +49,7 @@ version: 0.1
 
 ### Step 0：设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本阶段所有提问与落盘产物均采用 `$LANG`。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本阶段所有提问与落盘产物均采用 `$LANG`。
 
 ### Step 1：状态检查与中断恢复
 
@@ -59,12 +59,12 @@ version: 0.1
 - 仍无 `$PLUGIN_ROOT` → 按 `./policies/hard-stops.md` H12 阻断，提示用户重启会话以触发 SessionStart
 
 ```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.sh" ]; then
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.mjs" ]; then
   echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
   exit 2
 fi
 
-ACTIVE_RESULT=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind testcase --skill discovery --repo-root "$REPO_ROOT")
+ACTIVE_RESULT=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind testcase --skill discovery --repo-root "$REPO_ROOT")
 ACTIVE_EXIT=$?
 echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 ```
@@ -90,14 +90,14 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 
   ```bash
   rm -rf "$REPO_ROOT/.polaris/testcases/$task_id"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind testcase --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id"
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind testcase --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id"
   ```
 - **C. 丢弃所有**：对每个 id 执行下列命令后，进入 Step 2
 
   ```bash
   for d in <ACTIVE_RESULT 列表>; do
     rm -rf "$REPO_ROOT/.polaris/testcases/$d"
-    bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind testcase --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$d"
+    node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind testcase --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$d"
   done
   ```
 - **D. 取消退出**：结束本技能
@@ -130,7 +130,7 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 本族的 `testcase_plan.md` 由 kind 的 `bootstrapFiles` 在 `task-init` 时自动创建，**不要手写该文件**：
 
 ```bash
-INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind testcase --task-id "$TASK")
+INIT_RESULT=$(node "$PLUGIN_ROOT/scripts/task-init.mjs" "$REPO_ROOT" --kind testcase --task-id "$TASK")
 INIT_EXIT=$?
 echo "TASK=$TASK INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 ```
@@ -142,7 +142,7 @@ echo "TASK=$TASK INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 | 2 | — | 参数/环境错误，按 `./policies/hard-stops.md` H12 阻断 |
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" append-active \
   --kind testcase --skill discovery --repo-root "$REPO_ROOT" \
   --task-id "$TASK" --phase discovery --worktree-path "" \
   --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -187,7 +187,7 @@ bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
 - 标注**可从需求判定的条目**与**信息缺口条目**（缺口条目列入待确认清单，不进入用例设计）
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind testcase --phase discovery
 ```
 
@@ -287,7 +287,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 1. 更新 `state.yaml`（阶段推进到 `draft` 就在这一步）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind testcase \
   --phase discovery --next-phase draft
 ```

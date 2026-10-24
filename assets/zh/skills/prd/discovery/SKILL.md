@@ -67,7 +67,7 @@ version: 0.7
 
 ### Step 0: 设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本阶段所有提问与澄清摘要均采用 `$LANG`。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本阶段所有提问与澄清摘要均采用 `$LANG`。
 
 ### Step 1: 初始化任务
 
@@ -79,12 +79,12 @@ version: 0.7
 - 仍无 `$PLUGIN_ROOT` → 停止并报告阻塞原因（SessionStart 未注入环境变量），提示用户重启会话以触发 SessionStart
 
 ```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.sh" ]; then
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.mjs" ]; then
   echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
   exit 2
 fi
 
-ACTIVE_RESULT=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind requirement --skill discovery --repo-root "$REPO_ROOT")
+ACTIVE_RESULT=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill discovery --repo-root "$REPO_ROOT")
 ACTIVE_EXIT=$?
 echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 ```
@@ -110,14 +110,14 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 
   ```bash
      rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
-     bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id"
+     node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id"
   ```
 - **C. 丢弃所有**：对每个 id 执行下列命令后，进入 Step 2
 
 ```bash
 for d in <ACTIVE_RESULT 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$d"
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
 
@@ -184,7 +184,7 @@ done
 
 ```bash
 for TASK in "<任务1>" "<任务2>" ...; do
-  INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind requirement --task-id "$TASK")
+  INIT_RESULT=$(node "$PLUGIN_ROOT/scripts/task-init.mjs" "$REPO_ROOT" --kind requirement --task-id "$TASK")
   INIT_EXIT=$?
   echo "TASK=$TASK INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 done
@@ -213,7 +213,7 @@ done
 3. **写入命名标识占位**（`task-state-entry`）——中文名与编号前缀的唯一权威存储，下游 draft / refine / ship 均读此处；本步只建占位，实际值在 2.6.1 用户确认后回填：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set-identity \
   --repo-root "$REPO_ROOT" --task-id "$TASK" \
   --req-name "" --req-name-cn "" --req-prefix ""
 ```
@@ -228,7 +228,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
 
 ```bash
 for TASK in "<任务1>" "<任务2>" ...; do
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" append-active \
     --kind requirement --skill discovery --repo-root "$REPO_ROOT" \
     --task-id "$TASK" --phase discovery --worktree-path "" \
     --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -609,7 +609,7 @@ done
 1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `draft` 就在这一步）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
   --phase discovery --next-phase draft
 ```

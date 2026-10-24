@@ -1,5 +1,41 @@
 # Changelog
 
+## What's Changed [0.9.0] - 2026-10-24
+
+### Changed
+
+- **codereview 扫描脚本从 bash 改为 node**: `codereview/scripts/analyze.sh`（122 行多语言正则兜底）等价重写为 `analyze.mjs`，参数解析（`--diff`/`--maxdepth`/`--maxfiles`）、目录遍历（等价 `find -maxdepth` 剪枝排除目录）、Git 信息 + diff 模式、文件类型分布、超大文件（>500 行）、TODO/FIXME/HACK 标记、三类安全模式（硬编码密钥 / SQL 注入 / 危险命令执行）逐节对齐，正则逐字翻译；`codereview` 调用点从 `bash scripts/analyze.sh` 改为 `node scripts/analyze.mjs`。至此 skill 运行时脚本（`scripts/` + `scorers/` + `codereview/scripts/`）**全部 node 化**，全仓不再有 skill 运行时依赖 bash 的 `.sh`
+- **顺带修复 analyze 脚本 full 模式崩溃 bug**: 原 `.sh` 第 64 行 `$MAXDEPTH，`（变量后紧跟中文全角逗号）在 macOS bash 3.2 下把逗号首字节吃进变量名，触发 `set -u` 的 `unbound variable`，导致「文件类型分布」及之后所有 section（超大文件 / TODO / 安全）都不输出。node 版完整输出全部 section
+- **`doctor` 的 bash 诊断口径收窄**: skill 运行时已全部 node 化、不再依赖 bash，仅安装脚本 `install.sh` 与开发脚本 `devops/*.sh` 仍是 `.sh`；`checkBash` 提示文案随之更新
+
+## What's Changed [0.8.0] - 2026-10-24
+
+### Changed
+
+- **verify 打分器（scorers）从 bash 改为 node**: `scorers/` 下 5 个自包含脚本（`audit-violation-rate` / `constitution-violation-count` / `complexity-scorer` / `doc-sync-scorer` / `test-coverage-scorer`）从 `.sh`（bash）等价重写为 `.mjs`（node），stdout 一行 JSON 契约（`{"scorer":"<name>","score":<0-100>,"reason":"<text>"}`）逐字节保持。`test-coverage` 的 4 层覆盖率探测（Istanbul JSON / lcov / Cobertura / Jacoco）与兜底文件名启发式、`doc-sync` 的文档同步启发式均等价翻译；`verify` 调用点从 `bash "$PLUGIN_ROOT/scorers/xxx.sh"` 改为 `node "$PLUGIN_ROOT/scorers/xxx.mjs"`。至此 skill 运行时脚本（`scripts/` + `scorers/`）全部 node 化，仅 `codereview` 的 `scripts/analyze.sh` 仍是 bash；`doctor` 的 bash 诊断口径随之收窄为「仅 analyze.sh 仍是 .sh」
+- **修复 doc-sync-scorer「无 docs 扣分」分支从未生效的 bug**: 原 `.sh` 用 `grep -ciE ... || echo "0"` 统计 docs 提交，`grep -c` 无匹配时退出码 1 触发 `|| echo "0"` 追加第二个 `0`，`DOC_COMMITS` 变为 `"0\n0"`（非法整数），`[ "$DOC_COMMITS" -eq 0 ]` 报 `integer expression expected` 且恒为假 → 「最近 10 个 commit 无文档更新扣 15 分」从未触发。node 版实现正确语义，并顺带消除 `constitution-violation-count` 同款 `grep -c` bug 产生的 stderr 噪音
+
+## What's Changed [0.7.0] - 2026-10-24
+
+### Changed
+
+- **自包含脚本从 bash 改为 node**: `scripts/detect-test-command.sh`（五槽探测）与 `scripts/get-language-name.sh` 等价重写为 `scripts/detect-test-command.mjs` / `scripts/get-language-name.mjs`。探测逻辑、stdout `key: value` 契约与退出码（`0`/`1`/`2`）逐字节保持；`verify` 与各技能的语言读取调用点从 `bash "$PLUGIN_ROOT/scripts/xxx.sh"` 改为 `node "$PLUGIN_ROOT/scripts/xxx.mjs"`。至此 `scripts/` 下已无 `.sh`，仅 `scorers/*.sh` 仍是 bash；`doctor` 的 bash 诊断口径进一步收窄为「仅打分器仍是 .sh」
+
+### Tests
+
+- **detect-test-command 回归夹具**: 62 个场景改经 `node` 驱动 `.mjs`，全绿；`install-layout` 断言同步 `get-language-name.mjs`
+
+## What's Changed [0.6.0] - 2026-10-24
+
+### Changed
+
+- **skill 的 scripts 薄包装从 bash 改为 node**: 被技能调用的 17 个薄包装（`workflow-entry` / `task-state-entry` / `task-entry` / `task-init` / `tasks-lint` / `intention-validate` / `specify-finalize` / `constitution-validity` / `worktree-create` / `worktree-commit-remove` / `worktree-merge-status` / `worktree-rebase-ff` / `git-branch-merge` / `hotfix-branch-create` / `harness-sync` / `ship-cleanup` 与废弃别名 `structure-create`）从 `scripts/*.sh`（bash）改为 `scripts/*.mjs`（node），公共库 `_polaris-cli.sh` 改为 `_polaris-cli.mjs`。Skill 调用点从 `bash "$PLUGIN_ROOT/scripts/xxx.sh"` 改为 `node "$PLUGIN_ROOT/scripts/xxx.mjs"`。业务逻辑仍全在 TS 层 `src/core/hooks/`，`.mjs` 只是转发壳（定位全局 `polaris-flow` + 注入 `--platform <id>`）；node 天然免疫 CRLF，`_polaris_cli_selfheal` 不再需要
+- **自包含脚本仍为 bash**: `scripts/detect-test-command.sh`、`scripts/get-language-name.sh` 与 `scorers/*.sh` 保持自包含 POSIX bash 不变；`doctor` 的 bash 诊断口径随之收窄为「打分器与自包含 skill 脚本仍是 .sh」
+
+### Tests
+
+- **manifest / install-layout / skills-install / commands-install 测试**: 样本文件与断言从 `scripts/*.sh` 同步为 `scripts/*.mjs`，`bash` 调用断言改为 `node`
+
 ## What's Changed [0.5.0] - 2026-10-24
 
 ### Changed

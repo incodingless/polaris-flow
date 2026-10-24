@@ -1,6 +1,6 @@
 /**
  * `polaris-flow host-hook`：宿主 hook 统一入口（stdin 分发）。
- * 各宿主生命周期 .sh 薄包装只应调用本命令。
+ * 各宿主生命周期 .mjs 薄包装只应调用本命令。
  */
 import {
   createHostHookHandler,
