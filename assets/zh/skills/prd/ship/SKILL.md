@@ -22,7 +22,7 @@ version: 0.5
 ### Step 0：状态检查与中断恢复
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind requirement --skill ship --repo-root "$REPO_ROOT" --phase ship)
+TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill ship --repo-root "$REPO_ROOT" --phase ship)
 EXIT_CODE=$?
 ```
 
@@ -174,9 +174,9 @@ test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}
 从 `state.yaml` 解析出两个变量：
 
 ```bash
-REQ_PREFIX=$(bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" get \
+REQ_PREFIX=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --path req_prefix)
-REQ_NAME_CN=$(bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" get \
+REQ_NAME_CN=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --path req_name_cn)
 ```
 
@@ -201,8 +201,8 @@ cp "$SRC" "$DST"
 1. 写 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase ship
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --task-id "$task_id" \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase ship
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --set status=completed \
   --set "finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --set "delivered_to=<文档库目标路径>" \
@@ -218,7 +218,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set --repo-root "$REPO_ROOT" --t
 2. 将任务移出活跃列表：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill ship --where-task-id "$task_id" --repo-root "$REPO_ROOT"
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind requirement --skill ship --where-task-id "$task_id" --repo-root "$REPO_ROOT"
 ```
 
 ### 3.3 输出消息

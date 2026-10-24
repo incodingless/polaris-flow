@@ -9,7 +9,6 @@
 import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import https from 'https';
 
 import { getUserCliBinDir, getUserCliPrefixDir } from '../assets/polaris-paths.js';
 
@@ -206,39 +205,27 @@ export function formatUserCliPathHint(): string {
 }
 
 /**
- * 查询 npm registry 上某包的最新版本；网络不可达或响应非 200 时返回 null。
+ * 查询 npm registry 上某包的最新版本。
+ *
+ * 走 `npm view`，registry 取用户配置（`npm config get registry` 的默认值）：
+ * 内网 Nexus 与公网 npm 均可用，且私有包（如 polaris-flow 只发在公司 Nexus）也能查到。
+ * 加短超时与零重试，registry 不可达时快速返回 null，不长时间挂起。
  */
 export function getLatestNpmVersion(packageName: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const request = https.get(
-      `https://registry.npmjs.org/${packageName}/latest`,
-      { timeout: 5000 },
-      (res) => {
-        if (res.statusCode !== 200) {
-          res.resume();
-          resolve(null);
-          return;
-        }
-
-        let data = '';
-        res.on('data', (chunk: string) => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data) as { version?: string };
-            resolve(typeof parsed.version === 'string' ? parsed.version : null);
-          } catch {
-            resolve(null);
-          }
-        });
+  try {
+    const output = execFileSync(
+      getNodeToolExecutable('npm'),
+      ['view', packageName, 'version', '--fetch-timeout=10000', '--fetch-retries=0'],
+      {
+        encoding: 'utf-8',
+        timeout: 15_000,
+        stdio: ['ignore', 'pipe', 'ignore'],
       },
     );
-
-    request.on('error', () => resolve(null));
-    request.on('timeout', () => {
-      request.destroy();
-      resolve(null);
-    });
-  });
+    // `npm view <pkg> version` 成功时 stdout 为纯版本号；非法输出（如报错）返回 null
+    const version = output.split('\n')[0]?.trim() ?? '';
+    return Promise.resolve(/^\d/.test(version) ? version : null);
+  } catch {
+    return Promise.resolve(null);
+  }
 }

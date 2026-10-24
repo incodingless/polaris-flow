@@ -30,7 +30,7 @@ description: "缺陷修复通道的「关闭Bug」阶段：交付打包 + 收尾
 ### Step 0：定位任务标识 + 入口校验
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind debug --skill closeout --repo-root "$REPO_ROOT" --phase closeout)
+TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind debug --skill closeout --repo-root "$REPO_ROOT" --phase closeout)
 RTID_EXIT=$?
 ```
 
@@ -58,14 +58,14 @@ RTID_EXIT=$?
 1. 更新 `state.yaml`：`phase: closeout`，`closeout.status: in_progress`。
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind debug --phase closeout
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind debug --phase closeout
 ```
 
 2. 设置语言
 
 执行脚本：
 ```bash
-LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
+LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")
 LANG_EXIT=$?
 ```
 
@@ -111,7 +111,7 @@ cp "$TASK/reviews/bugfix-report.md" "$ARCHIVE/"
 - 建了 worktree 时（读 `state.yaml` 的 `worktree.path`）：
 
 ```bash
-WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-commit-remove.sh" "$worktree_path" --message "$COMMIT_MSG")
+WT_RESULT=$(node "$PLUGIN_ROOT/scripts/worktree-commit-remove.mjs" "$worktree_path" --message "$COMMIT_MSG")
 WT_EXIT=$?
 ```
 
@@ -122,7 +122,7 @@ WT_EXIT=$?
 **生产通道（hotfix）· 回合主干**
 
 ```bash
-MERGE_RESULT=$(bash "$PLUGIN_ROOT/scripts/git-branch-merge.sh" "hotfix/$issue_id" "$REPO_ROOT")
+MERGE_RESULT=$(node "$PLUGIN_ROOT/scripts/git-branch-merge.mjs" "hotfix/$issue_id" "$REPO_ROOT")
 MERGE_EXIT=$?
 ```
 
@@ -144,10 +144,10 @@ MERGE_EXIT=$?
 1. 更新 `state.yaml`（`complete-phase` 无 `--next-phase` —— 本阶段是链路终点）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --kind debug --task-id "$task_id" --phase closeout
 
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind debug \
   --set runtime.closeout.status=completed
 ```
@@ -155,7 +155,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 2. **移出活跃列表**（链路终点必做）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind debug --skill closeout \
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind debug --skill closeout \
   --repo-root "$REPO_ROOT" --where-task-id "$task_id"
 ```
 

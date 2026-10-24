@@ -27,9 +27,9 @@ describe('manifest', () => {
     const assets = await readAssets('zh');
     const hooks = assets.sharedAssets.find((a) => a.dir === 'hooks');
     const scripts = assets.sharedAssets.find((a) => a.dir === 'scripts');
-    expect(hooks?.files.some((f) => f.shortPath === 'session-start.sh')).toBe(true);
-    expect(scripts?.files.some((f) => f.shortPath === 'workflow-entry.sh')).toBe(true);
-    expect(scripts?.files.some((f) => f.shortPath === 'task-state-entry.sh')).toBe(true);
+    expect(hooks?.files.some((f) => f.shortPath === 'session-start.mjs')).toBe(true);
+    expect(scripts?.files.some((f) => f.shortPath === 'workflow-entry.mjs')).toBe(true);
+    expect(scripts?.files.some((f) => f.shortPath === 'task-state-entry.mjs')).toBe(true);
   });
 
   it('readAssets 按 ignoredFiles 跳过任意层级 README.md 与 .DS_Store', async () => {

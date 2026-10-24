@@ -19,7 +19,7 @@ ship 是 polaris-flow 中唯一会**写主仓共享资源**的阶段（`workflow
 
 ### 0.1 解析 main_repo_root 与 change_id
 
-通过 `scripts/change-locate.sh`(无 phase 限定)定位本会话 coding_tasks entry,取 `change_id`(及 `worktree_path` 用于解析 main_repo_root)。零/多匹配按脚本退出码阻断,**不获取锁**——脚本 stderr 已含统一阻断话术。
+`change_id` 即本技能从 `intake` 交接拿到的 `task_id`（见 SKILL.md「输入：接收 intake 交接」；`worktree_path` 一并取，空=主仓，用于解析 `main_repo_root`）。无 `task_id` 时阻断（本技能须经 `intake` 进入），**不获取锁**。
 
 ### 0.2 检测既有锁
 
@@ -97,4 +97,4 @@ trap 'rm -f "$LOCK_FILE"' EXIT INT TERM HUP
 
 - HARD-GATE：禁止跳过 Step 1 直接进入 Step 2
 - Step 1 一句引用本 policy
-- 解析 change_id 的逻辑当前**与 SKILL.md Step 2 共享**——后续如抽公共 policy（`resolve-change-id.md`），两处同步替换
+- `change_id` 取自 `intake` 交接的 `task_id`，与 SKILL.md「输入：接收 intake 交接」一致，本 policy 不重复解析

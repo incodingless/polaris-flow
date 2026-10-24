@@ -128,7 +128,7 @@ export async function installPolarisForPlatform(
       )
     : emptyStats();
 
-  // 3.1.1 替换 scripts/_polaris-cli.sh 平台占位符，并为 hooks/scripts 设可执行位  // 脚本由 skills 步骤落盘；hooks 单独更新时也补一遍，保证可执行位与占位符已就绪（幂等）
+  // 3.1.1 替换 scripts/_polaris-cli.mjs 平台占位符，并为 hooks/scripts 设可执行位  // 脚本由 skills 步骤落盘；hooks 单独更新时也补一遍，保证可执行位与占位符已就绪（幂等）
   if (selectedKinds('skills') || selectedKinds('hooks')) {
     await rewritePolarisCliPlatformId(platformLayout.skillsDir, platform.id);
   }

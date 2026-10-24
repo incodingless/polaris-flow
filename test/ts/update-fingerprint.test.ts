@@ -74,7 +74,7 @@ function baseSpec() {
       policies: { 'ask-question-react.md': 'policy v1' },
     },
     langFiles: { 'hooks.json': '{"hooks":{}}' },
-    sharedDirs: { hooks: { 'session-start.sh': 'echo v1' } },
+    sharedDirs: { hooks: { 'session-start.mjs': 'node entry v1' } },
   };
 }
 

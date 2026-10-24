@@ -96,6 +96,18 @@ pnpm test           # 单元测试
 
 ## Shell 脚本规范
 
+### Shell 边界（运行时已 node 化，勿再新增运行时 `.sh`）
+
+`polaris init` 与技能运行时（hook 启动、技能内部脚本、scorers）已 100% node 化（`.mjs`），**运行时不再依赖 bash**。判定原则：**凡是运行时会执行的脚本一律写 `.mjs`，禁止新增运行时 `.sh`**。
+
+保留 `.sh` 的边界（均为非运行时链，各自执行环境本就自带 shell）：
+
+- `install.sh`（根目录）= Linux 用户分发入口，Linux 正常自带 bash，保留
+- `devops/*.sh` = 维护者构建 / 发布 / 打包，开发者本机有 shell，保留
+- `test/shell/*.sh` = 测试脚本，保留
+
+新增脚本先判「运行时 vs 非运行时」：运行时（hook / 技能 / scorer / 安装辅助）→ `.mjs`；仅落在 `install.sh` / `devops/` / `test/shell/` 三类非运行时链才允许 `.sh`。
+
 脚本必须跨平台兼容（macOS / Linux / Windows Git Bash）：
 
 - **禁止** `sed -i`（GNU/BSD 不兼容），用 `awk` 做字段替换

@@ -17,7 +17,7 @@
 ## 1. 取结论（一条命令）
 
 ```bash
-CREATE=$(bash "$PLUGIN_ROOT/scripts/task-entry.sh" \
+CREATE=$(node "$PLUGIN_ROOT/scripts/task-entry.mjs" \
   --kind coding --as intake --mode <本档> --repo-root "$REPO_ROOT")
 CREATE_EXIT=$?
 ```
@@ -84,9 +84,9 @@ A / B 走的是「**采纳孤儿**」：它是上一轮没走完的同一个任�
 否则永远进不了游标、且会在 `finalize` 的 `rename-active` 处以 exit 3 阻断：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" append-active \
   --kind coding --skill intake --repo-root "$REPO_ROOT" --task-id "$draft_name"
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$draft_name" --kind coding \
   --set workflow.mode=<本档固定值>
 ```
@@ -96,7 +96,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 ```bash
 for d in <drafts 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind coding \
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind coding \
     --skill intake --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
@@ -111,7 +111,7 @@ done
 - **取消** → 结束本技能
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind coding \
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind coding \
   --skill intake --repo-root "$REPO_ROOT" --where-task-id "$task_id"
 rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
 ```

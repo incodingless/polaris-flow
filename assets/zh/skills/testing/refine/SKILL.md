@@ -40,7 +40,7 @@ version: 0.1
 ### Step 0：定位任务标识 + 入口校验
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind testcase --skill refine --repo-root "$REPO_ROOT" --phase refine)
+TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind testcase --skill refine --repo-root "$REPO_ROOT" --phase refine)
 EXIT_CODE=$?
 ```
 
@@ -54,7 +54,7 @@ EXIT_CODE=$?
 | refine 已完成 | `state.yaml` 中 `refine.status=completed` | **阻断重跑** |
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind testcase --phase refine
 ```
 
@@ -174,7 +174,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
 #### 6.4 评审记录落盘
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --set "refine.review_verdict=<通过|有条件通过|不通过>" \
   --set "refine.review_blocking_count=<N>" \
@@ -190,7 +190,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 1. 更新 `state.yaml`（阶段推进到 `ship` 就在这一步）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind testcase \
   --phase refine --next-phase ship
 ```

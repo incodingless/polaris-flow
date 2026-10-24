@@ -5,6 +5,7 @@ import type { Command } from 'commander';
 
 import { initCommand } from '../commands/init.js';
 import { updateCommand } from '../commands/update.js';
+import { uninstallCommand } from '../commands/uninstall.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { statusCommand } from '../commands/status.js';
 import { DEFAULT_DASHBOARD_PORT, dashboardCommand } from '../commands/dashboard.js';
@@ -161,8 +162,27 @@ export function registerUserCommands(program: Command): void {
     .command('uninstall')
     .description('Uninstall Polaris components from a project')
     .argument('[path]', 'target project directory', process.cwd())
-    .action(async () => {
-      console.error('[uninstall] 尚未实现');
-      process.exitCode = 1;
+    .option(
+      '--targets <items>',
+      "uninstall targets (comma-separated): 'assets' (default) | 'deps' | 'program' | 'all'",
+      splitList,
+    )
+    .option('--keep-data', 'keep .polaris runtime data (tasks/sessions/metrics/archive)')
+    .option('--yes', 'skip confirmation and delete directly')
+    .option('--dry-run', 'list what would be removed without deleting')
+    .option('--json', 'output JSON')
+    .addHelpText(
+      'after',
+      `\n  targets: 'assets' = Polaris-owned files (default); 'deps' = openspec/codegraph in-project;\n` +
+        `           'program' = global ~/.polaris + npm -g polaris-flow/openspec/codegraph; 'all' = everything\n`,
+    )
+    .action(async (path: string, options) => {
+      await uninstallCommand(path, {
+        targets: options.targets,
+        keepData: options.keepData,
+        yes: options.yes,
+        dryRun: options.dryRun,
+        json: options.json,
+      });
     });
 }

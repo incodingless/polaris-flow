@@ -19,7 +19,7 @@ export type HostHookContext = {
   /** CLI 位置参数路径；优先于 stdin.cwd */
   projectPath?: string;
   /**
-   * stdin 无有效 event 时的回退事件（如 session-start.sh 传 SessionStart）。
+   * stdin 无有效 event 时的回退事件（如 session-start.mjs 传 SessionStart）。
    * 宿主正规 payload 应自带 hook_event_name。
    */
   fallbackEvent?: HostHookEvent;

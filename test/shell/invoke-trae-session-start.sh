@@ -22,7 +22,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PROJECT="$(pwd)"
 SESSION_ID="trae-session-$(date -u +%Y%m%dT%H%M%SZ)"
 DRY_RUN=0
-VIA="cli" # cli | sh
+VIA="cli" # cli | hook
 
 usage() {
   cat <<'EOF'
@@ -34,7 +34,7 @@ Usage: bash test/shell/invoke-trae-session-start.sh [options]
 Options:
   --project <path>       项目根（传给 host-hook 位置参数；默认当前目录）
   --session-id <id>      stdin.session_id（默认自动生成）
-  --via <cli|sh>         直接 CLI，或经 assets session-start.sh（默认 cli）
+  --via <cli|hook>       直接 CLI，或经 assets session-start.mjs（默认 cli）
   --dry-run              只打印 stdin，不执行
   -h, --help             帮助
 
@@ -77,7 +77,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$VIA" in
-  cli|sh) ;;
+  cli|hook) ;;
   *)
     echo "invalid --via: $VIA" >&2
     exit 2
@@ -140,16 +140,13 @@ run_cli() {
   fi
 }
 
-run_sh() {
+run_hook() {
   local hooks_dir="$ROOT/assets/shared/hooks"
-  local scripts_dir="$ROOT/assets/shared/scripts"
   local tmp
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/polaris-trae-ss.XXXXXX")"
-  mkdir -p "$tmp/hooks" "$tmp/scripts"
+  mkdir -p "$tmp/hooks"
   awk -v pid="trae" '{ gsub(/@PLATFORM_ID@/, pid); print }' \
-    "$scripts_dir/_polaris-cli.sh" >"$tmp/scripts/_polaris-cli.sh"
-  cp "$hooks_dir/session-start.sh" "$tmp/hooks/session-start.sh"
-  chmod +x "$tmp/scripts/_polaris-cli.sh" "$tmp/hooks/session-start.sh"
+    "$hooks_dir/session-start.mjs" >"$tmp/hooks/session-start.mjs"
 
   local path_prefix=""
   if ! command -v polaris-flow >/dev/null 2>&1; then
@@ -164,7 +161,7 @@ EOF
     fi
   fi
 
-  printf '%s' "$PAYLOAD" | bash "$tmp/hooks/session-start.sh" "$PROJECT"
+  printf '%s' "$PAYLOAD" | node "$tmp/hooks/session-start.mjs" "$PROJECT"
   local ec=$?
   rm -rf "$tmp" ${path_prefix:+"$path_prefix"}
   return "$ec"
@@ -176,7 +173,7 @@ set +e
 if [[ "$VIA" == "cli" ]]; then
   run_cli >"$OUT" 2>"$ERR"
 else
-  run_sh >"$OUT" 2>"$ERR"
+  run_hook >"$OUT" 2>"$ERR"
 fi
 EC=$?
 set -e

@@ -39,7 +39,7 @@ version: 0.1
 ### Step 0：定位任务标识 + 入口校验
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind testcase --skill draft --repo-root "$REPO_ROOT" --phase draft)
+TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind testcase --skill draft --repo-root "$REPO_ROOT" --phase draft)
 EXIT_CODE=$?
 ```
 
@@ -60,7 +60,7 @@ EXIT_CODE=$?
 通过后：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind testcase --phase draft
 ```
 
@@ -198,7 +198,7 @@ draft:
 1. 更新 `state.yaml`（阶段推进到 `refine` 就在这一步 —— 阶段只有一个存放处）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind testcase \
   --phase draft --next-phase refine
 ```

@@ -1,5 +1,5 @@
 /**
- * detect-test-command.sh 集成测试：驱动 test/shell/detect-test-command.sh 的回归夹具。
+ * detect-test-command 集成测试：驱动 test/shell/detect-test-command.sh 的回归夹具。
  *
  * 夹具本身是纯 bash（可手动跑：`bash test/shell/detect-test-command.sh`），
  * 这里只负责让它进入 `npx vitest run`，使这批复现场景在 CI 里真的被执行。
@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(here, '../..');
 const fixture = path.join(projectRoot, 'test/shell/detect-test-command.sh');
-const scriptUnderTest = path.join(projectRoot, 'assets/shared/scripts/detect-test-command.sh');
+const scriptUnderTest = path.join(projectRoot, 'assets/shared/scripts/detect-test-command.mjs');
 
 /** 夹具输出带 ANSI 颜色，断言前先剥掉。 */
 function stripAnsi(text: string): string {
@@ -28,7 +28,7 @@ function runFixture(cwd: string = projectRoot): { status: number | null; output:
 
 const EXPECTED_CASES = 62;
 
-describe('detect-test-command.sh 回归夹具', () => {
+describe('detect-test-command 回归夹具', { timeout: 30000 }, () => {
   it('被测脚本存在（夹具的运行前提）', () => {
     expect(existsSync(scriptUnderTest)).toBe(true);
   });

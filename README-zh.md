@@ -37,7 +37,7 @@ node bin/polaris.js --version
 - `polaris dashboard` — 启动本地工作台（单进程单端口，API 与前端同端口；`--api-only` 供前端 HMR 开发）
 - `polaris doctor` — 诊断环境、schema 与 skill 安装状态
 - `polaris update` — 更新程序本体、工作流资产与第三方依赖（范围可选）
-- `polaris uninstall` — 卸载已安装组件（占位，尚未实现）
+- `polaris uninstall` — 从项目卸载 Polaris 组件（范围可选，默认仅 Polaris 自有资产）
 
 ### `polaris update` 更新范围
 
@@ -60,6 +60,21 @@ node bin/polaris.js --version
 | `--json`          | 输出结构化 JSON                                                                     |
 
 例：`polaris update --only skills,commands`、`polaris update --skip deps`、`polaris update --only assets --prune`
+
+### `polaris uninstall` 卸载范围
+
+与 update 三层对称，缺省仅 `assets`。删除是破坏性操作：默认列出待删路径并交互确认，`--yes` 跳过、`--dry-run` 只看不删。
+
+| 层        | 卸载内容                                                                            |
+| --------- | ----------------------------------------------------------------------------------- |
+| `assets`  | `.polaris/`、各平台 `skills/polaris`、`commands/psfl`、hooks 托管条目、`.worktrees/` |
+| `deps`    | `openspec` / `codegraph` 的项目内落盘（`openspec/`、对应 skills/commands）           |
+| `program` | `~/.polaris` + npm 全局 `polaris-flow` / `openspec` / `codegraph`                    |
+
+- `--targets assets|deps|program|all`（默认 `assets`）；`--keep-data` 保留 `.polaris` 运行时数据（tasks/sessions/metrics/archive）；`--yes` / `--dry-run` / `--json`
+- 不卸载 `agents` / `rules`（与用户自有内容共用目录，无法安全判定归属）；`superpowers` 是独立技能包，也不自动卸载
+
+例：`polaris uninstall --targets deps --dry-run`、`polaris uninstall --targets all --yes`
 
 ## Superpowers 安装与网络
 

@@ -1,6 +1,6 @@
 /**
  * `polaris-flow host-hook`：宿主 hook 统一入口（stdin 分发）。
- * 各宿主生命周期 .sh 薄包装只应调用本命令。
+ * 各宿主生命周期 .mjs 薄包装只应调用本命令。
  */
 import {
   createHostHookHandler,
@@ -17,7 +17,7 @@ const DEFAULT_EVENT_HANDLERS: HostHookEventHandler[] = [
 export type HostHookCommandOptions = {
   /** CLI `--platform`；优先于 config */
   platform?: string;
-  /** stdin 无 event 时回退（session-start.sh 传 SessionStart） */
+  /** stdin 无 event 时回退（session-start.mjs 传 SessionStart） */
   fallbackEvent?: string;
 };
 

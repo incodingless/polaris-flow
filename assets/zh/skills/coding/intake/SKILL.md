@@ -49,14 +49,14 @@ version: 0.1
 
 ### Step 0：设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 本技能所有提问与输出均采用 `$LANG`。
 
 ### Step 1：恢复分发（在途任务优先）
 
 ```bash
-ROWS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
+ROWS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind coding --repo-root "$REPO_ROOT" --format full)
 RTID_EXIT=$?
 ```
 
@@ -127,11 +127,11 @@ RTID_EXIT=$?
 使用 SessionStart 注入的路径（本技能内此后一律复用 `$REPO_ROOT` / `$PLUGIN_ROOT`）：
 
 - 优先：环境变量 `$PLUGIN_ROOT` / `$REPO_ROOT`（Trae `env`、Cursor `env`、Claude `CLAUDE_ENV_FILE`，或 Agent 上下文中的同名赋值）
-- 兜底：source `.polaris/.cache/runtime-env`（SessionStart 落盘）
+- 兜底：读取 `.polaris/.cache/runtime-env`（SessionStart 落盘，每行 `KEY=value`），取 `PLUGIN_ROOT` / `REPO_ROOT` 两行的值
 - 仍无 `$PLUGIN_ROOT` → 按 H12 阻断，提示用户重启会话以触发 SessionStart
 
 ```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/task-entry.sh" ]; then
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/task-entry.mjs" ]; then
   echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
   exit 2
 fi
@@ -140,7 +140,7 @@ fi
 #### 3.2 建任务（**一次调用**完成三件事）
 
 ```bash
-CREATE=$(bash "$PLUGIN_ROOT/scripts/task-entry.sh" --kind coding --as intake --mode <档> --repo-root "$REPO_ROOT")
+CREATE=$(node "$PLUGIN_ROOT/scripts/task-entry.mjs" --kind coding --as intake --mode <档> --repo-root "$REPO_ROOT")
 CREATE_EXIT=$?
 ```
 

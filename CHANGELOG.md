@@ -1,5 +1,37 @@
 # Changelog
 
+## What's Changed [0.6.0] - 2026-10-24
+
+### Added
+
+- **实现 `polaris uninstall` 命令**（取代原占位 stub）：从项目卸载 Polaris 组件。卸载对象分三层、与 `update` 的 plan 对称——`assets`（默认，Polaris 自有资产：`.polaris/`、各平台 `skills/polaris`、`commands/psfl`、hooks 托管条目、`.worktrees/`）、`deps`（`openspec`/`codegraph` 项目内落盘）、`program`（`~/.polaris` + npm 全局 `polaris-flow`/`openspec`/`codegraph`）。删除是破坏性操作：默认列出待删路径并交互确认，`--yes` 跳过、`--dry-run` 只看不删、`--json` 结构化输出、`--keep-data` 保留 `.polaris` 运行时数据（tasks/sessions/metrics/archive）。边界沿用 `core/update/prune.ts` 的权威口径——`agents`/`rules` 与用户自有内容共用目录不卸载；`superpowers` 是独立技能包不自动卸载（结果里给 `npx skills remove obra/superpowers` 手动指引）。新增 `core/install/hooks.ts` 的 `removePolarisHooksForPlatform`（移除宿主 hooks 配置里的托管条目、保留用户自有条目）。README（zh/en）由「占位」改为三层范围说明。
+
+## What's Changed [0.5.1] - 2026-10-24
+
+### Fixed
+
+- **修复 `polaris update` 程序本体更新链断裂**: `src/core/deps/version.ts` 的 `PACKAGE_NAME` 从错误的 scoped 名 `@polaris/polaris-flow` 对齐为实际发布的裸名 `polaris-flow`（包名早已改裸名，此处漏改导致版本检查永远 404）；`getLatestNpmVersion` 从硬编码公网 `registry.npmjs.org` 改为走 `npm view` 使用用户配置的 registry（`npm config get registry`，内网 Nexus 与公网 npm 均可查询），并加 `--fetch-timeout=10000 --fetch-retries=0` 让 registry 不可达时快速返回 null 而非长时间挂起。修复后 `polaris update` 能在内网 Nexus 上正确查询并更新程序本体；同步修正 `assets/shared` 三个运行时脚本、`docs/build/构建操作说明.md`、`test/shell/debug-session-start.sh` 中残留的 `@polaris/polaris-flow` 安装提示文案。
+
+## What's Changed [0.5.0] - 2026-10-24
+
+### Changed
+
+- **运行时全链路去 bash 依赖（skill 运行时 100% node 化）**: 分五个阶段把运行时脚本从 `.sh`（bash）等价迁移为 `.mjs`（node）——① 宿主 `SessionStart` hook 启动（`hooks/session-start.sh` → `.mjs`，宿主 `hooks.json` 的 command 从 `bash "…"` 改为 `node "…"`）；② skill 的 17 个 `scripts/` 薄包装 + 公共库 `_polaris-cli`；③ 自包含脚本 `detect-test-command` / `get-language-name`；④ verify 打分器 `scorers/` 5 个；⑤ codereview 扫描脚本 `analyze`。迁移后 `polaris init` 与技能运行均不再依赖 bash——此前 Windows 缺 bash（Git for Windows 默认只把 `git.exe` 加进 PATH）时 hook 会**静默失效**，现在 node 是 `engines.node >= 20` 的硬依赖，`.mjs` 天然免疫 CRLF。各脚本 stdout 契约（scorers 单行 JSON / detect-test-command 的 `key: value` / analyze 文本）逐字节保持
+- **移除 bash 诊断与警告**: `doctor` 删除 `checkBash` 与 `windowsGitBashCandidates`（运行时已不依赖 bash，缺失 bash 不再判 `fail`）；`install.ps1` 删除「缺 bash 警告」块；`docs/releases/安装手册-Windows.md` 删除 bash 前置条件、「安装 bash」节与故障排查 bash 行
+- **清理 SKILL.md/policies 中的裸 `.sh` 旧名与幽灵引用**: 前几批改 `.mjs` 时仅替换了带 `scripts/` 前缀的调用点，正文里不带前缀的裸文件名描述（`task-state-entry.sh`、`constitution-validity.sh` 等 14 处）与 ship 阶段两处指向不存在文件的 `.sh`（`polaris-sync.sh` → `policies/polaris-sync.md`；幽灵脚本 `change-locate.sh` → 「`change_id` 即 `task_id`」）统一收口，`assets/zh` 下已无指向 `.sh` 的引用
+- **AGENTS.md 固化 Shell 边界**: 「Shell 脚本规范」新增「Shell 边界」小节，沉淀「运行时脚本一律 `.mjs`、禁止新增运行时 `.sh`」的判定原则，保留 `.sh` 仅限 `install.sh` / `devops/*` / `test/shell/*` 三类非运行时链
+
+### Fixed
+
+- **analyze 脚本 full 模式崩溃**: 原 `.sh` 第 64 行 `$MAXDEPTH，`（变量后紧跟中文全角逗号）在 macOS bash 3.2 下把逗号首字节吃进变量名、触发 `set -u` unbound variable，导致「文件类型分布」及之后所有 section 不输出；node 版完整输出
+- **doc-sync-scorer「无 docs 扣分」分支从未生效**: 原 `.sh` 用 `grep -ciE ... || echo "0"` 统计，`grep -c` 无匹配时退出码 1 触发 `|| echo "0"` 追加第二个 `0`，`DOC_COMMITS` 变非法整数、扣分分支恒不触发；node 版实现正确语义
+
+### Tests
+
+- **detect-test-command 回归夹具**: 62 场景改经 `node` 驱动 `.mjs`，全绿
+- **session-start-mjs.integration.test.ts**: 由 `session-start-sh.integration.test.ts` 改名重写，覆盖 PATH 无 polaris-flow 时 exit 1、stdin cwd/session_id 落盘、CLI 位置参数优先；顺带修掉 `.mjs` 漏转发位置参数
+- **manifest / install-layout / hooks / skills-install / commands-install / update-prune / update-fingerprint 测试**: 样本文件与断言从 `.sh` 同步为 `.mjs`，`bash` 调用断言改为 `node`
+
 ## What's Changed [0.4.1] - 2026-10-24
 
 ### Fixed

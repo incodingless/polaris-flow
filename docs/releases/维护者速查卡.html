@@ -207,7 +207,7 @@
         <tr><td class="cmd">polaris dashboard</td><td class="desc">本地工作台，API 与前端同端口；<span class="cmd">--api-only</span> 供前端 HMR</td></tr>
         <tr><td class="cmd">polaris doctor</td><td class="desc">诊断环境、schema 与 skill 安装状态</td></tr>
         <tr><td class="cmd">polaris update</td><td class="desc">三层范围可单选：program（本体）/ assets（skills·commands·agents·rules·hooks，按指纹跳过）/ deps（openspec·superpowers·codegraph）。选项 <span class="cmd">--only --skip --force --prune --lang --scope --json</span>；例：<span class="cmd">update --only skills,commands</span></td></tr>
-        <tr><td class="cmd">polaris uninstall</td><td class="desc">卸载组件（占位，尚未实现）</td></tr>
+        <tr><td class="cmd">polaris uninstall</td><td class="desc">三层范围可单选：assets（默认，Polaris 自有资产）/ deps（openspec·codegraph）/ program（全局软件）。选项 <span class="cmd">--targets --keep-data --yes --dry-run --json</span>；删除前列出并确认</td></tr>
       </table>
     </div>
   </div>

@@ -27,7 +27,7 @@ version: 0.1
 - 批内审查日志（Mode A）：`openspec/changes/<task_id>/review-log.md`
 - 提案主审报告：`openspec/changes/<task_id>/reviews/plan-review-report.md`（Step 5.2）
 - Outside Voice 报告（若运行）：`openspec/changes/<task_id>/reviews/openspec-review-report.md`
-- workflow 游标：`.polaris/workflow.yaml` → `coding_tasks[].task_id`（写入一律走 `scripts/workflow-entry.sh`）
+- workflow 游标：`.polaris/workflow.yaml` → `coding_tasks[].task_id`（写入一律走 `scripts/workflow-entry.mjs`）
 
 > **续跑**：若 `openspec/changes/<task_id>/intention.md` 已存在且 `.polaris/tasks/<task_id>/intention.md` 已不存在，视为 Step 4.5 已完成，不得再从 `.polaris` 读 intention。
 
@@ -35,7 +35,7 @@ version: 0.1
 
 ### Step 0：设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 本阶段均以 `$LANG` 为主语言。
 
@@ -73,25 +73,25 @@ version: 0.1
 #### 2.3.A 用户选 A — 创建 worktree
 
 ```bash
-WT_RESULT=$(bash "$PLUGIN_ROOT/scripts/worktree-create.sh" "$task_id" "$REPO_ROOT")
+WT_RESULT=$(node "$PLUGIN_ROOT/scripts/worktree-create.mjs" "$task_id" "$REPO_ROOT")
 WT_EXIT=$?
 ```
 
 - exit 0 → `$WT_RESULT` 含 JSON（`target_path` / `target_branch` / `snapshot_path`）；继续下方同步
 - exit 1 → **阻断**，stderr 有错误信息
 
-创建成功后，`worktree` 块（`created_by_polaris_flow` / `path` / `branch` / `origin_repo` / `created_at` / `status`）**已由 `worktree-create.sh` 在同一次调用内写入** —— 本技能**不再重复声明**，也不直接编辑 `state.yaml`；顶层 `phase` 由后续 `complete-phase` 推进。
+创建成功后，`worktree` 块（`created_by_polaris_flow` / `path` / `branch` / `origin_repo` / `created_at` / `status`）**已由 `worktree-create.mjs` 在同一次调用内写入** —— 本技能**不再重复声明**，也不直接编辑 `state.yaml`；顶层 `phase` 由后续 `complete-phase` 推进。
 
 同步主仓 workflow.yaml（脚本内含锁 / 写后校验，见 H12）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" update-active --kind coding --skill plan --where-task-id "$task_id" --set worktree-path="$target_path"
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" update-active --kind coding --skill plan --where-task-id "$task_id" --set worktree-path="$target_path"
 ```
 
 在 `.polaris/tasks/<task_id>/state.yaml`（worktree 内路径优先）写入 `runtime.plan.worktree_decision`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.plan.worktree_decision=created
 ```
@@ -103,7 +103,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 不动 git。用脚本写入（顶层 `phase` 由后续 `complete-phase` 推进，此处不写）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set worktree.created_by_polaris_flow=false \
   --set worktree.status=main \
@@ -215,7 +215,7 @@ change 骨架创建后立即初始化可恢复状态，不能等 artifacts 全�
 用脚本写入 `artifact_review_mode`（顶层）与 plan 主审游标（**禁止**直接编辑 `state.yaml`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set artifact_review_mode=<per_batch|after_all> \
   --set runtime.plan.review_round=0 \
@@ -233,7 +233,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 执行后（无论 ok / failed）用脚本落盘：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.plan.opsx_propose_status=<ok|failed>
 ```
@@ -257,7 +257,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 3. **必须**用脚本把 intention 路径字段同步为 `openspec/changes/<task_id>/intention.md`——`--set` 与上面 `mv` **成对执行，不得只做其一**（漏写则 `intention_path` 指向已删除的 `.polaris` 旧路径，成为失效引用）：
 
    ```bash
-   bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+   node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
      --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
      --set runtime.specify.intention_path=openspec/changes/<task_id>/intention.md
    ```
@@ -286,7 +286,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
    5. **业务-技术映射**：`### 4.12` 每个技术组件有业务场景与业务价值
 5. **`tasks.md`**：任务有明确描述；必须跑：
    ```bash
-   LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
+   LINT_RESULT=$(node "$PLUGIN_ROOT/scripts/tasks-lint.mjs" "openspec/changes/$task_id/tasks.md")
    LINT_EXIT=$?
    ```
    - exit 0 → 通过  
@@ -381,7 +381,7 @@ mv "$REPO_ROOT/.polaris/tasks/$task_id/intention.md" "$REPO_ROOT/openspec/change
 主审报告落盘后，用脚本把轮次 +1（取当前值加一；5.4 中重跑 5.2 时继续 +1）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.plan.review_round=<N>
 ```
@@ -424,10 +424,10 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 校验通过、Step 4.5 完成、Step 5.1 机械终检通过、且 Step 5.2 已派发主审（或用户接受 SKIPPED）且无未消化 Critical → 用脚本更新 `state.yaml`（`complete-phase` 写入 `runtime.plan.status=completed` 与 `runtime.plan.finished_at`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase plan
 
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set "runtime.plan.worktree_decision=<created|reused|declined>" \
   --set "runtime.plan.opsx_propose_status=<ok|failed>" \
@@ -479,7 +479,7 @@ B. 否 — 跳过深化，直接进入 tasks（四件套已足够指导细计划
 **A（深化）** → 推进 design 阶段（`complete-phase` 已由 Step 6 执行，此处复跑并带 `--next-phase` 前移舞台；表内外阶段均受同一白名单校验）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase plan --next-phase design
 ```
 
@@ -488,12 +488,12 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
 **B（跳过深化）** → 标记 design 跳过，直接推进 tasks：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.design.status=skipped \
   --set "runtime.design.review_report=skipped:用户选择跳过深度设计（四件套已足够指导细计划）"
 
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase plan --next-phase tasks
 ```
 

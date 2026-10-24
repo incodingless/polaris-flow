@@ -7,7 +7,7 @@ set -uo pipefail
 # 自定位：本文件在 <repo>/test/shell/ 下 → 仓库根 = ../..
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "$HERE/../.." && pwd)
-SCRIPT="${1:-$REPO_ROOT/assets/shared/scripts/detect-test-command.sh}"
+SCRIPT="${1:-$REPO_ROOT/assets/shared/scripts/detect-test-command.mjs}"
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/detect-fixtures.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
@@ -27,7 +27,7 @@ check() {   # name expected actual
 OUT=""; RC=0
 run() {   # run <dir> [args...]  —— 有意从 /tmp 运行，顺带验证脚本不依赖 CWD
   local d="$1"; shift
-  OUT=$(cd /tmp && bash "$SCRIPT" --repo-root "$d" "$@" 2>/dev/null); RC=$?
+  OUT=$(cd /tmp && node "$SCRIPT" --repo-root "$d" "$@" 2>/dev/null); RC=$?
 }
 kv() { printf '%s\n' "$OUT" | awk -v k="$1" 'index($0, k ": ") == 1 { sub(k ": ", ""); print; exit }'; }
 
@@ -168,12 +168,12 @@ check "不可执行命令 退出码" 2 "$RC"
 check "不可执行命令 stdout 仍有 command" "./gradlew test" "$(kv command)"
 
 # ---- 13/14/15. 入参错误 ----
-OUT=$(cd /tmp && bash "$SCRIPT" 2>/dev/null); RC=$?
+OUT=$(cd /tmp && node "$SCRIPT" 2>/dev/null); RC=$?
 check "无参数 退出码" 2 "$RC"
 d=$(fixture argerr)
 run "$d" --slot bogus
 check "非法 --slot 退出码" 2 "$RC"
-OUT=$(cd /tmp && bash "$SCRIPT" --repo-root /no/such/dir --slot unit 2>/dev/null); RC=$?
+OUT=$(cd /tmp && node "$SCRIPT" --repo-root /no/such/dir --slot unit 2>/dev/null); RC=$?
 check "--repo-root 非目录 退出码" 2 "$RC"
 
 # ---- 16. 块内多候选：限定范围的排在前面 ----
@@ -232,7 +232,7 @@ d=$(fixture cwd-independence)
 cat >"$d/package.json" <<'EOF'
 { "name": "x", "scripts": { "test": "vitest run" } }
 EOF
-OUT=$(cd / && bash "$SCRIPT" --repo-root "$d" --slot unit 2>/dev/null); RC=$?
+OUT=$(cd / && node "$SCRIPT" --repo-root "$d" --slot unit 2>/dev/null); RC=$?
 check "从 / 运行 --repo-root 生效" "npm test" "$(kv command)"
 
 # ---- 22. 行内反引号（非代码块路径，回归确认未被二轮改动破坏） ----

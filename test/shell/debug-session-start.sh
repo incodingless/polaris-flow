@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# debug-session-start.sh — 本地模拟宿主 SessionStart，调试 host-hook / session-start.sh
+# debug-session-start.sh — 本地模拟宿主 SessionStart，调试 host-hook / session-start.mjs
 #
 # 用法：
 #   bash test/shell/debug-session-start.sh
 #   POLARIS_HOOK_DEBUG=1 bash test/shell/debug-session-start.sh --platform cursor
-#   bash test/shell/debug-session-start.sh --via sh
+#   bash test/shell/debug-session-start.sh --via hook
 #   bash test/shell/debug-session-start.sh --dry-run
 #   echo '{"hook_event_name":"SessionStart","cwd":"."}' | bash test/shell/debug-session-start.sh --stdin -
 #
@@ -28,7 +28,7 @@ Usage: bash test/shell/debug-session-start.sh [options]
 Options:
   --platform <claude|cursor|trae>  模拟平台（默认 claude；影响 stdin 形状与 stdout JSON）
   --project <path>                 项目根（默认当前目录；写入 stdin.cwd）
-  --via <cli|sh>                   走 polaris-flow CLI 或 assets session-start.sh（默认 cli）
+  --via <cli|hook>                 走 polaris-flow CLI 或 assets session-start.mjs（默认 cli）
   --stdin <file|->                 使用自定义 JSON（- 表示从管道读）；默认用内置模板
   --dry-run                        只打印将注入的 stdin，不执行
   -h, --help                       帮助
@@ -38,7 +38,7 @@ Env:
 
 Examples:
   POLARIS_HOOK_DEBUG=1 bash test/shell/debug-session-start.sh --platform trae
-  bash test/shell/debug-session-start.sh --platform cursor --via sh --project "$PWD"
+  bash test/shell/debug-session-start.sh --platform cursor --via hook --project "$PWD"
 EOF
 }
 
@@ -86,9 +86,9 @@ case "$PLATFORM" in
 esac
 
 case "$VIA" in
-  cli|sh) ;;
+  cli|hook) ;;
   *)
-    echo "invalid --via: $VIA (cli|sh)" >&2
+    echo "invalid --via: $VIA (cli|hook)" >&2
     exit 2
     ;;
 esac
@@ -179,7 +179,7 @@ resolve_polaris_flow() {
 run_cli() {
   local pf
   if ! pf="$(resolve_polaris_flow)"; then
-    echo "[FAIL] polaris-flow 不可用。请先: pnpm build，或 npm i -g @polaris/polaris-flow" >&2
+    echo "[FAIL] polaris-flow 不可用。请先: pnpm build，或 npm i -g polaris-flow" >&2
     exit 1
   fi
   if [[ "$pf" == node:* ]]; then
@@ -195,23 +195,19 @@ run_cli() {
   fi
 }
 
-run_sh() {
+run_hook() {
   local hooks_dir="$ROOT/assets/shared/hooks"
-  local scripts_dir="$ROOT/assets/shared/scripts"
-  local sh="$hooks_dir/session-start.sh"
-  if [[ ! -f "$sh" ]]; then
-    echo "[FAIL] missing $sh" >&2
+  local src="$hooks_dir/session-start.mjs"
+  if [[ ! -f "$src" ]]; then
+    echo "[FAIL] missing $src" >&2
     exit 1
   fi
-  # 临时插件根布局：hooks/session-start + scripts/_polaris-cli（替换 @PLATFORM_ID@）
+  # 临时插件根布局：hooks/session-start.mjs（替换 @PLATFORM_ID@）
   local tmp
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/polaris-debug-ss.XXXXXX")"
-  mkdir -p "$tmp/hooks" "$tmp/scripts"
-  # shellcheck disable=SC2016
+  mkdir -p "$tmp/hooks"
   awk -v pid="$PLATFORM" '{ gsub(/@PLATFORM_ID@/, pid); print }' \
-    "$scripts_dir/_polaris-cli.sh" >"$tmp/scripts/_polaris-cli.sh"
-  cp "$sh" "$tmp/hooks/session-start.sh"
-  chmod +x "$tmp/scripts/_polaris-cli.sh" "$tmp/hooks/session-start.sh"
+    "$src" >"$tmp/hooks/session-start.mjs"
 
   # 保证能找到 polaris-flow：优先 PATH，否则用仓库 bin 包一层
   local path_prefix=""
@@ -227,7 +223,7 @@ EOF
     fi
   fi
 
-  printf '%s' "$PAYLOAD" | bash "$tmp/hooks/session-start.sh" "$PROJECT"
+  printf '%s' "$PAYLOAD" | node "$tmp/hooks/session-start.mjs" "$PROJECT"
   local ec=$?
   rm -rf "$tmp" ${path_prefix:+"$path_prefix"}
   return "$ec"
@@ -239,7 +235,7 @@ set +e
 if [[ "$VIA" == "cli" ]]; then
   run_cli >"$OUT_FILE" 2>"$ERR_FILE"
 else
-  run_sh >"$OUT_FILE" 2>"$ERR_FILE"
+  run_hook >"$OUT_FILE" 2>"$ERR_FILE"
 fi
 EC=$?
 set -e

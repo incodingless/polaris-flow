@@ -49,7 +49,7 @@ version: 0.3
 ### Step 0：状态检查与中断恢复
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind requirement --skill refine --repo-root "$REPO_ROOT" --phase refine)
+TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill refine --repo-root "$REPO_ROOT" --phase refine)
 EXIT_CODE=$?
 ```
 
@@ -77,7 +77,7 @@ EXIT_CODE=$?
 1. 更新 `state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine
 ```
 
 2. 设置语言
@@ -85,7 +85,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_R
 执行脚本：
 
 ```bash
-LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
+LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")
 LANG_EXIT=$?
 ```
 
@@ -544,7 +544,7 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `ship` 就在这一步）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine --next-phase ship
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine --next-phase ship
 ```
 
 2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。

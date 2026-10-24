@@ -38,7 +38,7 @@ description: "把 plan 阶段的高层 design.md 深化为可实施的详细技�
 - Outside Voice 报告（若运行）：`openspec/changes/<task_id>/reviews/openspec-review-report.md`
 - 澄清检查点：`openspec/changes/<task_id>/brainstorm-summary.md`
 - OpenSpec 四件套：`openspec/changes/<task_id>/`
-- workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`）
+- workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.mjs`）
 
 > **职责边界**：plan 的 `design.md` = 高层方案框架；本阶段 `detailed-design.md` = 深度技术细化。深化，不替代。  
 > **专项命名**：禁止叫 `design.md`；例：领域模型 → `domain-model-design.md`。不建 `design/` 子目录。
@@ -47,7 +47,7 @@ description: "把 plan 阶段的高层 design.md 深化为可实施的详细技�
 
 ### Step 0：设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 本阶段均以 `$LANG` 为主语言。
 
@@ -71,7 +71,7 @@ description: "把 plan 阶段的高层 design.md 深化为可实施的详细技�
 通过后更新 `state.yaml`：`phase: design`，`runtime.design.status: in_progress`。
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase design
 ```
 输出：`[polaris-flow 开发]设计: task_id=<task_id> ; phase=design`
@@ -231,9 +231,9 @@ frontmatter、`## 0. 继承锚点` 与六个必含节（实现方案 / 边界条
 更新 `state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase design --next-phase tasks
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.design.path=openspec/changes/<task_id>/detailed-design.md \
   --set runtime.design.review_report=openspec/changes/<task_id>/reviews/design-review-report.md \
