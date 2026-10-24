@@ -66,7 +66,8 @@
 - 与设计文档的关系：正文图仍是 Mermaid（design 阶段 + 主审 S3.5）；这两个只出**交付图**（HTML/PNG，给人看），不进评审链。
 
 ## Windows 支持（2026-10-21 裁定）
-- **bash 是硬依赖，非可选**：`assets/shared/hooks.json` 模板、`src/core/install/hooks.ts:62`（硬编码 `bash "…"`）、`doctor.ts:135`、`verify/SKILL.md` 的 scorers 调用，共 27 个 `.sh`。全仓 `grep win32|process.platform` **零结果**（无 Windows 分支）。⇒ Windows 缺 bash 时：安装与 `polaris init` 都成功、**hook 静默失效不报错**。
+- **bash 是硬依赖，非可选**：`assets/shared/hooks.json` 模板、`src/core/install/hooks.ts:62`（硬编码 `bash "…"`）、`doctor.ts`（`checkBash`）、`verify/SKILL.md` 的 scorers 调用，共 27 个 `.sh`。全仓 `grep win32|process.platform` **零结果**（无 Windows 分支）。⇒ Windows 缺 bash 时：安装与 `polaris init` 都成功、**hook 静默失效不报错**。**PowerShell 不能替代**，2026-10-21 裁定 C（改写成 Node 跨平台）不做。
+- ⚠️ **「git 有、bash 无」的头号原因**（2026-10-23 用户现场）：Git for Windows 默认安装只把 `cmd\` 加进 PATH（含 `git.exe`），而 `bash.exe` 在 `bin\` 下、默认不加。`doctor` 的 `windowsGitBashCandidates()` 探测三个常见位置（Program Files / Program Files (x86) / `%LOCALAPPDATA%\Programs\Git\bin`，另含 `Git\usr\bin`）并直接打印 PATH 修复命令。修 PATH 后**必须重开终端**（`SetEnvironmentVariable` 不影响已打开窗口）。
 - 裁定 = **A+B，不做 C**：A 文档分平台 + B 新增 `install.ps1`（`install.sh` 等价物）；C（把 hook/scorers 改写成 Node 跨平台）明确不做。理由：Git for Windows 提供的 `bash.exe` 同时解决 install 与 hook 两件事。
 - `install.ps1` 三个必须保持的约束：① 调用 `npm.cmd` 而非 `npm`（PowerShell 的 `npm`→`npm.ps1` 被执行策略拦）；② 文件必须 **UTF-8 BOM + CRLF**（PowerShell 5.1 否则按 ANSI 解析 → 中文乱码）；③ bash 缺失只警告不阻断，且区分「已装 Git 但 `bin` 不在 PATH」与「未装」。
 - PowerShell 语法坑：`-split` 单段结果 `[0]` 取首字符 → 用 `String.Split()`；`npm prefix -g` 要 `Select-Object -First 1` 再 `.Trim()`。bash 的「变量后跟中文要 `${}`」坑**不适用**于 PowerShell。

@@ -186,18 +186,31 @@ if ($bundleMode) {
 # bash 缺失不阻断安装，但必须明确告知：hook 与打分器是 bash 脚本，缺了会静默失效
 $bashCommand = Get-Command bash -ErrorAction SilentlyContinue
 if (-not $bashCommand) {
-    $portableBash = 'C:\Program Files\Git\bin\bash.exe'
+    # 与 src/core/doctor.ts 的 windowsGitBashCandidates() 保持一致
+    $gitBashCandidates = @(
+        'C:\Program Files\Git\bin\bash.exe',
+        'C:\Program Files (x86)\Git\bin\bash.exe',
+        'C:\Program Files\Git\usr\bin\bash.exe',
+        "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe"
+    )
+    $portableBash = $gitBashCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     Write-Host ''
     Write-Host '注意：PATH 中未找到 bash。' -ForegroundColor Yellow
     Write-Host '  Polaris Flow 的 hook 与 verify 打分器以 bash 脚本编写，缺少 bash 时：'
     Write-Host '    - polaris init 仍可完成，但写入宿主配置的 hook 不会生效'
     Write-Host '    - verify 阶段的打分器无法运行'
     Write-Host '  解决：安装 Git for Windows（https://git-scm.com/download/win），'
-    if (Test-Path $portableBash) {
-        Write-Host "        该机已存在 ${portableBash}，只需把 'C:\Program Files\Git\bin' 加入系统 PATH 后重开终端。"
+    if ($portableBash) {
+        $gitBinDir = Split-Path -Parent $portableBash
+        Write-Host "        该机已存在 $portableBash，只是它的 bin 目录没进 PATH。"
+        Write-Host '        加入用户 PATH（重开终端后生效）：'
+        # 单引号在 PowerShell 里不展开变量，这里用拼接，避免把 $gitBinDir 原样打出来
+        $pathFix = "          [Environment]::SetEnvironmentVariable('Path', '" + $gitBinDir + ";' + [Environment]::GetEnvironmentVariable('Path','User'), 'User')"
+        Write-Host $pathFix
     }
     else {
-        Write-Host "        安装时勾选把 Git 加入 PATH，或手动把 'C:\Program Files\Git\bin' 加入系统 PATH 后重开终端。"
+        Write-Host '        装 Git for Windows 时选默认选项即可（https://git-scm.com/download/win），'
+        Write-Host '        装完把 C:\Program Files\Git\bin 加入用户 PATH，再重开终端。'
     }
     Write-Host ''
 }
