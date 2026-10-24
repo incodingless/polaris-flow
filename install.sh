@@ -12,11 +12,16 @@
 # 其它可选环境变量:
 #   POLARIS_DRY_RUN=1    只打印将要执行的命令，不真正安装
 #
-# 只支持全局安装，不提供用户级安装：
+# 只支持全局安装，不提供用户级安装 polaris 本体：
 #   系统级 node 的全局目录是 /usr/lib/node_modules，普通用户无写权限。改装到
-#   ~/.npm-global 虽然能装成功，但 polaris 不在系统 PATH 上，而且 polaris init
-#   装 openspec / polaris update 升级自身时仍要写全局目录，会继续 EACCES——
-#   等于装了个只能跑 --version 的残件。所以这种情况直接拒绝，要求用 root 重跑。
+#   ~/.npm-global 虽然能装成功，但 polaris 不在系统 PATH 上，polaris update
+#   升级自身时也仍要写那个目录 —— 等于装了个只能跑 --version 的残件。
+#   所以这种情况直接拒绝，要求用 root 重跑（管理员装一次，所有用户共用）。
+#
+# 注意分工：sudo 只用在装 CLI 这一步。初始化项目必须由普通用户执行 ——
+#   sudo polaris init 会让 .polaris/ 与平台目录归属 root，之后普通用户改不了文档。
+#   伴生 CLI（openspec / codegraph）不需要手动 sudo：全局目录不可写时 polaris init
+#   会自动装到 ~/.polaris/cli。
 #
 # 职责: 校验环境（node >= 20 + npm）→ 确认全局目录可写 → 安装 npm 包
 #       polaris-flow → 打印版本号与下一步提示。
@@ -40,8 +45,12 @@ usage() {
   sudo bash install.sh     Linux 系统级 node（yum / apt 装的）。装到 /usr/lib/node_modules，所有用户可用
   bash install.sh          macOS / nvm 管理的 node。全局目录属于当前用户，不需要 sudo
 
-只支持全局安装：装到用户目录后 polaris 不在系统 PATH 上，且 polaris init / update
-里要写全局目录的步骤会继续报 EACCES，因此脚本会直接拒绝。
+只支持全局安装 polaris 本体：装到用户目录后 polaris 不在系统 PATH 上，polaris update
+升级自身时也仍要写全局目录，因此脚本会直接拒绝。
+
+sudo 只用在装 CLI 这一步。初始化项目必须由普通用户执行（sudo polaris init 会让
+项目文件归属 root）。伴生 CLI 不需要手动 sudo：全局目录不可写时 polaris init
+会自动装到 ~/.polaris/cli。
 
 可选环境变量:
   NPM_REGISTRY=<url>   换源（默认公司 Nexus 3 聚合仓库）
@@ -141,12 +150,13 @@ INSTALL_PREFIX="$(npm_global_prefix)"
 if ! global_dir_writable; then
   err "全局安装目录 ${GLOBAL_ROOT} 当前用户不可写，无法完成有效安装。"
   echo "" >&2
-  echo "  Polaris 只支持全局安装：装到用户目录后 polaris 不在系统 PATH 上，" >&2
-  echo "  polaris init 装 openspec、polaris update 升级自身时仍要写全局目录，" >&2
-  echo "  会继续报 EACCES —— 装出来只能跑 --version，属于无效安装。" >&2
+  echo "  polaris 本体只支持全局安装：装到用户目录后它不在系统 PATH 上，" >&2
+  echo "  polaris update 升级自身时也仍要写全局目录 —— 装出来只能跑 --version。" >&2
   echo "" >&2
-  echo "  用 root 重跑：" >&2
+  echo "  用 root 重跑（管理员装一次，所有用户共用）：" >&2
   echo "      sudo bash install.sh" >&2
+  echo "" >&2
+  echo "  装完之后，初始化项目请切回普通用户执行 polaris init，不要 sudo。" >&2
   exit 1
 fi
 
@@ -203,9 +213,18 @@ if ! command -v "$PACKAGE_NAME" >/dev/null 2>&1; then
   warn "当前终端还没识别到 ${PACKAGE_NAME}，执行 hash -r 或重开终端后再用"
 fi
 
-# 普通用户跑 init 时仍要写全局目录，管理员预先装好可避免降级
-if [ "$(id -u)" = "0" ] && ! command -v openspec >/dev/null 2>&1; then
-  echo ""
-  echo "建议顺带装好 OpenSpec（否则普通用户跑 polaris init 时这一步会失败）："
-  echo "    npm install -g @fission-ai/openspec@latest --registry ${REGISTRY}"
+# 伴生 CLI 建议由管理员一次预装：省掉每个使用者首次 init 时的下载等待。
+# 不装也能用 —— polaris init 会自动装，全局目录不可写时装到 ~/.polaris/cli。
+if [ "$(id -u)" = "0" ]; then
+  MISSING_DEPS=""
+  command -v openspec >/dev/null 2>&1 || MISSING_DEPS="${MISSING_DEPS} @fission-ai/openspec@latest"
+  command -v codegraph >/dev/null 2>&1 || MISSING_DEPS="${MISSING_DEPS} @colbymchenry/codegraph@latest"
+  if [ -n "$MISSING_DEPS" ]; then
+    echo ""
+    echo "可选：顺手预装伴生 CLI（不装也行，polaris init 会自动装到用户目录）："
+    echo "    npm install -g${MISSING_DEPS} --registry ${REGISTRY}"
+    echo ""
+    echo "注意：初始化项目必须由普通用户执行，不要 sudo。"
+    echo "      sudo polaris init 会让 .polaris/ 等项目文件归属 root，之后普通用户改不了。"
+  fi
 fi

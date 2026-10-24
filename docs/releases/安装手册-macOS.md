@@ -37,7 +37,9 @@ sudo bash install.sh     # Linux 系统级 node（yum / apt 装的）
 
 脚本做三件事：校验 node/npm 与版本（不合格直接报错并给指引）→ 从公司 Nexus 3 安装 `polaris-flow` → 打印版本号与下一步提示。
 
-> **Linux 上必须 `sudo`**：系统级 node 的全局目录是 `/usr/lib/node_modules`，属于 root。普通用户装进去会 `EACCES`；改装到自己目录虽然能装上，但 `polaris` 不在系统 PATH 上，且 `polaris init` 装 openspec、`polaris update` 升级自身时仍要写全局目录，照样失败——等于装了个只能跑 `--version` 的残件。所以**脚本只支持全局安装**，遇到不可写会直接拒绝并让你用 `sudo` 重跑，不提供用户级安装。
+> **Linux 上装 CLI 必须 `sudo`**：系统级 node 的全局目录是 `/usr/lib/node_modules`，属于 root。普通用户装进去会 `EACCES`；改装到自己目录虽然能装上，但 `polaris` 不在系统 PATH 上，`polaris update` 升级自身时仍要写全局目录，照样失败——等于装了个只能跑 `--version` 的残件。所以**脚本只支持 `polaris-flow` 本体的全局安装**，遇到不可写会直接拒绝并让你用 `sudo` 重跑。
+>
+> `sudo` 只用在装 CLI 这一步。**初始化项目不要加 `sudo`**，否则 `.polaris/` 与平台目录会归属 root，你之后改不了文档也提交不了；`polaris init` 需要的伴生 CLI（openspec / codegraph）也不需要你手动 sudo，它就装到 `~/.polaris/cli`（见第三节）。
 >
 > 只想看会执行什么命令而不真装：加 `POLARIS_DRY_RUN=1`。
 
@@ -80,10 +82,24 @@ polaris init
 polaris doctor       # 自检 node / bash / git / openspec / schema / 技能安装状态，全部 ✓ 即就绪
 ```
 
-> **Linux 上先一次性装好 openspec**：`polaris init` 会执行 `npm install -g @fission-ai/openspec@latest`。普通用户没有全局目录写权限时，这一步会失败（不会中断 init，但 OpenSpec 集成装不上）。由管理员执行一次即可，之后普通用户 `init` 即使升级被拒也会自动降级用已装版本：
+> **不要用 `sudo polaris init`**。init 会在项目里写 `.polaris/` 与平台目录（`.trae-cn/` 等），以 root 运行会让这些文件归属 root，之后你用普通用户既改不了文档、也提交不了。真的这么跑过，把归属交回来：
 >
 > ```bash
-> sudo npm install -g @fission-ai/openspec@latest
+> sudo chown -R "$(id -un):$(id -gn)" 你的项目目录 ~/.polaris
+> ```
+>
+> 容器 / CI 里确实需要 root 时，用 `POLARIS_ALLOW_ROOT=1 polaris init` 显式放行。
+
+**伴生 CLI 装在哪**：`polaris init` 要装 OpenSpec 与 Codegraph 两个命令行工具。全局 npm 目录可写时装到全局；**不可写（Linux 系统级 node 的 `/usr/lib/node_modules`）时自动改装到 `~/.polaris/cli`**，不需要 sudo。此时它们不在你的 PATH 上——`polaris` 内部按绝对路径调用，一切正常；但你想在终端里直接敲 `openspec` / `codegraph` 时，需要加一行：
+
+```bash
+echo 'export PATH="$HOME/.polaris/cli/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+```
+
+> 管理员想省掉每个使用者首次 init 的下载等待，可以预装（可选，不装也能跑）：
+>
+> ```bash
+> sudo npm install -g @fission-ai/openspec@latest @colbymchenry/codegraph --registry <NEXUS>
 > ```
 
 **init 会装两个图表工具**：`archify`（架构 / 时序 / 数据流 / ERD / 类图等 10 类结构化图，带 schema 校验）与 `diagram-design`（13 类编辑级视觉图，可吃 Mermaid 源码）。它们落在 `.claude/skills/archify/` 与 `.claude/skills/diagram-design/`，**不进 `polaris/` 命名空间、不占命令菜单**——只在你要出一张「能贴进文档、发给人看」的图时才用得上。设计文档正文的图仍是 Mermaid，由 `design` 阶段产出。
@@ -120,7 +136,9 @@ POLARIS_GITHUB_MIRROR=https://你的镜像基址 polaris init
 | ---- | ---- | ---- |
 | `node: command not found` | 没装 Node.js 或装后没重开终端 | 装 Node.js LTS 后重开终端 |
 | `node vX is too old` | 版本低于 20 | 升级 Node.js 到 20 以上 |
-| `EACCES ... mkdir '/usr/lib/node_modules/polaris-flow'` | 系统级 Node（apt / yum 装的）把全局目录放在 `/usr/lib/node_modules`，普通用户无写权限 | 加 `sudo` 重装：`sudo bash install.sh`。脚本本身也会检测到这一点并直接拒绝用户级安装，而不是装出一个 `polaris` 找不到的半成品 |
+| `EACCES ... mkdir '/usr/lib/node_modules/polaris-flow'` | 系统级 Node（apt / yum 装的）把全局目录放在 `/usr/lib/node_modules`，普通用户无写权限 | 加 `sudo` 重装：`sudo bash install.sh`。脚本本身也会检测到这一点并直接拒绝用户级安装，而不是装出一个 `polaris` 找不到的半成品。**这只影响 `polaris-flow` 本体**；init 要的 openspec / codegraph 会自动装到 `~/.polaris/cli`，不需要 sudo |
+| `polaris init` 报 `Refusing to run polaris init as root` | 用了 `sudo polaris init` | 去掉 `sudo` 重跑。已经这么跑过、项目文件变成 root 归属的，先 `sudo chown -R "$(id -un):$(id -gn)" 你的项目目录 ~/.polaris` |
+| 项目里文件改不动、`git` 报 permission denied | 之前用 `sudo polaris init` 留下的 root 归属 | 同上，`chown` 交回归属后重新 `polaris init` |
 | `polaris: command not found`（刚装完） | 当前 shell 缓存着旧的命令位置，`/usr/bin` 已生效但没刷新 | `hash -r`，或关掉终端重开；仍不行用 `which -a polaris` 确认装在 `/usr/bin/polaris` |
 | `已不再支持用户级安装` | 用了旧文档里的 `--user-prefix` | 去掉该参数，改用 `sudo bash install.sh` |
 | `E401 Unauthorized` / `Unable to authenticate` | Nexus 3 没开放匿名读，连装包都要求登录 | 找维护者给 `nx-anonymous` 角色加上 `npm-group` 的 browse / read 权限 |

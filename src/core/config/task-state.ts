@@ -287,21 +287,6 @@ function normalizeKeys(value: unknown): unknown {
 }
 
 /**
- * 对顶层几个允许 kebab 形式的字段保留原键（install-time / main-repo-root / worktree-dir / context-compression）。
- * 其余字段一律转 snake。
- */
-function normalizedKeepAsIs(key: string): string {
-  const kebabKeepers = new Set([
-    'install-time',
-    'main-repo-root',
-    'worktree-dir',
-    'context-compression',
-  ]);
-  if (kebabKeepers.has(key)) return key;
-  return key.replace(/-/g, '_');
-}
-
-/**
  * 深度合并；数组整段覆盖。
  */
 function deepMerge<T extends Record<string, unknown>>(base: T, patch: Partial<T>): T {

@@ -243,7 +243,7 @@ export async function loadStateObject(statePath: string): Promise<Record<string,
     }
     return parsed as Record<string, unknown>;
   } catch (err) {
-    throw new Error(`无法解析 ${statePath}: ${(err as Error).message}`);
+    throw new Error(`无法解析 ${statePath}: ${(err as Error).message}`, { cause: err });
   }
 }
 

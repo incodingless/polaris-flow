@@ -30,4 +30,13 @@ describe('superpowers npx fallback', () => {
     expect(args).toContain('-g');
     expect(args).toContain('cursor');
   });
+
+  it('npx 侧带 --yes 且在包名之前（否则首次运行停在 Ok to proceed 等输入）', () => {
+    const { args } = buildSuperpowersInstallCommand('project', ['trae']);
+    expect(args).toContain('--yes');
+    expect(args.indexOf('--yes')).toBeLessThan(args.indexOf('skills'));
+    // 给 skills CLI 自己的 -y 仍要保留，别把两者混成同一个
+    expect(args).toContain('-y');
+    expect(args[args.length - 1]).not.toBe('-y');
+  });
 });

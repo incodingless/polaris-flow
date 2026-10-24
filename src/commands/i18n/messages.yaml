@@ -209,3 +209,41 @@ updateDepsSkipped:
 updateStatusInstalled:
   en: installed
   zh: 已安装
+rootNotAllowed:
+  en: |
+    Refusing to run polaris init as root / sudo.
+
+      init writes .polaris/ and platform directories (.trae-cn/ etc.) into the project.
+      Run as root and those files belong to root — your normal user can then neither
+      edit the docs nor commit them.
+
+    Correct order (each once; do NOT put sudo in front of the second line):
+      sudo bash install.sh     # admin installs the CLI
+      polaris init             # back as yourself
+
+    Already ran it with sudo? Hand ownership back:
+      sudo chown -R "$(id -un):$(id -gn)" <project-dir> ~/.polaris
+
+    Genuinely need root (containers / CI):
+      POLARIS_ALLOW_ROOT=1 polaris init
+  zh: |
+    拒绝以 root / sudo 运行 polaris init。
+
+      init 会往项目里写 .polaris/ 和平台目录（.trae-cn/ 等）。以 root 运行后这些文件
+      归属 root，之后你用普通用户既改不了文档，也提交不了。
+
+    正确顺序（各跑一次，第二条不要加 sudo）：
+      sudo bash install.sh     # 管理员装 CLI
+      polaris init             # 回到你自己的用户
+
+    已经用 sudo 跑过？把归属交回来：
+      sudo chown -R "$(id -un):$(id -gn)" <项目目录> ~/.polaris
+
+    容器 / CI 里确实需要 root：
+      POLARIS_ALLOW_ROOT=1 polaris init
+gitMissing:
+  en: 'git not found — Superpowers / diagram skills cannot be fetched online; falling back to local copies under ~/.polaris/components'
+  zh: 未找到 git —— Superpowers / 图表技能无法在线拉取，回落到 ~/.polaris/components 本地副本
+companionCliInUserDir:
+  en: 'Companion CLIs installed to the user directory (global npm prefix is not writable). To run openspec / codegraph directly, add it to PATH:'
+  zh: 伴生 CLI 已装到用户目录（全局 npm 前缀不可写）。要直接运行 openspec / codegraph，把它加进 PATH：

@@ -14,9 +14,8 @@ import { copyDirContents, copyFile, ensureDir, fileExists } from '../../utils/fi
 import { readJsonObjectOrEmpty } from '../../utils/json-io.js';
 import {
   getNodeToolExecutable,
-  getNpmGlobalPrefix,
-  isNpmGlobalPrefixWritable,
-  printNpmPrefixNotWritableHint,
+  resolveCliExecutable,
+  resolveCliInstallTarget,
 } from '../deps/npm.js';
 import { getBaseDir } from './detect.js';
 import { getOpenspecSource } from '../assets/sources.js';
@@ -80,7 +79,8 @@ function buildOpenSpecInitInvocation(
   if (includeProfileFlag) {
     args.push('--profile', 'custom');
   }
-  return { command: 'openspec', args };
+  // 用解析出的绝对路径：用户级安装的 openspec 不在 PATH 上
+  return { command: resolveCliExecutable('openspec') ?? 'openspec', args };
 }
 
 const ALL_WORKFLOWS_CONFIG =
@@ -187,26 +187,18 @@ function restoreDefaultConfig(backup: ConfigBackup | null): void {
   }
 }
 
+/**
+ * 判断命令是否可用：PATH 之外还查用户级 `~/.polaris/cli/bin` 与 pnpm 全局 bin。
+ * 用户级目录不在 PATH 上也算可用 —— 调用方拿 `resolveCliExecutable` 的绝对路径执行。
+ */
 function isCommandAvailable(command: string): boolean {
-  try {
-    if (process.platform === 'win32') {
-      execFileSync('where', [command], { stdio: 'ignore', timeout: 10_000 });
-      return true;
-    }
-    // 用 POSIX 内建 `command -v` 探测：最小化 Linux（如 CentOS）默认不带外部 `which`
-    execFileSync('sh', ['-c', 'command -v "$1"', 'sh', command], {
-      stdio: 'ignore',
-      timeout: 10_000,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return resolveCliExecutable(command) !== null;
 }
 
-function buildOpenSpecCliInstallArgs(registry?: string): string[] {
-  // CLI 工具始终全局安装，避免在目标项目目录产生 node_modules
-  return buildNpmGlobalInstallArgs('@fission-ai/openspec@latest', registry);
+function buildOpenSpecCliInstallArgs(registry?: string, prefix?: string): string[] {
+  // CLI 工具始终全局安装，避免在目标项目目录产生 node_modules；
+  // 全局目录不可写时 prefix 指向 ~/.polaris/cli（用户级安装）
+  return buildNpmGlobalInstallArgs('@fission-ai/openspec@latest', registry, prefix);
 }
 
 /** 清理旧版 init 在目标项目误装的本地 OpenSpec CLI 产物 */
@@ -259,11 +251,10 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
   const label = alreadyInstalled ? 'Upgrading' : 'Installing';
   console.warn(`    ${label} OpenSpec CLI (global)...`);
 
-  // 全局目录不可写时 npm install -g 必失败（EACCES），提前给出 root 定向提示
-  const npmPrefix = getNpmGlobalPrefix();
-  if (!alreadyInstalled && npmPrefix && isNpmGlobalPrefixWritable(npmPrefix) === false) {
-    printNpmPrefixNotWritableHint('sudo npm install -g @fission-ai/openspec@latest', npmPrefix);
-    return 'failed';
+  // 全局目录不可写时改装到用户目录，不要求 sudo（sudo 装出来的文件属主是 root）
+  const target = resolveCliInstallTarget();
+  if (target.kind === 'user') {
+    console.warn(`    ↳ 全局目录不可写，改装用户目录: ${target.prefix}/bin`);
   }
 
   const source = getOpenspecSource();
@@ -271,11 +262,15 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
 
   // --- 1. npm 通道 ---
   try {
-    execFileSync(getNpmExecutable(), buildOpenSpecCliInstallArgs(channel.npmRegistry), {
-      stdio: 'inherit',
-      timeout: 120_000,
-      shell: process.platform === 'win32',
-    });
+    execFileSync(
+      getNpmExecutable(),
+      buildOpenSpecCliInstallArgs(channel.npmRegistry, target.prefix),
+      {
+        stdio: 'inherit',
+        timeout: 120_000,
+        shell: process.platform === 'win32',
+      },
+    );
     if (isCommandAvailable('openspec')) {
       return 'ready';
     }
@@ -292,6 +287,7 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
       source.minVersion,
       channel.githubMirror,
       channel.npmRegistry,
+      target.prefix,
     );
     if (ok && isCommandAvailable('openspec')) {
       return 'ready';
@@ -305,7 +301,7 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
       console.warn(`    ↳ 本地目录不存在: ${localPath}`);
     } else {
       console.warn(`    ↳ 本地目录通道: ${localPath} ...`);
-      const ok = installCliFromLocalDir(localPath, channel.npmRegistry);
+      const ok = installCliFromLocalDir(localPath, channel.npmRegistry, target.prefix);
       if (ok && isCommandAvailable('openspec')) {
         return 'ready';
       }

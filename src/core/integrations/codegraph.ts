@@ -1,12 +1,8 @@
 import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { isCommandAvailable, getNpmExecutable } from './openspec.js';
-import {
-  getNpmGlobalPrefix,
-  isNpmGlobalPrefixWritable,
-  printNpmPrefixNotWritableHint,
-} from '../deps/npm.js';
+import { getNpmExecutable } from './openspec.js';
+import { resolveCliExecutable, resolveCliInstallTarget } from '../deps/npm.js';
 import { printCommandErrorDetails } from '../command-error.js';
 import { getCodegraphSource } from '../assets/sources.js';
 import { resolveInstallChannelConfig } from '../install/channels.js';
@@ -21,10 +17,6 @@ import type { InstallScope } from '../config/polaris-project-config.js';
 /** CodeGraph CLI 的 npm 包名 */
 export const CODEGRAPH_PACKAGE = '@colbymchenry/codegraph';
 
-function getPnpmExecutable(platform: NodeJS.Platform = process.platform): string {
-  return platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-}
-
 function hasCodegraphProjectIndex(projectPath: string): boolean {
   const codegraphDir = path.join(projectPath, '.codegraph');
   try {
@@ -35,35 +27,12 @@ function hasCodegraphProjectIndex(projectPath: string): boolean {
   }
 }
 
-function resolvePnpmGlobalCommand(command: string): string | null {
-  try {
-    const binDir = execFileSync(getPnpmExecutable(), ['bin', '-g'], {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 10_000,
-      shell: process.platform === 'win32',
-    }).trim();
-    if (!binDir) return null;
-
-    const candidates =
-      process.platform === 'win32'
-        ? [`${command}.cmd`, `${command}.exe`, `${command}.ps1`, command]
-        : [command];
-
-    for (const candidate of candidates) {
-      const candidatePath = path.join(binDir, candidate);
-      if (fs.existsSync(candidatePath)) return candidatePath;
-    }
-  } catch {
-    // pnpm may not be installed or may not have a global bin configured.
-  }
-
-  return null;
-}
-
+/**
+ * 解析 codegraph 可执行文件：PATH → 用户级 `~/.polaris/cli/bin` → pnpm 全局 bin。
+ * 返回绝对路径优先（用户级安装不在 PATH 上也能直接执行）。
+ */
 function resolveCodegraphCommand(): string | null {
-  if (isCommandAvailable('codegraph')) return 'codegraph';
-  return resolvePnpmGlobalCommand('codegraph');
+  return resolveCliExecutable('codegraph');
 }
 
 /**
@@ -81,11 +50,10 @@ async function ensureCodegraphCli(
 
   console.log(`    ${existingCommand ? 'Upgrading' : 'Installing'} CodeGraph CLI...`);
 
-  // 全局目录不可写时 npm install -g 必失败（EACCES），提前给出 root 定向提示
-  const npmPrefix = getNpmGlobalPrefix();
-  if (!existingCommand && npmPrefix && isNpmGlobalPrefixWritable(npmPrefix) === false) {
-    printNpmPrefixNotWritableHint(`sudo npm install -g ${CODEGRAPH_PACKAGE}`, npmPrefix);
-    return null;
+  // 全局目录不可写时改装到用户目录，不要求 sudo（sudo 装出来的文件属主是 root）
+  const target = resolveCliInstallTarget();
+  if (!existingCommand && target.kind === 'user') {
+    console.warn(`    ↳ 全局目录不可写，改装用户目录: ${target.prefix}/bin`);
   }
 
   const source = getCodegraphSource();
@@ -95,7 +63,7 @@ async function ensureCodegraphCli(
   try {
     execFileSync(
       getNpmExecutable(),
-      buildNpmGlobalInstallArgs(`${CODEGRAPH_PACKAGE}@latest`, channel.npmRegistry),
+      buildNpmGlobalInstallArgs(`${CODEGRAPH_PACKAGE}@latest`, channel.npmRegistry, target.prefix),
       {
         cwd: projectPath,
         stdio: 'inherit',
@@ -118,6 +86,7 @@ async function ensureCodegraphCli(
       source.minVersion,
       channel.githubMirror,
       channel.npmRegistry,
+      target.prefix,
     );
     if (ok) {
       const resolved = resolveCodegraphCommand();
@@ -132,7 +101,7 @@ async function ensureCodegraphCli(
       console.warn(`    ↳ 本地目录不存在: ${localPath}`);
     } else {
       console.warn(`    ↳ 本地目录通道: ${localPath} ...`);
-      const ok = installCliFromLocalDir(localPath, channel.npmRegistry);
+      const ok = installCliFromLocalDir(localPath, channel.npmRegistry, target.prefix);
       if (ok) {
         const resolved = resolveCodegraphCommand();
         if (resolved) return resolved;

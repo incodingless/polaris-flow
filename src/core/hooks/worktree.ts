@@ -184,7 +184,7 @@ export async function merge(
     return { exitCode: 3, message: 'worktree_path 或 origin_repo 不是目录' };
   }
 
-  let dirty = '';
+  let dirty: string;
   try {
     dirty = git(wt, ['status', '--porcelain']).trim();
   } catch {
@@ -222,7 +222,7 @@ export async function rebase(
   const wt = path.resolve(worktreePath);
   const origin = path.resolve(originRepo);
 
-  let defaultBranch = '';
+  let defaultBranch: string;
   try {
     const ref = git(origin, ['symbolic-ref', 'refs/remotes/origin/HEAD']).trim();
     defaultBranch = ref.replace(/^refs\/remotes\/origin\//, '');
@@ -281,7 +281,7 @@ export async function commitAndRemove(
   }
 
   let mainRepo: string;
-  let branch = '';
+  let branch: string;
   try {
     const commonDirRaw = git(wt, ['rev-parse', '--git-common-dir']).trim();
     const commonDir = path.isAbsolute(commonDirRaw) ? commonDirRaw : path.resolve(wt, commonDirRaw);
@@ -293,7 +293,7 @@ export async function commitAndRemove(
   }
 
   let committed = false;
-  let dirty = '';
+  let dirty: string;
   try {
     dirty = git(wt, ['status', '--porcelain']).trim();
   } catch {
