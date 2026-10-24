@@ -1,6 +1,6 @@
 /**
  * SessionStart hook 核心逻辑：环境自检、依赖 WARN、session_id、评审 agent model 注入。
- * 由 `polaris session-start` CLI 与薄包装 session-start.sh 调用。
+ * 由 `polaris session-start` CLI 与 node 入口 session-start.mjs 调用。
  */
 import { randomBytes } from 'crypto';
 import { mkdir, readFile, writeFile, appendFile } from 'fs/promises';

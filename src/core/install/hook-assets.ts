@@ -1,6 +1,7 @@
 /**
- * hooks/scripts 资产安装改写：`_polaris-cli.sh` 的 `@PLATFORM_ID@` 占位替换与可执行位。
- * `_polaris-cli.sh` 位于插件根 `scripts/`；`hooks/` 仅保留宿主注册入口。
+ * hooks/scripts 资产安装改写：`@PLATFORM_ID@` 占位替换与可执行位。
+ * `_polaris-cli.sh`（scripts/ 下共用薄包装）与 `session-start.mjs`（hooks/ 下宿主入口）
+ * 都含 `@PLATFORM_ID@`，安装期替换为真实平台 id。
  */
 import { chmod, readdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
@@ -11,8 +12,8 @@ import { fileExists } from '../../utils/file-system.js';
 export const PLATFORM_ID_PLACEHOLDER = '@PLATFORM_ID@';
 
 /**
- * 将 scripts 目录下 `_polaris-cli.sh` 中的 `@PLATFORM_ID@` 替换为真实 platform id，
- * 并为 hooks/ 与 scripts/ 下 `*.sh` 设置可执行位。
+ * 将 `scripts/_polaris-cli.sh` 与 `hooks/session-start.mjs` 中的 `@PLATFORM_ID@` 替换为真实
+ * platform id，并为 hooks/ 与 scripts/ 下 `*.sh` 设置可执行位。
  * 无文件或无占位则跳过 rewrite；Unix 下尽量 chmod。
  * @param pluginRoot 插件根（skills/polaris）
  * @param platformId 平台 id（claude / cursor / trae 等）
@@ -23,16 +24,19 @@ export async function rewritePolarisCliPlatformId(
 ): Promise<{ rewritten: boolean }> {
   const scriptsDir = path.join(pluginRoot, 'scripts');
   const hooksDir = path.join(pluginRoot, 'hooks');
-  const cliPath = path.join(scriptsDir, '_polaris-cli.sh');
+  const targets = [
+    path.join(scriptsDir, '_polaris-cli.sh'),
+    path.join(hooksDir, 'session-start.mjs'),
+  ];
 
   let rewritten = false;
-  if (await fileExists(cliPath)) {
-    const original = await readFile(cliPath, 'utf-8');
-    if (original.includes(PLATFORM_ID_PLACEHOLDER)) {
-      const next = original.split(PLATFORM_ID_PLACEHOLDER).join(platformId);
-      await writeFile(cliPath, next, 'utf-8');
-      rewritten = true;
-    }
+  for (const target of targets) {
+    if (!(await fileExists(target))) continue;
+    const original = await readFile(target, 'utf-8');
+    if (!original.includes(PLATFORM_ID_PLACEHOLDER)) continue;
+    const next = original.split(PLATFORM_ID_PLACEHOLDER).join(platformId);
+    await writeFile(target, next, 'utf-8');
+    rewritten = true;
   }
 
   await ensureShScriptsExecutable(scriptsDir);

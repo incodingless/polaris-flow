@@ -97,7 +97,7 @@ describe('installPolarisForPlatform layout', () => {
       await access(path.join(tmpDir, '.claude/skills/polaris/prd/discovery/SKILL.md'));
       await access(path.join(tmpDir, '.claude/skills/polaris/testing/discovery/SKILL.md'));
       await access(path.join(tmpDir, '.claude/skills/polaris/adapters'));
-      await access(path.join(tmpDir, '.claude/skills/polaris/hooks/session-start.sh'));
+      await access(path.join(tmpDir, '.claude/skills/polaris/hooks/session-start.mjs'));
       await access(path.join(tmpDir, '.claude/skills/polaris/scripts/workflow-entry.sh'));
       await access(path.join(tmpDir, '.claude/skills/polaris/scripts/_polaris-cli.sh'));
       await access(path.join(tmpDir, '.polaris'));
@@ -183,7 +183,7 @@ describe('installPolarisForPlatform layout', () => {
       await access(path.join(tmpDir, '.trae/skills/polaris-coding-specify/SKILL.md'));
       await access(path.join(tmpDir, '.trae/skills/polaris-prd-discovery/SKILL.md'));
       await access(path.join(tmpDir, '.trae/skills/polaris-testing-discovery/SKILL.md'));
-      await access(path.join(tmpDir, '.trae/skills/polaris/hooks/session-start.sh'));
+      await access(path.join(tmpDir, '.trae/skills/polaris/hooks/session-start.mjs'));
       await access(path.join(tmpDir, '.trae/skills/polaris/scripts/workflow-entry.sh'));
       await access(path.join(tmpDir, '.trae/skills/polaris/scripts/_polaris-cli.sh'));
       await expect(access(path.join(tmpDir, '.trae/skills/polaris-README.md'))).rejects.toThrow();

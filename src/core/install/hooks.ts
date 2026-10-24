@@ -59,7 +59,7 @@ function resolveHookScriptRoot(baseDir: string, scope: InstallScope): string {
  */
 export function buildPolarisHookCommand(scriptRoot: string, scriptName: string): string {
   const root = scriptRoot.replace(/\\/g, '/').replace(/\/$/, '');
-  return `bash "${root}/hooks/${scriptName}"`;
+  return `node "${root}/hooks/${scriptName}"`;
 }
 
 /**
@@ -70,7 +70,7 @@ export function isManagedHookCommand(command: unknown): boolean {
   return (
     command.includes('polaris/hooks') ||
     command.includes('polaris-flow/hooks') ||
-    command.includes('/hooks/session-start.sh') ||
+    command.includes('/hooks/session-start.mjs') ||
     command.includes('${CLAUDE_PLUGIN_ROOT}/hooks/') ||
     /\/skills\/polaris(-flow)?\/hooks\//.test(command)
   );
@@ -83,7 +83,7 @@ export function rewriteHookCommand(command: string, scriptRoot: string): string 
   if (!isManagedHookCommand(command)) {
     return command;
   }
-  const match = command.match(/hooks\/([A-Za-z0-9_-]+\.sh)/);
+  const match = command.match(/hooks\/([A-Za-z0-9_-]+\.mjs)/);
   if (!match) {
     return command;
   }

@@ -17,7 +17,7 @@ const DEFAULT_EVENT_HANDLERS: HostHookEventHandler[] = [
 export type HostHookCommandOptions = {
   /** CLI `--platform`；优先于 config */
   platform?: string;
-  /** stdin 无 event 时回退（session-start.sh 传 SessionStart） */
+  /** stdin 无 event 时回退（session-start.mjs 传 SessionStart） */
   fallbackEvent?: string;
 };
 

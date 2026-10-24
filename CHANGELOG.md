@@ -1,5 +1,17 @@
 # Changelog
 
+## What's Changed [0.5.0] - 2026-10-24
+
+### Changed
+
+- **宿主 SessionStart hook 的启动从 bash 改为 node**: `hooks/session-start.sh`（bash 薄包装）替换为 `hooks/session-start.mjs`（自包含 node 入口），宿主 `hooks.json` 的 command 从 `bash "…session-start.sh"` 改为 `node "…session-start.mjs"`。此前 Windows 缺 bash（或 Git Bash 不在 PATH）时 hook 会**静默失效**；现在 node 是 `engines.node >= 20` 的硬依赖，hook 不再依赖任何 shell。入口脚本职责不变——定位全局 `polaris-flow` 并转发 `host-hook --fallback-event SessionStart --platform <id>`；`.mjs` 扩展名强制 ESM、天然免疫 CRLF，`_polaris_cli_selfheal` 这段不再需要（`scripts/_polaris-cli.sh` 仍保留给 skill 薄包装用）
+- **`doctor` 的 bash 诊断口径收窄**: hook 不再依赖 bash，只有 skill 的 `scripts/*.sh` 薄包装与 verify 打分器（`scorers/*.sh`）仍依赖。`checkBash()` 提示文案改为「打分器与 skill 脚本仍是 .sh」，不再声称「hook 也是 .sh」
+
+### Tests
+
+- **`session-start-mjs.integration.test.ts`（由 `session-start-sh.integration.test.ts` 改名重写）**: 薄包装全链路测试从「bash 调 .sh」改为「node 调 .mjs」，覆盖——PATH 无 polaris-flow 时 exit 1 并提示安装、stdin cwd/session_id + --platform 落盘 session 文件、CLI 位置参数优先于 stdin.cwd（顺带修掉 `.mjs` 漏转发位置参数的缺陷）
+- **hooks / install-layout / manifest / skills-install / update-prune / update-fingerprint 测试**: 样本文件与断言从 `session-start.sh` 同步为 `session-start.mjs`
+
 ## What's Changed [0.4.1] - 2026-10-24
 
 ### Fixed

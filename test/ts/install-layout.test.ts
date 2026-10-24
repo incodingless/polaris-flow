@@ -33,7 +33,7 @@ describe('install-layout', () => {
     expect(isPackageCommonAsset('adapters/hook-registration.md')).toBe(true);
     expect(isPackageCommonAsset('policies/decision-point.md')).toBe(true);
     expect(isPackageCommonAsset('templates/intention-template.md')).toBe(true);
-    expect(isPackageCommonAsset('hooks/session-start.sh')).toBe(true);
+    expect(isPackageCommonAsset('hooks/session-start.mjs')).toBe(true);
     expect(isPackageCommonAsset('scripts/get-language-name.sh')).toBe(true);
     expect(isPackageCommonAsset('skills/hard-stops.md')).toBe(true);
     expect(isPackageCommonAsset('skills/coding/specify/SKILL.md')).toBe(false);
@@ -67,8 +67,8 @@ describe('install-layout', () => {
     expect(resolveInstallDest('adapters/command-registration.md', claude)).toBe(
       '.claude/skills/polaris/adapters/command-registration.md',
     );
-    expect(resolveInstallDest('hooks/session-start.sh', claude)).toBe(
-      '.claude/skills/polaris/hooks/session-start.sh',
+    expect(resolveInstallDest('hooks/session-start.mjs', claude)).toBe(
+      '.claude/skills/polaris/hooks/session-start.mjs',
     );
     expect(resolveInstallDest('scripts/workflow-entry.sh', claude)).toBe(
       '.claude/skills/polaris/scripts/workflow-entry.sh',

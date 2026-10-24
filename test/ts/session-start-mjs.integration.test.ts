@@ -1,8 +1,8 @@
 /**
- * session-start.sh 集成测试：薄包装 → _polaris-cli → polaris-flow host-hook 全链路。
+ * session-start.mjs 集成测试：node 入口 → 定位 polaris-flow → host-hook 全链路。
  */
 import { spawnSync } from 'child_process';
-import { chmod, copyFile, mkdir, mkdtemp, readFile, writeFile } from 'fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -11,27 +11,21 @@ import { describe, expect, it } from 'vitest';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
 const assetsHooks = path.join(projectRoot, 'assets/shared/hooks');
-const assetsScripts = path.join(projectRoot, 'assets/shared/scripts');
 const polarisFlowJs = path.join(projectRoot, 'bin/polaris-flow.js');
 
 /**
- * 在临时插件根落盘 hooks/session-start.sh + scripts/_polaris-cli.sh（与安装布局一致）。
+ * 在临时插件根落盘 hooks/session-start.mjs（与安装布局一致），并替换 @PLATFORM_ID@。
  */
 async function materializeHooks(platformId: string): Promise<string> {
   const pluginRoot = await mkdtemp(path.join(os.tmpdir(), 'polaris-ss-plugin-'));
   const hooksDir = path.join(pluginRoot, 'hooks');
-  const scriptsDir = path.join(pluginRoot, 'scripts');
   await mkdir(hooksDir, { recursive: true });
-  await mkdir(scriptsDir, { recursive: true });
-  await copyFile(path.join(assetsHooks, 'session-start.sh'), path.join(hooksDir, 'session-start.sh'));
-  const cliSrc = await readFile(path.join(assetsScripts, '_polaris-cli.sh'), 'utf-8');
+  const src = await readFile(path.join(assetsHooks, 'session-start.mjs'), 'utf-8');
   await writeFile(
-    path.join(scriptsDir, '_polaris-cli.sh'),
-    cliSrc.split('@PLATFORM_ID@').join(platformId),
+    path.join(hooksDir, 'session-start.mjs'),
+    src.split('@PLATFORM_ID@').join(platformId),
     'utf-8',
   );
-  await chmod(path.join(hooksDir, 'session-start.sh'), 0o755);
-  await chmod(path.join(scriptsDir, '_polaris-cli.sh'), 0o755);
   return hooksDir;
 }
 
@@ -76,9 +70,9 @@ async function makeProject(): Promise<{ projectPath: string; homeDir: string }> 
 }
 
 /**
- * 调用真实 bash session-start.sh。
+ * 调用真实 node session-start.mjs。
  */
-function runSessionStartSh(options: {
+function runSessionStartMjs(options: {
   hooksDir: string;
   cwd: string;
   pathPrefix?: string;
@@ -90,26 +84,30 @@ function runSessionStartSh(options: {
     ? `${options.pathPrefix}${path.delimiter}${process.env.PATH ?? ''}`
     : ['/usr/bin', '/bin', '/usr/sbin', '/sbin'].join(path.delimiter);
 
-  return spawnSync('bash', [path.join(options.hooksDir, 'session-start.sh'), ...(options.extraArgs ?? [])], {
-    cwd: options.cwd,
-    env: {
-      ...process.env,
-      PATH: pathEnv,
-      HOME: options.homeDir ?? process.env.HOME,
-      // 避免宿主交互式 tty 干扰 hook-io
-      TERM: 'dumb',
+  return spawnSync(
+    process.execPath,
+    [path.join(options.hooksDir, 'session-start.mjs'), ...(options.extraArgs ?? [])],
+    {
+      cwd: options.cwd,
+      env: {
+        ...process.env,
+        PATH: pathEnv,
+        HOME: options.homeDir ?? process.env.HOME,
+        // 避免宿主交互式 tty 干扰 hook-io
+        TERM: 'dumb',
+      },
+      input: options.stdin,
+      encoding: 'utf-8',
     },
-    input: options.stdin,
-    encoding: 'utf-8',
-  });
+  );
 }
 
-describe('session-start.sh integration', () => {
+describe('session-start.mjs integration', { timeout: 30000 }, () => {
   it('PATH 无 polaris-flow 时 exit 1 并提示安装', async () => {
     const hooksDir = await materializeHooks('claude');
     const { projectPath, homeDir } = await makeProject();
 
-    const result = runSessionStartSh({
+    const result = runSessionStartMjs({
       hooksDir,
       cwd: projectPath,
       homeDir,
@@ -121,7 +119,7 @@ describe('session-start.sh integration', () => {
     expect(combined).toContain('polaris-flow CLI not found');
   });
 
-  it('经薄包装转发：stdin cwd/session_id + --platform，写出 session 文件', async () => {
+  it('经 node 入口转发：stdin cwd/session_id + --platform，写出 session 文件', async () => {
     const hooksDir = await materializeHooks('claude');
     const pathPrefix = await makePolarisFlowPathDir();
     const { projectPath, homeDir } = await makeProject();
@@ -133,7 +131,7 @@ describe('session-start.sh integration', () => {
       source: 'startup',
     });
 
-    const result = runSessionStartSh({
+    const result = runSessionStartMjs({
       hooksDir,
       cwd: os.tmpdir(), // 故意与项目不同，迫使使用 stdin.cwd
       pathPrefix,
@@ -165,7 +163,7 @@ describe('session-start.sh integration', () => {
     const { projectPath, homeDir } = await makeProject();
     const other = await mkdtemp(path.join(os.tmpdir(), 'polaris-ss-other-'));
 
-    const result = runSessionStartSh({
+    const result = runSessionStartMjs({
       hooksDir,
       cwd: other,
       pathPrefix,
