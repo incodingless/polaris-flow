@@ -44,7 +44,7 @@ User-facing CLI only (runtime hooks use `polaris-flow`):
 - `polaris dashboard` — start the local workbench (API + web UI on a single port; `--api-only` for frontend HMR dev)
 - `polaris doctor` — diagnose environment, schema, and skill installation
 - `polaris update` — update the program, workflow assets, and dependencies (scope selectable)
-- `polaris uninstall` — remove installed components (stub)
+- `polaris uninstall` — remove Polaris components from a project (scope selectable, assets by default)
 
 ### `polaris update` scope
 
@@ -67,6 +67,21 @@ Three layers, independently selectable; all by default.
 | `--json` | Output structured JSON |
 
 Examples: `polaris update --only skills,commands`, `polaris update --skip deps`, `polaris update --only assets --prune`
+
+### `polaris uninstall` scope
+
+Mirrors the three update layers; `assets` by default. Removal is destructive: it lists what would be removed and asks for confirmation, with `--yes` to skip and `--dry-run` to preview only.
+
+| Layer | Removes |
+|---|---|
+| `assets` | `.polaris/`, per-platform `skills/polaris`, `commands/psfl`, managed hook entries, `.worktrees/` |
+| `deps` | in-project `openspec` / `codegraph` artifacts (`openspec/`, matching skills/commands) |
+| `program` | `~/.polaris` + global npm `polaris-flow` / `openspec` / `codegraph` |
+
+- `--targets assets|deps|program|all` (default `assets`); `--keep-data` keeps `.polaris` runtime data (tasks/sessions/metrics/archive); `--yes` / `--dry-run` / `--json`
+- `agents` / `rules` are not removed (shared with user-owned content); `superpowers` is a standalone skill pack and is also left untouched
+
+Examples: `polaris uninstall --targets deps --dry-run`, `polaris uninstall --targets all --yes`
 
 ## License
 

@@ -61,7 +61,7 @@ function main() {
     console.error(
       '[polaris-flow][FAIL] polaris-flow CLI not found — hook requires a global install',
     );
-    console.error('                  Install: npm install -g @polaris/polaris-flow');
+    console.error('                  Install: npm install -g polaris-flow');
     console.error('                  Then retry (or run: polaris-flow host-hook …)');
     console.error('                  Note: interactive CLI remains "polaris" (init/status/…)');
     process.exit(1);

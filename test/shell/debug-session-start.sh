@@ -179,7 +179,7 @@ resolve_polaris_flow() {
 run_cli() {
   local pf
   if ! pf="$(resolve_polaris_flow)"; then
-    echo "[FAIL] polaris-flow 不可用。请先: pnpm build，或 npm i -g @polaris/polaris-flow" >&2
+    echo "[FAIL] polaris-flow 不可用。请先: pnpm build，或 npm i -g polaris-flow" >&2
     exit 1
   fi
   if [[ "$pf" == node:* ]]; then

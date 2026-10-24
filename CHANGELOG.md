@@ -1,5 +1,17 @@
 # Changelog
 
+## What's Changed [0.6.0] - 2026-10-24
+
+### Added
+
+- **实现 `polaris uninstall` 命令**（取代原占位 stub）：从项目卸载 Polaris 组件。卸载对象分三层、与 `update` 的 plan 对称——`assets`（默认，Polaris 自有资产：`.polaris/`、各平台 `skills/polaris`、`commands/psfl`、hooks 托管条目、`.worktrees/`）、`deps`（`openspec`/`codegraph` 项目内落盘）、`program`（`~/.polaris` + npm 全局 `polaris-flow`/`openspec`/`codegraph`）。删除是破坏性操作：默认列出待删路径并交互确认，`--yes` 跳过、`--dry-run` 只看不删、`--json` 结构化输出、`--keep-data` 保留 `.polaris` 运行时数据（tasks/sessions/metrics/archive）。边界沿用 `core/update/prune.ts` 的权威口径——`agents`/`rules` 与用户自有内容共用目录不卸载；`superpowers` 是独立技能包不自动卸载（结果里给 `npx skills remove obra/superpowers` 手动指引）。新增 `core/install/hooks.ts` 的 `removePolarisHooksForPlatform`（移除宿主 hooks 配置里的托管条目、保留用户自有条目）。README（zh/en）由「占位」改为三层范围说明。
+
+## What's Changed [0.5.1] - 2026-10-24
+
+### Fixed
+
+- **修复 `polaris update` 程序本体更新链断裂**: `src/core/deps/version.ts` 的 `PACKAGE_NAME` 从错误的 scoped 名 `@polaris/polaris-flow` 对齐为实际发布的裸名 `polaris-flow`（包名早已改裸名，此处漏改导致版本检查永远 404）；`getLatestNpmVersion` 从硬编码公网 `registry.npmjs.org` 改为走 `npm view` 使用用户配置的 registry（`npm config get registry`，内网 Nexus 与公网 npm 均可查询），并加 `--fetch-timeout=10000 --fetch-retries=0` 让 registry 不可达时快速返回 null 而非长时间挂起。修复后 `polaris update` 能在内网 Nexus 上正确查询并更新程序本体；同步修正 `assets/shared` 三个运行时脚本、`docs/build/构建操作说明.md`、`test/shell/debug-session-start.sh` 中残留的 `@polaris/polaris-flow` 安装提示文案。
+
 ## What's Changed [0.5.0] - 2026-10-24
 
 ### Changed

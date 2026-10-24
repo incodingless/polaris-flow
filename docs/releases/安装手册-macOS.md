@@ -123,10 +123,11 @@ POLARIS_GITHUB_MIRROR=https://你的镜像基址 polaris init
 | 升级 CLI 程序本体 | `polaris update --only program`（或 `npm update -g polaris-flow`） |
 | 更新项目内的工作流资产 | `polaris update`（缺省全量：程序 + 资产 + 第三方依赖） |
 | 卸载 CLI | `npm uninstall -g polaris-flow` |
+| 从项目卸载组件 | `polaris uninstall`（默认仅 Polaris 自有资产；`--targets all` 含第三方与全局；删除前列出并确认，`--dry-run` 预览） |
 
 > Linux 上用 `sudo` 做的全局安装，升级与卸载也要带 `sudo`（`sudo npm uninstall -g polaris-flow` 等）；不带会因写全局目录而报 `EACCES`。
 
-> `polaris update` 分 program / assets / deps 三层，可单独选择，详见 `README-zh.md` 的「用户命令」一节。`polaris uninstall` 目前是占位，尚未实现。
+> `polaris update` 分 program / assets / deps 三层，可单独选择，详见 `README-zh.md` 的「用户命令」一节。`polaris uninstall` 卸载范围同样分三层（缺省 `assets`），详见同节。
 
 ---
 

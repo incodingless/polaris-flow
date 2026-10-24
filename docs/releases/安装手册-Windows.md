@@ -147,10 +147,11 @@ setx POLARIS_GITHUB_MIRROR "https://你的镜像基址"
 | 升级 CLI 程序本体 | `polaris update --only program`（或 `npm.cmd update -g polaris-flow`） |
 | 更新项目内的工作流资产 | `polaris update`（缺省全量：程序 + 资产 + 第三方依赖） |
 | 卸载 CLI | `npm.cmd uninstall -g polaris-flow` |
+| 从项目卸载组件 | `polaris uninstall`（默认仅 Polaris 自有资产；`--targets all` 含第三方与全局；删除前列出并确认，`--dry-run` 预览） |
 
 > 如果当初是用**管理员身份**装到 `C:\Program Files` 下的，升级与卸载也要在管理员 PowerShell 里做（不带会报 `EPERM`）；装在默认的 `%APPDATA%\npm` 则普通窗口即可。
 
-> `polaris update` 分 program / assets / deps 三层，可单独选择，详见 `README-zh.md` 的「用户命令」一节。`polaris uninstall` 目前是占位，尚未实现。
+> `polaris update` 分 program / assets / deps 三层，可单独选择，详见 `README-zh.md` 的「用户命令」一节。`polaris uninstall` 卸载范围同样分三层（缺省 `assets`），详见同节。
 
 ---
 

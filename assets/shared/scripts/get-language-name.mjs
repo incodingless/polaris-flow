@@ -25,7 +25,7 @@ function fail(msg) {
 const cli = resolvePolarisFlow();
 if (!cli) {
   console.error('[get-language-name] polaris-flow CLI not found');
-  console.error('[get-language-name] Install: npm install -g @polaris/polaris-flow');
+  console.error('[get-language-name] Install: npm install -g polaris-flow');
   process.exit(1);
 }
 
