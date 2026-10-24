@@ -1,5 +1,21 @@
 # Changelog
 
+## What's Changed [0.4.1] - 2026-10-24
+
+### Fixed
+
+- **Windows 上「git 可用、bash 找不到」时无从下手**: `polaris doctor` 此前只打一行 `✗ bash: not found in PATH`，用户不知道该装什么、该改哪里。根因是 Git for Windows 默认安装只把 `cmd\`（含 `git.exe`）加进 PATH，而 `bash.exe` 在 `bin\` 下默认不加，于是出现最迷惑的组合——git 正常、bash 缺失。现在 `DiagnosticItem` 增加 `hint`，`checkBash()` 分三种情况给可复制命令：① Git 已装但 bin 不在 PATH → 打印把该目录写进用户 PATH 的 PowerShell 命令（临时 + 永久两条）；② 完全没装 → 给下载地址并说明 PowerShell 不能替代（hook 与 verify 打分器是 27 个 `.sh`，用了 POSIX 语法与 coreutils）；③ 非 Windows → `apt install bash` / `yum install bash`
+- **`install.ps1` 的 bash 探测漏掉非默认安装路径**: 原来只试 `C:\Program Files\Git\bin\bash.exe`，非管理员安装的 Git（落在 `%LOCALAPPDATA%\Programs\Git\bin`）和 32 位安装在警告里被误判为「没装 Git」，给出错误的处置建议。改为四候选探测——`Program Files\Git\bin`、`Program Files (x86)\Git\bin`、`Program Files\Git\usr\bin`、`%LOCALAPPDATA%\Programs\Git\bin`，与 `doctor.ts` 的 `windowsGitBashCandidates()` 逐项一致（两个列表须同步维护）
+- **`install.ps1` 打印的 PATH 修复命令把 `$gitBinDir` 原样输出**: PowerShell 单引号字符串不展开变量，`'…$gitBinDir;…'` 会让用户照抄到一条无效命令。改成字符串拼接，输出的是真实 bin 目录
+
+### Changed
+
+- **`安装手册-Windows.md` 的 bash 章节补可执行步骤**: 「把 `…\Git\bin` 加入系统 PATH」原本只是一句无操作细节的说明。现在给出完整 PowerShell 命令，并强调 `SetEnvironmentVariable` 不影响已打开窗口、必须重开终端；`doctor` 章节改为「它会直接打印修复命令，照抄即可」；排障表新增「git 正常但 bash 找不到」这一具体现象
+
+### Tests
+
+- **`doctor.test.ts`（新增 2 项）**: bash 项必须存在，且「可用时不给 hint、不可用时必须有 hint」的对称约束；`windowsGitBashCandidates()` 必须给出 `bin\bash.exe` 且不含 `cmd\`（`cmd\` 只有 `git.exe`，指错目录等于没修）
+
 ## What's Changed [0.4.0] - 2026-10-23
 
 ### Added
@@ -15,9 +31,6 @@
 - **`install.sh` 文案与预装清单对齐**: 结尾的预装建议从「只装 openspec」改为「openspec + codegraph 缺哪个列哪个」，并明确「sudo 只用于装 CLI，初始化项目必须由普通用户执行」；全局目录不可写的拒绝理由去掉已不成立的「init 会继续报 EACCES」，只保留 PATH 与 `polaris update` 两条
 - **`install.ps1` 同步同一口径**（保持 UTF-8 BOM + CRLF）: 头部注释、全局目录不可写的拒绝理由、结尾预装提示同步改写；结尾从「只提示 openspec」升级为按缺失情况列出 openspec / codegraph 的可选预装命令，并加一句「初始化项目不要用管理员身份」
 - **两份安装手册改准 sudo 分工**: `安装手册-macOS.md` 与 `安装手册-Windows.md` 删掉「`polaris init` 装 openspec 要写全局目录、所以必须 root」这个已失效的理由（保留 `polaris update` 升级本体与 PATH 两条真实理由）；新增「不要 sudo / 管理员身份跑 init」的醒目提示与 `chown` 补救命令；新增「伴生 CLI 落在 `~/.polaris/cli`」的落点说明与加 PATH 的一行命令；排障表补两条 root 归属相关现象
-- **`doctor` 的 bash 诊断可自解**: 原来只有一行 `✗ bash: not found in PATH`，用户不知道下一步做什么。现在 `DiagnosticItem` 增加 `hint`，bash 项分两种情况给可复制命令——① Git 已装但 `bin` 目录不在 PATH（Windows 默认安装只加 `cmd\`，`bash.exe` 在 `bin\` 下，于是出现「git 可用、bash 找不到」）：直接打印把该目录写进用户 PATH 的 PowerShell 命令；② 完全没装：给下载地址 + 说明为什么不装不行（hook 与 verify 打分器是 27 个 `.sh`，PowerShell 无等价物）
-- **`install.ps1` 的 bash 探测从单一路径扩为三候选**: `C:\Program Files\Git\bin`、`C:\Program Files (x86)\Git\bin`、`%LOCALAPPDATA%\Programs\Git\bin`（非管理员安装 Git 的常见落点），与 `doctor.ts` 的 `windowsGitBashCandidates()` 保持一致；命中时给出的 PATH 修复命令改成用实际 bin 目录拼接（PowerShell 单引号不展开变量，早前写法会把 `$gitBinDir` 原样打出来）
-- **`安装手册-Windows.md` 的 bash 章节补可执行修复步骤**: 「加入系统 PATH」原本只是一句无操作细节的说明，现在给出完整 PowerShell 命令并说明「`SetEnvironmentVariable` 不影响已打开窗口，必须重开终端」；`doctor` 章节改为「它会直接打印修复命令，照抄即可」；排障表新增「git 正常但 bash 找不到」这一具体现象
 
 ### Fixed
 
@@ -28,7 +41,6 @@
 - **`cli-installer.test.ts`（新增 8 项）**: `buildNpmGlobalInstallArgs` 的 prefix 组装（无 prefix / 带 registry / 带 prefix / 空串忽略）；用户级 bin 路径固定为 `~/.polaris/cli/bin`；用户级绝对路径判定、PATH 裸命令名判定、PATH 提示文案
 - **`init.test.ts`（新增 4 项）**: `evaluateRootGuard` 的四种组合——普通用户放行、Windows 无 `getuid` 放行、root 默认拦截、`POLARIS_ALLOW_ROOT=1` 放行
 - **`superpowers.test.ts`（新增 1 项）**: `--yes` 必须在包名之前（`indexOf('--yes') < indexOf('skills')`），且 `-y` 仍独立存在、不是末位参数——防止再次把 npx 的自动确认与 skills 自身确认混为一谈
-- **`doctor.test.ts`（新增 2 项）**: bash 项存在且「可用时不给 hint、不可用时必须有 hint」的对称约束；`windowsGitBashCandidates()` 必须给出 `bin\bash.exe` 且不含 `cmd\`（`cmd\` 只有 `git.exe`，指错目录等于没修）
 
 ## What's Changed [0.3.0] - 2026-10-23
 
