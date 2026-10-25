@@ -85,7 +85,7 @@ print_menu() {
   printf '   6) %-34s %s\n' 'npm pack --dry-run' '看 npm 包里有什么（会先构建）'
   printf '   7) %-34s %s\n' 'devops/publish.sh --dry-run' '发布预演，不动远端'
   printf '   8) %-34s %s\n' 'devops/publish.sh' '发布到 Nexus'
-  printf '  99) %-34s %s\n' 'run: 2 -> 4 -> 8 -> 6' '全流程构建'
+  printf '  99) %-34s %s\n' 'run: 2 -> 4 -> 8 -> 5' '全流程构建'
   printf '\n  %s\n' "$(bold '其他')"
   printf '      %-34s %s\n' 'h <编号>' '看该脚本的用法头部'
   printf '      %-34s %s\n' 'list' '只打印这张表'
@@ -145,9 +145,9 @@ precheck_publish() {
   return 0
 }
 
-# 全流程构建：依次 2 → 4 → 8 → 6。任一步失败即中止（取消 exit 3，失败 exit 1）。
+# 全流程构建：依次 2 → 4 → 8 → 5。任一步失败即中止（取消 exit 3，失败 exit 1）。
 run_flow() {
-  printf '\n  %s  %s\n' "$(bold '全流程构建')" "$(dim '2 构建检查 → 4 同步技能 → 8 发布 → 6 看包')"
+  printf '\n  %s  %s\n' "$(bold '全流程构建')" "$(dim '2 构建检查 → 4 同步技能 → 8 发布 → 5 打离线包')"
 
   printf '\n  %s\n' "$(green '▶ 1/4') 构建 + lint + test"
   bash devops/build.sh --check || { printf '  %s\n' "$(red '✗ 构建检查失败，流程中止')"; exit 1; }
@@ -159,8 +159,8 @@ run_flow() {
   precheck_publish || exit 3
   bash devops/publish.sh || { printf '  %s\n' "$(red '✗ 发布失败，流程中止')"; exit 1; }
 
-  printf '\n  %s\n' "$(green '▶ 4/4') 查看 npm 包内容"
-  npm pack --dry-run || { printf '  %s\n' "$(red '✗ 查看包内容失败，流程中止')"; exit 1; }
+  printf '\n  %s\n' "$(green '▶ 4/4') 打离线安装包"
+  bash devops/package.sh || { printf '  %s\n' "$(red '✗ 打离线包失败，流程中止')"; exit 1; }
 
   printf '\n  %s\n' "$(green '✓ 全流程构建完成')"
 }

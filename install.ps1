@@ -164,6 +164,42 @@ function Get-ConfigValue {
     return $null
 }
 
+# 确保 ~/.npmrc 记录 Nexus registry：无则生成，有则校验，不匹配则提示并覆盖。
+# 约定：更新与维护均在管理员下操作，直接写 %USERPROFILE%\.npmrc。
+function Ensure-NpmrcRegistry {
+    $npmrc = Join-Path $env:USERPROFILE '.npmrc'
+    $target = $Registry.TrimEnd('/')
+
+    if (-not (Test-Path -LiteralPath $npmrc)) {
+        [System.IO.File]::WriteAllText($npmrc, "registry=$Registry" + [Environment]::NewLine)
+        Write-Info "已生成 ${npmrc}（registry = ${Registry}）"
+        return
+    }
+
+    $current = $null
+    foreach ($line in [System.IO.File]::ReadAllLines($npmrc)) {
+        if ($line -match '^\s*registry\s*=\s*([^\s#;]+)') {
+            $current = $Matches[1]
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($current) -and $current.TrimEnd('/') -eq $target) {
+        return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($current)) {
+        [System.IO.File]::AppendAllText($npmrc, "registry=$Registry" + [Environment]::NewLine)
+        Write-Info "已向 ${npmrc} 追加 registry = ${Registry}"
+        return
+    }
+
+    Write-Warn "检测到 ${npmrc} 中 registry = ${current}，与 Nexus（${target}）不一致，覆盖为 ${Registry}"
+    $content = [System.IO.File]::ReadAllText($npmrc)
+    $updated = [regex]::Replace($content, '(?m)^[ \t]*registry[ \t]*=[^\r\n]*', "registry=$Registry")
+    [System.IO.File]::WriteAllText($npmrc, $updated)
+    Write-Info "已覆盖 ${npmrc} 的 registry 为 ${Registry}"
+}
+
 $bundleMode = $false
 if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'config.ini')) { $bundleMode = $true }
 if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'components')) { $bundleMode = $true }
@@ -268,6 +304,9 @@ else {
     Write-Host '注意：安装已完成，但当前终端还找不到 polaris 命令。' -ForegroundColor Yellow
     Write-Host '  关掉终端重新打开后再执行：polaris --version'
 }
+
+# 持久化 Nexus registry 到用户 .npmrc，供后续 polaris init / update 复用
+Ensure-NpmrcRegistry
 
 # 伴生 CLI 由 polaris init 按需安装（全局不可写时落 %USERPROFILE%\.polaris\cli）。
 # 这里只提示管理员可选预装，省掉每个使用者首次 init 的下载等待。

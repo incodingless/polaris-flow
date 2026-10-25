@@ -11,6 +11,17 @@ import fs from 'fs';
 import path from 'path';
 
 import { getUserCliBinDir, getUserCliPrefixDir } from '../assets/polaris-paths.js';
+import { DEFAULT_NPM_REGISTRY, POLARIS_NPM_REGISTRY_ENV } from '../config/polaris-constants.js';
+
+/**
+ * 解析 polaris 运行时 npm 网络操作的 registry。
+ * 优先级：`POLARIS_NPM_REGISTRY` 环境变量 > 默认公司 Nexus 聚合仓库。
+ * polaris-flow 是纯私有包（公网 404），必须显式走 Nexus 而非机器默认 ~/.npmrc。
+ */
+export function resolveNpmRegistry(): string {
+  const fromEnv = process.env[POLARIS_NPM_REGISTRY_ENV]?.trim();
+  return fromEnv || DEFAULT_NPM_REGISTRY;
+}
 
 /** 按平台返回 npm 或 npx 可执行名（Windows 用 .cmd） */
 export function getNodeToolExecutable(
@@ -207,15 +218,23 @@ export function formatUserCliPathHint(): string {
 /**
  * 查询 npm registry 上某包的最新版本。
  *
- * 走 `npm view`，registry 取用户配置（`npm config get registry` 的默认值）：
- * 内网 Nexus 与公网 npm 均可用，且私有包（如 polaris-flow 只发在公司 Nexus）也能查到。
- * 加短超时与零重试，registry 不可达时快速返回 null，不长时间挂起。
+ * 走 `npm view`，registry 显式走 `resolveNpmRegistry()`（环境变量 > 默认 Nexus）：
+ * polaris-flow 是私有包只发在公司 Nexus，公网 npm 查不到；openspec/codegraph 等公网包
+ * 经 Nexus npm-proxy 同样能转发命中。加短超时与零重试，registry 不可达时快速返回 null。
  */
 export function getLatestNpmVersion(packageName: string): Promise<string | null> {
   try {
     const output = execFileSync(
       getNodeToolExecutable('npm'),
-      ['view', packageName, 'version', '--fetch-timeout=10000', '--fetch-retries=0'],
+      [
+        'view',
+        packageName,
+        'version',
+        '--fetch-timeout=10000',
+        '--fetch-retries=0',
+        '--registry',
+        resolveNpmRegistry(),
+      ],
       {
         encoding: 'utf-8',
         timeout: 15_000,

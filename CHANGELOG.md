@@ -1,5 +1,11 @@
 # Changelog
 
+## What's Changed [0.6.1] - 2026-10-25
+
+### Fixed
+
+- **修复 `polaris update` 依赖机器默认 registry 导致私有包查不到**: `getLatestNpmVersion`（`npm view`）与 `buildGlobalInstallInvocation`（`npm install -g`）此前不带 `--registry`，走机器全局默认 registry（未配置 Nexus 时是公网 npm）；而 `polaris-flow` 是纯私有包（公网 404），导致程序本体更新在这类机器上永远 `unreachable`、卡在旧版本无法自愈。现统一走 `resolveNpmRegistry()`——`POLARIS_NPM_REGISTRY` 环境变量 > 默认公司 Nexus 聚合仓库（`DEFAULT_NPM_REGISTRY`，与 `install.sh` 对齐），`npm view` 与四种包管理器（npm/pnpm/yarn/bun）的全局安装命令均显式加 `--registry`。环境变量名唯一源收敛到 `polaris-constants.ts` 的 `POLARIS_NPM_REGISTRY_ENV`，`channels.ts` 的 `CHANNEL_ENV_KEYS.npmRegistry` 改引用之（消除重复字符串）。
+
 ## What's Changed [0.6.0] - 2026-10-24
 
 ### Added

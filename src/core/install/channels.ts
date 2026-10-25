@@ -9,6 +9,7 @@ import { readFile } from 'fs/promises';
 import { parse as parseYaml } from 'yaml';
 
 import { getGlobalPolarisConfigPath } from '../assets/polaris-paths.js';
+import { POLARIS_NPM_REGISTRY_ENV } from '../config/polaris-constants.js';
 
 /** 可配置本地源码目录的组件 id */
 export type ChannelComponentId = 'openspec' | 'superpowers' | 'codegraph';
@@ -43,7 +44,7 @@ export type InstallChannelOverrides = {
 /** 环境变量名（与离线安装包 config.ini 键名保持一致） */
 export const CHANNEL_ENV_KEYS = {
   githubMirror: 'POLARIS_GITHUB_MIRROR',
-  npmRegistry: 'POLARIS_NPM_REGISTRY',
+  npmRegistry: POLARIS_NPM_REGISTRY_ENV,
   localPaths: {
     openspec: 'POLARIS_OPENSPEC_PATH',
     superpowers: 'POLARIS_SUPERPOWERS_PATH',
