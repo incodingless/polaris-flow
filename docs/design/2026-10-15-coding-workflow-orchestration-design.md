@@ -21,7 +21,7 @@
 **架构三层**：
 
 ```
-① 入口层   命令 /psfl:coding:{tweak,normal,sdd} → 薄编排技能（只定档）
+① 入口层   命令 /psfl:coding:{tweak,normal,strict} → 薄编排技能（只定档）
                                     │
 ② 调度层   任务管理技能（intake 升级）：恢复分发 → 建任务+写 mode → 转交（不判档）
                                     ↑

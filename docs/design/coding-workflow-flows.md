@@ -33,7 +33,7 @@ coding 技能族是**三层**：入口层只声明档位、调度层统一建任
 
 ```mermaid
 flowchart TD
-    CMD(["入口<br/>/psfl:flow 选开发类 → intake<br/>或 /psfl:coding:tweak|normal|sdd → 薄编排技能 → intake"])
+    CMD(["入口<br/>/psfl:flow 选开发类 → intake<br/>或 /psfl:coding:tweak|normal|strict → 薄编排技能 → intake"])
     CMD --> S1{"intake Step 1 恢复分发<br/>get-active-changes --format full"}
     S1 -->|"上游已指定 task_id（阶段出口的自动衔接）"| HO
     S1 -->|"零个在途任务"| S2["Step 2 入口判档（粗判）<br/>risk-signals §1 / §3 / §4"]
@@ -159,7 +159,7 @@ flowchart TD
 |---|---|---|
 | `tweak` | `/psfl:coding:tweak` | 约 35 行：HARD-GATE（只声明档位 / 禁任务判定 / 禁内联序列）+ 本档序列 + Step 0 语言 + Step 1 加载 `intake` 并声明 `tweak` |
 | `normal` | `/psfl:coding:normal` | 同上，声明 `normal` |
-| `strict` | `/psfl:coding:sdd` | 同上，声明 `strict`（⚠️ **命令名 `sdd` 与技能名 `strict` 刻意不同名**，命令名是历史保留） |
+| `strict` | `/psfl:coding:strict` | 同上，声明 `strict` |
 
 🔴 **薄技能不建任务、不产出任何产物、不做任何判定**。档位由**技能名**承载（三个命令都无参数）——
 这是"档位"进入系统的唯一方式：命令 → 薄技能 → `intake`。

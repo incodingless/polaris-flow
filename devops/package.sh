@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Polaris Flow 离线安装包打包脚本（维护者侧）。
 #
-# 产出 release/ 目录（安装介质），可整体 zip 后分发给内网用户：
-#   release/
+# 产出 release-<version>-<YYYYMMDD>/ 目录（安装介质），可整体 zip 后分发给内网用户：
+#   release-<version>-<YYYYMMDD>/
 #   ├─ install.sh            # 与仓库根同源（构建时拷入，不 fork）
 #   ├─ install.ps1
 #   ├─ config.ini            # 扁平 KEY=VALUE（用户可编辑）
@@ -31,14 +31,14 @@
 #   bash devops/package.sh                     # 全默认：superpowers 用内置 vendor，CLI 取 latest
 #   bash devops/package.sh --openspec 1.14.3 --codegraph 1.6.2
 #   bash devops/package.sh --refresh           # 忽略 vendor 缓存，强制重新拉取组件
-#   bash devops/package.sh --zip               # 额外打 release.zip
+#   bash devops/package.sh --zip               # 额外打 release-<version>-<YYYYMMDD>.zip
 #
 # 可选参数:
 #   --openspec <ver>     钉 OpenSpec 版本（默认 latest）
 #   --codegraph <ver>    钉 Codegraph 版本（默认 latest）
 #   --superpowers <ref>  superpowers 的 tag/分支（默认自动取 >= minVersion 的最新 tag）
 #   --registry <url>     npm pack 拉包源，同时作为 config.ini 的默认 npm-registry
-#   --out <dir>          输出目录（默认 release/）
+#   --out <dir>          输出目录（默认 release-<version>-<YYYYMMDD>/）
 #   --refresh            忽略 vendor 缓存，强制重新 clone superpowers + npm pack
 #   --zip                打包完成后生成 <out>.zip
 
@@ -57,7 +57,10 @@ OPENSPEC_VERSION=""
 CODEGRAPH_VERSION=""
 SUPERPOWERS_REF=""
 REGISTRY="${NPM_REGISTRY:-$DEFAULT_REGISTRY}"
-OUT_DIR="release"
+# 默认输出目录名带上版本号与生成日期（release-<version>-<YYYYMMDD>），`--out` 可显式覆盖
+pkg_version="$(node -p "require('./package.json').version" 2>/dev/null || echo unknown)"
+build_date="$(date +%Y%m%d)"
+OUT_DIR="release-${pkg_version}-${build_date}"
 DO_ZIP=false
 REFRESH=false
 
@@ -78,7 +81,7 @@ usage() {
   --codegraph <ver>     钉 Codegraph 版本（默认 latest）
   --superpowers <ref>   superpowers 的 tag/分支（默认自动取 >= minVersion 的最新 tag）
   --registry <url>      npm pack 拉包源 + config.ini 默认 npm-registry
-  --out <dir>           输出目录（默认 release/）
+  --out <dir>           输出目录（默认 release-<version>-<YYYYMMDD>/）
   --refresh             忽略 vendor 缓存，强制重新拉取组件
   --zip                 打包完成后生成 <out>.zip
   -h|--help             显示帮助
@@ -229,7 +232,7 @@ POLARIS_NPM_REGISTRY = $REGISTRY
 EOF
 
 # --- 6. bundle-manifest.json（版本清单） ---
-pkg_version="$(node -p "require('./package.json').version")"
+# pkg_version 已在脚本头部读取（同时用于默认输出目录名），此处直接复用
 MANIFEST="$OUT_DIR/bundle-manifest.json" \
 PKG_VERSION="$pkg_version" \
 OPENSPEC_VERSION="$openspec_version" \
@@ -252,7 +255,7 @@ fs.writeFileSync(process.env.MANIFEST, JSON.stringify(m, null, 2) + "\n");
 # --- 6.5 使用者文档（拷入 docs/releases 下的成品，随包分发）---
 # 离线包自带「怎么装、怎么用」：安装手册（双平台）、命令使用说明、使用帮助、使用者速查卡。
 # 缺失只告警不中断 —— PDF 是本地生成物（.gitignore 排除），没有源文件的人打不出来，
-# 不应因此让整包打包失败。清单写死而非 glob：release/ 里出现别的文档不该被自动带出去。
+# 不应因此让整包打包失败。清单写死而非 glob：release-<version>-<YYYYMMDD>/ 里出现别的文档不该被自动带出去。
 # 计数用标量而非 ${#arr[@]}：macOS 自带 bash 3.2 对空数组 + set -u 会报 unbound variable。
 DOCS_SRC="$ROOT/docs/releases"
 RELEASE_DOCS=(

@@ -81,7 +81,7 @@ print_menu() {
   printf '   3) %-34s %s\n' 'pnpm test' '只跑测试'
   printf '   4) %-34s %s\n' 'devops/sync-bundled-skills.mjs' '检查附带技能有没有新版'
   printf '\n  %s\n' "$(bold '发版')"
-  printf '   5) %-34s %s\n' 'devops/package.sh' '打离线安装包 → release/'
+  printf '   5) %-34s %s\n' 'devops/package.sh' '打离线安装包 → release-<版本>-<日期>/'
   printf '   6) %-34s %s\n' 'npm pack --dry-run' '看 npm 包里有什么（会先构建）'
   printf '   7) %-34s %s\n' 'devops/publish.sh --dry-run' '发布预演，不动远端'
   printf '   8) %-34s %s\n' 'devops/publish.sh' '发布到 Nexus'
