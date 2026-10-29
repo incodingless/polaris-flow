@@ -1,5 +1,19 @@
 # Changelog
 
+## What's Changed [0.7.0] - 2026-10-25
+
+### Added
+
+- **新增 `/psfl:coding:resume` 接续命令**: 新开会话接续未完成 coding 任务的独立入口——不声明档位，直接加载 `intake` 走恢复分发，按任务 `state.yaml` 的 `phase` / `skill` 转交到当前阶段技能；消除此前「接续必须重新执行 `tweak` / `normal` / `sdd` 入口（会多余地声明档位）」的负担
+
+### Changed
+
+- **`sdd` 命令重命名为 `strict`**: `assets/zh/commands/coding/sdd.md` → `strict.md`，命令名 `/psfl:coding:sdd` → `/psfl:coding:strict`，与入口技能名 `strict` 对齐，消除「命令名 sdd 与技能名 strict 刻意不同名」的历史不一致；同步修正 flow.md、command-registration.md、skills/README.md 与 README-zh、docs/releases、docs/design 中的命令引用
+
+### Removed
+
+- **移除 `/psfl:coding:sdd` 命令名**: 旧命令名不再可用（破坏性变更），统一为 `/psfl:coding:strict`；workflow.mode 的历史值 `sdd`（`src/core/config/task-state.ts` 等）不在本次范围、仍可读
+
 ## What's Changed [0.6.1] - 2026-10-25
 
 ### Fixed

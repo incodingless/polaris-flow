@@ -1,11 +1,11 @@
 ---
-name: sdd
+name: strict
 command_prefix: psfl
-triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}sdd"]
+triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}strict"]
 description: 复杂需求（C03）的完整链路入口：声明 strict 工作流 → 任务管理与调度 → 澄清 → 提案 → 深度设计 → 任务规划 → 构建 → 验收 → 交付
 ---
 
-# SDD 驱动开发（复杂需求入口 · strict 工作流）
+# 复杂需求入口（strict 工作流）
 
 本命令是**复杂需求的独立入口**，可独立启动，不依赖其他命令。
 
@@ -27,7 +27,7 @@ description: 复杂需求（C03）的完整链路入口：声明 strict 工作�
 **都交给 `intake`**：它枚举在途任务，按该任务 `state.yaml` 的 `phase` 决定**接手还是转交**；
 **零个在途任务时**才建任务（并写 `workflow.mode=strict`）。
 
-⇒ 重新执行本命令即可恢复，**不需要用户手动换命令**；任务已越过澄清时会被自动转交给当前阶段技能。
+⇒ 新开会话接续用 `/psfl{{CMD_SPR}}coding{{CMD_SPR}}resume`（不声明档位，直接恢复在途任务）；任务已越过澄清时会被自动转交给当前阶段技能。
 需求描述严重不足（如仅"实现 XX"）时，`specify` 的澄清流程会要求补全后才继续。
 
 ## 执行

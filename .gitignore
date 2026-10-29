@@ -24,9 +24,11 @@ node_modules/
 # Build output
 dist/
 
-# 离线安装包打包产物（scripts/build-install-bundle.sh 输出）
+# 离线安装包打包产物（devops/package.sh 输出，目录名带版本+日期）
 release/
+release-*/
 release.zip
+release-*.zip
 
 devops/vendor/*
 
