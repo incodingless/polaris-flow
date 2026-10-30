@@ -83,28 +83,28 @@ LANG_EXIT = $?
 3. 输入源唯一性与澄清纪要加载：
    - 声明本次生成仅以 Baseline 为唯一功能需求来源；参考文档/澄清纪要仅控制写作格式或作补充上下文，**不作为需求来源**；多份冲突输入请用户指定唯一 Baseline。
    - 加载《需求澄清纪要》并校验：若存在澄清纪要，读取其「问题闭环明细-最终答复」与「隐含假设与风险清单」，作为权威补充需求源与风险输入；其最终答复优先于 Baseline 中的待定描述。若无澄清纪要，提示可跳过但建议补齐。
-4. 复杂度等级声明：读取 Baseline 元数据区「复杂度最终等级（简单/标准/复杂）」，据此确定初稿内容深度（见 Step 2 复杂度联动规则），并在 Gate 报告中标注。
+4. 复杂度等级与档位声明：读取 Baseline 元数据区「复杂度最终等级（简单/标准/复杂）」与 `state.yaml` 的 `workflow.mode`（`tweak`/`normal`/`strict`，discovery 出口已冻结），据此确定初稿内容深度（见 Step 2 复杂度联动规则）与确认模式（逐章/整稿，见 Step 3），并在 Gate 报告中标注。
 5. 初稿边界预声明：声明本初稿为「方案大逻辑评审对齐」稿，不含完整权限矩阵/接口字段/数据模型/排期/埋点等终稿细节。
 6. 命名标识校验（编号前缀是本初稿全部锚点的命名空间，缺失即无法落锚点）：
    - 读取 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml`，取 `req_name_cn`（需求中文名）与 `req_prefix`（需求编号前缀）；`state.yaml` 缺失时回退读取 Baseline 元数据区同名两项。
    - 前缀须满足「大写 ASCII、2–16 位、不以连字符开头结尾」；不合规则规范化后回显再确认。
    - 初稿全部锚点 ID 一律以**前缀小写形式**开头：`{前缀小写}-cap-001` / `{前缀小写}-scene-001`（如 `uap-cap-001`）。
 
-校验结论写入 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml` 的 `draft.gate` 字段：
+校验结论经 `task-state-entry` 写 `$REPO_ROOT/.polaris/tasks/<task_id>/state.yaml` 的 `draft.gate` 字段（**禁直写 yaml 块**）：
 
-```yaml
-draft:
-  status: in_progress
-  gate:                    # 前置校验结论
-    checked_at: <校验时间>
-    baseline_id: <Baseline 标识>
-    clarify_summary_id: <澄清纪要标识，无则 null>
-    complexity: <简单/标准/复杂>
-    req_name_cn: <需求中文名>
-    req_prefix: <需求编号前缀>       # 锚点命名空间，如 UAP
-    passed: true|false
-    fail_reason: <失败原因，通过则空>
-    boundary: <初稿边界声明>
+```bash
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
+  --set draft.gate.checked_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --set draft.gate.baseline_id=<Baseline 标识> \
+  --set draft.gate.clarify_summary_id=<澄清纪要标识，无则 null> \
+  --set draft.gate.complexity=<简单/标准/复杂> \
+  --set draft.gate.workflow_mode=<tweak/normal/strict> \
+  --set draft.gate.req_name_cn=<需求中文名> \
+  --set draft.gate.req_prefix=<需求编号前缀> \
+  --set draft.gate.passed=<true|false> \
+  --set draft.gate.fail_reason=<失败原因，通过则空> \
+  --set draft.gate.boundary=<初稿边界声明>
 ```
 
 > Gate 不通过（`draft.gate.passed=false`）：直接结束技能，不执行任何文档生成动作。
@@ -159,7 +159,7 @@ draft:
 **执行原则**
 
 - **角色锚定（极简主义者）**：扮演「资深产品文档专家 + 极简主义者」，核心目标是用最少的文字传递全部有效信息；能一句话说清的绝不写两句，能用表格/列表呈现的绝不写成长段落；禁止科普、禁止铺垫、禁止空泛形容词。
-- **一章一确认**：单章完成（生成-自检-落盘-用户确认）后才允许进入下一章，禁止一次性批量生成多章节；
+- **逐章/整稿按档决定**：`workflow.mode=tweak` 或 `normal` → **整稿一次确认**（全部章节生成-自检-落盘后，一次性提交用户确认）；`workflow.mode=strict` → **逐章确认**（单章完成「生成-自检-落盘-用户确认」后才进入下一章）。禁止 tweak/normal 逐章、strict 整稿；
 - **全文单次落盘（省 Token）**：章节全文仅在「写入 sessions 文件」时输出一次；会话中只展示【本章要点摘要 + 重点校验表 + 文件路径（引导预览）】，**不再粘贴全文**——避免全文二次输出，也避免全文长期驻留上下文重复计费；
 - **重点不脑补**：AI 不主观判定业务重点，重点必须来自原文标记或用户确认；
 - **图表优先**：流程/需求类章节先给图（架构/流程/状态机/线框），再文字描述；

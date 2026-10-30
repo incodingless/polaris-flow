@@ -316,13 +316,20 @@ describe('工作流阶段序列（phasesForMode / nextPhaseForMode / isPhaseInMo
     expect(phasesForMode('coding', 'sdd').map((p) => p.code)).toEqual(all);
   });
 
-  it('未登记 modePhases 的族（非 coding）一律落回全序列', () => {
+  it('未登记 modePhases 的族（testcase / prototype / debug）一律落回全序列', () => {
     for (const kind of WORKFLOW_TASK_KINDS) {
-      if (kind === 'coding') continue;
+      if (kind === 'coding' || kind === 'requirement') continue;
       expect(phasesForMode(kind, 'tweak').map((p) => p.code)).toEqual(
         getKindPhases(kind).map((p) => p.code),
       );
     }
+  });
+
+  it('requirement 三条工作流的序列（tweak 跳 refine）', () => {
+    const codes = (mode: string) => phasesForMode('requirement', mode).map((p) => p.code);
+    expect(codes('tweak')).toEqual(['discovery', 'draft', 'ship']);
+    expect(codes('normal')).toEqual(['discovery', 'draft', 'refine', 'ship']);
+    expect(codes('strict')).toEqual(['discovery', 'draft', 'refine', 'ship']);
   });
 
   it('nextPhaseForMode：tweak 从 specify 直接到 tasks（跳过 plan / design）', () => {
