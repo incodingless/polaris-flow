@@ -54,15 +54,27 @@ EXIT_CODE=$?
 
 ### 1.1 先解析交付名与评估对象
 
-读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml` 的 `req_name_cn` 需求中文名、`req_prefix` 需求编号前缀；缺失时回退读取 `req_baseline.md` 元数据区同名两项；仍缺失则向用户询问补齐（中文名由 AI 建议 3 个候选，编号前缀由用户输入），确认后补写 `state.yaml`。
+读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml` 的 `req_name_cn` 需求中文名、`req_prefix` 需求编号前缀；缺失时回退读取 `req_baseline.md` 元数据区同名两项；仍缺失则向用户询问补齐（中文名由 AI 建议 3 个候选，编号前缀由用户输入），确认后经 `set-identity` 补写 `state.yaml`（`--req-name-cn` / `--req-prefix`）。
 
-交付文档名固定为：`{前缀}-{中文名}-需求终稿-v1.0.md`（如 `UAP-用户权限精细化-需求终稿-v1.0.md`）。
+**交付文档名与评估对象按 `workflow.mode` 分档**（先读 `state.yaml` 的 `workflow.mode`）：
 
-**评估对象**：定稿终稿 `$REPO_ROOT/.polaris/tasks/$task_id/prd-final-v1.0.md`（即最终交付物本身）。
+| 档 | 交付名 | 评估对象（SRC） | 缺失提示 |
+|---|---|---|---|
+| `tweak`（简单档） | `{前缀}-{中文名}-需求说明-v1.0.md` | `prd-draft.md`（draft 一次成稿产物） | 请先执行 draft |
+| `normal`/`strict` | `{前缀}-{中文名}-需求终稿-v1.0.md` | `prd-final-v1.0.md`（refine 定稿产物） | 请先执行 refine |
 
 ```bash
-SRC="$REPO_ROOT/.polaris/tasks/$task_id/prd-final-v1.0.md"
-test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}refine" >&2; exit 2; }
+MODE=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get --repo-root "$REPO_ROOT" --task-id "$task_id" --path workflow.mode)
+if [ "$MODE" = "tweak" ]; then
+  SRC="$REPO_ROOT/.polaris/tasks/$task_id/prd-draft.md"
+  DOC_SUFFIX="需求说明"
+  MISSING_HINT="draft"
+else
+  SRC="$REPO_ROOT/.polaris/tasks/$task_id/prd-final-v1.0.md"
+  DOC_SUFFIX="需求终稿"
+  MISSING_HINT="refine"
+fi
+test -f "$SRC" || { echo "交付源缺失：$SRC，请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}$MISSING_HINT" >&2; exit 2; }
 ```
 
 ### 1.2 复用判断（先做，避免重复评估）
@@ -75,17 +87,27 @@ test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}
 
 按 `polaris{{SKN_SPR}}prd{{SKN_SPR}}readiness` 的 Step 0 执行。**判定顺序不可颠倒**：
 
-1. **先查强制信号 F1~F5**（首次交付 / D4 子项变更 / 本轮修过 P0·T0 / 跨团队或外部接口 / 用户要求）→ 命中任一则**直接全评**，不再判断免评条件
+0. **先查简单档免评（0.0）**：`workflow.mode=tweak` → 直接免评（PASS 免评），不再查 F/E
+1. **再查强制信号 F1~F5**（首次交付 / D4 子项变更 / 本轮修过 P0·T0 / 跨团队或外部接口 / 用户要求）→ 命中任一则**直接全评**，不再判断免评条件
 2. **再查免评条件 E1~E3**（纯文案变更 / 有历史 PASS 或 CONDITIONAL / 不确定性未增加）→ 全部满足才免评，任一不满足则全评
 3. **漂移防护**：`state.yaml` 的 `ship.readiness_waive_count >= 2` → **强制全评**
 
 **免评时**（仍须留痕，禁止跳过输出）：
 
 - 落 `final/readiness_report.md` 精简版：结论 `PASS（免评）` + 命中条件编号 + F1~F5 逐项确认 + 评估对象版本 + 时间 + 累计免评次数
-- `state.yaml` 写 `ship.readiness: done`、`ship.readiness_verdict: PASS(waived)`、`ship.readiness_waive_count: <N+1>`
+- 经 `task-state-entry` 写 `state.yaml`（**禁直写 yaml 块**）：
+
+```bash
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
+  --set ship.readiness=done \
+  --set "ship.readiness_verdict=PASS(waived)" \
+  --set ship.readiness_waive_count=<N+1>
+```
+
 - 进入 Step 2，话术**必须**标注「本次免评（条件 E1/E2/E3），累计免评 {N} 次」
 
-**全评时**：`ship.readiness_waive_count` 清零，继续 1.4。
+**全评时**：`ship.readiness_waive_count` 清零（`--set ship.readiness_waive_count=0`），继续 1.4。
 
 **E1 的判定依据**（必须可追溯，禁止凭印象）：对比终稿「修订记录」表中**上一已评版本之后的全部修订行**——全部为文案/格式/术语类且影响章节不含第 4、5、6、7、8、9 章时判为满足；任一修订行涉及功能点、业务规则、数据模型、接口契约、状态机、并发幂等或 NFR，即判不满足。无法确定上一已评版本时，按 F1 处理（全评）。
 
@@ -112,7 +134,14 @@ test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}
 | **CONDITIONAL** | 总分 60–79 且 D1~D4 均 ≥ 60（含 D5 < 60 强制降级） | 缺陷清单随确认话术呈现；进入 Step 2 |
 | **FAIL** | 总分 < 60 或 D1/D2/D3/D4 任一 < 60 | **硬阻断**：不得进入「确认交付」，只提供「暂停回 refine」 |
 
-**输出落盘**：`final/readiness_report.md`；写 `state.yaml` 的 `ship.readiness: done` / `failed` 与 `ship.readiness_verdict: PASS|CONDITIONAL|FAIL`。
+**输出落盘**：`final/readiness_report.md`；经 `task-state-entry` 写 `state.yaml`：
+
+```bash
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
+  --set ship.readiness=<done|failed> \
+  --set ship.readiness_verdict=<PASS|CONDITIONAL|FAIL>
+```
 
 ### 1.5 失败（FAIL）处理
 
@@ -128,7 +157,7 @@ test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}
 > A. 暂停回到 refine 修复（修完后重新执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}ship）
 > B. 仍要交付（须填写风险接受理由，仅用于已决策的例外场景）
 
-**默认只推荐 A**；选 B 时必须记录「风险接受理由」到 `state.yaml` 的 `ship.risk_acceptance`，并在交付信息中标注「未通过就绪度评估，风险已接受」。
+**默认只推荐 A**；选 B 时必须经 `task-state-entry` 记录「风险接受理由」（`--set ship.risk_acceptance=<风险接受理由>`），并在交付信息中标注「未通过就绪度评估，风险已接受」。
 
 ---
 
@@ -139,14 +168,14 @@ test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}
 **PASS 时**：
 
 > 研发就绪度评估：**PASS**（总分 {XX.X}，无阻断级缺陷）
-> 交付后文档名为：**{前缀}-{中文名}-需求终稿-v1.0.md**
+> 交付后文档名为：**{前缀}-{中文名}-{DOC_SUFFIX}-v1.0.md**（简单档「需求说明」/ 标准·复杂档「需求终稿」）
 > A. 确认
 > B. 暂停回到 refine
 
 **PASS（免评）时**：
 
-> 研发就绪度评估：**PASS（免评）**——命中 E1 纯文案变更 / E2 有历史准出记录 / E3 不确定性未增加，本次变更未触及技术设计输入（累计免评 {N} 次）
-> 交付后文档名为：**{前缀}-{中文名}-需求终稿-v1.0.md**
+> 研发就绪度评估：**PASS（免评）**——命中 E1 纯文案变更 / E2 有历史准出记录 / E3 不确定性未增加（或**简单档 tweak 免评**），本次变更未触及技术设计输入（累计免评 {N} 次）
+> 交付后文档名为：**{前缀}-{中文名}-{DOC_SUFFIX}-v1.0.md**（简单档「需求说明」/ 标准·复杂档「需求终稿」）
 > A. 确认
 > B. 改为全评（不豁免，执行五维度完整评估）
 > C. 暂停回到 refine
@@ -159,7 +188,7 @@ test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}
 > 缺陷清单：
 > 1. {缺陷} · {章节 #锚点} · {等级}
 > …
-> 交付后文档名为：**{前缀}-{中文名}-需求终稿-v1.0.md**
+> 交付后文档名为：**{前缀}-{中文名}-{DOC_SUFFIX}-v1.0.md**（简单档「需求说明」/ 标准·复杂档「需求终稿」）
 > A. 确认交付（研发可同步启动设计，缺陷按清单跟踪）
 > B. 暂停回到 refine
 
@@ -185,15 +214,23 @@ REQ_NAME_CN=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get \
 ```bash
 PRD_DOC_DIR="${PRD_DOC_DIR:-$REPO_ROOT/docs/prd}"
 mkdir -p "$PRD_DOC_DIR"
-SRC="$REPO_ROOT/.polaris/tasks/$task_id/prd-final-v1.0.md"
-DST="$PRD_DOC_DIR/${REQ_PREFIX}-${REQ_NAME_CN}-需求终稿-v1.0.md"
-test -f "$SRC" || { echo "终稿缺失：$SRC，请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}refine" >&2; exit 2; }
+# 简单档（tweak）迁移 prd-draft.md → 需求说明；标准/复杂档迁移 prd-final-v1.0.md → 需求终稿
+MODE=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get --repo-root "$REPO_ROOT" --task-id "$task_id" --path workflow.mode)
+if [ "$MODE" = "tweak" ]; then
+  SRC="$REPO_ROOT/.polaris/tasks/$task_id/prd-draft.md"
+  DOC_SUFFIX="需求说明"
+else
+  SRC="$REPO_ROOT/.polaris/tasks/$task_id/prd-final-v1.0.md"
+  DOC_SUFFIX="需求终稿"
+fi
+DST="$PRD_DOC_DIR/${REQ_PREFIX}-${REQ_NAME_CN}-${DOC_SUFFIX}-v1.0.md"
+test -f "$SRC" || { echo "交付源缺失：$SRC" >&2; exit 2; }
 if [ -e "$DST" ]; then echo "目标文件已存在，需人工决策是否覆盖：$DST" >&2; exit 3; fi
 cp "$SRC" "$DST"
 ```
 
 > `$PRD_DOC_DIR` 默认为 `$REPO_ROOT/docs/prd/`；用户可在 Step 2 确认交付时指定其它文档库位置覆盖。
-> 任务内终稿固定名为 `prd-final-v1.0.md`（refine Step 4.1 产物）；带中文名与编号前缀的交付名**仅在迁移时生成**，便于从文档库文件名反查需求与编号命名空间。
+> 任务内产物固定名：`normal`/`strict` 为 `prd-final-v1.0.md`（refine 产物）、`tweak` 为 `prd-draft.md`（draft 产物）；带中文名、编号前缀与档位后缀的交付名**仅在迁移时生成**，便于从文档库文件名反查需求、编号命名空间与档位。
 > 目标文件已存在（exit 3）时**不得静默覆盖**：按 `./policies/decision-point.md` 回显冲突并询问「A. 覆盖 / B. 另存为 `-v1.1` / C. 取消交付」。
 
 ### 3.2 更新任务状态

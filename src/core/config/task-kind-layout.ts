@@ -187,6 +187,13 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
       { code: 'refine', name: '完善', group: '完善与交付' },
       { code: 'ship', name: '交付', group: '完善与交付' },
     ],
+    // 简单档（tweak）跳 refine：draft 一次成稿（单页/变更说明）即交付；normal/strict 走全序列。
+    // 逐章/整稿、评审强度（testability 降级、readiness 免评）由各阶段技能读 workflow.mode 决定，不体现在本表。
+    modePhases: {
+      tweak: ['discovery', 'draft', 'ship'],
+      normal: ['discovery', 'draft', 'refine', 'ship'],
+      strict: ['discovery', 'draft', 'refine', 'ship'],
+    },
     // 依据 `assets/zh/skills/prd/README.md` §产物布局
     artifacts: [
       { phase: 'discovery', relPaths: ['.polaris/tasks/<id>/req_baseline.md'], kind: 'file' },

@@ -1,5 +1,26 @@
 # Changelog
 
+## What's Changed [0.8.0] - 2026-10-30
+
+### Added
+
+- **PRD 复杂度定档人机确认与回溯**: `discovery` 二次校准后回显系统评估（档位 / 总分 / 主轴信号 / 高危 / 豁免）与理由，用户四档直选可人工覆盖（上调直接生效、下调显式确认）；系统评估值 + 最终值 + 覆盖理由落 `state.yaml` 的 `complexity` 块，供事后校准阈值——落地 policy「基于历史交付数据校准」所缺的回溯数据来源
+- **简单档轻量链路**: `requirement` 增 `modePhases`，简单档（tweak）走 `discovery → draft → ship`（跳 refine），draft 一次成稿单页 / 变更说明即交付——解决简单需求与复杂需求共用 4 阶段全流程、被 16~30 次人工确认拖死的问题
+
+### Changed
+
+- **PRD 复杂度判定主轴重构**: 从「逻辑复杂度」改为「变更的风险与代价」（变更幅度 + 回归风险 + 可回滚性 + 现状复杂度），逻辑复杂度降为全新场景代理——修正「研发口径的简单需求主体是既有功能迭代/完善/增加业务逻辑」被逻辑复杂度轴误判到标准/复杂档的问题
+- **简单豁免扩两类**: CRUD 豁免扩为「简单豁免」，覆盖全新极简 CRUD + 既有功能轻量迭代；只豁免规模类加分（需求变更幅度 / 数据模型变更幅度 / 跨系统 / 第三方对接），风险类（回归与可回滚 / 现状复杂度 / 高危）永不豁免
+- **评分表与阈值重定**: 技术复杂度三处改造（新增核心数据实体→数据模型变更幅度、发布与迁移→回归与可回滚风险、技术栈适配→现状复杂度），满分 50→54，阈值重定 0-7 / 8-20 / 21-33 / 34+
+- **逐章/整稿按档**: draft / refine 的逐章 vs 整稿确认由 `workflow.mode` 决定（tweak/normal 整稿、strict 逐章），删除 refine 的 A/B 询问——消除「draft 硬性逐章、refine 反而可选」的轻重倒挂
+- **testability 标准档降级**: 标准档从独立 subagent 全量检查降为 inline 精简 checklist（验收可判定 / 规则可判定 / 指标可量化），不产评级与逐条 GWT 补全——省的是第二次 dispatch 开销，不是验收可判定性检查本身
+- **readiness 简单档免评**: 新增 0.0 路径，tweak 档直接 PASS（免评）——简单档交付物为单页 / 变更说明，无需五维度技术设计支撑度评估
+- **ship 按档交付**: 交付名与评估对象按档区分（tweak→`prd-draft.md` + 需求说明；normal/strict→`prd-final-v1.0.md` + 需求终稿）
+
+### Tests
+
+- **task-kind-phases 补 requirement 三档序列**: requirement 登记 `modePhases` 后，原「非 coding 落回全序列」断言排除 requirement，新增 tweak 跳 refine、normal/strict 全序列断言
+
 ## What's Changed [0.7.0] - 2026-10-25
 
 ### Added

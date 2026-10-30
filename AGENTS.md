@@ -158,7 +158,7 @@ flow 菜单编号（C/M/R/P/T 前缀码，如 C01、M11、P02）是**命令层**
 
 如果当前已经有了一个比master大的版本Changelog，则应该追加到同一个版本的Changelog条目下
 
-如果修改的是Skill内容，则需要等中英文完全同步之后再写Changelog
+如果修改的是Skill内容，完成后追加Changelog
 
 文件：`CHANGELOG.md`，新版本条目置顶。
 
