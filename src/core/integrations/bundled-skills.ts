@@ -75,7 +75,7 @@ export const BUNDLED_SKILL_SPECS: BundledSkillSpec[] = [
     name: 'diagram-design',
     repo: 'cathrynlavery/diagram-design',
     // 上游没有 release tag，只能钉 SHA：钉了才不会「今天装的和下月装的不一样」
-    commit: '7a12007b5a4246894f342a2e52e78facbc62eca3',
+    commit: '0cf73c3fcc56667ad91a9a04c439ac6ccfabc9d1',
     subdir: 'skills/diagram-design',
   },
 ];
