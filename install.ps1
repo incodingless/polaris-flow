@@ -164,6 +164,42 @@ function Get-ConfigValue {
     return $null
 }
 
+# 确保 ~/.npmrc 记录 Nexus registry：无则生成，有则校验，不匹配则提示并覆盖。
+# 约定：更新与维护均在管理员下操作，直接写 %USERPROFILE%\.npmrc。
+function Ensure-NpmrcRegistry {
+    $npmrc = Join-Path $env:USERPROFILE '.npmrc'
+    $target = $Registry.TrimEnd('/')
+
+    if (-not (Test-Path -LiteralPath $npmrc)) {
+        [System.IO.File]::WriteAllText($npmrc, "registry=$Registry" + [Environment]::NewLine)
+        Write-Info "已生成 ${npmrc}（registry = ${Registry}）"
+        return
+    }
+
+    $current = $null
+    foreach ($line in [System.IO.File]::ReadAllLines($npmrc)) {
+        if ($line -match '^\s*registry\s*=\s*([^\s#;]+)') {
+            $current = $Matches[1]
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($current) -and $current.TrimEnd('/') -eq $target) {
+        return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($current)) {
+        [System.IO.File]::AppendAllText($npmrc, "registry=$Registry" + [Environment]::NewLine)
+        Write-Info "已向 ${npmrc} 追加 registry = ${Registry}"
+        return
+    }
+
+    Write-Warn "检测到 ${npmrc} 中 registry = ${current}，与 Nexus（${target}）不一致，覆盖为 ${Registry}"
+    $content = [System.IO.File]::ReadAllText($npmrc)
+    $updated = [regex]::Replace($content, '(?m)^[ \t]*registry[ \t]*=[^\r\n]*', "registry=$Registry")
+    [System.IO.File]::WriteAllText($npmrc, $updated)
+    Write-Info "已覆盖 ${npmrc} 的 registry 为 ${Registry}"
+}
+
 $bundleMode = $false
 if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'config.ini')) { $bundleMode = $true }
 if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'components')) { $bundleMode = $true }
@@ -181,38 +217,6 @@ if ($bundleMode) {
             Write-Warn '预种 ~/.polaris 失败（不影响本机包安装；polaris init 时仍可用 env/CLI 覆盖）'
         }
     }
-}
-
-# bash 缺失不阻断安装，但必须明确告知：hook 与打分器是 bash 脚本，缺了会静默失效
-$bashCommand = Get-Command bash -ErrorAction SilentlyContinue
-if (-not $bashCommand) {
-    # 与 src/core/doctor.ts 的 windowsGitBashCandidates() 保持一致
-    $gitBashCandidates = @(
-        'C:\Program Files\Git\bin\bash.exe',
-        'C:\Program Files (x86)\Git\bin\bash.exe',
-        'C:\Program Files\Git\usr\bin\bash.exe',
-        "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe"
-    )
-    $portableBash = $gitBashCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-    Write-Host ''
-    Write-Host '注意：PATH 中未找到 bash。' -ForegroundColor Yellow
-    Write-Host '  Polaris Flow 的 hook 与 verify 打分器以 bash 脚本编写，缺少 bash 时：'
-    Write-Host '    - polaris init 仍可完成，但写入宿主配置的 hook 不会生效'
-    Write-Host '    - verify 阶段的打分器无法运行'
-    Write-Host '  解决：安装 Git for Windows（https://git-scm.com/download/win），'
-    if ($portableBash) {
-        $gitBinDir = Split-Path -Parent $portableBash
-        Write-Host "        该机已存在 $portableBash，只是它的 bin 目录没进 PATH。"
-        Write-Host '        加入用户 PATH（重开终端后生效）：'
-        # 单引号在 PowerShell 里不展开变量，这里用拼接，避免把 $gitBinDir 原样打出来
-        $pathFix = "          [Environment]::SetEnvironmentVariable('Path', '" + $gitBinDir + ";' + [Environment]::GetEnvironmentVariable('Path','User'), 'User')"
-        Write-Host $pathFix
-    }
-    else {
-        Write-Host '        装 Git for Windows 时选默认选项即可（https://git-scm.com/download/win），'
-        Write-Host '        装完把 C:\Program Files\Git\bin 加入用户 PATH，再重开终端。'
-    }
-    Write-Host ''
 }
 
 # ---------------------------------------------------------------- 全局目录探测
@@ -300,6 +304,9 @@ else {
     Write-Host '注意：安装已完成，但当前终端还找不到 polaris 命令。' -ForegroundColor Yellow
     Write-Host '  关掉终端重新打开后再执行：polaris --version'
 }
+
+# 持久化 Nexus registry 到用户 .npmrc，供后续 polaris init / update 复用
+Ensure-NpmrcRegistry
 
 # 伴生 CLI 由 polaris init 按需安装（全局不可写时落 %USERPROFILE%\.polaris\cli）。
 # 这里只提示管理员可选预装，省掉每个使用者首次 init 的下载等待。

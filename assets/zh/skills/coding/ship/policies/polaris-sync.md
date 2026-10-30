@@ -1,11 +1,11 @@
 # harness-sync — worktree 产物合回 policy
 
-> 由 `ship` skill 的 Step 4.4.5 调用。**实际执行由脚本 `scripts/harness-sync.sh` 确定性完成**——主代理只负责调用脚本 + 处理 exit 2 的用户交互,**禁止**在脚本之外做任何额外的文件拷贝动作。
+> 由 `ship` skill 的 Step 4.4.5 调用。**实际执行由脚本 `scripts/harness-sync.mjs` 确定性完成**——主代理只负责调用脚本 + 处理 exit 2 的用户交互,**禁止**在脚本之外做任何额外的文件拷贝动作。
 
 ## 脚本位置
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/harness-sync.sh" <worktree_path> <origin_repo> <change_id> [--overwrite|--suffix|--skip]
+node "$PLUGIN_ROOT/scripts/harness-sync.mjs" <worktree_path> <origin_repo> <change_id> [--overwrite|--suffix|--skip]
 ```
 
 ## 触发条件

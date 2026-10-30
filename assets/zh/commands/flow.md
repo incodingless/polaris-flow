@@ -256,7 +256,7 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，单选
 用户说「代码评审」「重构」等别名时，按编号等价映射到 **M11 / M12**。
 
 > ⚠️ **C01–C03 三条都直接加载 `intake`，并**在交接里声明预期档位**（`trivial` / `standard` / `critical`）。
-> 另一条入口路（用户直接跑 `/psfl{{CMD_SPR}}coding{{CMD_SPR}}tweak|normal|sdd`）走的是**薄编排技能**，
+> 另一条入口路（用户直接跑 `/psfl{{CMD_SPR}}coding{{CMD_SPR}}tweak|normal|strict`）走的是**薄编排技能**，
 > 它只声明档位再加载 `intake`。
 > 🔴 **两条路都归 `intake`，而 `intake` 的转交目标是阶段技能（首段 = `specify`），不是薄编排技能** ——
 > 让 `intake` 去加载 `tweak` / `normal` / `strict` 会形成 `intake → 薄技能 → intake` 的循环。

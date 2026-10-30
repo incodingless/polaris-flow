@@ -1,5 +1,78 @@
 # Changelog
 
+## What's Changed [0.8.0] - 2026-10-30
+
+### Added
+
+- **PRD 复杂度定档人机确认与回溯**: `discovery` 二次校准后回显系统评估（档位 / 总分 / 主轴信号 / 高危 / 豁免）与理由，用户四档直选可人工覆盖（上调直接生效、下调显式确认）；系统评估值 + 最终值 + 覆盖理由落 `state.yaml` 的 `complexity` 块，供事后校准阈值——落地 policy「基于历史交付数据校准」所缺的回溯数据来源
+- **简单档轻量链路**: `requirement` 增 `modePhases`，简单档（tweak）走 `discovery → draft → ship`（跳 refine），draft 一次成稿单页 / 变更说明即交付——解决简单需求与复杂需求共用 4 阶段全流程、被 16~30 次人工确认拖死的问题
+
+### Changed
+
+- **PRD 复杂度判定主轴重构**: 从「逻辑复杂度」改为「变更的风险与代价」（变更幅度 + 回归风险 + 可回滚性 + 现状复杂度），逻辑复杂度降为全新场景代理——修正「研发口径的简单需求主体是既有功能迭代/完善/增加业务逻辑」被逻辑复杂度轴误判到标准/复杂档的问题
+- **简单豁免扩两类**: CRUD 豁免扩为「简单豁免」，覆盖全新极简 CRUD + 既有功能轻量迭代；只豁免规模类加分（需求变更幅度 / 数据模型变更幅度 / 跨系统 / 第三方对接），风险类（回归与可回滚 / 现状复杂度 / 高危）永不豁免
+- **评分表与阈值重定**: 技术复杂度三处改造（新增核心数据实体→数据模型变更幅度、发布与迁移→回归与可回滚风险、技术栈适配→现状复杂度），满分 50→54，阈值重定 0-7 / 8-20 / 21-33 / 34+
+- **逐章/整稿按档**: draft / refine 的逐章 vs 整稿确认由 `workflow.mode` 决定（tweak/normal 整稿、strict 逐章），删除 refine 的 A/B 询问——消除「draft 硬性逐章、refine 反而可选」的轻重倒挂
+- **testability 标准档降级**: 标准档从独立 subagent 全量检查降为 inline 精简 checklist（验收可判定 / 规则可判定 / 指标可量化），不产评级与逐条 GWT 补全——省的是第二次 dispatch 开销，不是验收可判定性检查本身
+- **readiness 简单档免评**: 新增 0.0 路径，tweak 档直接 PASS（免评）——简单档交付物为单页 / 变更说明，无需五维度技术设计支撑度评估
+- **ship 按档交付**: 交付名与评估对象按档区分（tweak→`prd-draft.md` + 需求说明；normal/strict→`prd-final-v1.0.md` + 需求终稿）
+
+### Tests
+
+- **task-kind-phases 补 requirement 三档序列**: requirement 登记 `modePhases` 后，原「非 coding 落回全序列」断言排除 requirement，新增 tweak 跳 refine、normal/strict 全序列断言
+
+## What's Changed [0.7.0] - 2026-10-25
+
+### Added
+
+- **新增 `/psfl:coding:resume` 接续命令**: 新开会话接续未完成 coding 任务的独立入口——不声明档位，直接加载 `intake` 走恢复分发，按任务 `state.yaml` 的 `phase` / `skill` 转交到当前阶段技能；消除此前「接续必须重新执行 `tweak` / `normal` / `sdd` 入口（会多余地声明档位）」的负担
+
+### Changed
+
+- **`sdd` 命令重命名为 `strict`**: `assets/zh/commands/coding/sdd.md` → `strict.md`，命令名 `/psfl:coding:sdd` → `/psfl:coding:strict`，与入口技能名 `strict` 对齐，消除「命令名 sdd 与技能名 strict 刻意不同名」的历史不一致；同步修正 flow.md、command-registration.md、skills/README.md 与 README-zh、docs/releases、docs/design 中的命令引用
+
+### Removed
+
+- **移除 `/psfl:coding:sdd` 命令名**: 旧命令名不再可用（破坏性变更），统一为 `/psfl:coding:strict`；workflow.mode 的历史值 `sdd`（`src/core/config/task-state.ts` 等）不在本次范围、仍可读
+
+## What's Changed [0.6.1] - 2026-10-25
+
+### Fixed
+
+- **修复 `polaris update` 依赖机器默认 registry 导致私有包查不到**: `getLatestNpmVersion`（`npm view`）与 `buildGlobalInstallInvocation`（`npm install -g`）此前不带 `--registry`，走机器全局默认 registry（未配置 Nexus 时是公网 npm）；而 `polaris-flow` 是纯私有包（公网 404），导致程序本体更新在这类机器上永远 `unreachable`、卡在旧版本无法自愈。现统一走 `resolveNpmRegistry()`——`POLARIS_NPM_REGISTRY` 环境变量 > 默认公司 Nexus 聚合仓库（`DEFAULT_NPM_REGISTRY`，与 `install.sh` 对齐），`npm view` 与四种包管理器（npm/pnpm/yarn/bun）的全局安装命令均显式加 `--registry`。环境变量名唯一源收敛到 `polaris-constants.ts` 的 `POLARIS_NPM_REGISTRY_ENV`，`channels.ts` 的 `CHANNEL_ENV_KEYS.npmRegistry` 改引用之（消除重复字符串）。
+
+## What's Changed [0.6.0] - 2026-10-24
+
+### Added
+
+- **实现 `polaris uninstall` 命令**（取代原占位 stub）：从项目卸载 Polaris 组件。卸载对象分三层、与 `update` 的 plan 对称——`assets`（默认，Polaris 自有资产：`.polaris/`、各平台 `skills/polaris`、`commands/psfl`、hooks 托管条目、`.worktrees/`）、`deps`（`openspec`/`codegraph` 项目内落盘）、`program`（`~/.polaris` + npm 全局 `polaris-flow`/`openspec`/`codegraph`）。删除是破坏性操作：默认列出待删路径并交互确认，`--yes` 跳过、`--dry-run` 只看不删、`--json` 结构化输出、`--keep-data` 保留 `.polaris` 运行时数据（tasks/sessions/metrics/archive）。边界沿用 `core/update/prune.ts` 的权威口径——`agents`/`rules` 与用户自有内容共用目录不卸载；`superpowers` 是独立技能包不自动卸载（结果里给 `npx skills remove obra/superpowers` 手动指引）。新增 `core/install/hooks.ts` 的 `removePolarisHooksForPlatform`（移除宿主 hooks 配置里的托管条目、保留用户自有条目）。README（zh/en）由「占位」改为三层范围说明。
+
+## What's Changed [0.5.1] - 2026-10-24
+
+### Fixed
+
+- **修复 `polaris update` 程序本体更新链断裂**: `src/core/deps/version.ts` 的 `PACKAGE_NAME` 从错误的 scoped 名 `@polaris/polaris-flow` 对齐为实际发布的裸名 `polaris-flow`（包名早已改裸名，此处漏改导致版本检查永远 404）；`getLatestNpmVersion` 从硬编码公网 `registry.npmjs.org` 改为走 `npm view` 使用用户配置的 registry（`npm config get registry`，内网 Nexus 与公网 npm 均可查询），并加 `--fetch-timeout=10000 --fetch-retries=0` 让 registry 不可达时快速返回 null 而非长时间挂起。修复后 `polaris update` 能在内网 Nexus 上正确查询并更新程序本体；同步修正 `assets/shared` 三个运行时脚本、`docs/build/构建操作说明.md`、`test/shell/debug-session-start.sh` 中残留的 `@polaris/polaris-flow` 安装提示文案。
+
+## What's Changed [0.5.0] - 2026-10-24
+
+### Changed
+
+- **运行时全链路去 bash 依赖（skill 运行时 100% node 化）**: 分五个阶段把运行时脚本从 `.sh`（bash）等价迁移为 `.mjs`（node）——① 宿主 `SessionStart` hook 启动（`hooks/session-start.sh` → `.mjs`，宿主 `hooks.json` 的 command 从 `bash "…"` 改为 `node "…"`）；② skill 的 17 个 `scripts/` 薄包装 + 公共库 `_polaris-cli`；③ 自包含脚本 `detect-test-command` / `get-language-name`；④ verify 打分器 `scorers/` 5 个；⑤ codereview 扫描脚本 `analyze`。迁移后 `polaris init` 与技能运行均不再依赖 bash——此前 Windows 缺 bash（Git for Windows 默认只把 `git.exe` 加进 PATH）时 hook 会**静默失效**，现在 node 是 `engines.node >= 20` 的硬依赖，`.mjs` 天然免疫 CRLF。各脚本 stdout 契约（scorers 单行 JSON / detect-test-command 的 `key: value` / analyze 文本）逐字节保持
+- **移除 bash 诊断与警告**: `doctor` 删除 `checkBash` 与 `windowsGitBashCandidates`（运行时已不依赖 bash，缺失 bash 不再判 `fail`）；`install.ps1` 删除「缺 bash 警告」块；`docs/releases/安装手册-Windows.md` 删除 bash 前置条件、「安装 bash」节与故障排查 bash 行
+- **清理 SKILL.md/policies 中的裸 `.sh` 旧名与幽灵引用**: 前几批改 `.mjs` 时仅替换了带 `scripts/` 前缀的调用点，正文里不带前缀的裸文件名描述（`task-state-entry.sh`、`constitution-validity.sh` 等 14 处）与 ship 阶段两处指向不存在文件的 `.sh`（`polaris-sync.sh` → `policies/polaris-sync.md`；幽灵脚本 `change-locate.sh` → 「`change_id` 即 `task_id`」）统一收口，`assets/zh` 下已无指向 `.sh` 的引用
+- **AGENTS.md 固化 Shell 边界**: 「Shell 脚本规范」新增「Shell 边界」小节，沉淀「运行时脚本一律 `.mjs`、禁止新增运行时 `.sh`」的判定原则，保留 `.sh` 仅限 `install.sh` / `devops/*` / `test/shell/*` 三类非运行时链
+
+### Fixed
+
+- **analyze 脚本 full 模式崩溃**: 原 `.sh` 第 64 行 `$MAXDEPTH，`（变量后紧跟中文全角逗号）在 macOS bash 3.2 下把逗号首字节吃进变量名、触发 `set -u` unbound variable，导致「文件类型分布」及之后所有 section 不输出；node 版完整输出
+- **doc-sync-scorer「无 docs 扣分」分支从未生效**: 原 `.sh` 用 `grep -ciE ... || echo "0"` 统计，`grep -c` 无匹配时退出码 1 触发 `|| echo "0"` 追加第二个 `0`，`DOC_COMMITS` 变非法整数、扣分分支恒不触发；node 版实现正确语义
+
+### Tests
+
+- **detect-test-command 回归夹具**: 62 场景改经 `node` 驱动 `.mjs`，全绿
+- **session-start-mjs.integration.test.ts**: 由 `session-start-sh.integration.test.ts` 改名重写，覆盖 PATH 无 polaris-flow 时 exit 1、stdin cwd/session_id 落盘、CLI 位置参数优先；顺带修掉 `.mjs` 漏转发位置参数
+- **manifest / install-layout / hooks / skills-install / commands-install / update-prune / update-fingerprint 测试**: 样本文件与断言从 `.sh` 同步为 `.mjs`，`bash` 调用断言改为 `node`
+
 ## What's Changed [0.4.1] - 2026-10-24
 
 ### Fixed

@@ -8,7 +8,7 @@ import { getLatestNpmVersion } from './npm.js';
 const require = createRequire(import.meta.url);
 const { version: CURRENT_VERSION } = require('../../../package.json');
 
-const PACKAGE_NAME = '@polaris/polaris-flow';
+const PACKAGE_NAME = 'polaris-flow';
 
 /** npm 更新检查结果；checked=false 表示网络未成功 */
 export interface VersionCheckResult {

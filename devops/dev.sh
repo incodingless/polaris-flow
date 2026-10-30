@@ -81,10 +81,11 @@ print_menu() {
   printf '   3) %-34s %s\n' 'pnpm test' '只跑测试'
   printf '   4) %-34s %s\n' 'devops/sync-bundled-skills.mjs' '检查附带技能有没有新版'
   printf '\n  %s\n' "$(bold '发版')"
-  printf '   5) %-34s %s\n' 'devops/package.sh' '打离线安装包 → release/'
+  printf '   5) %-34s %s\n' 'devops/package.sh' '打离线安装包 → release-<版本>-<日期>/'
   printf '   6) %-34s %s\n' 'npm pack --dry-run' '看 npm 包里有什么（会先构建）'
   printf '   7) %-34s %s\n' 'devops/publish.sh --dry-run' '发布预演，不动远端'
   printf '   8) %-34s %s\n' 'devops/publish.sh' '发布到 Nexus'
+  printf '  99) %-34s %s\n' 'run: 2 -> 4 -> 8 -> 5' '全流程构建'
   printf '\n  %s\n' "$(bold '其他')"
   printf '      %-34s %s\n' 'h <编号>' '看该脚本的用法头部'
   printf '      %-34s %s\n' 'list' '只打印这张表'
@@ -100,6 +101,7 @@ target_file() {
     5) echo 'devops/package.sh' ;;
     6) echo 'package.json' ;;
     7 | 8) echo 'devops/publish.sh' ;;
+    99) echo 'devops/dev.sh' ;;
     *) echo '' ;;
   esac
 }
@@ -115,6 +117,7 @@ run_item() {
     # 前置检查不通过时以 3 退出，让调用方区分「取消」与「编号不存在」
     7) precheck_publish || exit 3; exec bash devops/publish.sh --dry-run ;;
     8) precheck_publish || exit 3; exec bash devops/publish.sh ;;
+    99) run_flow ;;
     *) return 1 ;;
   esac
 }
@@ -141,6 +144,27 @@ precheck_publish() {
   fi
   return 0
 }
+
+# 全流程构建：依次 2 → 4 → 8 → 5。任一步失败即中止（取消 exit 3，失败 exit 1）。
+run_flow() {
+  printf '\n  %s  %s\n' "$(bold '全流程构建')" "$(dim '2 构建检查 → 4 同步技能 → 8 发布 → 5 打离线包')"
+
+  printf '\n  %s\n' "$(green '▶ 1/4') 构建 + lint + test"
+  bash devops/build.sh --check || { printf '  %s\n' "$(red '✗ 构建检查失败，流程中止')"; exit 1; }
+
+  printf '\n  %s\n' "$(green '▶ 2/4') 同步附带技能"
+  node devops/sync-bundled-skills.mjs || { printf '  %s\n' "$(red '✗ 同步技能失败，流程中止')"; exit 1; }
+
+  printf '\n  %s\n' "$(green '▶ 3/4') 发布到 Nexus"
+  precheck_publish || exit 3
+  bash devops/publish.sh || { printf '  %s\n' "$(red '✗ 发布失败，流程中止')"; exit 1; }
+
+  printf '\n  %s\n' "$(green '▶ 4/4') 打离线安装包"
+  bash devops/package.sh || { printf '  %s\n' "$(red '✗ 打离线包失败，流程中止')"; exit 1; }
+
+  printf '\n  %s\n' "$(green '✓ 全流程构建完成')"
+}
+
 show_usage() {
   local file
   file="$(target_file "$1")"

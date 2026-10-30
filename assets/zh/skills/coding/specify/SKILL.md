@@ -37,7 +37,7 @@ version: 0.1
 
 ### Step 0：设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 本阶段所有提问、澄清摘要、`intention.md` 均以 `$LANG` 为主语言。
 
@@ -172,7 +172,7 @@ version: 0.1
 #### 5.2 意图Lint评审
 
 ```bash
-LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/intention-validate.sh" "$REPO_ROOT/.polaris/tasks/$draft_name/intention.md")
+LINT_RESULT=$(node "$PLUGIN_ROOT/scripts/intention-validate.mjs" "$REPO_ROOT/.polaris/tasks/$draft_name/intention.md")
 LINT_EXIT=$?
 ```
 > 注意路径用 `$draft_name`：`mv` 发生在 5.4，此处目录**仍是 draft 名**。
@@ -205,7 +205,7 @@ LINT_EXIT=$?
 > **两者都不依赖会话记忆** —— 这是本步可在新会话中执行的前提。
 
 ```bash
-FINAL_RESULT=$(bash "$PLUGIN_ROOT/scripts/specify-finalize.sh" "$REPO_ROOT" "<draft_name>" "<task_id>")
+FINAL_RESULT=$(node "$PLUGIN_ROOT/scripts/specify-finalize.mjs" "$REPO_ROOT" "<draft_name>" "<task_id>")
 FINAL_EXIT=$?
 echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 ```
@@ -224,7 +224,7 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 现状事实 + L2 六项摘要），加 3.1 拆分预检结论；**不得**凭对话印象。
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set complexity_level=<trivial|standard|critical> \
   --set risk_level=<trivial|standard|critical> \
@@ -265,7 +265,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
   （升档 = 换更重的流程；降档 = 入口判高了），用户确认后写：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set workflow.mode=<目标档> \
   --set workflow.status=<upgraded|downgraded> \
@@ -282,7 +282,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 ##### ② 推进阶段
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase specify
 ```
 

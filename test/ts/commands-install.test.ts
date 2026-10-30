@@ -362,7 +362,7 @@ describe('debug 族技能安装', () => {
         path.join(tmpDir, '.claude/skills/polaris/debug/diagnose/templates/tasks-template.md'),
         'utf-8',
       );
-      expect(tasksTpl).toContain('bash "$PLUGIN_ROOT/scripts/tasks-lint.sh"');
+      expect(tasksTpl).toContain('node "$PLUGIN_ROOT/scripts/tasks-lint.mjs"');
 
       // H14 已收窄为「需求内容非空」的准入检查（受理期不做需求预检；需求质量归 specify 澄清期）
       const hardStops = await readFile(

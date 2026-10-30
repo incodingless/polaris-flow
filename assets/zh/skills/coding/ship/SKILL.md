@@ -9,7 +9,7 @@ description: "verify 通过后完成交付：终验、分支收尾、worktree �
 本 skill **仅**负责：在 **verify 已完成** 的前提下，做终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档询问，并清理 workflow 游标。
 
 - **禁止**跳过 Step 1（ship lock）进入后续步骤（H11）
-- **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 4.5 的产物合回（`polaris-sync.sh`）直接 `git worktree remove`（H9）
+- **禁止**在 `worktree.created_by_polaris_flow=true` 时，跳过 Step 4.5 的产物合回（`policies/polaris-sync.md`）直接 `git worktree remove`（H9）
 - **禁止**未按 `./policies/decision-point.md` 询问用户就执行 `/opsx:archive` / `openspec-cn archive`
 - **禁止**因 archive 失败回滚已完成的分支合并与 worktree 合回；失败时**不做归档**（不声称 archived、不移动 openspec 目录），照常进入 Step 7.1
 - **tweak 快速工作流**：`workflow.mode=tweak` 时**必须**执行 Step 5.5 产物补齐；**禁止**跳过补齐直接 `openspec-cn archive`，**禁止**因补齐失败阻断交付收尾
@@ -21,7 +21,7 @@ description: "verify 通过后完成交付：终验、分支收尾、worktree �
 
 ## 遵守的 Hard Stops
 
-H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、H12（写 workflow.yaml 须持 workflow.lock；本阶段清理走 `ship-cleanup.sh` / `workflow-entry.sh`）。
+H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、H12（写 workflow.yaml 须持 workflow.lock；本阶段清理走 `ship-cleanup.mjs` / `workflow-entry.mjs`）。
 
 ## 标识约定
 
@@ -32,7 +32,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 | 产物快照 | `.polaris/archive/<task_id>/`（合回的 **state** 等运行态；叙事文档随 openspec archive） |
 | Metrics（顶层） | `.polaris/metrics/*-metrics.json`（worktree 合回追加到主仓顶层） |
 | ship lock | 主仓 `.polaris/.locks/ship.lock` |
-| sync 脚本 | `$PLUGIN_ROOT/scripts/harness-sync.sh` |
+| sync 脚本 | `$PLUGIN_ROOT/scripts/harness-sync.mjs` |
 | sync policy | `policies/polaris-sync.md` |
 | lock policy | `policies/ship-lock.md` |
 | tweak 产物补齐策略 | `./policies/artifact-backfill.md`（仅快速工作流触发） |
@@ -66,7 +66,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 
 ### Step 0：设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 本技能所有提问与产出物均采用 `$LANG`。
 
@@ -101,7 +101,7 @@ H8（状态行）、H9（worktree 合回必须）、H11（ship lock 串行）、
 #### 4.2 脏检查 + 合并状态
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/worktree-merge-status.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$BRANCH"
+node "$PLUGIN_ROOT/scripts/worktree-merge-status.mjs" "$WORKTREE_PATH" "$ORIGIN_REPO" "$BRANCH"
 case $? in
   0) ALREADY_MERGED=1 ;;       # 干净 + 已合并 → 跳到 4.5
   1) ALREADY_MERGED=0 ;;       # 干净 + 未合并 → 进 4.3
@@ -121,7 +121,7 @@ esac
 #### 4.4 选项 B：本地 rebase + ff 合入
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/worktree-rebase-ff.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$BRANCH"
+node "$PLUGIN_ROOT/scripts/worktree-rebase-ff.mjs" "$WORKTREE_PATH" "$ORIGIN_REPO" "$BRANCH"
 # 0=成功 / 1=rebase 冲突（worktree 留中间态；用户手动 git rebase --continue 后重跑 /polaris{{SKN_SPR}}coding{{SKN_SPR}}ship）
 # 2=ff merge 失败 / 3=环境异常
 ```
@@ -132,7 +132,7 @@ bash "$PLUGIN_ROOT/scripts/worktree-rebase-ff.sh" "$WORKTREE_PATH" "$ORIGIN_REPO
 
 ```bash
 # ━━━ 第一步：polaris-sync（合回产物到主仓 .polaris/）━━━
-SYNC_RESULT=$(bash "$PLUGIN_ROOT/scripts/harness-sync.sh" "$WORKTREE_PATH" "$ORIGIN_REPO" "$task_id")
+SYNC_RESULT=$(node "$PLUGIN_ROOT/scripts/harness-sync.mjs" "$WORKTREE_PATH" "$ORIGIN_REPO" "$task_id")
 SYNC_EXIT=$?
 # 0=synced / 1=partial_failure / 2=archive 目录冲突（弹三选项后带 flag 重调）/ 3=skipped_no_source
 
@@ -161,7 +161,7 @@ rmdir "$(dirname "$WORKTREE_PATH")" 2>/dev/null || true
 不执行 4.5。用脚本写入（**禁止**直接编辑 `state.yaml`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set worktree.status=abandoned \
   --set runtime.ship.harness_sync=skipped_worktree_retained
@@ -176,7 +176,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 写入 `.polaris/tasks/<task_id>/state.yaml`（worktree 仍在则写 worktree 内；已 remove 则写主仓；**本步不删目录**——Step 6/7 仍需 `task_id`）。**走脚本**（持 `task-state-<id>.lock` + 写后校验；**禁止**直接编辑该文件）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.ship.status=delivered \
   --set "runtime.ship.finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -214,7 +214,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 写状态（走脚本，勿直接编辑 `state.yaml`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set "runtime.ship.backfill=<done|skipped:no_need|failed:<reason>>"
 ```
@@ -279,10 +279,10 @@ openspec-cn archive "$task_id" --yes
 
 **必做**（含 `runtime.ship.archive=failed`：OpenSpec 目录仍在原位，仅清 polaris 游标与 tasks 档案）。
 
-调用 `ship-cleanup.sh`（删 `coding_tasks` 对应 entry + `rm -rf .polaris/tasks/<task_id>{,.snapshot}`）：
+调用 `ship-cleanup.mjs`（删 `coding_tasks` 对应 entry + `rm -rf .polaris/tasks/<task_id>{,.snapshot}`）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/ship-cleanup.sh" "$task_id" "$ORIGIN_REPO" || exit 1
+node "$PLUGIN_ROOT/scripts/ship-cleanup.mjs" "$task_id" "$ORIGIN_REPO" || exit 1
 ```
 
 输出：`[polaris-flow 开发]交付 - workflow: entry removed, active changes: <N>`

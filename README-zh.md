@@ -37,7 +37,7 @@ node bin/polaris.js --version
 - `polaris dashboard` — 启动本地工作台（单进程单端口，API 与前端同端口；`--api-only` 供前端 HMR 开发）
 - `polaris doctor` — 诊断环境、schema 与 skill 安装状态
 - `polaris update` — 更新程序本体、工作流资产与第三方依赖（范围可选）
-- `polaris uninstall` — 卸载已安装组件（占位，尚未实现）
+- `polaris uninstall` — 从项目卸载 Polaris 组件（范围可选，默认仅 Polaris 自有资产）
 
 ### `polaris update` 更新范围
 
@@ -61,6 +61,21 @@ node bin/polaris.js --version
 
 例：`polaris update --only skills,commands`、`polaris update --skip deps`、`polaris update --only assets --prune`
 
+### `polaris uninstall` 卸载范围
+
+与 update 三层对称，缺省仅 `assets`。删除是破坏性操作：默认列出待删路径并交互确认，`--yes` 跳过、`--dry-run` 只看不删。
+
+| 层        | 卸载内容                                                                            |
+| --------- | ----------------------------------------------------------------------------------- |
+| `assets`  | `.polaris/`、各平台 `skills/polaris`、`commands/psfl`、hooks 托管条目、`.worktrees/` |
+| `deps`    | `openspec` / `codegraph` 的项目内落盘（`openspec/`、对应 skills/commands）           |
+| `program` | `~/.polaris` + npm 全局 `polaris-flow` / `openspec` / `codegraph`                    |
+
+- `--targets assets|deps|program|all`（默认 `assets`）；`--keep-data` 保留 `.polaris` 运行时数据（tasks/sessions/metrics/archive）；`--yes` / `--dry-run` / `--json`
+- 不卸载 `agents` / `rules`（与用户自有内容共用目录，无法安全判定归属）；`superpowers` 是独立技能包，也不自动卸载
+
+例：`polaris uninstall --targets deps --dry-run`、`polaris uninstall --targets all --yes`
+
 ## Superpowers 安装与网络
 
 `polaris init` 安装 Superpowers 时会访问 GitHub（clone 与 `npx skills add` 都依赖 github.com）。国内或企业网络不通时：
@@ -79,7 +94,7 @@ Polaris Flow 把「开发类需求」按复杂度拆成三档；三档之外另�
 
 ### 1. SDD 工作流（P03 完整链路 — 跨服务 / 高风险）
 
-入口：`/psfl:coding:sdd` 或 `/psfl:flow` 自动评估路由 `complex` 档。
+入口：`/psfl:coding:strict` 或 `/psfl:flow` 自动评估路由 `complex` 档。
 
 ```
 specify   →   plan   →   design (可选)  →   tasks  →   build  →   verify  →   ship  →   retro (可选)
@@ -136,11 +151,11 @@ bug  →  tasks  →  build  →  ship
 | ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------- |
 | `simple`   | `polaris:coding:tweak`                                 | brief → tasks → build → ship                                                |
 | `standard` | `polaris:coding:normal`                                | specify → plan → design → tasks → build → verify → ship                     |
-| `complex`  | `polaris:coding:specify`（`/psfl:coding:sdd` 别名） | specify → plan → design(可选) → tasks → build → verify → ship → retro(可选) |
+| `complex`  | `polaris:coding:specify`（`/psfl:coding:strict` 别名） | specify → plan → design(可选) → tasks → build → verify → ship → retro(可选) |
 
 需要拆分的需求并入 `complex`：由 specify 阶段的 `task-split-precheck` 接手拆分（规模检测 → 候选拆分清单 → 决策点 → 批量模式），入口不 STOP。
 
-复杂度评估仅对开发类强制；`/psfl:coding:tweak` / `/psfl:coding:normal` / `/psfl:coding:sdd` / `/psfl:maintance:hotfix` / `/psfl:maintance:bugfix` 直达技能命令不受此预检约束。需求类的 `/psfl:prd`（编写产品需求）与 `/psfl:prd:readiness`（需求就绪度评估）、原型类的 `/psfl:prototype`（制作原型）与 `/psfl:prototype:review`（评审已有原型）、测试类的 `/psfl:testing:create-testcase`（设计测试用例）、`/psfl:testing:acceptance`（编写验收标准）与 `/psfl:testing:review-testcase`（评审测试用例）同样是直达技能命令。
+复杂度评估仅对开发类强制；`/psfl:coding:tweak` / `/psfl:coding:normal` / `/psfl:coding:strict` / `/psfl:maintance:hotfix` / `/psfl:maintance:bugfix` 直达技能命令不受此预检约束。需求类的 `/psfl:prd`（编写产品需求）与 `/psfl:prd:readiness`（需求就绪度评估）、原型类的 `/psfl:prototype`（制作原型）与 `/psfl:prototype:review`（评审已有原型）、测试类的 `/psfl:testing:create-testcase`（设计测试用例）、`/psfl:testing:acceptance`（编写验收标准）与 `/psfl:testing:review-testcase`（评审测试用例）同样是直达技能命令。
 
 具体见 `assets/zh/commands/flow.md` 零步的「0.4 自动评估」一节。
 

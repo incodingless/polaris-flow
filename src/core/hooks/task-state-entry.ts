@@ -1,5 +1,5 @@
 /**
- * 任务 state.yaml RMW 入口（对齐 assets/shared/scripts/task-state-entry.sh）。
+ * 任务 state.yaml RMW 入口（对齐 assets/shared/scripts/task-state-entry.mjs）。
  * 通用点路径 get/set + enter-phase / complete-phase / set-identity / get-identity。
  * 写 ops 持 task-state-<id>.lock；读 ops 不加锁。
  */

@@ -3,7 +3,7 @@
  *
  * 读取口径分两类：
  * - `language`：**特殊**——输出归一化 ID（`zh` / `en`），`--json` 附显示名；
- *   这是 `scripts/get-language-name.sh` 依赖的既有契约，不得改。
+ *   这是 `scripts/get-language-name.mjs` 依赖的既有契约，不得改。
  * - 其他键：按**点路径**读取（`platform` / `test.commands.unit` / `scorer.weights` /
  *   `constitution_required` / `kind` …）。标量直接打印，对象 / 数组打印 JSON；
  *   路径不存在 → 退出码 2。

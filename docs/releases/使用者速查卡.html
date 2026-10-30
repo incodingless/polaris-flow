@@ -96,7 +96,7 @@
         <tr><td class="cmd">polaris status</td><td class="desc">现在有什么任务、进行到哪了</td><td class="desc">当前 change 与工作流状态</td></tr>
         <tr><td class="cmd">polaris dashboard</td><td class="desc">想看一眼全局进度</td><td class="desc">本地工作台，API 与界面同端口；<span class="cmd">--api-only</span> 供开发联调</td></tr>
         <tr><td class="cmd">polaris update</td><td class="desc">升级：程序本体 / 工作流资产 / 第三方依赖</td><td class="desc">可只更一类，例 <span class="cmd">update --only skills</span>；<span class="cmd">--prune</span> 清陈旧产物；<span class="cmd">--lang zh</span> 切语言</td></tr>
-        <tr><td class="cmd">polaris uninstall</td><td class="desc">卸载</td><td class="desc">占位功能，尚未实现</td></tr>
+        <tr><td class="cmd">polaris uninstall</td><td class="desc">卸载</td><td class="desc">从项目卸载组件；<span class="cmd">--targets assets|deps|program|all</span>（默认 assets），<span class="cmd">--dry-run</span> 预览、<span class="cmd">--keep-data</span> 留数据</td></tr>
       </table>
     </div>
   </div>
@@ -112,7 +112,7 @@
         <tr><td>原型做好，把关一次</td><td class="cmd">/psfl:prototype:review</td><td class="desc">只出评审报告，不改文件、不归档</td><td class="desc">原型 .html 路径（必需，缺了会停下来要）</td></tr>
         <tr><td>改个小地方（文案 / 字段 / 参数）</td><td class="cmd">/psfl:coding:tweak</td><td class="desc">最快通道，一次会话跑完</td><td class="desc">做什么 + 对哪个对象 + 至少 2 项细节</td></tr>
         <tr><td>实现一个功能（多模块协作）</td><td class="cmd">/psfl:coding:normal</td><td class="desc">常规档，含规格契约与任务拆分</td><td class="desc">同上</td></tr>
-        <tr><td>复杂 / 高风险（跨服务跨系统）</td><td class="cmd">/psfl:coding:sdd</td><td class="desc">完整阶段链，带深度设计</td><td class="desc">同上</td></tr>
+        <tr><td>复杂 / 高风险（跨服务跨系统）</td><td class="cmd">/psfl:coding:strict</td><td class="desc">完整阶段链，带深度设计</td><td class="desc">同上</td></tr>
         <tr><td>线上故障，用户在受影响</td><td class="cmd">/psfl:maintance:hotfix</td><td class="desc">生产通道：先保现场，再改</td><td class="desc">现象 + 时间线 + 影响面 + 变更清单（会问你补齐）</td></tr>
         <tr><td>测试提了缺陷</td><td class="cmd">/psfl:maintance:bugfix</td><td class="desc">测试通道，收尾归档故障记录</td><td class="desc">复现步骤 / 实际结果 / 预期结果 / 环境版本</td></tr>
         <tr><td>写「怎么算做完」的判据</td><td class="cmd">/psfl:testing:acceptance</td><td class="desc">GWT 格式验收标准清单</td><td class="desc">需求条目 / 功能点清单</td></tr>

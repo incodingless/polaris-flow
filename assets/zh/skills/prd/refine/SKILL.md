@@ -49,7 +49,7 @@ version: 0.3
 ### Step 0：状态检查与中断恢复
 
 ```bash
-TASK_IDS=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind requirement --skill refine --repo-root "$REPO_ROOT" --phase refine)
+TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill refine --repo-root "$REPO_ROOT" --phase refine)
 EXIT_CODE=$?
 ```
 
@@ -77,7 +77,7 @@ EXIT_CODE=$?
 1. 更新 `state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine
 ```
 
 2. 设置语言
@@ -85,7 +85,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase --repo-root "$REPO_R
 执行脚本：
 
 ```bash
-LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")
+LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")
 LANG_EXIT=$?
 ```
 
@@ -109,7 +109,7 @@ LANG_EXIT=$?
 | 读取结果 | 处理                                                                                                                                                           |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 有前缀   | 直接采用，作为终稿全部编号的命名空间                                                                                                                           |
-| 缺失     | **不阻断**：按 `./policies/ask-question-react.md` 询问补齐一次（中文名由 AI 建议 3 个候选，编号前缀由用户输入）；确认后回写 `state.yaml`，与 Baseline 元数据区 |
+| 缺失     | **不阻断**：按 `./policies/ask-question-react.md` 询问补齐一次（中文名由 AI 建议 3 个候选，编号前缀由用户输入）；确认后经 `set-identity` 回写 `state.yaml`（`--req-name-cn` / `--req-prefix`），与 Baseline 元数据区 |
 
 **编号规则（终稿全文强制统一）**：
 
@@ -166,15 +166,14 @@ LANG_EXIT=$?
 - 按模板章节列出补全清单，标注每章的继承/新增状态、L2验证级别
 - 存在 coding-knowledge 时：第4章数据模型、1.4 术语定义（枚举部分）、第7章状态流转（枚举部分）标记为 **L2代码验证级**
 - 不存在 coding-knowledge 时：标记为 **L1设计级**，明确标注「未经过代码验证，开发前需技术复核」
+- **确认模式由 `workflow.mode` 决定，不询问用户**：`normal` → 整稿一次确认（`refine.gen_mode=all_at_once`）；`strict` → 逐章确认（`refine.gen_mode=per_chapter`）。经 `task-state-entry` 写 `state.yaml`（`--set refine.gen_mode=<per_chapter|all_at_once>`）——Step 2 据此执行、恢复时据此还原，不得只留在会话里。
 - 按 `./policies/decision-point.md` 暂停询问确认补全范围：
   > 以上补全范围与验证级别是否确认？
-  > A. 确认，进入逐章生成
-  > B. 确认，进入全量生成
-  > C. 调整（说明需调整的章节或验证级别）
+  > A. 确认，进入生成
+  > B. 调整（说明需调整的章节或验证级别）
   >
 
-  - A、B 进入 Step 2，并把所选方式写入 `state.yaml` 的 `refine.gen_mode`（`per_chapter` / `all_at_once`）——Step 2 据此执行、恢复时据此还原，不得只留在会话里
-  - C 按反馈修订补全清单后重新确认
+  - A 进入 Step 2；B 按反馈修订补全清单后重新确认
 
 ### Step 2：补全生成（严格按模板章节顺序）
 
@@ -185,9 +184,9 @@ LANG_EXIT=$?
 
 - **角色锚定（极简主义者）**：扮演「资深技术文档专家 + 极简主义者」，用最少文字传递全部有效信息；模板未要求的铺陈一律不写，能用表格/列表的绝不用段落；继承初稿时只补差异与边界，禁止复述已有内容。
 - 严格按模板顺序生成：文档头 → 第一章 → 第十一章 → 附录
-- **生成方式取 Step 1.5 的用户选择，二选一执行，不得自行切换或中途改道**：
-  - **逐章生成**（Step 1.5 选 A）：每章走完「生成 → L2 验证（如适用）→ 章节自检 → 写入磁盘（状态置「已生成待确认」）→ 按 `./policies/decision-point.md` 暂停人工确认（确认后状态置「已确认」）」后，再进入下一章
-  - **全量生成**（Step 1.5 选 B）：按上述顺序生成全部章节 → 写入磁盘（各章状态置「已生成待确认」）→ L2 验证（如适用）→ 按 `./policies/decision-point.md` 一次性暂停人工确认（确认后状态置「已确认」）
+- **生成方式由 `workflow.mode` 决定（`refine.gen_mode` 已在 Step 1.5 落盘），不得自行切换或中途改道**：
+  - **整稿生成**（`normal`）：按上述顺序生成全部章节 → 写入磁盘（各章状态置「已生成待确认」）→ L2 验证（如适用）→ 按 `./policies/decision-point.md` 一次性暂停人工确认（确认后状态置「已确认」）
+  - **逐章生成**（`strict`）：每章走完「生成 → L2 验证（如适用）→ 章节自检 → 写入磁盘（状态置「已生成待确认」）→ 按 `./policies/decision-point.md` 暂停人工确认（确认后状态置「已确认」）」后，再进入下一章
 - **先落盘后确认**：草稿落盘用于中断后恢复上下文；确认前的文件不作为合并输入（Step 2.5 只收「已确认」章节）
 - **全文只落盘一次**：章节全文仅在写入 sessions 文件时输出一次。会话中只展示【要点摘要 + 重点校验表 + 文件路径（引导预览）】，不再粘贴全文，避免二次输出和上下文重复计费
 - **继承优先**：继承章节先优化并确认，再生成新增章节
@@ -388,6 +387,8 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 
 #### 4.2 可测性专项检查（subagent-probe + subagent-dispatch 编排）
 
+**档位降级（先判，不派 subagent）**：`workflow.mode=normal`（标准档）→ **不派发 subagent**，由主代理 inline 执行**精简可测性 checklist**——只查三个硬问题：① 每个功能点 ≥1 条可判定验收标准；② 业务规则可判定；③ 数据指标可量化。**不产出 A/B/C/D 评级、不逐条 GWT 补全**（评级与逐条补全仅 `strict` 档的独立 subagent 全量检查产出）。报告标注「标准档，主代理内联精简可测性检查」。`workflow.mode=strict` → 走下方 subagent 全量检查。
+
 **编排方式**：与 4.1 相同的 probe → 决策 → dispatch 三段式。**禁止**直接使用 Agent 工具硬编码 `subagent_type=general-purpose`。
 
 **general 决策**（本步骤同样无专用 agent 要求）：
@@ -544,7 +545,7 @@ subagent-dispatch 返回后，主 agent 按 `result.status` 处理：
 1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `ship` 就在这一步）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine --next-phase ship
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine --next-phase ship
 ```
 
 2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。

@@ -23,7 +23,7 @@ description: "把已锁定的需求/设计拆解为可执行任务清单 tasks.m
 - **禁止**跳过 Superpowers `writing-plans`（不可用则阻断；加载后必须按下方「骨架模式」落地，禁止原样照抄每步贴完整实现代码 / 每任务 commit）
 - **禁止**主代理在覆写 `tasks.md` 前未 `read_file templates/tasks-template.md`
 - **禁止**另写 `docs/superpowers/plans/*.md` 或 `.polaris/tasks/*/implementation-plan.md` 作为主产物——**唯一**实施计划是 `openspec/changes/<task_id>/tasks.md`（覆写，不是并列第二份）
-- **禁止**跳过 `tasks-lint.sh` 或脑补核对
+- **禁止**跳过 `tasks-lint.mjs` 或脑补核对
 - **禁止**跳过 Step 7 主审：必须派发 `tasks-review-agent`，并注入本 skill 的 `StandardsRoot`（agent 须读完 `policies/` + `references/` 标准文档；禁止主代理自审冒充）—— ⚠️ **仅 `normal` / `strict` 档**；`tweak` 档**本档豁免**（见 Step 7）
 - **禁止**跳过 Step 7 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）—— ⚠️ 随 Step 7 一并仅在 `normal` / `strict` 档适用
 - **禁止**在本阶段编写业务实现代码 / 调用 `/opsx:apply`（那是 build）
@@ -62,7 +62,7 @@ description: "把已锁定的需求/设计拆解为可执行任务清单 tasks.m
 - **主产物（覆写）**：`openspec/changes/<task_id>/tasks.md`
 - 计划主审报告：`openspec/changes/<task_id>/reviews/tasks-review-report.md`（由 Step 7 落盘）
 - Outside Voice 报告（若运行）：`openspec/changes/<task_id>/reviews/openspec-review-report.md`
-- workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.sh`）
+- workflow 游标：`.polaris/workflow.yaml`（写入走 `scripts/workflow-entry.mjs`）
 - 运行态：`.polaris/tasks/<task_id>/state.yaml`
 
 > **链路**：`tweak`：`specify → **tasks** → build → verify → ship`（**无 plan / design**）；
@@ -87,7 +87,7 @@ description: "把已锁定的需求/设计拆解为可执行任务清单 tasks.m
 
 ### Step 0：设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 本技能所有提问与产出物均采用 `$LANG`。
 
@@ -114,7 +114,7 @@ description: "把已锁定的需求/设计拆解为可执行任务清单 tasks.m
 通过后更新 `state.yaml`：`phase: tasks`，`runtime.tasks.status: in_progress`。
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" enter-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase tasks
 ```
 输出：`[polaris-flow 开发]任务规划: task_id=<task_id> ; phase=tasks`
@@ -135,7 +135,7 @@ mv "$REPO_ROOT/.polaris/tasks/<task_id>/intention.md" \
 - 用脚本同步 intention 路径字段（与 `plan` Step 4.5 同构）；`--set` 与上面 `mv` **成对执行，不得只做其一**：
 
   ```bash
-  bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+  node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
     --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
     --set runtime.specify.intention_path=openspec/changes/<task_id>/intention.md
   ```
@@ -184,7 +184,7 @@ mv "$REPO_ROOT/.polaris/tasks/<task_id>/intention.md" \
 写入（走脚本，**禁止**直接编辑 `state.yaml`；本处就地落盘是为让**续跑**读得到，Step 9.1 会再写一次，幂等）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.tasks.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \
   --set workflow.tdd_mode=<同 tdd_policy 值>
@@ -311,7 +311,7 @@ read_file ./templates/tasks-template.md
 #### 6.2 脚本校验（禁止脑补）
 
 ```bash
-LINT_RESULT=$(bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" "openspec/changes/$task_id/tasks.md")
+LINT_RESULT=$(node "$PLUGIN_ROOT/scripts/tasks-lint.mjs" "openspec/changes/$task_id/tasks.md")
 LINT_EXIT=$?
 ```
 
@@ -323,7 +323,7 @@ LINT_EXIT=$?
 > 🔻 **`tweak` 档：本档豁免（非缺失，审计勿补回）** —— 简单改动的 `tasks.md` 由 `intention.md` 直接推导、
 > 内容极简，独立主审的代价大于收益。
 > **本档跳过 Step 7 全部**（含 7.2 Outside Voice），**直接进 Step 8**（无评审结论可消化 → 直接进 Step 9）。
-> 本档的 `tasks.md` 质量由 **6.1 自审 + 6.2 `tasks-lint.sh` + Step 5 的任务定稿确认**三道保证。
+> 本档的 `tasks.md` 质量由 **6.1 自审 + 6.2 `tasks-lint.mjs` + Step 5 的任务定稿确认**三道保证。
 > 豁免依据见 `HARD-GATE` 的档位分叉表。
 
 本步**只负责派发**主审 subagent；评审标准在 `tasks-review-agent` 内。**禁止**主代理用「自检清单」冒充。
@@ -422,7 +422,7 @@ LINT_EXIT=$?
 | 用户回复 | 判定 | 后续 |
 |---|---|---|
 | 明确确认 | 完成 | 进入 9.1 |
-| 仅对某条反馈 | **不算确认** | 改写 → 重跑 6.2 `tasks-lint.sh` → **重新确认** |
+| 仅对某条反馈 | **不算确认** | 改写 → 重跑 6.2 `tasks-lint.mjs` → **重新确认** |
 | 模糊回复 / 沉默 | **不算确认** | 必须再问一次明确确认 |
 
 > `normal` / `strict` 档**不加**此步 —— 那道确认由 Step 7 的独立主审 + Step 8 的 findings 消化承担。
@@ -432,9 +432,9 @@ LINT_EXIT=$?
 更新 `state.yaml`：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding --phase tasks --next-phase build
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set runtime.tasks.status=completed \
   --set runtime.tasks.tdd_policy=<prefer_tdd|require_tdd|prefer_direct> \
@@ -477,7 +477,7 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set \
 
 - `runtime.tasks.tdd_policy` 已确定：**`normal` / `strict` 档** = 用户明确选择（Step 3）；**`tweak` 档** = 档位派生
 - `tasks.md` 已按模板覆写，含与 `tdd_policy` 一致的 TDD/非TDD 标注、Files、Interfaces、可复制验证命令
-- `tasks-lint.sh` exit 0
+- `tasks-lint.mjs` exit 0
 - **`normal` / `strict` 档**：`tasks-review-agent` 已跑完且 STATUS 为 `DONE` 或用户已消化完的 `DONE_WITH_CONCERNS`
 - **`normal` / `strict` 档**：Outside Voice 已询问并完成（ran / 用户跳过）
 - **`tweak` 档**：Step 7 / 8 **豁免**（不得据此判为"退出条件未满足"）

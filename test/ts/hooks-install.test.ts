@@ -55,7 +55,7 @@ describe('installPolarisHooksForPlatform Trae', () => {
     };
     expect(parsed.$schema).toBeTruthy();
     expect(parsed.hooks?.SessionStart?.length).toBeGreaterThan(0);
-    expect(raw).toContain('.trae/skills/polaris/hooks/session-start.sh');
+    expect(raw).toContain('.trae/skills/polaris/hooks/session-start.mjs');
     expect(raw).not.toContain('CLAUDE_PLUGIN_ROOT');
   });
 
@@ -76,7 +76,7 @@ describe('installPolarisHooksForPlatform Trae', () => {
                 hooks: [
                   {
                     type: 'command',
-                    command: 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"',
+                    command: 'node "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.mjs"',
                   },
                 ],
               },
@@ -100,7 +100,7 @@ describe('installPolarisHooksForPlatform Trae', () => {
     const session = parsed.hooks.SessionStart;
     expect(session.some((g) => g.matcher === 'startup|resume')).toBe(true);
     const commands = session.flatMap((g) => (g.hooks ?? []).map((h) => h.command));
-    const polarisCmds = commands.filter((c) => c?.includes('session-start.sh'));
+    const polarisCmds = commands.filter((c) => c?.includes('session-start.mjs'));
     expect(polarisCmds).toHaveLength(1);
   });
 
@@ -153,7 +153,7 @@ describe('installPolarisHooksForPlatform Trae-CN', () => {
     };
     expect(parsed.version).toBe(1);
     expect(parsed.hooks?.SessionStart?.length).toBeGreaterThan(0);
-    expect(raw).toContain('.trae/skills/polaris/hooks/session-start.sh');
+    expect(raw).toContain('.trae/skills/polaris/hooks/session-start.mjs');
     expect(raw).not.toContain('.trae-cn/skills/');
     await expect(readFile(path.join(baseDir, 'settings.local.json'), 'utf-8')).rejects.toThrow();
   });
@@ -208,7 +208,7 @@ describe('installPolarisHooksForPlatform Claude settings', () => {
     const raw = await readFile(path.join(baseDir, 'settings.local.json'), 'utf-8');
     const parsed = JSON.parse(raw) as { hooks?: { SessionStart?: unknown[] } };
     expect(parsed.hooks?.SessionStart?.length).toBeGreaterThan(0);
-    expect(raw).toContain('.claude/skills/polaris/hooks/session-start.sh');
+    expect(raw).toContain('.claude/skills/polaris/hooks/session-start.mjs');
   });
 
   it('已有其它键 + !overwrite：其它键保留，hooks 合并', async () => {

@@ -9,9 +9,19 @@
 import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import https from 'https';
 
 import { getUserCliBinDir, getUserCliPrefixDir } from '../assets/polaris-paths.js';
+import { DEFAULT_NPM_REGISTRY, POLARIS_NPM_REGISTRY_ENV } from '../config/polaris-constants.js';
+
+/**
+ * 解析 polaris 运行时 npm 网络操作的 registry。
+ * 优先级：`POLARIS_NPM_REGISTRY` 环境变量 > 默认公司 Nexus 聚合仓库。
+ * polaris-flow 是纯私有包（公网 404），必须显式走 Nexus 而非机器默认 ~/.npmrc。
+ */
+export function resolveNpmRegistry(): string {
+  const fromEnv = process.env[POLARIS_NPM_REGISTRY_ENV]?.trim();
+  return fromEnv || DEFAULT_NPM_REGISTRY;
+}
 
 /** 按平台返回 npm 或 npx 可执行名（Windows 用 .cmd） */
 export function getNodeToolExecutable(
@@ -206,39 +216,35 @@ export function formatUserCliPathHint(): string {
 }
 
 /**
- * 查询 npm registry 上某包的最新版本；网络不可达或响应非 200 时返回 null。
+ * 查询 npm registry 上某包的最新版本。
+ *
+ * 走 `npm view`，registry 显式走 `resolveNpmRegistry()`（环境变量 > 默认 Nexus）：
+ * polaris-flow 是私有包只发在公司 Nexus，公网 npm 查不到；openspec/codegraph 等公网包
+ * 经 Nexus npm-proxy 同样能转发命中。加短超时与零重试，registry 不可达时快速返回 null。
  */
 export function getLatestNpmVersion(packageName: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const request = https.get(
-      `https://registry.npmjs.org/${packageName}/latest`,
-      { timeout: 5000 },
-      (res) => {
-        if (res.statusCode !== 200) {
-          res.resume();
-          resolve(null);
-          return;
-        }
-
-        let data = '';
-        res.on('data', (chunk: string) => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data) as { version?: string };
-            resolve(typeof parsed.version === 'string' ? parsed.version : null);
-          } catch {
-            resolve(null);
-          }
-        });
+  try {
+    const output = execFileSync(
+      getNodeToolExecutable('npm'),
+      [
+        'view',
+        packageName,
+        'version',
+        '--fetch-timeout=10000',
+        '--fetch-retries=0',
+        '--registry',
+        resolveNpmRegistry(),
+      ],
+      {
+        encoding: 'utf-8',
+        timeout: 15_000,
+        stdio: ['ignore', 'pipe', 'ignore'],
       },
     );
-
-    request.on('error', () => resolve(null));
-    request.on('timeout', () => {
-      request.destroy();
-      resolve(null);
-    });
-  });
+    // `npm view <pkg> version` 成功时 stdout 为纯版本号；非法输出（如报错）返回 null
+    const version = output.split('\n')[0]?.trim() ?? '';
+    return Promise.resolve(/^\d/.test(version) ? version : null);
+  } catch {
+    return Promise.resolve(null);
+  }
 }

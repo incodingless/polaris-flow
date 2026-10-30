@@ -105,6 +105,38 @@ get_config_value() {
     | head -n1 | sed -E 's/[[:space:]]*$//'
 }
 
+# 确保 ~/.npmrc 记录 Nexus registry：无则生成，有则校验，不匹配则提示并覆盖。
+# 约定：更新与维护均在 root 下操作，直接写 $HOME/.npmrc（root 场景即 root 家目录）。
+ensure_npmrc_registry() {
+  local npmrc="$HOME/.npmrc"
+  local target="${REGISTRY%/}"
+  local current
+
+  if [ ! -f "$npmrc" ]; then
+    printf 'registry=%s\n' "$REGISTRY" > "$npmrc"
+    info "已生成 ${npmrc}（registry = ${REGISTRY}）"
+    return 0
+  fi
+
+  current="$(sed -nE 's/^[[:space:]]*registry[[:space:]]*=[[:space:]]*([^[:space:]#;]+).*/\1/p' "$npmrc" | tail -n1)"
+  current="${current%/}"
+
+  if [ "$current" = "$target" ]; then
+    return 0
+  fi
+
+  if [ -z "$current" ]; then
+    printf 'registry=%s\n' "$REGISTRY" >> "$npmrc"
+    info "已向 ${npmrc} 追加 registry = ${REGISTRY}"
+    return 0
+  fi
+
+  warn "检测到 ${npmrc} 中 registry = ${current}，与 Nexus（${target}）不一致，覆盖为 ${REGISTRY}"
+  sed -E "s#^[[:space:]]*registry[[:space:]]*=.*#registry=${REGISTRY}#" "$npmrc" > "$npmrc.tmp" \
+    && mv "$npmrc.tmp" "$npmrc"
+  info "已覆盖 ${npmrc} 的 registry 为 ${REGISTRY}"
+}
+
 if [ "$BUNDLE_MODE" = true ]; then
   info "检测到离线安装包（bundle 模式）"
   CFG_REGISTRY="$(get_config_value POLARIS_NPM_REGISTRY)"
@@ -202,6 +234,9 @@ fi
 
 info "Installed:"
 "$BIN" --version
+
+# 持久化 Nexus registry 到 ~/.npmrc，供后续 polaris init / update 复用
+ensure_npmrc_registry
 
 echo ""
 echo "Next steps:"

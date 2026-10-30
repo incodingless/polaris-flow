@@ -90,7 +90,7 @@ describe('pruneOwnedFiles', () => {
   it('flat skills：插件根（polaris/）下的陈旧文件同样被清理', async () => {
     const projectPath = await makeProject();
     const pluginRoot = path.join(projectPath, '.trae', 'skills', 'polaris');
-    const kept = await plant(path.join(pluginRoot, 'hooks', 'session-start.sh'));
+    const kept = await plant(path.join(pluginRoot, 'hooks', 'session-start.mjs'));
     const stale = await plant(path.join(pluginRoot, 'templates', 'old.yaml'));
 
     const result = await pruneOwnedFiles({

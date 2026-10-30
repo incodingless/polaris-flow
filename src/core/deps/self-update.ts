@@ -12,7 +12,7 @@ import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
 import path from 'path';
 
-import { getNodeToolExecutable } from './npm.js';
+import { getNodeToolExecutable, resolveNpmRegistry } from './npm.js';
 import { PACKAGE_NAME, compareVersions, getCurrentVersion, getLatestVersion } from './version.js';
 
 const require = createRequire(import.meta.url);
@@ -76,23 +76,36 @@ export function isTransientRunnerInvocation(): boolean {
   return entry.includes('/_npx/');
 }
 
-/** 构造全局安装命令 */
+/** 构造全局安装命令（显式带 registry，polaris-flow 是私有包，不能依赖机器默认 ~/.npmrc） */
 export function buildGlobalInstallInvocation(packageManager: PackageManager): {
   command: string;
   args: string[];
 } {
   const spec = `${PACKAGE_NAME}@latest`;
+  const registry = resolveNpmRegistry();
   const onWindows = process.platform === 'win32';
 
   switch (packageManager) {
     case 'pnpm':
-      return { command: onWindows ? 'pnpm.cmd' : 'pnpm', args: ['add', '-g', spec] };
+      return {
+        command: onWindows ? 'pnpm.cmd' : 'pnpm',
+        args: ['add', '-g', spec, '--registry', registry],
+      };
     case 'yarn':
-      return { command: onWindows ? 'yarn.cmd' : 'yarn', args: ['global', 'add', spec] };
+      return {
+        command: onWindows ? 'yarn.cmd' : 'yarn',
+        args: ['global', 'add', spec, '--registry', registry],
+      };
     case 'bun':
-      return { command: onWindows ? 'bun.exe' : 'bun', args: ['add', '-g', spec] };
+      return {
+        command: onWindows ? 'bun.exe' : 'bun',
+        args: ['add', '-g', spec, '--registry', registry],
+      };
     default:
-      return { command: getNodeToolExecutable('npm'), args: ['install', '-g', spec] };
+      return {
+        command: getNodeToolExecutable('npm'),
+        args: ['install', '-g', spec, '--registry', registry],
+      };
   }
 }
 

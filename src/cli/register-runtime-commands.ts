@@ -26,7 +26,7 @@ import {
   worktreeRebaseFfCommand,
 } from '../commands/hooks/hooks-rest.js';
 
-/** hooks 薄包装经 `_polaris-cli.sh` 追加的平台选项 */
+/** hooks/scripts 薄包装经 `_polaris-cli.mjs` 追加的平台选项 */
 const PLATFORM_OPTION = ['--platform <id>', 'platform id (claude|cursor|trae)'] as const;
 
 /**

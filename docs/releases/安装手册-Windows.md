@@ -10,7 +10,6 @@
 | ---- | ---------- | ---------------------- |
 | Node.js ≥ 20 | 运行 Polaris 的唯一硬依赖 | `node -v`，显示 `v20` 以上即合格 |
 | npm | 装包用，随 Node.js 自带 | `npm.cmd -v` |
-| **bash** | hook 与 verify 打分器是 bash 脚本（27 个 `.sh`）；**Windows 不自带** | `Get-Command bash`，见下节 |
 | 全局目录可写 | npm 全局目录若在 `C:\Program Files` 下，普通用户装不进去 | `npm.cmd prefix -g`，见下方说明 |
 
 没有 Node.js → 到 [nodejs.org](https://nodejs.org) 下载 LTS 版本安装后重开终端。
@@ -24,22 +23,6 @@
 > **为什么要卡这一条**：`polaris update` 升级 CLI 本体时要写全局目录，所以必须装进一个「能写、且在 PATH 上」的全局目录——用 `--prefix` 换到别处只能让 `polaris --version` 跑起来，升级就会失败。脚本会先探测，不可写就直接报错，不给你半可用的结果。
 >
 > **`polaris init` 不受这条限制**：它需要的 openspec / codegraph 在全局目录不可写时会自动装到 `%USERPROFILE%\.polaris\cli`，不需要管理员；init 本身也**绝不要用管理员身份跑**（否则项目文件会归属管理员，你之后改不了）。
-
-### 安装 bash
-
-装 [Git for Windows](https://git-scm.com/download/win)，并确认 `C:\Program Files\Git\bin`（含 `bash.exe`）在系统 PATH 里。装完验证：
-
-```powershell
-Get-Command bash     # 能返回路径即就绪
-```
-
-> Git for Windows 默认安装只把 `cmd` 目录（含 `git.exe`）加进 PATH，**`bin` 目录（含 `bash.exe`）不一定加**——这会造成最迷惑的组合：`git` 可用、`bash` 找不到。若 `Get-Command bash` 报错但 `Get-Command git` 正常，把 bin 目录加进用户 PATH（以默认安装路径为例）：
->
-> ```powershell
-> [Environment]::SetEnvironmentVariable('Path', "C:\Program Files\Git\bin;" + [Environment]::GetEnvironmentVariable('Path','User'), 'User')
-> ```
->
-> 然后**关掉终端重开**（`SetEnvironmentVariable` 不影响已打开的窗口）。Git 装在别处时把路径换成实际的 `…\Git\bin`。`polaris doctor` 会自动探测三个常见位置并直接打印这条命令，照抄即可。
 
 ---
 
@@ -64,12 +47,11 @@ cd 脚本所在目录
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-脚本按顺序做四件事：
+脚本按顺序做三件事：
 
 1. 校验 node ≥ 20 与 npm；不合格直接报错并给指引。
-2. 检查 bash 是否可用——**只警告不阻断**（缺了 hook 不生效，但不影响安装）。
-3. 探测 `npm.cmd prefix -g` 指向的全局目录能否写入；**不可写就退出**，并提示用管理员身份重跑或修正前缀，不会改用自定义前缀硬装。
-4. 从 Nexus 3 安装 `polaris-flow`，随后定位入口打印版本号；若伴生 CLI（openspec / codegraph）尚未安装，顺带给出**可选**的预装命令。
+2. 探测 `npm.cmd prefix -g` 指向的全局目录能否写入；**不可写就退出**，并提示用管理员身份重跑或修正前缀，不会改用自定义前缀硬装。
+3. 从 Nexus 3 安装 `polaris-flow`，随后定位入口打印版本号；若伴生 CLI（openspec / codegraph）尚未安装，顺带给出**可选**的预装命令。
 
 需要管理员权限时（判据见第一节）：从开始菜单打开「Windows PowerShell（管理员）」，再执行同一条命令。脚本会探测全局目录，普通身份够用时不会要求提权。
 
@@ -121,10 +103,8 @@ CLI 装好后，还要在你的项目里初始化工作流，这一步会安装�
 ```powershell
 cd 你的项目目录          # 路径含空格时加引号：cd "D:\my projects\demo"
 polaris init
-polaris doctor           # 自检 node / bash / git / openspec / schema / 技能安装状态
+polaris doctor           # 自检 node / git / openspec / schema / 技能安装状态
 ```
-
-> **Windows 上重点看 `doctor` 里的 `bash` 那一项。** 它若为 fail，说明 hook 与 verify 打分器都不会生效（且**不会报错**，只会静默跳过）。doctor 会区分两种情况——「Git 没装」和「Git 装了但 bin 目录不在 PATH」——并直接打印可复制的修复命令，照抄执行后重开终端。
 
 > **`polaris init` 要装 OpenSpec 与 Codegraph 两个命令行工具**。全局前缀可写（`%APPDATA%\npm`）时装到全局；**不可写时（管理员装到 `C:\Program Files` 的情况）自动改到 `%USERPROFILE%\.polaris\cli`**，不需要管理员权限。此时它们不在 PATH 上——`polaris` 内部按绝对路径调用，一切正常；你要在终端里直接敲 `openspec` / `codegraph` 时，把这个目录加进用户 PATH：
 >
@@ -167,10 +147,11 @@ setx POLARIS_GITHUB_MIRROR "https://你的镜像基址"
 | 升级 CLI 程序本体 | `polaris update --only program`（或 `npm.cmd update -g polaris-flow`） |
 | 更新项目内的工作流资产 | `polaris update`（缺省全量：程序 + 资产 + 第三方依赖） |
 | 卸载 CLI | `npm.cmd uninstall -g polaris-flow` |
+| 从项目卸载组件 | `polaris uninstall`（默认仅 Polaris 自有资产；`--targets all` 含第三方与全局；删除前列出并确认，`--dry-run` 预览） |
 
 > 如果当初是用**管理员身份**装到 `C:\Program Files` 下的，升级与卸载也要在管理员 PowerShell 里做（不带会报 `EPERM`）；装在默认的 `%APPDATA%\npm` 则普通窗口即可。
 
-> `polaris update` 分 program / assets / deps 三层，可单独选择，详见 `README-zh.md` 的「用户命令」一节。`polaris uninstall` 目前是占位，尚未实现。
+> `polaris update` 分 program / assets / deps 三层，可单独选择，详见 `README-zh.md` 的「用户命令」一节。`polaris uninstall` 卸载范围同样分三层（缺省 `assets`），详见同节。
 
 ---
 
@@ -183,8 +164,6 @@ setx POLARIS_GITHUB_MIRROR "https://你的镜像基址"
 | `error: npm 全局目录 … 当前用户不可写`（脚本主动退出） | `npm.cmd prefix -g` 指向 `C:\Program Files` 等受保护路径，`polaris update` 升级本体时写不进去 | 用管理员 PowerShell 重跑；或执行 `npm.cmd config set prefix "$env:APPDATA\npm"` 后重开终端再跑。**不要加 `--prefix` 硬装** |
 | `EPERM: operation not permitted` | 用手工 `npm.cmd install -g` 时装到了受保护目录 | 同上一行 |
 | 装完提示 `polaris` 不是可识别的命令 | PATH 未刷新到当前窗口 | 关掉终端重新打开 |
-| hook 不执行 / verify 打分器不动（无任何报错） | PATH 里没有 `bash` | 装 Git for Windows，把 `C:\Program Files\Git\bin` 加入用户 PATH，用 `Get-Command bash` 确认 |
-| `polaris doctor` 显示 `✗ bash: not found in PATH` 但 `git` 正常 | Git 默认安装只把 `cmd\` 加进 PATH，`bash.exe` 在 `bin\` 下 | 按 doctor 打印的命令把 `…\Git\bin` 加入用户 PATH，重开终端。**不要指望 PowerShell 替代 bash**：hook 与打分器是 `.sh` 脚本 |
 | `node` 找不到 | 没装 Node.js 或装后没重开终端 | 装 Node.js LTS 后重开终端 |
 | `node vX is too old` | 版本低于 20 | 升级 Node.js 到 20 以上 |
 | `E401 Unauthorized` / `Unable to authenticate` | Nexus 3 没开放匿名读，连装包都要求登录 | 找维护者给 `nx-anonymous` 角色加上 `npm-group` 的 browse / read 权限 |

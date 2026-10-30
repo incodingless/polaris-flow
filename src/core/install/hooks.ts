@@ -59,7 +59,7 @@ function resolveHookScriptRoot(baseDir: string, scope: InstallScope): string {
  */
 export function buildPolarisHookCommand(scriptRoot: string, scriptName: string): string {
   const root = scriptRoot.replace(/\\/g, '/').replace(/\/$/, '');
-  return `bash "${root}/hooks/${scriptName}"`;
+  return `node "${root}/hooks/${scriptName}"`;
 }
 
 /**
@@ -70,7 +70,7 @@ export function isManagedHookCommand(command: unknown): boolean {
   return (
     command.includes('polaris/hooks') ||
     command.includes('polaris-flow/hooks') ||
-    command.includes('/hooks/session-start.sh') ||
+    command.includes('/hooks/session-start.mjs') ||
     command.includes('${CLAUDE_PLUGIN_ROOT}/hooks/') ||
     /\/skills\/polaris(-flow)?\/hooks\//.test(command)
   );
@@ -83,7 +83,7 @@ export function rewriteHookCommand(command: string, scriptRoot: string): string 
   if (!isManagedHookCommand(command)) {
     return command;
   }
-  const match = command.match(/hooks\/([A-Za-z0-9_-]+\.sh)/);
+  const match = command.match(/hooks\/([A-Za-z0-9_-]+\.mjs)/);
   if (!match) {
     return command;
   }
@@ -326,4 +326,55 @@ function mergeHookGroups(
   }
 
   return merged;
+}
+
+/**
+ * 从宿主 hooks 配置中移除 Polaris 托管条目（`polaris uninstall` 用）。
+ * 不删除宿主配置文件本身，只剔除 Polaris 写入的 hook，用户自有条目原样保留。
+ * @returns 实际移除的托管 hook 条目数；配置文件不存在或解析失败时返回 0
+ */
+export async function removePolarisHooksForPlatform(
+  baseDir: string,
+  platform: Platform,
+  scope: InstallScope,
+  homeDir: string = os.homedir(),
+): Promise<{ removed: number }> {
+  if (!platform.supportsHooks || !platform.hookFormat) {
+    return { removed: 0 };
+  }
+
+  const destPath = resolveHooksConfigPath(baseDir, platform, scope, homeDir);
+  if (!(await fileExists(destPath))) {
+    return { removed: 0 };
+  }
+
+  try {
+    const existing = await readJsonObjectOrEmpty(destPath);
+    const existingHooks = asHooksMap(existing.hooks);
+
+    let removed = 0;
+    for (const groups of Object.values(existingHooks)) {
+      for (const group of asHookGroup(groups)) {
+        if (Array.isArray(group.hooks)) {
+          removed += (group.hooks as Array<Record<string, unknown>>).filter((hook) =>
+            isManagedHookCommand(hook.command),
+          ).length;
+        }
+      }
+    }
+
+    const nextHooks: Record<string, Array<Record<string, unknown>>> = {};
+    for (const [event, groups] of Object.entries(existingHooks)) {
+      const cleaned = stripManagedHookCommands(asHookGroup(groups));
+      if (cleaned.length > 0) {
+        nextHooks[event] = cleaned;
+      }
+    }
+
+    existing.hooks = nextHooks;
+    await writeJsonPretty(destPath, existing);
+    return { removed };
+  } catch {
+    return { removed: 0 };
+  }
 }

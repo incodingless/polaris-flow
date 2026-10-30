@@ -18,46 +18,7 @@ version: 0.7
 
 ## 命名与编号约定
 
-本阶段在「确定需求任务」时，为每个需求同时产出**三项标识**，后续阶段全程复用：
-
-| 标识 | 用途 | 示例 |
-|---|---|---|
-| 任务名（`$task_id`） | 任务目录名、脚本参数、workflow 游标 | `refine-user-privilege` |
-| **需求中文名** | 终稿标题、交付/迁移后的文档名、人工阅读入口 | `用户权限精细化` |
-| **需求编号前缀** | 功能编号、业务规则编码、锚点 ID、文档编号的命名空间 | `UAP` |
-
-> 只有 kebab-case 任务名时，跨需求的 `cap-001`、`BR-101` 必然撞号，终稿交付后也无法从文件名反查需求；因此中文名与编号前缀是**必产项，不可跳过**。
-
-### 需求中文名规则
-
-1. 4–12 个汉字，短语式（业务对象 + 动作/能力），如「载体流转管理」「用户权限精细化」
-2. **禁止**空格与 `/\?%*:|"<>.,;` 等不可用于文件名的字符；**禁止**中英混排的缩写堆砌
-3. 与 `$task_id` 语义对应；与已有任务中文名重复时加限定后缀（如「（二期）」）并回显，不得静默改名
-4. 用户明确指定时以用户为准；非合规输入（超长 / 含禁用字符）须回显并再次确认
-
-### 需求编号前缀规则
-
-1. 大写 ASCII（`A-Z`、`0-9`、连字符 `-`），长度 2–16，不得以连字符开头或结尾
-2. **由用户在确认任务命名时直接输入**（见 Step 2.6.1）；用户未提供时**禁止**自动派生或默认填充
-3. **唯一性**：与 `$REPO_ROOT/.polaris/tasks/` 下已有任务的 `req_prefix` 冲突时，回显冲突并请用户改填（如追加 `-2`、`-3` 或换用更长片段），不得静默消歧
-4. **一经确认全程不变**：后续所有编号、锚点、交付文档名均以此为命名空间。确需变更时视同需求变更——记录前后对比与依据，并同步修订已产出的全部文档（见 Step 7.4）
-
-### 编号命名空间（下游阶段消费）
-
-| 对象 | 格式 | 示例 |
-|---|---|---|
-| 交付文档名（ship 迁移后） | `{前缀}-{中文名}-需求终稿-v1.0.md` | `UAP-用户权限精细化-需求终稿-v1.0.md` |
-| 文档编号（终稿头部） | `{前缀}-PRD-{版本}` | `UAP-PRD-V1.0` |
-| 通用能力锚点（draft） | `{前缀小写}-cap-001` | `uap-cap-001` |
-| 业务场景锚点（draft） | `{前缀小写}-scene-001` | `uap-scene-001` |
-| 功能模块（refine） | `{前缀}-F01` | `UAP-F01` |
-| 功能点（refine） | `{前缀}-F01-01` | `UAP-F01-01` |
-| 业务规则（refine） | `{前缀}-BR-101` | `UAP-BR-101` |
-| 基线规则 ID（本阶段第 6 章） | `R001` | 映射至终稿 `{前缀}-BR-101`，映射写入追溯矩阵 |
-
-> 分支编号 `B-01`、验收编号 `AC-1` 是功能点内的局部编号，不加前缀。
->
-> **记法约定**：本文件正文用 `{前缀}` / `{前缀小写}` 指代；模板文件里统一写作占位符 `{{PREFIX}}`，二者同义（小写形式即 `{{PREFIX}}` 的小写）。
+`read_file` `./policies/naming-convention.md`，按「命名三件套 + 中文名规则 + 前缀规则 + 编号命名空间」产出命名。命名三件套为 `state.yaml` 顶层字段（`req_name` / `req_name_cn` / `req_prefix`），经 `set-identity` 落盘（见 Step 2.6.1）。
 
 ## 流程
 
@@ -67,7 +28,7 @@ version: 0.7
 
 ### Step 0: 设置产物语言
 
-**执行**：`LANG=$(bash "$PLUGIN_ROOT/scripts/get-language-name.sh")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本阶段所有提问与澄清摘要均采用 `$LANG`。
+**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本阶段所有提问与澄清摘要均采用 `$LANG`。
 
 ### Step 1: 初始化任务
 
@@ -79,12 +40,12 @@ version: 0.7
 - 仍无 `$PLUGIN_ROOT` → 停止并报告阻塞原因（SessionStart 未注入环境变量），提示用户重启会话以触发 SessionStart
 
 ```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.sh" ]; then
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.mjs" ]; then
   echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
   exit 2
 fi
 
-ACTIVE_RESULT=$(bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" get-active-changes --kind requirement --skill discovery --repo-root "$REPO_ROOT")
+ACTIVE_RESULT=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill discovery --repo-root "$REPO_ROOT")
 ACTIVE_EXIT=$?
 echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 ```
@@ -109,15 +70,15 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
   >
 
   ```bash
-     rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
-     bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id"
+  rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id"
   ```
 - **C. 丢弃所有**：对每个 id 执行下列命令后，进入 Step 2
 
 ```bash
 for d in <ACTIVE_RESULT 列表>; do
   rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$d"
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
 
@@ -138,18 +99,36 @@ done
 
 |  状态 | 后续动作 |
 |---|---|
-| 缺失 / `status: pending` | 补走 **Step 2.6.1** 确认中文名与编号前缀后，再进入对应步骤继续 |
-| `status: confirmed` | 直接沿用，后续步骤的编号与文档名一律以该前缀为准 |
+| `req_name_cn` / `req_prefix` 缺失或为空 | 补走 **Step 2.6.1** 确认中文名与编号前缀后，再进入对应步骤继续 |
+| `req_name_cn` / `req_prefix` 已填 | 直接沿用，后续步骤的编号与文档名一律以该前缀为准 |
 
 ### Step 2：初始化与前置校验
 
+#### 2.0 原始需求质量校验（柔性闸门）
+
+`read_file` `./policies/raw-requirement-quality.md`，按 §二 / §三 / §四 执行：
+
+1. **粗判变更性质**：全新（「做一个 / 新增」）还是迭代（「改 / 优化 / 加字段」）——结果复用到 2.2 复杂度初判的变更性质判定，不重复判定；
+2. **套必备清单逐项校验**：全新查「业务背景痛点 / 核心目标 / 目标用户角色」，迭代查「改动对象 / 改动内容 / 改动原因」（迭代的目标用户默认沿用现有功能用户，仅角色 / 权限变更才需说明）；
+3. **合格判定**：必备全覆盖 → 通过，进入 2.1；有缺失 → 按 §三 回显「缺失清单」（缺哪几项 + 每项一句话怎么补），请用户补齐后重新校验；
+4. **用户执意不补**（明确「就这样往下」）→ 按 §四 回显三类风险（澄清成本上升 / 定档可能不准 / 产出可能偏离诉求）+ 放行，并在《需求基线》标记「原始需求质量不足（缺 X 项），已风险提示，用户执意继续」。
+
+> 柔性闸门，不硬阻断：discovery 的价值就是把模糊需求澄清清楚，入口硬阻断会违背「一句话想法也能启动」；柔性提示的收益是「引导先补齐，少走几轮澄清」。
+
 #### 2.1 扫描已有产物
 
-基于本地需求文档、代码库与 MCP 内部资料（即已建立的现有系统上下文），建立对现有功能、角色、流程、术语、交互模式、数据模型的初步理解；无既有资料时跳过并标注。
+基于本地需求文档、代码库，粗扫建立对现有功能的初步理解（深入定向扫描见 Step 3.2）；无既有资料时跳过并标注。
 
 #### 2.2 初判需求复杂度
 
-加载需求复杂度评估策略：`read_file` `./policies/complexity-assessment-policy.md`，基于原始需求的显性信息，校验是否触发高危场景强制升档规则，触发则直接定为复杂需求；否则从业务复杂度、技术复杂度、合规风险复杂度三个维度逐项评分后计算总分，匹配对应等级：简单需求 / 标准需求 / 复杂需求
+加载需求复杂度评估策略：`read_file` `./policies/complexity-assessment-policy.md`，按 §4.1 变更风险主轴判定：
+
+1. **变更性质判定**：先判「全新 vs 迭代」——迭代需求进入现状探查（Step 3.2），并初判现状复杂度；
+2. **主轴快速分流**：按「变更幅度 + 回归风险 + 可回滚性 + 现状复杂度」落档（简单 / 标准 / 复杂）；
+3. **高危校验**：致命信号一票升「复杂」起步、严重信号逐级升一级（§5）；
+4. **简单豁免校验**：全新极简 CRUD / 既有功能轻量迭代命中豁免条件时，规模类维度不计分（§4.2）。
+
+初判只回显、不确认——标注「初判，待二次校准后定档」（见 policy §6.4）。
 
 #### 2.3 判断是否需要拆分
 
@@ -180,11 +159,13 @@ done
 
 对需求组的**每一个**需求依次执行「建目录 → 写需求内容 → 登记游标」，一个都不少。
 
-**① 建目录**（`task-init`，需求任务不创建 `draft-*` 临时目录）：
+##### 2.5.1 建目录
+
+> `task-init`，需求任务不创建 `draft-*` 临时目录
 
 ```bash
 for TASK in "<任务1>" "<任务2>" ...; do
-  INIT_RESULT=$(bash "$PLUGIN_ROOT/scripts/task-init.sh" "$REPO_ROOT" --kind requirement --task-id "$TASK")
+  INIT_RESULT=$(node "$PLUGIN_ROOT/scripts/task-init.mjs" "$REPO_ROOT" --kind requirement --task-id "$TASK")
   INIT_EXIT=$?
   echo "TASK=$TASK INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
 done
@@ -196,7 +177,9 @@ done
 | 1 | `existing` | **立即中断**：报告冲突目录，请用户改名或删除后重试；**禁止**向既有任务目录写入内容 |
 | 2 | — | 参数/环境错误，停止并报告阻塞原因（按 stderr） |
 
-**② 写需求内容**（基础任务档案）：为每个新建目录写入《需求基线》初稿，路径 `$REPO_ROOT/.polaris/tasks/<任务名>/req_baseline.md`。
+##### 2.5.2 写需求内容
+
+为每个新建目录写入《需求基线》初稿，路径 `$REPO_ROOT/.polaris/tasks/<任务名>/req_baseline.md`。
 
 1. `read_file ./templates/req_baseline_template.md` 按模板初始化，输出：
    `[polaris-flow PRD] 已读取需求基线模板 req_baseline.md`
@@ -213,7 +196,7 @@ done
 3. **写入命名标识占位**（`task-state-entry`）——中文名与编号前缀的唯一权威存储，下游 draft / refine / ship 均读此处；本步只建占位，实际值在 2.6.1 用户确认后回填：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set-identity \
   --repo-root "$REPO_ROOT" --task-id "$TASK" \
   --req-name "" --req-name-cn "" --req-prefix ""
 ```
@@ -222,13 +205,13 @@ bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" set-identity \
 
 4. 全部写入后输出：`[polaris-flow PRD] 已创建 N 个需求任务：<任务名列表>`
 
-> 至此每个需求都是一份可独立恢复的基础任务，用户选择只决定「本次先推进哪一个」。
+##### 2.5.3 登记 workflow 游标（**不可省略**）
 
-**③ 登记 workflow 游标**（**不可省略**：`task-init` 只建目录与 `state.yaml`，不写游标；不登记则 Step 1 的 `get-active-changes` 读不到，无法通过「B. 选择一个」恢复）：
+`task-init` 只建目录与 `state.yaml`，不写游标；不登记则 Step 1 的 `get-active-changes` 读不到，无法通过「B. 选择一个」恢复）：
 
 ```bash
 for TASK in "<任务1>" "<任务2>" ...; do
-  bash "$PLUGIN_ROOT/scripts/workflow-entry.sh" append-active \
+  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" append-active \
     --kind requirement --skill discovery --repo-root "$REPO_ROOT" \
     --task-id "$TASK" --phase discovery --worktree-path "" \
     --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -248,11 +231,11 @@ done
 | 只确认清单本身（如「没问题」） | **不算选择** | 重新发问——确认清单 ≠ 选中某一项 |
 | 对清单提出调整 | 先调整 | 调整后重新发问，不得沿用调整前的选择 |
 
-**选项上限**：单次询问的选项数上限以 `./policies/ask-question-react.md` 的「平台询问工具注册表」为准（当前 10 个）。任务多于上限时先按业务系统分组，两级串行询问——第 1 级选业务系统，第 2 级选该系统下的任务；**禁止**把全部任务一次性罗列进单次询问。
+**选项上限**：单次询问的选项数上限以 `./policies/ask-question-react.md` 的「平台询问工具注册表」为准。任务多于上限时先按业务系统分组，两级串行询问——第 1 级选业务系统，第 2 级选该系统下的任务；**禁止**把全部任务一次性罗列进单次询问。
 
-**发问执行**：按 `./policies/decision-point.md` 暂停并发问（工具名经平台注册表查得，不得写死）。推荐项只能作为说明，不得代替用户选择。
+**发问执行**：按 `./policies/decision-point.md` 暂停并发问。推荐项只能作为说明，不得代替用户选择。
 
-#### 2.6.1 确认需求中文名与编号前缀（选中任务后询问，阻塞点）
+##### 2.6.1 确认需求中文名与编号前缀（选中任务后询问，阻塞点）
 
 用户选中任务后，**立即**按 `./policies/decision-point.md` 暂停、按 `./policies/ask-question-react.md` 发起一轮询问，为选中任务确定中文名与编号前缀：
 
@@ -265,26 +248,35 @@ done
 >
 > **需求编号前缀**（包含大写英文字母及连字符(如 `UAP` / `CRM-ORDER`)；本需求全部功能编号的命名空间，如 `<前缀>-F01-01`、`<前缀>-BR-101`）：**请直接输入**。
 
-**约束**：
+**约束**（中文名与编号前缀的规则以「命名与编号约定」为单一源，本步不重复）：
 
-- 中文名给 **3 个 AI 建议候选**（4–12 汉字、无禁用字符，从 `$task_id` 语义派生），用户可三选一，也可自行指定新名
-- 编号前缀**必须由用户输入**，AI 不自动派生、不默认填充；未填写视为命名未完成，不得进入 Step 3
-- 用户输入的编号前缀不合规（含小写 / 非 ASCII / 长度越界 / 以连字符开头结尾）→ 规范化（转大写等）后**回显并再次确认**，禁止静默改写
-- 编号前缀与 `$REPO_ROOT/.polaris/tasks/` 下其它已确认任务的前缀冲突 → 回显冲突并请用户改填，不得静默消歧
+- 中文名给 **3 个 AI 建议候选**（可自拟），从 `$task_id` 语义派生
+- 编号前缀**必须由用户输入**，AI 不派生、不默认；未填写不得进入 Step 3
+- 不合规 / 前缀冲突 → 规范化后**回显再确认**，禁止静默改写 / 静默消歧
 
 **收到用户答复后**，回填命名并落盘：
 
 | 用户答复 | 判定 | 后续动作 |
 |---|---|---|
-| 选中文名候选 + 给出前缀 | 命名齐备 | 写入 `req_baseline.md` 元数据区、第 1 章需求名称与 `state.yaml`（回填 `req_name_cn` / `req_prefix`，`status`），落盘后进入 Step 3 |
+| 选中文名候选 + 给出前缀 | 命名齐备 | 经 `set-identity` 回填 `state.yaml` 的 `req_name_cn` / `req_prefix`（顶层字段，无 `naming` 块），并写 `req_baseline.md` 元数据区、第 1 章需求名称，落盘后进入 Step 3 |
 | 中文名自拟 + 给出前缀 | 命名齐备 | 同上（自拟中文名经合规校验后写入） |
 | 只给了其中一项 | 命名不全 | 回显已填项，请用户补齐另一项，不得默认补全 |
 | 对中文名候选或前缀提出调整 | 命名调整 | 按调整后值重新回显并再次确认 |
 
+**命名落盘命令**（回填后立即执行，经 `set-identity` 写顶层字段，禁直写 yaml 块）：
+
+```bash
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set-identity \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" \
+  --req-name "$task_id" --req-name-cn "<中文名>" --req-prefix "<前缀>"
+```
+
+> 命名三件套为 `state.yaml` 的**顶层字段**（`req_name` / `req_name_cn` / `req_prefix`），无 `naming` 嵌套块。
+
 **硬约束**：
 
-- 中文名、编号前缀**必须齐全且经用户确认**才能置 `confirmed`；用户未表态或只给一项时不得进入 Step 3
-- 命名未确认（`status: pending`）不得进入 Step 3——下游 draft / refine 依赖此命名空间，事后改名代价极高
+- 中文名、编号前缀**必须齐全且经用户确认**才能回填 `req_name_cn` / `req_prefix`；用户未表态或只给一项时不得进入 Step 3
+- 命名未回填（`req_name_cn` / `req_prefix` 为空）不得进入 Step 3——下游 draft / refine 依赖此命名空间，事后改名代价极高
 
 选择完成后：
 
@@ -323,6 +315,8 @@ done
 4. 网络公开信息定向检索：精准补全陌生术语、行业标准，优先采信官方权威来源
 5. 隐性信息捕获：记录原始需求未提及但高度相关的约束、规则、历史决策，单独归类标注来源
 
+**迭代需求现状探查**（Step 2.2 判为「迭代」时执行）：在第 2 项基础上，把对现有功能的理解固化为《现状基线》——现有行为、现有规则、现有数据、现有代码位置。探查深度随档分级：简单=定位现有功能一句话；标准=现有行为+规则摘要；复杂=全量现状链路+数据+规则（配合 Step 5 的 L1 代码级存在性验证）。《现状基线》作为与《需求基线》《澄清纪要》并列的第三输入，供 draft 做增量写作的参照系。
+
 **降级说明**：若 MCP 内部资料或网络检索不可用，仅基于本地需求文档与代码扫描推进，并在《需求基线》中标注未覆盖的信息维度，待后续人工补充。
 
 #### 3.3 结构化需求理解 + 方案解耦
@@ -333,7 +327,32 @@ done
 
 #### 3.4 需求复杂度二次校准
 
-加载需求复杂度评估策略：`read_file` `./policies/complexity-assessment-policy.md`，基于资源扫描发现的隐性约束、核心链路关联、历史风险点，重新执行复杂度评分。（注：初判在 Step 2.2 基于显性信息完成，此处为扫描隐性信息后的二次校准，仅允许上调等级，详见复杂度评估策略「宁严勿松」原则。）
+加载需求复杂度评估策略：`read_file` `./policies/complexity-assessment-policy.md`，基于资源扫描发现的隐性约束、核心链路关联、历史风险点，重新执行复杂度评分（迭代需求补评现状复杂度）。（注：初判在 Step 2.2 基于显性信息完成，此处为扫描隐性信息后的二次校准，支持双向调整——上调直接生效，下调须经用户按 `./policies/decision-point.md` 显式确认，详见复杂度评估策略 §6.2「双向校准」。）
+
+二次校准完成后，**立即执行定档确认**（policy §6.4，唯一强制确认点）：
+
+1. 回显系统评估结论：档位、总分（业务/技术/合规分项）、命中的主轴信号、高危信号、豁免规则、建议流程档位（`workflow.mode`）；
+2. 按 `./policies/decision-point.md` 发起四档直选（简单 / 标准 / 复杂 / 极复杂，系统建议高亮）——选系统建议=认可；选其它档=人工覆盖，须附理由（上调直接生效，下调按 §6.2 属显式确认）；
+3. 无论认可或覆盖，经 `task-state-entry` 写 `state.yaml` 的 `complexity` 块（《需求基线》元数据区同步留痕）：
+
+```bash
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
+  --set complexity.system_assessment.tier=<档> \
+  --set complexity.system_assessment.score=<总分> \
+  --set complexity.system_assessment.business=<业务分> \
+  --set complexity.system_assessment.technical=<技术分> \
+  --set complexity.system_assessment.compliance=<合规分> \
+  --set complexity.system_assessment.axis_signals=<命中信号，逗号分隔> \
+  --set complexity.system_assessment.risk_signals=<高危信号，无则空> \
+  --set complexity.system_assessment.waiver=<豁免规则，无则 none> \
+  --set complexity.final_tier=<最终档> \
+  --set complexity.overridden=<true|false> \
+  --set complexity.override_direction=<up|down|none> \
+  --set complexity.override_reason=<覆盖理由，无则空> \
+  --set complexity.confirmed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --set complexity.confirmed_by=user
+```
 
 #### 3.5 增量落盘
 
@@ -359,53 +378,7 @@ done
 
 #### 4.1 模糊点识别
 
-从以下3个部分完成模糊点识别：
-
-1. 业务层模糊点分级扫描
-
-扫描维度表：
-
-| 维度         | 检查要点                                                         |
-| -------------- | ------------------------------------------------------------------ |
-| 冲突假设类   | 段落间互相矛盾之处                                               |
-| 信息缺失类   | 五要素、5W2H 是否完整，核心输入输出是否明确                      |
-| 概念歧义类   | 是否存在主观形容词、量化模糊词、一词多义、未定义术语             |
-| 边界范围类   | 功能边界、用户边界、数据边界、场景边界是否清晰，异常流程是否覆盖 |
-| 隐含假设类   | 是否存在未言明的业务、数据、技术、使用假设                       |
-| 约束缺失类   | 时间、成本、性能、兼容性、合规等约束是否明确                     |
-| 优先级依赖类 | 多功能点优先级是否划分，与现有系统 / 功能的依赖关系是否清晰      |
-| 缺口         | 缺状态机/权限/失败态/数据归属等                                  |
-
-根据扫描维度表，按需求复杂度对应的扫描维度逐项扫描完成：
-
-- 简单需求：扫描核心 3 维度（信息缺失、边界范围、约束缺失）
-- 标准 / 复杂需求：全量 8 维度扫描（冲突假设、信息缺失、概念歧义、边界范围、隐含假设、约束缺失、优先级依赖、缺口），能通过现有资料补全的自动补全，无法补全的列入待澄清清单
-
-2. 必问项强制校验（业务层首次）
-
-硬性校验以下 6 项是否覆盖，未覆盖则自动补充为高优先级问题，确保无遗漏：
-
-- 模块归属
-- 核心范围边界（做 / 不做）
-- 角色与权限边界
-- 核心业务流程
-- 数据指标与效果验证方式
-- 配置模型 / 状态枚举验证（涉及现有配置修改时必查）
-
-3. 业务合理性校验
-
-需求合理性识别维度：
-
-- **实现必要性**：区分是**强痛点**（不做则无法推进工作）还是**痒点**（锦上添花）；是高频普遍问题还是低频个别问题
-- **业务合理性**：是否符合业务逻辑，是否与现有规则冲突，是否存在重复建设，目标是否可验证
-- **技术可行性**：是否适配现有技术栈，是否依赖未开放能力，是否存在明显性能瓶颈
-- **合规性**：是否满足数据安全、隐私保护、行业监管、内部制度要求
-- **成本合理性**：投入产出是否匹配，是否存在过度设计，是否有低成本替代方案
-
-根据需求复杂度，完成识别：
-
-- 简单需求：仅做业务合理性单点判断
-- 标准 / 复杂需求：业务合理性、技术可行性、合规性、成本合理性四维度全量校验，存疑点列入待澄清清单
+`read_file` `./policies/ambiguity-scan.md`，按其中「业务层模糊点分级扫描 + 必问项强制校验 + 业务合理性校验」三部分执行（扫描深度与校验维度随复杂度分级）。
 
 #### 4.2 问题分级与预处理
 
@@ -437,7 +410,7 @@ done
    每收到一轮 / 一个答复，立即执行：
 
    - 更新《需求基线》中对应章节的草稿内容
-   - 重新校验需求完整性，识别新增模糊点并纳入后续澄清（若新增业务层模糊点，就地澄清；若新增架构层模糊点，暂存至阶段4处理）
+   - 重新校验需求完整性，识别新增模糊点并纳入后续澄清（若新增业务层模糊点，就地澄清；若新增架构层模糊点，暂存至 Step 6 处理）
    - 同步更新合理性结论
    - 记录变更前后对比与依据
 4. 增量补充
@@ -459,7 +432,7 @@ done
 
 基于已确认的业务前提推导候选功能架构草案，同时通过结构化拆解反向挖掘架构层隐性模糊点；草案仅作澄清讨论工具，非正式结论。
 
-> 执行策略遵循复杂度联动规则：简单需求跳过本阶段，架构层模糊点直接并入阶段6处理。
+> 执行策略遵循复杂度联动规则：简单需求跳过本阶段，架构层模糊点直接并入 Step 6 处理。
 
 **执行原则**
 
@@ -472,20 +445,12 @@ done
 
 1. **一级模块拆分**：围绕核心业务目标与角色，拆解 3-5 个一级业务模块
 2. **二级功能点拆解**：每个一级模块拆解为若干「动词 + 名词」格式的二级功能点
-3. **六大方法反向挖掘架构层模糊点**：
-   - 模块边界拆解法：逐功能拷问包含 / 不包含、程度深浅、例外场景，识别边界模糊点
-   - 角色 - 功能矩阵法：角色与功能交叉校验，识别权限、角色覆盖模糊点
-   - 流程链路串联法：串联主干流程，排查失败、超时、中断分支，识别流程模糊点
-   - 数据流转推演法：推演输入 - 处理 - 输出全链路，识别数据规则模糊点
-   - 通用能力抽取法：识别多模块复用能力，校验一致性与复用规则，识别复用模糊点
-   - 依赖关系梳理法：梳理模块间、系统间依赖，识别依赖与降级方案模糊点
-4. **L1 代码级存在性验证**：对标记为「已有复用」「需改造」的功能点，逐一验证代码中真实存在性与核心逻辑匹配度，验证不通过的标记为高优先级模糊点
-5. **属性标记**：每个功能点标记确认状态（已确认 / 待确认）、重要程度（核心必选 / 重要可选 / 扩展增强）、已有能力映射（已有 / 新增 / 需改造）
+3. `read_file` `./policies/architecture-derivation.md`，按六大方法反向挖掘架构层模糊点、执行 L1 代码级存在性验证与属性标记
 
 #### 5.2 增量补充需求基线
 
 1. 需求基线文档路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_baseline.md`，第 6 章写入候选功能架构草案，醒目标注「候选方案，待澄清确认」
-2. 所有架构衍生模糊点同步纳入待澄清问题池（不写入澄清纪要，待阶段4统一处理）
+2. 所有架构衍生模糊点同步纳入待澄清问题池（不写入澄清纪要，待 Step 6 统一处理）
 
 #### 5.3 压缩上下文
 
@@ -495,19 +460,21 @@ done
 
 澄清架构衍生模糊点，并显性确认用户提出的候选实现方案，同步更新候选架构。
 
-> 交互模式遵循复杂度联动规则：简单需求可合并至阶段2一次性澄清；标准需求分轮批量；复杂需求单轮单问。
+> 交互模式遵循复杂度联动规则：简单需求合并至本阶段一次性澄清；标准需求分轮批量；复杂需求单轮单问。
 
 #### 6.1 分批澄清
 
 1. 合并架构模糊点与候选方案
 
-   - 将阶段5挖掘的架构层模糊点与阶段3解耦出的用户候选实现方案合并为待澄清清单
-   - 若阶段3被跳过（简单需求），则仅处理候选方案确认，架构模糊点直接从业务澄清遗留项中提取
+   - 将 Step 5 挖掘的架构层模糊点与 Step 3 解耦出的用户候选实现方案合并为待澄清清单
+   - 若 Step 5 被跳过（简单需求），则仅处理候选方案确认，架构模糊点直接从业务澄清遗留项中提取
+
 2. 生成备选答案
 
    - 基于现有资料为每个问题/方案生成2-3个带来源支撑的备选答案：
    - 架构模糊点：围绕模块边界、权限、数据规则、依赖等给出选项
    - 候选方案：保留用户原方案，补充替代方案，标注各方案优劣与适用条件
+
 3. 分轮澄清
    按照「先架构模糊点、后候选方案确认」的顺序推进：
 
@@ -515,6 +482,7 @@ done
    - 复杂需求：强制单轮单问
      每个问题统一结构：问题编号+优先级 + 问题描述 + 背景说明 + 备选答案（标注支撑来源）
      发起询问时按 `./policies/ask-question-react.md` 询问
+     
 4. 动态更新机制
    每收到一轮/一个答复，立即执行：
 
@@ -524,11 +492,11 @@ done
 
 #### 6.2 增量落盘
 
-向《需求澄清纪要》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_clarify_summary.md`）写入：
+向《需求澄清纪要》（路径：`$REPO_ROOT/.polaris/tasks/<task_id>/req_clarify_summary.md`）写入**架构层**闭环（章节结构同 4.3.4，内容为架构层部分）：
 
-- 第2章 问题闭环明细（业务层部分：高/中/低优先级各表）
-- 第3章 需求变更记录（业务层相关变更）
-- 第4章 隐含假设与风险清单（业务层相关假设）
+- 第2章 问题闭环明细（架构层部分：高/中/低优先级各表）
+- 第3章 需求变更记录（架构层相关变更）
+- 第4章 隐含假设与风险清单（架构层相关假设）
 
 #### 6.3 压缩上下文
 
@@ -542,7 +510,7 @@ done
 
 #### 7.1 终审功能架构与优化
 
-基于阶段4和阶段6的全部确认结论，检查候选架构是否存在模块划分不合理、依赖遗漏、边界冲突等问题，如有调整，直接修改候选架构草稿，并触发一次完整性重校验，新增模糊点若影响架构则自动补充一轮澄清（可缩短为确认式提问）
+基于 Step 4 和 Step 6 的全部确认结论，检查候选架构是否存在模块划分不合理、依赖遗漏、边界冲突等问题，如有调整，直接修改候选架构草稿，并触发一次完整性重校验，新增模糊点若影响架构则自动补充一轮澄清（可缩短为确认式提问）
 
 #### 7.2 **正式功能架构固化**
 
@@ -554,19 +522,13 @@ done
 
 #### 7.3 六项必问项终检
 
-再次硬性校验六项必问项是否全部闭环：模块归属、核心范围边界（做/不做）、角色与权限边界、核心业务流程、数据指标与效果验证方式、配置模型/状态枚举验证（涉及现有配置修改时必查）。若存在未闭环项，立即生成问题按 `./policies/ask-question-react.md` 向用户确认。
+再次硬性校验六项必问项（清单见 Step 4.1「必问项强制校验」）是否全部闭环。若存在未闭环项，立即生成问题按 `./policies/ask-question-react.md` 向用户确认。
 
 #### 7.4 校验全文档一致性
 
 核对两份文档内容是否一致，需求变更记录与 需求基线 变更是否对应，功能架构与需求五要素是否匹配，所有结论是否有来源支撑。
 
-**命名与编号一致性（必检）**：
-
-- 《需求基线》元数据区、第 1 章需求名称、《需求澄清纪要》头部、`state.yaml`中的 `req_name`, `req_name_cn`, `req_prefix`等**中文名完全一致**
-- 上述四处的**编号前缀完全一致**，且满足「大写 ASCII、2–16 位、不以连字符开头结尾」
-- 第 6 章功能模块明细表的规则 ID（`R001`）能按编号前缀推导至终稿 `{前缀}-BR-1xx`，映射关系可追溯
-- 与 `$REPO_ROOT/.polaris/tasks/` 下其它已确认任务的前缀无冲突；有冲突须回到 2.6.1 由用户改填
-- 任一不一致**必须**修正后才能进入 7.5；若涉及前缀变更，按「命名与编号约定」第 4 条走需求变更流程，同步修订已产出的全部文档并记录前后对比
+**命名与编号一致性（必检）**：按 `./policies/naming-convention.md` 的「命名一致性校验」清单逐项核对，任一不一致**必须**修正后才能进入 7.5。
 
 #### 7.5 补全收尾章节
 
@@ -583,16 +545,14 @@ done
 需求任务名：$task_id
 需求中文名：<中文名>
 需求编号前缀：<前缀>     # 功能编号 <前缀>-F01-01 / 规则 <前缀>-BR-101 / 锚点 <前缀小写>-cap-001
-交付文档名：<前缀>-<中文名>-需求终稿-v1.0.md
+交付文档名：<前缀>-<中文名>-需求说明-v1.0.md（简单档）／<前缀>-<中文名>-需求终稿-v1.0.md（标准/复杂档）
 ```
 
 #### 7.7 用户确认 （阻塞点）
 
 按 `./policies/decision-point.md` 暂停并发起问答询问：
 
-> 请**仔细**阅读完整《需求基线》及《需求澄清纪要》，**审查**后确认是否可以进入下一阶段？
->
-> 本需求的定稿标识：任务名 `$task_id`｜中文名「<中文名>」｜编号前缀 `<前缀>`（后续功能编号 `<前缀>-F01-01`、业务规则 `<前缀>-BR-101`、交付文档 `<前缀>-<中文名>-需求终稿-v1.0.md` 均以此为准）
+> 请**仔细**阅读完整《需求基线》及《需求澄清纪要》，**审查**后确认是否可以进入下一阶段？（定稿标识见上文 7.6 输出，请核对无误）
 
 > （请回复「确认 / ok / 同意」等明确整体确认；若仅对某条目有意见，请直接指出以便修改）
 
@@ -606,15 +566,23 @@ done
 
 用户明确确认后：
 
-1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `draft` 就在这一步）：
+1. 冻结 `workflow.mode`：由 Step 3.4 定档确认的 `complexity.final_tier` 按 policy §7 单源映射折算（简单→`tweak`、标准→`normal`、复杂·极复杂→`strict`），写 `state.yaml`（下游 draft / refine / ship 据此决定逐章/整稿、评审强度、交付名）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/task-state-entry.sh" complete-phase \
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
+  --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
+  --set workflow.mode=<档>
+```
+
+2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `draft` 就在这一步）：
+
+```bash
+node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
   --phase discovery --next-phase draft
 ```
 
-2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
+3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
    先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**
    —— `SKILL` 直填；括注按 `NEXT` 取（`manual` → 「建议新开会话」；`auto` → 「可同会话继续」）。**两者都不得写死**：
 

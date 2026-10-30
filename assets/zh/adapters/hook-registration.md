@@ -19,18 +19,18 @@ hook 资产是**语言中立**的：源在 `assets/shared/hooks/`（**不是** `
 
 | Hook | matcher | 脚本 | 作用 |
 | --- | --- | --- | --- |
-| SessionStart | `startup` / `resume` | `hooks/session-start.sh` | ① 依赖自检（openspec / `.polaris/` / `config.yaml` / superpowers 版本 / agents 是否落盘）；② 探测平台能力与 subagent 可用性；③ 把 `$PLUGIN_ROOT` / `$REPO_ROOT` 等写入 `.polaris/.cache/runtime-env` |
+| SessionStart | `startup` / `resume` | `hooks/session-start.mjs` | ① 依赖自检（openspec / `.polaris/` / `config.yaml` / superpowers 版本 / agents 是否落盘）；② 探测平台能力与 subagent 可用性；③ 把 `$PLUGIN_ROOT` / `$REPO_ROOT` 等写入 `.polaris/.cache/runtime-env` |
 
-> **不是 hook 的东西**：`constitution-validity.sh`、`scorers/*.sh` 等由技能在自己的流程步骤里**显式调用**（或经 CLI 子命令），不进宿主 hook 配置。
+> **不是 hook 的东西**：`constitution-validity.mjs`、`scorers/*.mjs` 等由技能在自己的流程步骤里**显式调用**（或经 CLI 子命令），不进宿主 hook 配置。
 
 ## 分发链
 
 ```
 宿主 SessionStart
-  └→ <hookRoot>/hooks/session-start.sh        （薄转发器，不含业务逻辑）
-       ├ source ../scripts/_polaris-cli.sh
-       ├ _polaris_cli_selfheal   ← CLI 缺失时打印安装指引并非 0 退出（不静默失败）
-       └ exec_polaris host-hook --fallback-event SessionStart
+  └→ node <hookRoot>/hooks/session-start.mjs   （node 入口，不含业务逻辑）
+       ├ 定位全局 polaris-flow（PATH → ~/.polaris/cli/bin）
+       ├ CLI 缺失时打印安装指引并非 0 退出（不静默失败）
+       └ spawn polaris-flow host-hook --fallback-event SessionStart --platform <id>
             └→ src/commands/hooks/host-hook.ts → session-start.ts
 ```
 
@@ -72,7 +72,7 @@ hook 资产是**语言中立**的：源在 `assets/shared/hooks/`（**不是** `
       {
         "matcher": "startup|resume",
         "hooks": [
-          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"" }
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.mjs\"" }
         ]
       }
     ]
@@ -84,15 +84,15 @@ hook 资产是**语言中立**的：源在 `assets/shared/hooks/`（**不是** `
 
 | scope | scriptRoot（`resolveHookScriptRoot()`） | 改写结果 |
 | --- | --- | --- |
-| `project` | `<basename(contextDir)>/skills/polaris`（相对） | `bash "<contextDir>/skills/polaris/hooks/session-start.sh"` |
-| `global` | `<globalContextDir>/skills/polaris`（绝对） | `bash "<绝对路径>/skills/polaris/hooks/session-start.sh"` |
+| `project` | `<basename(contextDir)>/skills/polaris`（相对） | `node "<contextDir>/skills/polaris/hooks/session-start.mjs"` |
+| `global` | `<globalContextDir>/skills/polaris`（绝对） | `node "<绝对路径>/skills/polaris/hooks/session-start.mjs"` |
 
 即 hook 与技能**共用同一个 `skills/polaris/` 根**，hook 脚本随技能一起落盘。
 
 **合并而非覆盖**（`mergeHooksMaps()` / `mergeHookGroups()`）：
 
 1. 先按 `isManagedHookCommand()` 从**既有配置的全部事件**中剔除 polaris 托管 command ——
-   识别 `polaris/hooks`、`polaris-flow/hooks`、`/hooks/session-start.sh`、`${CLAUDE_PLUGIN_ROOT}/hooks/`、
+   识别 `polaris/hooks`、`polaris-flow/hooks`、`/hooks/session-start.mjs`、`${CLAUDE_PLUGIN_ROOT}/hooks/`、
    `/skills/polaris(-flow)?/hooks/` 等历史形态；
 2. 再写入模板条目：分组按 `matcher` 对齐，同组内按 `command` 去重。
 
@@ -104,8 +104,8 @@ hook 资产是**语言中立**的：源在 `assets/shared/hooks/`（**不是** `
 
 ## PLUGIN_ROOT 与运行时环境
 
-- SessionStart 把 `$PLUGIN_ROOT` / `$REPO_ROOT` 等写入 `.polaris/.cache/runtime-env`（`KEY=value`，可被 `source`）。
-- 技能侧的取值顺序：① SessionStart 注入的环境变量；② 兜底 `set -a; source .polaris/.cache/runtime-env`；③ 两者皆无 → **停止并报告阻塞原因**（提示用户重启会话以触发 SessionStart），不得继续试跑。
+- SessionStart 把 `$PLUGIN_ROOT` / `$REPO_ROOT` 等写入 `.polaris/.cache/runtime-env`（每行 `KEY=value`）。
+- 技能侧的取值顺序：① SessionStart 注入的环境变量；② 兜底：读取 `.polaris/.cache/runtime-env`，取 `PLUGIN_ROOT` / `REPO_ROOT` 两行的值；③ 两者皆无 → **停止并报告阻塞原因**（提示用户重启会话以触发 SessionStart），不得继续试跑。
 - **不支持 hook 的宿主**（qoder）：退化为**运行时检测**，由命令 / 技能入口自行执行等价检查；平台能力由 `subagent-probe` 探测。
 
 ## 退化路径
@@ -118,9 +118,9 @@ hook 资产是**语言中立**的：源在 `assets/shared/hooks/`（**不是** `
 
 ## 新增 hook 的操作清单
 
-1. 脚本放 `assets/shared/hooks/`（**语言中立**，不要放 `assets/{zh,en}/hooks/`）；脚本保持**薄转发** —— 逻辑写进 `src/commands/hooks/`
+1. 入口脚本放 `assets/shared/hooks/`（**语言中立**，不要放 `assets/{zh,en}/hooks/`）；入口保持**薄转发** —— 逻辑写进 `src/commands/hooks/`
 2. 在 `assets/shared/hooks.json` 注册事件（含 `matcher`）
 3. 现有平台的配置形态已有映射，**一般无需改安装代码**；只有新平台的配置形态不同，才动 `src/core/install/hooks.ts` 的 `resolveHooksConfigPath()`
 4. 若 command 形态与既有不同，**必须**扩展 `isManagedHookCommand()` 的识别，否则重复安装会写出重复注册
-5. 脚本必须跨平台兼容（macOS / Linux / Windows Git Bash）：**禁止** `sed -i`；可选 `grep` 结果加 `|| true`，避免 `pipefail` 误杀
-6. hook 脚本里**不写宿主分支** —— 宿主差异一律交给 CLI 与平台配置承担
+5. hook 入口脚本、`scripts/*.mjs` 薄包装与自包含脚本（`detect-test-command.mjs`、`get-language-name.mjs`）、`scorers/*.mjs` 打分器都用 **node（`.mjs`）** 启动（不依赖 bash）；AGENTS.md 的 Shell 规范（禁 `sed -i`、可选 grep 结果加 `|| true`）仅适用于仍为 `.sh` 的开发/安装/测试脚本（`devops/`、`install.sh`、`test/shell/`）
+6. 入口脚本里**不写宿主分支** —— 宿主差异一律交给 CLI 与平台配置承担

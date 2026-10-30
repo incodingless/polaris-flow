@@ -97,7 +97,7 @@
 执行（`$PLUGIN_ROOT` 来自 SessionStart 注入；裸相对路径 `scripts/...` 在用户项目根下不存在，且 CLI 需要 `<file>` 位置参数）：
 
 ```bash
-bash "$PLUGIN_ROOT/scripts/tasks-lint.sh" ".polaris/tasks/<issue_id>/tasks.md"
+node "$PLUGIN_ROOT/scripts/tasks-lint.mjs" ".polaris/tasks/<issue_id>/tasks.md"
 ```
 
 实际校验项为：

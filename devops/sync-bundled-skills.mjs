@@ -87,19 +87,62 @@ function readSpecs() {
 //         2. 查询上游
 //---------------------------------
 
+// 超时阈值：对齐 src/core/deps/github.ts（ls-remote 60s，clone/fetch 180s）
+const LS_REMOTE_TIMEOUT_MS = 60_000;
+const CLONE_TIMEOUT_MS = 180_000;
+
+/** 从 git 参数里抽出子命令（跳过 `-C <dir>` 与其余 flag） */
+function gitSubcommand(gitArgs) {
+  for (let i = 0; i < gitArgs.length; i++) {
+    const arg = gitArgs[i];
+    if (arg === '-C') {
+      i += 1; // 跳过 `-C` 后的目录参数
+      continue;
+    }
+    if (!arg.startsWith('-')) return arg;
+  }
+  return gitArgs[0];
+}
+
 /** 跑一条 git 命令，返回 stdout；失败抛错（含 stderr 摘要）。 */
 function git(gitArgs, { allowFail = false } = {}) {
+  const timeout = gitSubcommand(gitArgs) === 'ls-remote' ? LS_REMOTE_TIMEOUT_MS : CLONE_TIMEOUT_MS;
   try {
     return execFileSync('git', gitArgs, {
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      timeout,
       env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
     }).trim();
   } catch (error) {
     if (allowFail) return '';
+    const msg = error.message || '';
+    const timedOut =
+      error.code === 'ETIMEDOUT' ||
+      error.killed === true ||
+      msg.includes('ETIMEDOUT') ||
+      msg.includes('timed out');
+    if (timedOut) {
+      throw new Error(`git ${gitArgs.join(' ')} 超时（${Math.round(timeout / 1000)} 秒无响应，网络可能很慢）`);
+    }
     const stderr = (error.stderr || '').toString().trim();
     throw new Error(`git ${gitArgs.join(' ')} 失败: ${stderr || error.message}`);
   }
+}
+
+/**
+ * 按镜像改写 GitHub URL（镜像来源：环境变量 POLARIS_GITHUB_MIRROR）。
+ * ⚠️ 与 src/core/deps/github.ts 的 rewriteGithubRepoUrl 保持一致——改逻辑须同步两处。
+ * 本脚本刻意自包含（不 import TS），故内联此等价实现。
+ * 镜像含 github.com 时替换主机前缀；否则把原 URL 接到镜像基址后面。
+ */
+function rewriteGithubRepoUrl(repo, mirror = process.env.POLARIS_GITHUB_MIRROR) {
+  const m = (mirror ?? '').trim();
+  if (!m) return repo;
+  const base = m.replace(/\/$/, '');
+  if (!repo.startsWith('https://github.com')) return repo;
+  if (base.includes('github.com')) return repo.replace('https://github.com', base);
+  return `${base}/${repo}`;
 }
 
 /** 简易 semver 比较（只处理 x.y.z 与可选前缀 v） */
@@ -257,7 +300,7 @@ const specs = readSpecs();
 const rows = [];
 
 for (const spec of specs) {
-  const repoUrl = `https://github.com/${spec.repo}`;
+  const repoUrl = rewriteGithubRepoUrl(`https://github.com/${spec.repo}`);
   const current = spec.commit ?? spec.version ?? '';
   const currentType = spec.commit ? 'commit' : 'tag';
   let upstream;
@@ -320,7 +363,7 @@ let tsChanged = false;
 
 for (const row of outdated) {
   console.log(`\n▶ 升级 ${row.spec.name} → ${row.upstream.ref}`);
-  const repoUrl = `https://github.com/${row.spec.repo}`;
+  const repoUrl = rewriteGithubRepoUrl(`https://github.com/${row.spec.repo}`);
   const tmp = fetchToTemp(row.spec, row.upstream, repoUrl);
   try {
     replaceVendorSkill(row.spec, tmp, row.upstream);

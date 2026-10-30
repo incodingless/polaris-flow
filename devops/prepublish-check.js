@@ -24,10 +24,13 @@ const SKIP_DIRS = new Set(['node_modules', '.git', 'dist']);
 // 按相对路径整体跳过的目录（相对仓库根，用 / 分隔）：
 //   devops/vendor/  第三方 vendored 副本（superpowers / bundled-skills / tgz），.gitignore 排除、
 //                   不进 npm files；里面命中的都是上游测试夹具里的假 token，属噪声
-//   release/        package.sh 的构建产物，内容就是 vendor 的副本，再扫一遍纯属重复
+//   release-*/      package.sh 的构建产物（目录名带版本+日期），内容就是 vendor 的副本，
+//                   再扫一遍纯属重复
 //   .workbuddy/     AI 工作记忆（git 跟踪、不进 npm files）。它按设计会记录「什么写法规避密钥
 //                   扫描」，天然带 token 字面样例 → 必然误报；dev.sh / publish.sh 的脏检查同样排除它
-const SKIP_PATHS = new Set(['devops/vendor', 'release', '.workbuddy']);
+const SKIP_PATHS = new Set(['devops/vendor', '.workbuddy']);
+// release 产物目录名带版本+日期（release-<version>-<YYYYMMDD>），按目录名前缀跳过
+const RELEASE_DIR_RE = /^release(?:-|$)/;
 // .vue 也要扫：Dashboard 前端（dashboard/）的组件是 .vue，不纳入即为密钥扫描盲点
 const TEXT_EXTENSIONS = new Set([
   '.js',
@@ -51,6 +54,7 @@ function* walkFiles(dir, rel = '') {
     const full = join(dir, entry);
     const stat = statSync(full);
     if (stat.isDirectory()) {
+      if (RELEASE_DIR_RE.test(relPath)) continue;
       if (!SKIP_DIRS.has(entry)) {
         yield* walkFiles(full, relPath);
       }
