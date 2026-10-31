@@ -1,5 +1,26 @@
 # Changelog
 
+## What's Changed [0.9.0] - 2026-10-30
+
+### Added
+
+- **coding 准入性质判定**: `intake` Step 3 准入从「需求内容非空」升级为「非空 + 性质判定」——新增私有 policy `coding/intake/policies/requirement-admission.md`，对输入做功能开发 / 缺陷修复 / 非开发输入三分类；非功能开发输入（迁移方案 / 开发思路 / 设计文档 / 排期 / 闲聊）拒绝并路由，缺陷修复拒绝并路由 debug 族
+- **实现复杂度两轴判定模型**: 新增 `coding/specify/policies/implementation-complexity.md`（变更幅度 × 落点深度 + 风险一票，4×4 合成矩阵定档），取代 risk-signals 的降档门 / 升档信号；配套 `intake/policies/entry-tiering.md`（入口粗判只判幅度轴）与 `verify/policies/complexity-review.md`（用 diff 复核深度轴 + 风险）
+
+### Changed
+
+- **`intake` HARD-GATE 措辞拆分**: 把「禁止判断需求是否合格」精确拆为「intake 判需求性质（是不是功能开发）、不判需求质量（够不够详细）」，消除准入与澄清的职责混淆
+- **risk-signals 重构**: 删除被两轴模型取代的原 §3 降档门 + §4 升档信号，保留档位映射 / glob 兜底 / 两轴合成；消费切片改为三技能各持判据（intake / specify / verify 各自私有 policy，同源标注）
+- **specify 判档切两轴**: Step 5.4.1 分级初判与 Step 5.5 出口判档从「降档门 / 升档信号」改为「幅度 × 深度合成矩阵 + 风险一票」；留痕字段与状态行同步改记幅度档 / 深度档 / 风险项
+
+### Fixed
+
+- **非需求输入被 coding 接受**: 此前只做「非空」校验，代码迁移设计方案 / 开发思路等非需求输入会照单全收进入澄清；现按性质判定拒绝并给出路由 / 补全提示
+- **flow.md 文档断层**: HARD-STOP #11 声称「需求三要素判定由 intake Step 2 执行」，但 Step 2 实为入口判档、从未实现该判定；改为指向 Step 3 准入性质判定，交接口径同步修正
+- **简单功能优化被误判常规需求**: 原降档门判据引用 design.md / specs 等下游产物，在入口 / 出口判定点均不可用，简单需求被锁死 normal；改为两轴判定后，「改核心模块单字段」这类幅度小、落点深的变更能正确判 critical，简单需求（点 × 表层）能正确落 trivial
+- **coding 族 frontmatter 补齐 version**: build / design / retro / ship / tasks / verify 六个技能缺 `version` 字段，补齐为 `0.1`，与同族其余六个技能一致
+- **design 技能笔误修复**: 模板文件 `domain-model-disign-template.md` 拼写错误（disign→design）并同步 design-domain-model-policy.md / detailed-design-precheck.md 三处引用；`design/SKILL.md` 的 `.polaris/policies/outside-voice.md` 路径笔误改为 `./policies/outside-voice.md`
+
 ## What's Changed [0.8.0] - 2026-10-30
 
 ### Added

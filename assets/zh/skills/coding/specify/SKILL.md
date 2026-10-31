@@ -219,7 +219,7 @@ echo "FINAL_EXIT=$FINAL_EXIT FINAL_RESULT=$FINAL_RESULT"
 
 ##### 5.4.1 分级初判（写两轴三字段）
 
-`finalize` 成功后，按 `./policies/risk-signals.md` 对**需求侧**做一次初判，写 `state.yaml`。
+`finalize` 成功后，按 `./policies/implementation-complexity.md` 做一次初判，写 `state.yaml`。
 判定输入 = `intention.md` 的目标 / 任务范围 / 验收场景 / 下游约束（`tweak` 档即 `lite-clarify.md` 的 L1
 现状事实 + L2 六项摘要），加 3.1 拆分预检结论；**不得**凭对话印象。
 
@@ -229,14 +229,15 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --set complexity_level=<trivial|standard|critical> \
   --set risk_level=<trivial|standard|critical> \
   --set current_tier=<两轴取较高档> \
-  --set 'workflow.signals=["<命中信号编号>",...]'
+  --set 'workflow.signals=["<幅度档>,<深度档>,<风险项>",...]'
 ```
 
-- 档位定义与方向见 `./policies/risk-signals.md` §1；信号见 §4（需求侧重点 `D2` / `D6` / `D7`）；合成见 §6
+- 幅度轴 / 深度轴定义见 `./policies/implementation-complexity.md` §二 / §三；合成见 §五；风险一票见 §四
+- `complexity_level` = 幅度 × 深度的合成矩阵结果（§五）；`risk_level` = 风险一票命中 → `critical`，未命中 → `trivial`
 - `current_tier = max(complexity_level, risk_level)`（升档门优先）
-- `workflow.signals` = 本次初判命中的信号编号 / glob 片段（JSON 数组字面量；无命中写 `[]`）——全局决策记录，verify Step 9 复核后覆盖更新
+- `workflow.signals` = 本次初判命中的幅度档 / 深度档 / 风险项（JSON 数组字面量；无命中写 `[]`）——全局决策记录，verify Step 9 复核后覆盖更新
 - **只初判不代决**：本步只把档位**落盘**；需要用户拍板的是下一步（**5.5 的出口判档**），本步不得代选
-- 输出判定依据（命中信号编号，如 `D6,D7`），随 5.6 状态行一并呈现
+- 输出判定依据（如 `幅度=线, 深度=结构, 风险=无`），随 5.6 状态行一并呈现
 
 #### 5.5 出口判档 + 推进阶段（**全流程唯一一处档位变更**）
 
@@ -249,14 +250,13 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
 
 ##### ① 判档（输入 = **落盘产物**，不得依赖会话记忆）
 
-按 `./policies/risk-signals.md` §1 / §3（降档门）/ §4（升档信号），用 `intention.md` 的目标 /
+按 `./policies/implementation-complexity.md` §二~§五，用 `intention.md` 的目标 /
 任务范围 / 验收场景 / 下游约束 + 5.4.1 的两轴字段：
 
 | 命中 | level |
 | ---- | ----- |
-| §4 任一信号（或 §5 glob） | `critical` |
-| §3 降档门**全部满足** 且 §4 无命中 | `trivial` |
-| 其余 / 信息不足 | `standard` |
+| 风险一票命中（§四） | `critical` |
+| 幅度 × 深度 合成矩阵（§五） | 矩阵结果（trivial / standard / critical） |
 
 **目标档 = 该 level 按 `./policies/risk-signals.md` §1 的单源映射折算** —— **本技能不另列该映射**。
 
@@ -269,9 +269,9 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind coding \
   --set workflow.mode=<目标档> \
   --set workflow.status=<upgraded|downgraded> \
-  --set workflow.upgrade_reason=<命中信号编号；降档时留空> \
+  --set workflow.upgrade_reason=<命中幅度档/深度档/风险项；降档时留空> \
   --set workflow.upgrade_target=<目标档；降档时留空> \
-  --set workflow.downgrade_reason=<命中降档门编号；升档时留空> \
+  --set workflow.downgrade_reason=<降档依据（幅度档/深度档）；升档时留空> \
   --set workflow.downgrade_target=<目标档；升档时留空>
 ```
 
@@ -295,7 +295,7 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
 
 #### 5.6 完成状态行
 
-输出：`[polaris-flow 开发]澄清需求 - 澄清阶段完成：.polaris/tasks/<task_id>/intention.md 已锁定；state 已更新；分级初判 = complexity=<...> / risk=<...> → current_tier=<...>（命中 <信号编号>）；出口判档 = <当前档> → <目标档>（未变 | 已升档 <当前档>→<目标档> | 已降档 <当前档>→<目标档>）。`
+输出：`[polaris-flow 开发]澄清需求 - 澄清阶段完成：.polaris/tasks/<task_id>/intention.md 已锁定；state 已更新；分级初判 = complexity=<...> / risk=<...> → current_tier=<...>（幅度=<...>/深度=<...>/风险=<...>）；出口判档 = <当前档> → <目标档>（未变 | 已升档 <当前档>→<目标档> | 已降档 <当前档>→<目标档>）。`
 
 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**，`NEXT` 取 manual/auto 对应一套）。
 先按「自动衔接下一阶段」一节运行 `state next`，`<SKILL>` 与 `<mode>` 均取自其输出，**不得写死**。

@@ -59,7 +59,7 @@
 
 | 专项文件 | 模板（相对本 skill） | 触发条件（满足任一） |
 |----------|----------------------|----------------------|
-| `domain-model-design.md` | `./templates/domain-model-disign-template.md` | **未给侧**：新/改聚合根或实体关系、状态机、限界上下文；主文档仅列模块名，无实体 / 值对象 / 领域服务 / 领域事件明细<br>**过载侧**：主文档已给模型说明，但关系网 / 状态机 / 边界规则触顶 G2，继续留在主文档会挤占实现方案 |
+| `domain-model-design.md` | `./templates/domain-model-design-template.md` | **未给侧**：新/改聚合根或实体关系、状态机、限界上下文；主文档仅列模块名，无实体 / 值对象 / 领域服务 / 领域事件明细<br>**过载侧**：主文档已给模型说明，但关系网 / 状态机 / 边界规则触顶 G2，继续留在主文档会挤占实现方案 |
 | `data-model-design.md` | `./templates/data-model-design-template.md` | **未给侧**：新表 / 改表 / 索引 / 迁移；主文档未给 ER 或表结构<br>**过载侧**：主文档已给 DDL，但缺 ER 关系、表↔聚合（仓储）映射、迁移与回滚要点，且触顶 G2 |
 | `repository-design.md` | `./templates/repository-design-template.md` | **未给侧**：仓储抽象、读写路径、缓存与一致性；主文档未划仓储边界<br>**过载侧**：主文档已给读写说明，但事务与工作单元、查询与读模型、并发与幂等内容触顶 G2 |
 | `restful-api-design.md` | `./templates/restful-api-design-template.md` | **未给侧**：新增或破坏性 API 契约；design 有清单但缺请求 / 响应 / 错误码<br>**过载侧**：主文档已给端点表，但缺鉴权与权限模型、统一响应信封、限流 / 兼容默认值、错误码分级，且触顶 G2 |

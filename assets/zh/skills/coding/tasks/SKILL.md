@@ -1,6 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}tasks
 description: "把已锁定的需求/设计拆解为可执行任务清单 tasks.md（含 TDD 标注）。当用户要求写实施计划、拆解任务、细化 tasks.md 时使用。不要用于：澄清需求（走 specify）、生成提案四件套（走 plan）、写代码（走 build）。"
+version: 0.1
 ---
 
 # Polaris 工作流 - 阶段：任务规划（tasks）
