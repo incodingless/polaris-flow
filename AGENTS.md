@@ -137,10 +137,11 @@ skill 优化时只写中文版本（`assets/zh/skills/`）。
 
 ## 编号边界（命令 vs 技能）
 
-flow 菜单编号（C/M/R/P/T 前缀码，如 C01、M11、P02）是**命令层**的 UI 概念，只允许出现在 `assets/*/commands/` 中。技能（`assets/*/skills/`）**禁止**引用菜单编号：
+flow 菜单编号（M / R / P / T 前缀码，如 M11、R02、P02）是**命令层**的 UI 概念，只允许出现在 `assets/*/commands/` 中。技能（`assets/*/skills/`）**禁止**引用菜单编号：
 
+- **「开发」类别没有编号**：功能开发不再在菜单里分复杂度档（旧的 C01–C03 已删除），档位由 `intake` 入口粗判、`specify` 出口冻结
 - 技能间指路 → 用技能名（`polaris{{SKN_SPR}}<族>{{SKN_SPR}}<技能>`）
-- 开发档位概念 → 用模式名（`tweak` / `normal` / 完整链路），与 `workflow.mode` 词汇一致
+- 开发档位概念 → 用模式名（`tweak` / `normal` / `strict`），与 `workflow.mode` 词汇一致
 
 豁免：`prototype/blueprint` 的 Page ID 前缀（`<前缀>-P01`）是原型页面编号体系，与菜单编号无关。
 

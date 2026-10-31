@@ -102,7 +102,7 @@
   </div>
 
   <div class="block">
-    <div class="bar">② 命令对号入座<span class="dim">13 个命令 · 按场景选，右列是开工前你要备好的东西</span></div>
+    <div class="bar">② 命令对号入座<span class="dim">14 个命令 · 按场景选，右列是开工前你要备好的东西</span></div>
     <div class="body" style="padding:0;">
       <table>
         <tr><th style="width:23%">你的场景</th><th style="width:22%">命令</th><th style="width:29%">它干什么</th><th>开工前你要有</th></tr>
@@ -113,6 +113,7 @@
         <tr><td>改个小地方（文案 / 字段 / 参数）</td><td class="cmd">/psfl:coding:tweak</td><td class="desc">最快通道，一次会话跑完</td><td class="desc">做什么 + 对哪个对象 + 至少 2 项细节</td></tr>
         <tr><td>实现一个功能（多模块协作）</td><td class="cmd">/psfl:coding:normal</td><td class="desc">常规档，含规格契约与任务拆分</td><td class="desc">同上</td></tr>
         <tr><td>复杂 / 高风险（跨服务跨系统）</td><td class="cmd">/psfl:coding:strict</td><td class="desc">完整阶段链，带深度设计</td><td class="desc">同上</td></tr>
+        <tr><td>任务跑到一半断了</td><td class="cmd">/psfl:coding:resume</td><td class="desc">接回在途任务，直接转交当前阶段</td><td class="desc">无（沿用任务已记录的档位与阶段）</td></tr>
         <tr><td>线上故障，用户在受影响</td><td class="cmd">/psfl:maintance:hotfix</td><td class="desc">生产通道：先保现场，再改</td><td class="desc">现象 + 时间线 + 影响面 + 变更清单（会问你补齐）</td></tr>
         <tr><td>测试提了缺陷</td><td class="cmd">/psfl:maintance:bugfix</td><td class="desc">测试通道，收尾归档故障记录</td><td class="desc">复现步骤 / 实际结果 / 预期结果 / 环境版本</td></tr>
         <tr><td>写「怎么算做完」的判据</td><td class="cmd">/psfl:testing:acceptance</td><td class="desc">GWT 格式验收标准清单</td><td class="desc">需求条目 / 功能点清单</td></tr>
@@ -130,11 +131,11 @@
     <div class="body">
       <div class="chain">
         <span class="tag">1 选类别：需求/原型/开发/测试/维护</span><span class="arrow">→</span>
-        <span class="tag">2 选功能</span><span class="arrow">→</span>
+        <span class="tag">2 选功能（<b>开发</b>类直接跳过）</span><span class="arrow">→</span>
         <span class="tag">3 给附加上下文（文件/目录/说明，可无）</span><span class="arrow">→</span>
         <span class="tag">加载对应技能</span>
       </div>
-      <div class="note">开发类进入后判档：入口先粗判（只升不降），<b>最终档位在澄清阶段末尾定，定了就冻结</b>。快捷路径：首次输入直接给编号（如 C02）或功能名，跳过前两步。<b>中断了怎么办</b>：重新输入当前命令名即可续跑，系统自动恢复在途任务并转交对应阶段，不用手动换命令。</div>
+      <div class="note">开发类<b>不再让你选复杂度</b>：选「开发」后直接进开发工作流，入口先粗判（信息不足落常规档，只升不降），<b>最终档位在澄清阶段末尾定，定了就冻结</b>。想指定档位就直接敲 <span class="cmd">/psfl:coding:tweak</span> 或 <span class="cmd">/psfl:coding:normal</span> 或 <span class="cmd">/psfl:coding:strict</span>。快捷路径：首次输入直接给编号（如 M02）或功能名，跳过前两步。<b>中断了怎么办</b>：重新输入 <span class="cmd">/psfl:coding:resume</span> 即可续跑，系统自动恢复在途任务并转交对应阶段，不用手动换命令。</div>
     </div>
   </div>
 

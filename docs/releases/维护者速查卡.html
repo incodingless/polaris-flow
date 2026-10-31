@@ -109,10 +109,11 @@
         <tr><td class="cmd">phase</td><td class="cmd">specify | plan | design | tasks | build | verify | ship | retro</td><td class="desc">写入前用 <span class="cmd">writablePhaseList</span> 自查（含 idle）；空串/idle 合法，写错现在什么都不报，几个月后面板才暴露</td></tr>
       </table>
       <div class="chain" style="margin-top:7px;">
-        <span style="font-size:11px;color:#444;">入口预声明：</span>
-        <span class="tag">C01 → trivial → tweak</span><span class="arrow">·</span>
-        <span class="tag">C02 → standard → normal</span><span class="arrow">·</span>
-        <span class="tag">C03 → critical → strict</span>
+        <span style="font-size:11px;color:#444;">入口声明：</span>
+        <span class="tag">/psfl:coding:tweak → tweak</span><span class="arrow">·</span>
+        <span class="tag">/psfl:coding:normal → normal</span><span class="arrow">·</span>
+        <span class="tag">/psfl:coding:strict → strict</span><span class="arrow">·</span>
+        <span class="tag">/psfl:flow「开发」/ /psfl:coding:resume → 不声明，intake 粗判（落默认 standard）</span>
         <span style="font-size:11px;color:#444;margin-left:6px;">权威判定仍在 specify 出口</span>
       </div>
     </div>
@@ -124,7 +125,7 @@
       <table class="disc">
         <tr><th>类别</th><th>规则</th></tr>
         <tr><td>技能引用</td><td><span class="cmd">polaris:coding:verify</span>（<b>无斜杠</b>）；命令引用 <span class="cmd">/psfl:coding:tweak</span>（带斜杠）；<b>「技能名加斜杠」是坏引用</b></td></tr>
-        <tr><td>菜单编号</td><td>C01 / M01 / R02 / P01 / T01 只属于<b>命令层</b>；技能内指路用技能名，禁止反向引用命令或菜单编号；档位用 tweak / normal / strict 表述</td></tr>
+        <tr><td>菜单编号</td><td><span class="cmd">M01</span> / <span class="cmd">R02</span> / <span class="cmd">P01</span> / <span class="cmd">T01</span> 这类编号只属于<b>命令层</b>；技能内指路用技能名，禁止反向引用命令或菜单编号；档位用 tweak / normal / strict 表述</td></tr>
         <tr><td>state 写入</td><td>一律 <span class="cmd">scripts/task-state-entry.sh</span>，<b>禁止直写 yaml 块</b>；字段缺失是常态（draft-create 只写 kind: coding，骨架不落盘），靠增量长出</td></tr>
         <tr><td>候选呈现</td><td><span class="cmd">&lt;task_id&gt; (工作流：&lt;mode_label&gt;，阶段：&lt;phase_label&gt;，技能：&lt;skill_label&gt;)</span> 单行格式</td></tr>
         <tr><td>双语言</td><td>先写 <span class="cmd">assets/zh/</span>，用户确认后再同步英文；<b>未同步前不写 Changelog</b>；改技能后测试全绿方可提交</td></tr>

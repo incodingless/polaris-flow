@@ -12,11 +12,14 @@
 - **`intake` HARD-GATE 措辞拆分**: 把「禁止判断需求是否合格」精确拆为「intake 判需求性质（是不是功能开发）、不判需求质量（够不够详细）」，消除准入与澄清的职责混淆
 - **risk-signals 重构**: 删除被两轴模型取代的原 §3 降档门 + §4 升档信号，保留档位映射 / glob 兜底 / 两轴合成；消费切片改为三技能各持判据（intake / specify / verify 各自私有 policy，同源标注）
 - **specify 判档切两轴**: Step 5.4.1 分级初判与 Step 5.5 出口判档从「降档门 / 升档信号」改为「幅度 × 深度合成矩阵 + 风险一票」；留痕字段与状态行同步改记幅度档 / 深度档 / 风险项
+- **flow 开发入口取消复杂度分档**: `flow.md` 第 2 级删除 C01 / C02 / C03 三个选项——选「开发」后不再问复杂度，直接进附加上下文收集并加载 `coding/intake`（**不声明档位**）；档位改由 intake 入口粗判（信息不足落默认 `standard`）+ `specify` 出口冻结决定。已知档位可直跑 `/psfl:coding:tweak|normal|strict`，接续在途任务走 `/psfl:coding:resume`；原「阶段链与产物」表按档位（`tweak` / `normal` / `strict`）重写，不再是菜单选项
 
 ### Fixed
 
 - **非需求输入被 coding 接受**: 此前只做「非空」校验，代码迁移设计方案 / 开发思路等非需求输入会照单全收进入澄清；现按性质判定拒绝并给出路由 / 补全提示
 - **flow.md 文档断层**: HARD-STOP #11 声称「需求三要素判定由 intake Step 2 执行」，但 Step 2 实为入口判档、从未实现该判定；改为指向 Step 3 准入性质判定，交接口径同步修正
+- **flow.md 交接说明编号笔误**: debug 交接项写作「M01 生产 / M04 测试」，M04 并不存在，改为 M02
+- **旧编号 C0x 残留清理**: `coding/tweak.md` / `normal.md` / `strict.md` 的 description 去掉「C01 / C02 / C03 单入口」前缀；`docs/releases/使用者速查卡.html` 与 `维护者速查卡.html` 的入口判档说明由「C0x → 档位」改为按命令名声明档位 + flow「开发」类别不声明档位，并补 `/psfl:coding:resume` 的续跑路径；`AGENTS.md` 的编号边界去掉 C 前缀举例、明确「开发」类别无编号，档位表述由「完整链路」改为 `strict`；使用者速查卡命令表补 `coding:resume` 一行（13 → 14 个命令）
 - **简单功能优化被误判常规需求**: 原降档门判据引用 design.md / specs 等下游产物，在入口 / 出口判定点均不可用，简单需求被锁死 normal；改为两轴判定后，「改核心模块单字段」这类幅度小、落点深的变更能正确判 critical，简单需求（点 × 表层）能正确落 trivial
 - **coding 族 frontmatter 补齐 version**: build / design / retro / ship / tasks / verify 六个技能缺 `version` 字段，补齐为 `0.1`，与同族其余六个技能一致
 - **design 技能笔误修复**: 模板文件 `domain-model-disign-template.md` 拼写错误（disign→design）并同步 design-domain-model-policy.md / detailed-design-precheck.md 三处引用；`design/SKILL.md` 的 `.polaris/policies/outside-voice.md` 路径笔误改为 `./policies/outside-voice.md`
