@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prd{{SKN_SPR}}ship
 description: "已经定稿的产品需求文档交付至指定的文档位置、任务收尾。交付前执行研发就绪度评估（五维度加权评分与双门槛准出判定），满足条件时可免评（仍须输出 PASS（免评）结论与审计记录），判定不通过则阻断交付并回退 refine 修复。用户触发 /polaris{{SKN_SPR}}prd{{SKN_SPR}}ship，或在 refine 完成后要求交付 / 合回 / 归档 / 完结一个任务时必须使用本 skill。"
-version: 0.5
+version: 0.7
 ---
 
 # 编写产品需求-交付PRD终稿
@@ -33,7 +33,7 @@ EXIT_CODE=$?
 
 - **唯一匹配**：直接读取 `task_id`
 - **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 ship 阶段的活动任务，请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}refine」
+- **零匹配**：阻断，提示「未找到 ship 阶段的活动任务：标准/复杂档请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}refine，简单档（tweak）请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}draft」
 
 > 若选择的任务已是 `phase=ship`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
 > 若上次中断在 ship 中（`ship.status=in_progress` / apply paused），从中断点续跑；不得因「已是 draft」而报零匹配。
@@ -115,7 +115,7 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
 
 ### 1.4 执行评估
 
-**编排方式**：与 `polaris{{SKN_SPR}}prd{{SKN_SPR}}refine` Step 3.0/3.1 相同——本步 `task_type: doc_review` → **必须先 probe**（H10；probe 自身优先读 `$SUBAGENT_PROBE_CACHE`）→ 选定 agent → `subagent-dispatch`。注入已为 `inline|unsupported` 时**不派发**（转降级分支，不涉及 probe）。
+**编排方式**：与 `polaris{{SKN_SPR}}prd{{SKN_SPR}}refine` Step 4.0/4.1 相同——本步 `task_type: doc_review` → **必须先 probe**（H10；probe 自身优先读 `$SUBAGENT_PROBE_CACHE`）→ 选定 agent → `subagent-dispatch`。注入已为 `inline|unsupported` 时**不派发**（转降级分支，不涉及 probe）。
 
 - `task_type`：`doc_review`
 - `materials`：

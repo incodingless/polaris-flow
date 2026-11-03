@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery
 description: 触发场景：用户给出需求文档或想法，需要先理清需求、识别并澄清模糊点、推导功能架构（如「探索需求」「澄清需求」「需求理解」「需求基线」「梳理功能架构」「做需求 discovery」）。本技能覆盖单个阶段：探索并澄清需求，输出需求基线（含功能架构草案）。
-version: 0.7
+version: 0.9
 ---
 # 编写产品需求-探索并澄清需求
 
@@ -12,6 +12,7 @@ version: 0.7
 - **定向扫描不越界**：资源加载严格以检索关键词为边界，禁止无目的泛读；隐性信息捕获必须有明确资源支撑。
 - **澄清问题封闭化**：所有待澄清问题必须具体、可直接作答，禁止出现 “还有什么补充” 这类宽泛问题。
 - **变更全程可追溯**：所有需求变更必须记录前后对比与依据，禁止静默修改需求基线。
+- **敏感信息不入档**：密钥、Token、口令、证书、真实个人身份信息与生产数据样例不得写入需求基线、澄清纪要或终稿；确需引用时脱敏为示例值或只记「见 <来源路径/系统>，未摘录」。
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow PRD] 进入阶段: 探索并澄清需求 — 使用 polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery 技能。`
@@ -60,6 +61,12 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
 
 存在活跃任务时，**必须**按 `./policies/decision-point.md` 暂停询问：
 
+> **删除类选项（B 的「重新开始」与 C）执行前必须先清点、再二次确认**，两步都不可跳过：
+>
+> 1. **清点**：只读列出将删除的任务目录及目录内已有产物（基线 / 纪要 / 章节稿），回显「将删除 N 个目录：<id>…，其中 M 个已有产物，删除后不可恢复」；
+> 2. **确认**：按 `./policies/decision-point.md` 单独确认一次（确认删除 / 取消）；未确认不得执行任何删除命令；
+> 3. **执行**：路径只能由 `$REPO_ROOT/.polaris/tasks/` 与 `task_id` 直接拼接；禁止通配符（`tasks/*`），禁止操作 `.polaris` 或其上级目录；`task_id` 为空、`.`、`..` 或含 `/` 时中止并报告。
+
 - **A. 继续最近任务**：`task_id` = 列表最后一项 → 进入 Step 1.5
 - **B. 选择一个**：列出所有 `task_id` 候选让用户选择之后，再发出以下询问：
 
@@ -70,14 +77,17 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
   >
 
   ```bash
-  rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
+  # 仅在上面的清点回显与二次确认都完成后执行
+  case "$task_id" in ""|.|..|*/*) echo "非法 task_id：已中止" >&2; exit 2;; esac
+  rm -rf -- "$REPO_ROOT/.polaris/tasks/$task_id"
   node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id"
   ```
-- **C. 丢弃所有**：对每个 id 执行下列命令后，进入 Step 2
+- **C. 丢弃所有**：清点并二次确认后，对每个 id 执行下列命令，再进入 Step 2
 
 ```bash
 for d in <ACTIVE_RESULT 列表>; do
-  rm -rf "$REPO_ROOT/.polaris/tasks/$d"
+  case "$d" in ""|.|..|*/*) echo "非法 task_id：$d，已中止" >&2; exit 2;; esac
+  rm -rf -- "$REPO_ROOT/.polaris/tasks/$d"
   node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$d"
 done
 ```
@@ -574,13 +584,15 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --set workflow.mode=<档>
 ```
 
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `draft` 就在这一步）：
+2. 推进阶段游标（下一段由 `workflow.mode` 从阶段表派生，本技能不指定）：
 
 ```bash
 node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
-  --phase discovery --next-phase draft
+  --phase discovery
 ```
+
+> **禁止传 `--next-phase`**：显式值会覆盖按档派生，简单档将无法跳过 `refine`。
 
 3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
    先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**

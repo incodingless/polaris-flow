@@ -6,6 +6,8 @@
 
 - **coding 准入性质判定**: `intake` Step 3 准入从「需求内容非空」升级为「非空 + 性质判定」——新增私有 policy `coding/intake/policies/requirement-admission.md`，对输入做功能开发 / 缺陷修复 / 非开发输入三分类；非功能开发输入（迁移方案 / 开发思路 / 设计文档 / 排期 / 闲聊）拒绝并路由，缺陷修复拒绝并路由 debug 族
 - **实现复杂度两轴判定模型**: 新增 `coding/specify/policies/implementation-complexity.md`（变更幅度 × 落点深度 + 风险一票，4×4 合成矩阵定档），取代 risk-signals 的降档门 / 升档信号；配套 `intake/policies/entry-tiering.md`（入口粗判只判幅度轴）与 `verify/policies/complexity-review.md`（用 diff 复核深度轴 + 风险）
+- **PRD 终稿新增「页面与交互」节**: 第 5 章补 5.3（页面清单 / 页面信息架构 / 跳转与返回 / 交互状态六态全集 / 界面文案与校验提示），补上 UI 与交互设计这条读者线——此前只有功能点级的「UI 交互说明」，设计师需自行从功能点反推页面；配套加勾稽（有界面的功能点必须在页面清单落位）与第 5 章界面覆盖自检
+- **PRD 族前置条件声明**: README 新增「前置条件」表——`polaris-flow` CLI、`$PLUGIN_ROOT`/`$REPO_ROOT` 注入、Node ≥ 20、subagent 能力与降级、终端语义，并逐项写明缺失时的行为；此前环境不满足只能在 Step 0 报错时才知道
 
 ### Changed
 
@@ -13,6 +15,10 @@
 - **risk-signals 重构**: 删除被两轴模型取代的原 §3 降档门 + §4 升档信号，保留档位映射 / glob 兜底 / 两轴合成；消费切片改为三技能各持判据（intake / specify / verify 各自私有 policy，同源标注）
 - **specify 判档切两轴**: Step 5.4.1 分级初判与 Step 5.5 出口判档从「降档门 / 升档信号」改为「幅度 × 深度合成矩阵 + 风险一票」；留痕字段与状态行同步改记幅度档 / 深度档 / 风险项
 - **flow 开发入口取消复杂度分档**: `flow.md` 第 2 级删除 C01 / C02 / C03 三个选项——选「开发」后不再问复杂度，直接进附加上下文收集并加载 `coding/intake`（**不声明档位**）；档位改由 intake 入口粗判（信息不足落默认 `standard`）+ `specify` 出口冻结决定。已知档位可直跑 `/psfl:coding:tweak|normal|strict`，接续在途任务走 `/psfl:coding:resume`；原「阶段链与产物」表按档位（`tweak` / `normal` / `strict`）重写，不再是菜单选项
+- **PRD refine 步骤编号统一**: 正文以 `### Step 0~6` 为准，把并存的 `S2.5 / S3 / S4` 一套、以及指向不存在步骤的「Step 3.3」「refine Step 3.0/3.1」全部校正为 `Step 3 合并 / 4 评审 / 4.3 修复 / 4.0~4.1`，README 的流程表与双评审子步骤同步改号——编号是中断恢复的坐标系，留两套会让续跑找错位置
+- **PRD draft 模板与 5 文件流程对齐**: 删掉模板里多出的「五、更新记录（05-更新记录.md）」与「六、待决事项」「七、图表索引」两个伪章节，待决事项并入 02 章与风险提纲并列、图表索引归文档头部；SKILL 侧「6 章文件名不变」「04/05 版本记录」改为「5 个分章文件」「04-版本记录」，模板与产物不再错位
+- **PRD 复杂度定档补冲突仲裁**: 主轴与 §2 评分表并存可能给出不同档位，新增 §4.3 仲裁——主轴结论优先、高危信号优先于主轴、主轴无法判定时按评分表定档并标注；回显须同时给出三项，不一致且未标仲裁依据视为定档未完成
+- **PRD 评审报告模板瘦身**: `review` / `testability` 报告模板删掉与 SKILL.md 完全重复的「检查点逐项记录」表（7 + 4 张，含整列检查方法），改为一张维度覆盖汇总表 + 按维度的问题明细；检查点定义以 SKILL.md 为唯一源，模板从 405/409 行降到 325/360 行，每次评审少读一整份重复内容
 
 ### Fixed
 
@@ -23,6 +29,20 @@
 - **简单功能优化被误判常规需求**: 原降档门判据引用 design.md / specs 等下游产物，在入口 / 出口判定点均不可用，简单需求被锁死 normal；改为两轴判定后，「改核心模块单字段」这类幅度小、落点深的变更能正确判 critical，简单需求（点 × 表层）能正确落 trivial
 - **coding 族 frontmatter 补齐 version**: build / design / retro / ship / tasks / verify 六个技能缺 `version` 字段，补齐为 `0.1`，与同族其余六个技能一致
 - **design 技能笔误修复**: 模板文件 `domain-model-disign-template.md` 拼写错误（disign→design）并同步 design-domain-model-policy.md / detailed-design-precheck.md 三处引用；`design/SKILL.md` 的 `.polaris/policies/outside-voice.md` 路径笔误改为 `./policies/outside-voice.md`
+- **PRD 简单档轻量链路未生效**: 0.8.0 已为 `requirement` 声明 `tweak = discovery → draft → ship`，但 `discovery` / `draft` / `refine` 三个技能仍显式传 `--next-phase`，覆盖了按 `workflow.mode` 的派生，简单需求被强推进终稿阶段；改为不指定下一段、由阶段表派生，标准 / 复杂档序列不变，简单档按设计跳过 `refine`
+- **PRD 简单档误入终稿阶段**: `refine` 入口新增档位校验，`workflow.mode=tweak` 直接阻断并指向 `ship`，不再对简单需求产出 11 章终稿与双评审
+- **PRD ship 阻断提示误导**: 零匹配提示原先只说「请先执行 refine」，简单档照做会再次碰壁；改为按档分流（标准 / 复杂 → `refine`，简单 → `draft`）
+- **PRD draft 语言探测命令语法错误**: `LANG = $(...)` / `LANG_EXIT = $?` 的等号带空格在 bash 中不是赋值，改为 `LANG=$(...)` / `LANG_EXIT=$?`
+- **PRD 族陈旧引用清理**: README 目录结构把 `prd_template.md` 写成 `prd-template.md`，并列出已不存在的 `backup/` 与 `prototype/{generate,review}`（实为 `{blueprint,build,review}`）；`review` / `testability` 的 description 仍写「refine 的 Step3 调用」，统一改为 Step 4 调度
+
+### Tests
+
+- **PRD 阶段推进守卫**: 新增 `test/ts/prd-skill-next-phase-guard.test.ts`，断言 prd 族技能不显式传 `--next-phase`、且 `complete-phase` 调用必带 `--kind requirement`，防止简单档轻链路再次被写死参数覆盖
+
+### Security
+
+- **PRD 删除类操作加保护**: `discovery` 的「重新开始 / 丢弃所有」在删除前必须先清点回显（将删目录数 + 其中已有产物数）并单独二次确认；删除改用 `rm -rf --` 且路径只接受 `$REPO_ROOT/.polaris/tasks/<task_id>` 直接拼接，禁止通配符与 `.polaris` 上级目录，`task_id` 为空 / `.` / `..` / 含 `/` 时立即中止
+- **PRD 敏感信息不入档**: `discovery` HARD-GATE 新增——密钥、Token、口令、证书、真实个人身份信息与生产数据样例不得写入需求基线、澄清纪要或终稿，确需引用时脱敏或只记「见来源，未摘录」
 
 ## What's Changed [0.8.0] - 2026-10-30
 

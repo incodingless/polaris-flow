@@ -129,7 +129,7 @@ export const TASK_KIND_LAYOUTS: Record<WorkflowTaskKind, TaskKindLayout> = {
     bootstrapFiles: [],
     phases: [
       { code: 'specify', name: '澄清', group: '澄清与方案', skill: null },
-      { code: 'plan', name: '提案', group: '澄清与方案' },
+      { code: 'plan', name: '规划', group: '澄清与方案' },
       { code: 'design', name: '深度设计', group: '澄清与方案', optional: true },
       { code: 'tasks', name: '任务规划', group: '实现' },
       { code: 'build', name: '构建', group: '实现' },
