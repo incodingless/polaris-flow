@@ -522,7 +522,7 @@ export function phaseLabel(kind: WorkflowTaskKind, phase: string): string {
  *
  * 来源只有两处、都用既有表，**不新增映射**：
  *   1. 技能名命中该 kind 的阶段码 → 取该阶段中文名
- *      （`specify`→澄清、`plan`→提案、`build`→构建、`design`→深度设计 …）
+ *      （`specify`→澄清、`plan`→规划、`build`→构建、`design`→深度设计 …）
  *   2. 否则命中通道名 → 取通道中文名（单技能通道：`tweak`→简单、`normal`→常规）
  *
  * 都未命中返回空串（显示层退回只显英文），**不猜**。

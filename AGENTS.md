@@ -1,7 +1,8 @@
 ## 通用认知
+
 - Do not preserve backward compatibility. Removeobsolete paths instead of adding compatibility layers, fallbacks, or migrations
 - Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection.
-- Grow the system in layers. Start from the smallest version that works end to end, and add each new capability on topof a product that already works. Never trade a working product for unfinished complexity.
+- Grow the system in layers. Start from the smallest version that works eend to end, and add each new capability on topof a product that already works. Never trade a working product for unfinished complexity.
 - Keep components modular and concerns clearly separated.
 - Prefer established, well-maintained libraries when they reduce overall complexity or improve reliability. Do not reimplement common functionality without a clear reason.
 - Lean on the dependencies already in the projedct before writing your own implementation or adding packages. Do not assume a library lacks a capability without checking its documentatiion and types.
@@ -39,8 +40,6 @@ polaris-flow/
 ├── devops/         # 维护者构建/发布/打包脚本（build/publish/package 等）
 └── dist/           # 构建产物：dist/*（后端 tsc）、dist/web（前端 vite）
 ```
-
-`polaris-web` 与 `polaris-cli` 两仓已于 2026-09-18 并入本仓，不再单独存在。前端**不得**放进 `src/` 下 —— `lint-staged` / `format:check` / `lint` 三条 glob 均以仓库根锚定且只覆盖 `src/**`，放进去会被 prettier 重排（本仓 `semi: true`，前端风格是不写分号）。
 
 依赖方向：`cli → commands → core → utils`，禁止反向依赖。
 
@@ -125,15 +124,11 @@ pnpm test           # 单元测试
 
 ## 脚本依赖关系
 
-```
-
-```
-
 新增共享工具函数时（如 hash、yaml 解析），如果两个脚本都需要，允许在各自脚本中独立实现，不强制抽共享文件。
 
 ## 双语言 Skill
 
-skill 优化时只写中文版本（`assets/zh/skills/`）。
+skill 优化时只写中文版本（`assets/zh/skills/`）；英文版（`assets/en/skills/`）**现阶段不存在维护义务**——待中文版本稳定之后再写英文版本，期间不与中文版同步。
 
 ## 编号边界（命令 vs 技能）
 

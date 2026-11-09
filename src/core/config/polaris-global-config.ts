@@ -5,6 +5,7 @@
 
 import path from 'path';
 import { readJsonObjectOrEmpty } from '../../utils/json-io.js';
+import { localIso } from '../../utils/time.js';
 
 /** 全局配置 */
 export interface PolarisGlobalConfig {
@@ -22,7 +23,7 @@ export interface PolarisGlobalConfig {
  */
 export function createDefaultPolarisGlobalConfig(): PolarisGlobalConfig {
   return {
-    install_time: new Date().toISOString(),
+    install_time: localIso(),
     version: '0.1.0',
   };
 }

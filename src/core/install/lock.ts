@@ -10,6 +10,7 @@ import { writeFile } from 'fs/promises';
 
 import { ensureDir, fileExists } from '../../utils/file-system.js';
 import { readJsonObjectOrEmpty } from '../../utils/json-io.js';
+import { localIso } from '../../utils/time.js';
 import type { InstallScope } from '../config/polaris-project-config.js';
 import type { PolarisAssetKind } from './types.js';
 
@@ -83,7 +84,7 @@ export async function writeLockFile(
     scope,
     platforms: platformIds,
     sources: sourceEntries,
-    installedAt: new Date().toISOString(),
+    installedAt: localIso(),
   };
   if (assets) {
     lock.assets = assets;

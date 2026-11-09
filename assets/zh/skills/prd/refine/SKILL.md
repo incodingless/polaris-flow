@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prd{{SKN_SPR}}refine
 description: 基于已确认的PRD初稿与需求基线（Baseline），严格遵循prd-template.md标准模板生成正式产品需求终稿。支持L2级代码验证（数据模型/接口契约与真实代码对齐）、基线-终稿双向追溯、7维度完整评审与可测性检查、人工评审支撑包输出。适用于企业级B端系统的正式需求文档交付场景。触发场景：(1) 用户提供PRD初稿并要求生成终稿；(2) 用户提到"PRD终稿"、"需求文档定稿"、"基于初稿补全终稿"；(3) 需要将初稿扩展为含数据模型、状态流转、非功能需求的完整交付文档。
-version: 0.5
+version: 0.6
 ---
 # 编写产品需求-编写PRD终稿
 
@@ -48,15 +48,16 @@ version: 0.5
 
 ### Step 0：状态检查与中断恢复
 
+运行以下命令（**直接读 stdout 与退出码**，不做 shell 变量捕获）：
+
 ```bash
-TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill refine --repo-root "$REPO_ROOT" --phase refine)
-EXIT_CODE=$?
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill refine --repo-root "$REPO_ROOT" --phase refine
 ```
 
-- `EXIT_CODE != 0` → **阻断**，按 stderr 处理
-- `EXIT_CODE == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+- 退出码 `!= 0` → **阻断**，按 stderr 处理
+- 退出码 `== 0` → stdout 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-按 `$TASK_IDS` 数组长度解读：
+按返回数组长度解读：
 
 - **唯一匹配**：直接读取 `task_id`
 - **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
@@ -81,17 +82,10 @@ EXIT_CODE=$?
 node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase refine
 ```
 
-2. 设置语言
+2. 设置语言：运行 `node "$PLUGIN_ROOT/scripts/get-language-name.mjs"`，取 stdout 作为产物语言。
 
-执行脚本：
-
-```bash
-LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")
-LANG_EXIT=$?
-```
-
-- `LANG_EXIT != 0` → 使用当前用户请求语言
-- `LANG_EXIT ==0` → 本阶段所有提问与澄清摘要均采用 $LANG。
+- 退出码 `!= 0` → 使用当前用户请求语言
+- 退出码 `== 0` → 本阶段所有提问与澄清摘要均采用该语言。
 
 输出：`[polaris-flow 需求工程] 编写终稿: task_id=<task_id>`
 

@@ -16,6 +16,7 @@ import {
   getWorktreeRoot,
 } from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
+import { localIso } from '../../utils/time.js';
 
 export type CreateResult = {
   exitCode: number;
@@ -140,7 +141,7 @@ export async function create(changeId: string, mainRepoRoot: string): Promise<Cr
 
   const stateFile = getTaskStatePath(targetPath, changeId);
   if (await fileExists(stateFile)) {
-    const createdAt = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const createdAt = localIso();
     await appendFile(
       stateFile,
       [

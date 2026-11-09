@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prd{{SKN_SPR}}draft
 description: 触发场景：用户持有「需求基线 Baseline」与「需求澄清纪要」，需要人机协同逐章产出 PRD 初稿（如「写产品需求」「根据需求基线生成PRD初稿」「结合澄清纪要写需求文档」「PRD初稿」「需求规格初稿」「把基线展开成需求文档」）。本技能覆盖单个阶段：基于基线 + 澄清纪要，逐章生成 PRD 初稿并交叉校验。内置 B 端 PRD 人工编写最佳实践：复杂度分级裁剪、问题-方案-目标逻辑、架构图+流程图视觉语言、MoSCoW 优先级、风险前置、重点突出与无歧义语言、初稿边界检查。
-version: 0.5
+version: 0.6
 ---
 # 编写产品需求-编写PRD初稿
 
@@ -24,15 +24,16 @@ version: 0.5
 
 ### Step 0：定位任务标识 + 入口校验
 
+运行以下命令（**直接读 stdout 与退出码**，不做 shell 变量捕获）：
+
 ```bash
-TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill draft --repo-root "$REPO_ROOT" --phase draft)
-RTID_EXIT=$?
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill draft --repo-root "$REPO_ROOT" --phase draft
 ```
 
-- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+- 退出码 `!= 0` → **阻断**，按 stderr 处理
+- 退出码 `== 0` → stdout 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-按 `$TASK_IDS` 数组长度解读：
+按返回数组长度解读：
 
 - **唯一匹配**：直接读取 `task_id`
 - **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
@@ -57,17 +58,10 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase draft
 ```
 
-2. 设置语言
+2. 设置语言：运行 `node "$PLUGIN_ROOT/scripts/get-language-name.mjs"`，取 stdout 作为产物语言。
 
-执行脚本：
-
-```bash
-LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")
-LANG_EXIT=$?
-```
-
-- `LANG_EXIT != 0` → 使用当前用户请求语言
-- `LANG_EXIT == 0` → 本阶段所有提问与澄清摘要均采用 $LANG。
+- 退出码 `!= 0` → 使用当前用户请求语言
+- 退出码 `== 0` → 本阶段所有提问与澄清摘要均采用该语言。
 
 输出：`[polaris-flow 需求工程] 编写初稿: task_id=<task_id>`
 
@@ -95,7 +89,7 @@ LANG_EXIT=$?
 ```bash
 node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
-  --set draft.gate.checked_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --set draft.gate.checked_at=@now \
   --set draft.gate.baseline_id=<Baseline 标识> \
   --set draft.gate.clarify_summary_id=<澄清纪要标识，无则 null> \
   --set draft.gate.complexity=<简单/标准/复杂> \

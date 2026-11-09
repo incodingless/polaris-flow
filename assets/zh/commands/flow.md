@@ -29,16 +29,17 @@ description: Polaris Flow 总入口。按平台查表选用询问工具，先选
 命令文件是宿主中立的 Markdown，安装位置旁没有 `policies/` 目录，因此**内联**本命令所需的
 询问工具注册表（与共享策略 `policies/ask-question-react.md` 保持一致，若冲突以策略文件为准）。
 
-**查表步骤**：读 `.polaris/config.yaml` 的 `platform` 字段 → 按下表确定工具名与能力 → 用查得的工具发问。
+**查表步骤**：读 `.polaris/config.yaml` 的 `platforms` 字段（**列表**，取第一个命中下表的 id）→ 按下表确定工具名与能力 → 用查得的工具发问。列表为空、字段缺失或全部未登记 → 走文本降级模式。
 
-| `platform` | 询问工具 | 单次多 question | 单 question 选项上限 |
-|---|---|---|---|
-| `trae` | `AskUserQuestion` | 支持 | 5 |
-| `trae-cn`     | `AskUserQuestion` | 支持 | 5 |
-| `cursor` | `AskUserQuestion` | 支持 | 5 |
-| `qoder` | — | — | 走文本降级模式 |
-| `claude`      | `AskUserQuestion` | 支持 | 5 |
-| 未登记 / 读不到 config | — | — | 走文本降级模式 |
+| `platforms` 命中项 | 询问工具 | 单次多 question | 单 question 选项上限 | 支持 multiSelect |
+|---|---|---|---|---|
+| `trae` | `AskUserQuestion` | 支持 | 5 | 支持 |
+| `trae-cn`     | `AskUserQuestion` | 支持 | 5 | 支持 |
+| `cursor` | `AskUserQuestion` | 支持 | 5 | 支持 |
+| `qoder` | — | — | 走文本降级模式 | — |
+| `claude`      | `AskUserQuestion` | 支持 | 5 | 支持 |
+| `codebuddy` / `workbuddy` | `AskUserQuestion` | 支持 | 5 | 支持 |
+| 未登记 / 读不到 config | — | — | 走文本降级模式 | — |
 
 **文本降级模式**：无法确定平台或询问工具不可用时，在对话中逐个输出编号选项
 （`A. … / B. … / C. …`）+ 每项影响 + 要求用户回复编号，然后停止等待。降级后下一个决策点

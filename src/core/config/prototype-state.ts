@@ -7,6 +7,7 @@ import path from 'path';
 import { stringify as stringifyYaml } from 'yaml';
 
 import { ensureDir } from '../../utils/file-system.js';
+import { localIso } from '../../utils/time.js';
 
 /** 阶段子块（blueprint / build / review / ship 共用） */
 export type PrototypePhaseBlock = {
@@ -80,7 +81,7 @@ export function createDefaultPrototypeState(
   });
   return {
     language: options.language ?? 'zh',
-    create_time: new Date().toISOString(),
+    create_time: localIso(),
     task_id: taskId,
     kind: 'prototype',
     name: options.name ?? '',

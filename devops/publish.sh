@@ -236,8 +236,11 @@ step 7 "发布到 $REGISTRY"
 confirm "确认发布 $PKG@$VERSION 到上面这个 registry？" || die "已取消"
 
 info "npm publish（prepublishOnly 会跑密钥扫描 + build，耗时几分钟属正常）"
-# 覆盖已存在版本靠 Nexus 的 Allow Redeploy，不是 npm 参数，故 --force 只影响本脚本的前置检查
-npm publish --registry "${REGISTRY}/"
+# 覆盖已发布版本需要两道都过：npm 客户端会自查「cannot publish over previously published」，
+# 须把 --force 传给 npm 让请求真正发到 Nexus，再由 Nexus 的 Allow Redeploy 决定是否覆盖落盘
+FORCE_ARGS=''
+[ "$FORCE" = true ] && FORCE_ARGS='--force'
+npm publish $FORCE_ARGS --registry "${REGISTRY}/"
 
 # ----------------------------------------------------------- 发布后验证
 echo ""

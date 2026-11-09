@@ -128,7 +128,10 @@ async function resolveRepoAndMain(
 /**
  * 脏工作区则返回失败结果；干净返回 null。
  */
-function dirtyBlockResult(root: string, actionHint: string): { exitCode: number; message: string } | null {
+function dirtyBlockResult(
+  root: string,
+  actionHint: string,
+): { exitCode: number; message: string } | null {
   try {
     if (!isWorkingTreeDirty(root)) return null;
     let current = '';

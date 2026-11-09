@@ -1,5 +1,15 @@
 # Changelog
 
+## What's Changed [0.9.1] - 2026-11-09
+
+### Fixed
+
+- **state.yaml 时间戳为 UTC 导致误读**: 所有时间记录统一走 `new Date().toISOString()`，落盘形如 `started_at: 2026-11-09T06:37:48Z`——人裸读会把 `06:37` 当本地时间（实际是北京 14:37），被当成「时间记录错误」误报；新增 `src/utils/time.ts` 的 `localIso()` 输出本地时区 ISO（`2026-11-09T14:37:48+08:00`，仍可被 `new Date()` 解析，排序 / 比较语义不变），替换 state / workflow / task 游标、锁文件、install-time、create_time 等 15 处写入点；存量 UTC 串无需迁移，两种格式均可解析
+
+### Tests
+
+- **localIso 时间格式化测试**: 新增 `test/ts/utils-time.test.ts`，覆盖本地时区偏移格式（`±HH:MM`）、与输入时刻的往返一致性、GMT+8 换算（`06:37:48Z` → `14:37:48+08:00`）与缺省当前时间可解析性
+
 ## What's Changed [0.9.0] - 2026-10-30
 
 ### Added
@@ -8,9 +18,11 @@
 - **实现复杂度两轴判定模型**: 新增 `coding/specify/policies/implementation-complexity.md`（变更幅度 × 落点深度 + 风险一票，4×4 合成矩阵定档），取代 risk-signals 的降档门 / 升档信号；配套 `intake/policies/entry-tiering.md`（入口粗判只判幅度轴）与 `verify/policies/complexity-review.md`（用 diff 复核深度轴 + 风险）
 - **PRD 终稿新增「页面与交互」节**: 第 5 章补 5.3（页面清单 / 页面信息架构 / 跳转与返回 / 交互状态六态全集 / 界面文案与校验提示），补上 UI 与交互设计这条读者线——此前只有功能点级的「UI 交互说明」，设计师需自行从功能点反推页面；配套加勾稽（有界面的功能点必须在页面清单落位）与第 5 章界面覆盖自检
 - **PRD 族前置条件声明**: README 新增「前置条件」表——`polaris-flow` CLI、`$PLUGIN_ROOT`/`$REPO_ROOT` 注入、Node ≥ 20、subagent 能力与降级、终端语义，并逐项写明缺失时的行为；此前环境不满足只能在 Step 0 报错时才知道
+- **询问协议打通多选题**: 平台询问注册表（`policies/ask-question-react.md` 与 `flow.md` 内联表）新增「支持 multiSelect」能力列——AskUserQuestion 系平台每个 question 独立传 `multiSelect: true/false`（不得省略）；不支持多选的平台禁止发多选题，改拆单选或文本降级；文本降级格式同步标注「多选题可回复多个编号」——此前宿主工具原生支持多选但协议层未登记，SKILL 声明的「多选」无传参依据
 
 ### Changed
 
+- **dev.sh 全流程发布统一带 --force**: 菜单 99（2→4→8→5 全流程构建）的发布步骤改为 `publish.sh --force`——版本号已发布过时允许经 Nexus Allow Redeploy 覆盖，不再因「版本已存在」中断整条链；单独发版（菜单 8）保持不带 --force，维持「先升版本号」的正常路径
 - **`intake` HARD-GATE 措辞拆分**: 把「禁止判断需求是否合格」精确拆为「intake 判需求性质（是不是功能开发）、不判需求质量（够不够详细）」，消除准入与澄清的职责混淆
 - **risk-signals 重构**: 删除被两轴模型取代的原 §3 降档门 + §4 升档信号，保留档位映射 / glob 兜底 / 两轴合成；消费切片改为三技能各持判据（intake / specify / verify 各自私有 policy，同源标注）
 - **specify 判档切两轴**: Step 5.4.1 分级初判与 Step 5.5 出口判档从「降档门 / 升档信号」改为「幅度 × 深度合成矩阵 + 风险一票」；留痕字段与状态行同步改记幅度档 / 深度档 / 风险项
@@ -19,9 +31,13 @@
 - **PRD draft 模板与 5 文件流程对齐**: 删掉模板里多出的「五、更新记录（05-更新记录.md）」与「六、待决事项」「七、图表索引」两个伪章节，待决事项并入 02 章与风险提纲并列、图表索引归文档头部；SKILL 侧「6 章文件名不变」「04/05 版本记录」改为「5 个分章文件」「04-版本记录」，模板与产物不再错位
 - **PRD 复杂度定档补冲突仲裁**: 主轴与 §2 评分表并存可能给出不同档位，新增 §4.3 仲裁——主轴结论优先、高危信号优先于主轴、主轴无法判定时按评分表定档并标注；回显须同时给出三项，不一致且未标仲裁依据视为定档未完成
 - **PRD 评审报告模板瘦身**: `review` / `testability` 报告模板删掉与 SKILL.md 完全重复的「检查点逐项记录」表（7 + 4 张，含整列检查方法），改为一张维度覆盖汇总表 + 按维度的问题明细；检查点定义以 SKILL.md 为唯一源，模板从 405/409 行降到 325/360 行，每次评审少读一整份重复内容
+- **PRD 族技能 node 化**: discovery / draft / refine / ship 的 bash 片段（变量捕获、循环、条件分支、文件操作、`$(date …)`）全部移除，技能内命令均为单条 node 调用，Windows 原生终端可直接执行；discovery 的删除流程收进新增 `discovery/scripts/drop-tasks.mjs`（dry-run 清点默认、`--confirm` 才删、task_id / 路径边界内建），ship 的交付迁移收进新增 `ship/scripts/deliver-prd.mjs`（mode 分档、冲突 exit 3 不覆盖、不写 state）
+- **task-state-entry 支持 `@now`**: `--set key=@now` 写入当前 UTC ISO 时间戳，技能无需再拼 `$(date -u …)`（bash 语法）；`append-active` 的 `started_at` 缺省由空串改为当前时间（与 task-entry create 同约定）——两处均为向后兼容增量，其他族现有用法不变
 
 ### Fixed
 
+- **publish.sh --force 挡不住 npm 客户端的重复版本检查**: `--force` 此前只放行脚本自身的重复发布前置检查，实际发布命令仍是不带参数的 `npm publish`——npm 客户端发布前会自查 packument，版本已存在时直接本地报「You cannot publish over the previously published versions」，请求根本到不了 Nexus，Allow Redeploy 无从生效；现按 `--force` 开关把参数透传给 npm publish，由客户端放行后交 Nexus Allow Redeploy 决定覆盖落盘（默认路径不带 --force，维持「先升版本号」）
+- **Trae 命令触发名不可用**: Trae 此前命令按 nested 布局落盘（`.trae/commands/psfl/coding/tweak.md`），实测触发名被宿主推导为 `/psfl/coding:tweak.md`（带 `.md` 且不折叠 `/`→`:`），且官方明确命令名仅支持小写字母 / 数字 / 短横线——预期的 `/psfl:coding:tweak` 形态无法成立；trae / trae-cn 改声明 `commandLayout: 'flat'`，命令扁平落盘为 `psfl-coding-tweak.md`，触发名 `/psfl-coding-tweak` = 文件名，`{{CMD_SPR}}` 随布局展开为 `-`，命令体交叉引用自动一致（与 Cursor 同构）
 - **非需求输入被 coding 接受**: 此前只做「非空」校验，代码迁移设计方案 / 开发思路等非需求输入会照单全收进入澄清；现按性质判定拒绝并给出路由 / 补全提示
 - **flow.md 文档断层**: HARD-STOP #11 声称「需求三要素判定由 intake Step 2 执行」，但 Step 2 实为入口判档、从未实现该判定；改为指向 Step 3 准入性质判定，交接口径同步修正
 - **flow.md 交接说明编号笔误**: debug 交接项写作「M01 生产 / M04 测试」，M04 并不存在，改为 M02
@@ -34,10 +50,14 @@
 - **PRD ship 阻断提示误导**: 零匹配提示原先只说「请先执行 refine」，简单档照做会再次碰壁；改为按档分流（标准 / 复杂 → `refine`，简单 → `draft`）
 - **PRD draft 语言探测命令语法错误**: `LANG = $(...)` / `LANG_EXIT = $?` 的等号带空格在 bash 中不是赋值，改为 `LANG=$(...)` / `LANG_EXIT=$?`
 - **PRD 族陈旧引用清理**: README 目录结构把 `prd_template.md` 写成 `prd-template.md`，并列出已不存在的 `backup/` 与 `prototype/{generate,review}`（实为 `{blueprint,build,review}`）；`review` / `testability` 的 description 仍写「refine 的 Step3 调用」，统一改为 Step 4 调度
+- **CodeBuddy / WorkBuddy 宿主询问全部掉到文本降级**: 平台询问注册表（`policies/ask-question-react.md` 与 `flow.md` 内联表）未登记 `codebuddy` / `workbuddy` 平台 id，这两类宿主下所有决策点查表落「未登记 → 文本降级」，人工交互失去选择框；现把两个 id 登回 `AskUserQuestion` 行（含单次多 question、5 槽选项能力），与 trae / claude / cursor 同能力
+- **询问注册表查表字段与 config 脱节**: `ask-question-react.md` 与 `flow.md` 均指示读 `.polaris/config.yaml` 的 `platform` 字段，但该字段自 2026-09-01 起已更名为 `platforms`（列表）——按字面执行查不到平台，一律落「未登记 → 文本降级」；现统一改为读 `platforms` 列表并取第一个命中注册表的 id，列表为空 / 字段缺失 / 全部未登记才走文本降级
 
 ### Tests
 
+- **阶段显示名改名同步测试**: `plan` 阶段中文名 提案→规划（e46bcec）后，`task-entry` / `workflow-entry` 共 6 处断言仍写死 `提案` 导致红测；同步为 `规划`，并修 `task-kind-layout.ts` 内与阶段表矛盾的文档注释；`detect.test.ts` 的 `beforeEach` 补残留清理（先 rm 再 mkdir），杜绝被中断的运行留下带 marker 的 `.tmp-detect-test` 污染下一次断言
 - **PRD 阶段推进守卫**: 新增 `test/ts/prd-skill-next-phase-guard.test.ts`，断言 prd 族技能不显式传 `--next-phase`、且 `complete-phase` 调用必带 `--kind requirement`，防止简单档轻链路再次被写死参数覆盖
+- **PRD node 化脚本与运行时增量测试**: 新增 `prd-drop-tasks`（task_id 校验、路径边界、清点无副作用、删除 + 游标打桩、失败码语义）与 `prd-deliver-prd`（mode 分档表、交付名拼装、命名缺失报错、拷贝实测）两组脚本测试；`parseSetValue('@now')` 与 `append-active` 缺省 `started_at` 各加断言
 
 ### Security
 

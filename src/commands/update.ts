@@ -42,6 +42,7 @@ import {
   type PlatformAssetFingerprints,
 } from '../core/install/lock.js';
 import { computeAssetFingerprints } from '../core/update/fingerprint.js';
+import { localIso } from '../utils/time.js';
 import { pruneOwnedFiles, type PrunableKind } from '../core/update/prune.js';
 import { resolveUpdatePlan, type UpdateDependency, type UpdatePlan } from '../core/update/scope.js';
 import {
@@ -415,8 +416,8 @@ export async function runUpdate(
       scope,
       platforms: platformIds.length > 0 ? platformIds : (previousLock?.platforms ?? []),
       sources: [...sourceEntries.values()],
-      installedAt: previousLock?.installedAt ?? new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      installedAt: previousLock?.installedAt ?? localIso(),
+      updatedAt: localIso(),
     };
     if (Object.keys(nextAssets).length > 0) {
       lock.assets = nextAssets;

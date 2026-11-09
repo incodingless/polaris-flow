@@ -13,6 +13,7 @@ import {
   getTaskStatePath,
 } from '../assets/polaris-paths.js';
 import { fileExists } from '../../utils/file-system.js';
+import { localIso } from '../../utils/time.js';
 import { nextPhaseForMode } from '../config/task-kind-layout.js';
 import { parseWorkflowTaskKind, type WorkflowTaskKind } from '../config/workflow-state.js';
 import { resolveRepoRoot } from './workflow-entry.js';
@@ -128,12 +129,14 @@ export function setByPath(obj: Record<string, unknown>, dotted: string, value: u
 }
 
 /**
- * 解析 --set 右侧值：true/false/null/数字/其余当字符串。
+ * 解析 --set 右侧值：true/false/null/数字/@now/其余当字符串。
  */
 export function parseSetValue(raw: string): unknown {
   if (raw === 'true') return true;
   if (raw === 'false') return false;
   if (raw === 'null') return null;
+  // `@now` → 当前本地时区 ISO 时间戳：技能无需再拼 `$(date …)`（bash 语法，Windows 原生终端不可用）
+  if (raw === '@now') return nowIso();
   if (raw === '') return '';
   if (/^-?\d+(\.\d+)?$/.test(raw)) {
     const n = Number(raw);
@@ -259,7 +262,7 @@ export async function saveStateObject(
 
 /** ISO 时间戳（秒精度 Z） */
 function nowIso(): string {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  return localIso();
 }
 
 /** 应用 enter-phase（纯函数） */

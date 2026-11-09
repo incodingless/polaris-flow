@@ -7,6 +7,7 @@ import { writeFile, readFile } from 'fs/promises';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { fileExists, ensureDir } from '../../utils/file-system.js';
+import { localIso } from '../../utils/time.js';
 import { getPolarisConfigPath, getPolarisDir, type InstallScope } from '../assets/polaris-paths.js';
 import { HarnessType, Platform, HostForm } from '../domain/platforms.js';
 import os from 'os';
@@ -167,7 +168,7 @@ function formatPolarisConfigYaml(config: ProjectPolarisConfig): string {
   const lines = [
     '# 基础',
     `language: ${config.language ?? 'zh'}`,
-    `install_time: '${config.install_time ?? new Date().toISOString()}'`,
+    `install_time: '${config.install_time ?? localIso()}'`,
   ];
 
   if (config.platforms) {

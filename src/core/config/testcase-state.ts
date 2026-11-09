@@ -7,6 +7,7 @@ import path from 'path';
 import { stringify as stringifyYaml } from 'yaml';
 
 import { ensureDir } from '../../utils/file-system.js';
+import { localIso } from '../../utils/time.js';
 
 /** 阶段子块（discovery / draft / refine / ship 共用） */
 export type TestcasePhaseBlock = {
@@ -63,7 +64,7 @@ export function createDefaultTestcaseState(
   });
   return {
     language: options.language ?? 'zh',
-    create_time: new Date().toISOString(),
+    create_time: localIso(),
     main_repo_root: '',
     task_id: taskId,
     kind: 'testcase',

@@ -2,14 +2,14 @@
  * 平台 slash command 安装：把 assets 内 commands/ 落到各宿主的命令目录。
  * installSource（外部源复用）在 source-installer.ts。
  *
- * 两个分隔符占位符各自独立展开，互不替代（Trae 就是「技能 flat、命令 nested」）：
+ * 两个分隔符占位符各自独立展开，互不替代（Trae / Cursor 均为「技能 flat、命令 flat」，布局独立声明）：
  * - `{{SKN_SPR}}` → 技能名分隔符，按 **skillsLayout**：nested → `:`；flat → `-`
  * - `{{CMD_SPR}}` → 命令名分隔符，按 **commandLayout**：nested → `:`；flat → `-`
  * 这样命令体内引用的技能名 / 命令名都与该平台实际落盘的名字一致。
  *
  * 命令落盘路径按 **commandLayout**（命令根由 install/layout.ts 决定）：
- * - nested → `<contextDir>/commands/psfl/<相对路径>`
- * - flat → `<contextDir>/commands/psfl-<相对路径，/ → ->.md`
+ * - nested → `<contextDir>/commands/psfl/<相对路径>`（Claude Code：宿主把路径 `/` 折叠为 `:`）
+ * - flat → `<contextDir>/commands/psfl-<相对路径，/ → ->.md`（Cursor / Trae：触发名 = 文件名）
  */
 import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
