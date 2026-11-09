@@ -15,6 +15,7 @@ import { readdir, stat } from 'fs/promises';
 import path from 'path';
 
 import { getTaskKindDir, resolveTaskStatePath } from '../assets/polaris-paths.js';
+import { localIso } from '../../utils/time.js';
 import {
   modeLabel,
   normalizeMode,
@@ -183,7 +184,8 @@ export function applyWorkflowOp(
       list.push({
         task_id: args.taskId,
         worktree_path: args.worktreePath ?? '',
-        started_at: args.startedAt ?? '',
+        // 缺省取当前时间（与 task-entry create 的 `startedAt ?? new Date()` 同约定），调用方无需再拼 `$(date -u …)`
+        started_at: args.startedAt ?? localIso(),
         channel: args.channel ?? '',
       });
       return {

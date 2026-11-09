@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prd{{SKN_SPR}}ship
 description: "已经定稿的产品需求文档交付至指定的文档位置、任务收尾。交付前执行研发就绪度评估（五维度加权评分与双门槛准出判定），满足条件时可免评（仍须输出 PASS（免评）结论与审计记录），判定不通过则阻断交付并回退 refine 修复。用户触发 /polaris{{SKN_SPR}}prd{{SKN_SPR}}ship，或在 refine 完成后要求交付 / 合回 / 归档 / 完结一个任务时必须使用本 skill。"
-version: 0.5
+version: 0.8
 ---
 
 # 编写产品需求-交付PRD终稿
@@ -21,19 +21,20 @@ version: 0.5
 
 ### Step 0：状态检查与中断恢复
 
+运行以下命令（**直接读 stdout 与退出码**，不做 shell 变量捕获）：
+
 ```bash
-TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill ship --repo-root "$REPO_ROOT" --phase ship)
-EXIT_CODE=$?
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill ship --repo-root "$REPO_ROOT" --phase ship
 ```
 
-- `EXIT_CODE != 0` → **阻断**，按 stderr 处理
-- `EXIT_CODE == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+- 退出码 `!= 0` → **阻断**，按 stderr 处理
+- 退出码 `== 0` → stdout 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-按 `$TASK_IDS` 数组长度解读：
+按返回数组长度解读：
 
 - **唯一匹配**：直接读取 `task_id`
 - **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
-- **零匹配**：阻断，提示「未找到 ship 阶段的活动任务，请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}refine」
+- **零匹配**：阻断，提示「未找到 ship 阶段的活动任务：标准/复杂档请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}refine，简单档（tweak）请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}draft」
 
 > 若选择的任务已是 `phase=ship`（中断续跑），可从中断点续跑；不得重新筛成「零匹配」。
 > 若上次中断在 ship 中（`ship.status=in_progress` / apply paused），从中断点续跑；不得因「已是 draft」而报零匹配。
@@ -56,26 +57,14 @@ EXIT_CODE=$?
 
 读取 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml` 的 `req_name_cn` 需求中文名、`req_prefix` 需求编号前缀；缺失时回退读取 `req_baseline.md` 元数据区同名两项；仍缺失则向用户询问补齐（中文名由 AI 建议 3 个候选，编号前缀由用户输入），确认后经 `set-identity` 补写 `state.yaml`（`--req-name-cn` / `--req-prefix`）。
 
-**交付文档名与评估对象按 `workflow.mode` 分档**（先读 `state.yaml` 的 `workflow.mode`）：
+**交付文档名与评估对象按 `workflow.mode` 分档**：运行 `node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get --repo-root "$REPO_ROOT" --task-id <task_id> --path workflow.mode`（读 stdout）后按下表确定，**不做 shell 条件分支**：
 
 | 档 | 交付名 | 评估对象（SRC） | 缺失提示 |
 |---|---|---|---|
 | `tweak`（简单档） | `{前缀}-{中文名}-需求说明-v1.0.md` | `prd-draft.md`（draft 一次成稿产物） | 请先执行 draft |
 | `normal`/`strict` | `{前缀}-{中文名}-需求终稿-v1.0.md` | `prd-final-v1.0.md`（refine 定稿产物） | 请先执行 refine |
 
-```bash
-MODE=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get --repo-root "$REPO_ROOT" --task-id "$task_id" --path workflow.mode)
-if [ "$MODE" = "tweak" ]; then
-  SRC="$REPO_ROOT/.polaris/tasks/$task_id/prd-draft.md"
-  DOC_SUFFIX="需求说明"
-  MISSING_HINT="draft"
-else
-  SRC="$REPO_ROOT/.polaris/tasks/$task_id/prd-final-v1.0.md"
-  DOC_SUFFIX="需求终稿"
-  MISSING_HINT="refine"
-fi
-test -f "$SRC" || { echo "交付源缺失：$SRC，请先执行 /polaris{{SKN_SPR}}prd{{SKN_SPR}}$MISSING_HINT" >&2; exit 2; }
-```
+`SRC` 不存在时停止并提示「交付源缺失：<SRC>，请先执行 <缺失提示对应技能>」。
 
 ### 1.2 复用判断（先做，避免重复评估）
 
@@ -115,7 +104,7 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
 
 ### 1.4 执行评估
 
-**编排方式**：与 `polaris{{SKN_SPR}}prd{{SKN_SPR}}refine` Step 3.0/3.1 相同——本步 `task_type: doc_review` → **必须先 probe**（H10；probe 自身优先读 `$SUBAGENT_PROBE_CACHE`）→ 选定 agent → `subagent-dispatch`。注入已为 `inline|unsupported` 时**不派发**（转降级分支，不涉及 probe）。
+**编排方式**：与 `polaris{{SKN_SPR}}prd{{SKN_SPR}}refine` Step 4.0/4.1 相同——本步 `task_type: doc_review` → **必须先 probe**（H10；probe 自身优先读 `$SUBAGENT_PROBE_CACHE`）→ 选定 agent → `subagent-dispatch`。注入已为 `inline|unsupported` 时**不派发**（转降级分支，不涉及 probe）。
 
 - `task_type`：`doc_review`
 - `materials`：
@@ -200,38 +189,20 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
 
 ### 3.1 转移终稿至文档库
 
-从 `state.yaml` 解析出两个变量：
+迁移由 `deliver-prd.mjs` 完成——mode 分档、源判定、命名拼装、冲突检查、目录创建与拷贝全部内建。先 dry-run 出计划，确认后 `--apply`：
 
 ```bash
-REQ_PREFIX=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --path req_prefix)
-REQ_NAME_CN=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get \
-  --repo-root "$REPO_ROOT" --task-id "$task_id" --path req_name_cn)
+# 第 1 步：dry-run（无副作用）——输出 mode / 源 / 目标 / 冲突状态
+node "<skill-dir>/scripts/deliver-prd.mjs" --repo-root "$REPO_ROOT" --task-id <task_id> [--doc-dir <自定义文档库>]
+
+# 第 2 步：确认后执行拷贝
+node "<skill-dir>/scripts/deliver-prd.mjs" --repo-root "$REPO_ROOT" --task-id <task_id> --apply [--doc-dir <自定义文档库>]
 ```
 
-再执行迁移：
-
-```bash
-PRD_DOC_DIR="${PRD_DOC_DIR:-$REPO_ROOT/docs/prd}"
-mkdir -p "$PRD_DOC_DIR"
-# 简单档（tweak）迁移 prd-draft.md → 需求说明；标准/复杂档迁移 prd-final-v1.0.md → 需求终稿
-MODE=$(node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" get --repo-root "$REPO_ROOT" --task-id "$task_id" --path workflow.mode)
-if [ "$MODE" = "tweak" ]; then
-  SRC="$REPO_ROOT/.polaris/tasks/$task_id/prd-draft.md"
-  DOC_SUFFIX="需求说明"
-else
-  SRC="$REPO_ROOT/.polaris/tasks/$task_id/prd-final-v1.0.md"
-  DOC_SUFFIX="需求终稿"
-fi
-DST="$PRD_DOC_DIR/${REQ_PREFIX}-${REQ_NAME_CN}-${DOC_SUFFIX}-v1.0.md"
-test -f "$SRC" || { echo "交付源缺失：$SRC" >&2; exit 2; }
-if [ -e "$DST" ]; then echo "目标文件已存在，需人工决策是否覆盖：$DST" >&2; exit 3; fi
-cp "$SRC" "$DST"
-```
-
-> `$PRD_DOC_DIR` 默认为 `$REPO_ROOT/docs/prd/`；用户可在 Step 2 确认交付时指定其它文档库位置覆盖。
+> `<skill-dir>` = 本 SKILL.md 所在目录（嵌套布局为 `$PLUGIN_ROOT/prd/ship/`，平铺布局为 `<skills>/polaris-prd-ship/`）。
+> `$PRD_DOC_DIR` 默认为 `$REPO_ROOT/docs/prd/`；用户可在 Step 2 确认交付时指定其它文档库位置（`--doc-dir` 覆盖）。
 > 任务内产物固定名：`normal`/`strict` 为 `prd-final-v1.0.md`（refine 产物）、`tweak` 为 `prd-draft.md`（draft 产物）；带中文名、编号前缀与档位后缀的交付名**仅在迁移时生成**，便于从文档库文件名反查需求、编号命名空间与档位。
-> 目标文件已存在（exit 3）时**不得静默覆盖**：按 `./policies/decision-point.md` 回显冲突并询问「A. 覆盖 / B. 另存为 `-v1.1` / C. 取消交付」。
+> **退出码语义**：2 = 参数 / 命名字段缺失 / 交付源缺失（按 stdout 的 `hint` 补跑 draft 或 refine）；3 = 目标已存在，**不得静默覆盖**——按 `./policies/decision-point.md` 回显冲突并询问「A. 覆盖 / B. 另存为 `-v1.1` / C. 取消交付」。
 
 ### 3.2 更新任务状态
 
@@ -241,7 +212,7 @@ cp "$SRC" "$DST"
 node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase ship
 node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set --repo-root "$REPO_ROOT" --task-id "$task_id" \
   --set status=completed \
-  --set "finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --set finished_at=@now \
   --set "delivered_to=<文档库目标路径>" \
   --set "delivered_name=<交付文档名>" \
   --set "ship.readiness_verdict=<最终判定>"

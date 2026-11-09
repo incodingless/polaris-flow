@@ -41,6 +41,16 @@ describe('path helpers', () => {
     expect(parseSetValue('"x=y"')).toBe('x=y');
   });
 
+  it('parseSetValue：@now 解析为当前 UTC ISO 时间戳', () => {
+    const before = Date.now() - 1000;
+    const value = parseSetValue('@now');
+    expect(typeof value).toBe('string');
+    expect(Number.isNaN(Date.parse(value as string))).toBe(false);
+    const ts = Date.parse(value as string);
+    expect(ts).toBeGreaterThanOrEqual(before);
+    expect(ts).toBeLessThanOrEqual(Date.now() + 1000);
+  });
+
   it('resolveBlockStyle：kind 与 runtime 启发式', () => {
     expect(resolveBlockStyle({}, 'coding', 'auto')).toBe('runtime');
     expect(resolveBlockStyle({}, 'requirement', 'auto')).toBe('top-level');

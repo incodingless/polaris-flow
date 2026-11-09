@@ -30,6 +30,7 @@ import {
 import { patchTaskStateFile } from '../config/task-state.js';
 import type { WorkflowTaskKind } from '../config/workflow-state.js';
 import { fileExists } from '../../utils/file-system.js';
+import { localIso } from '../../utils/time.js';
 import { writeYamlFromTemplate } from '../../utils/yaml-io.js';
 import { runDraftCreate } from './draft-create.js';
 import { runWorkflowEntry } from './workflow-entry.js';
@@ -139,7 +140,7 @@ async function materializeStateFromTemplate(
   if (!(await fileExists(templateSrc))) {
     throw new Error(`state 模板不存在: ${templateSrc}`);
   }
-  const now = new Date().toISOString();
+  const now = localIso();
   await writeYamlFromTemplate(templateSrc, statePath, {
     keepComments: false,
     transform: (doc) => {
@@ -267,7 +268,7 @@ export async function init(
     planRel: '',
     mainRepoRoot: config?.main_repo_root || root,
     worktreeDir: config?.worktree_dir || `${root}/.worktrees`,
-    installTime: new Date(config?.install_time ?? Date.now()).toISOString(),
+    installTime: localIso(new Date(config?.install_time ?? Date.now())),
   };
 
   try {
@@ -357,7 +358,7 @@ export async function finalize(
         specify: {
           intention_path: intentionRel,
           status: 'completed',
-          finished_at: new Date().toISOString(),
+          finished_at: localIso(),
         },
       },
     });

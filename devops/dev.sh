@@ -152,12 +152,14 @@ run_flow() {
   printf '\n  %s\n' "$(green '▶ 1/4') 构建 + lint + test"
   bash devops/build.sh --check || { printf '  %s\n' "$(red '✗ 构建检查失败，流程中止')"; exit 1; }
 
-  printf '\n  %s\n' "$(green '▶ 2/4') 同步附带技能"
-  node devops/sync-bundled-skills.mjs || { printf '  %s\n' "$(red '✗ 同步技能失败，流程中止')"; exit 1; }
+  printf '\n  %s\n' "$(green '▶ 2/4') 同步附带技能（有新版自动升级）"
+  node devops/sync-bundled-skills.mjs --update || { printf '  %s\n' "$(red '✗ 同步技能失败，流程中止')"; exit 1; }
 
   printf '\n  %s\n' "$(green '▶ 3/4') 发布到 Nexus"
   precheck_publish || exit 3
-  bash devops/publish.sh || { printf '  %s\n' "$(red '✗ 发布失败，流程中止')"; exit 1; }
+  # 全流程统一带 --force：版本号已发布过时允许覆盖（Nexus Allow Redeploy），不再因「版本已存在」中断整条链；
+  # 单独发版（菜单 8）仍不带 --force，保持「先升版本号」的正常路径
+  bash devops/publish.sh --force || { printf '  %s\n' "$(red '✗ 发布失败，流程中止')"; exit 1; }
 
   printf '\n  %s\n' "$(green '▶ 4/4') 打离线安装包"
   bash devops/package.sh || { printf '  %s\n' "$(red '✗ 打离线包失败，流程中止')"; exit 1; }

@@ -7,6 +7,7 @@ import path from 'path';
 import { setTimeout as delay } from 'timers/promises';
 
 import { getLocksDir, getWorkflowLockPath } from '../assets/polaris-paths.js';
+import { localIso } from '../../utils/time.js';
 
 export { getWorkflowLockPath } from '../assets/polaris-paths.js';
 
@@ -48,7 +49,7 @@ function tryCreateExclusive(lockPath: string): boolean {
 /** 写入锁内容：writer pid unix_ts ISO */
 function writeLockPayload(lockPath: string, writer: string): void {
   const nowSec = Math.floor(Date.now() / 1000);
-  const iso = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const iso = localIso();
   const payload = `${writer} ${process.pid} ${nowSec} ${iso}\n`;
   fs.writeFileSync(lockPath, payload, 'utf-8');
 }

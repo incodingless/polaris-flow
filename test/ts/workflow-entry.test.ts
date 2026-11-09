@@ -391,12 +391,12 @@ describe('runWorkflowEntry', () => {
     expect(byId('c-ship')?.skill).toBe('ship');
 
     // 中文显示名从阶段表 / 通道表派生（技能不持有映射表）
-    expect(byId('c-full')?.phase_label).toBe('提案');
+    expect(byId('c-full')?.phase_label).toBe('规划');
     expect(byId('c-full')?.mode_label).toBe('严格');
-    expect(byId('c-full')?.skill_label).toBe('提案');
+    expect(byId('c-full')?.skill_label).toBe('规划');
     // 技能的中文名来自阶段表（阶段 code → 中文名），与 mode 无关
     expect(byId('c-tweak')?.mode_label).toBe('简单');
-    expect(byId('c-tweak')?.skill_label).toBe('提案');
+    expect(byId('c-tweak')?.skill_label).toBe('规划');
     expect(byId('c-ship')?.phase_label).toBe('交付');
     expect(byId('c-ship')?.skill_label).toBe('交付');
   });

@@ -25,7 +25,7 @@
 
 ## 用户约定
 - 配置归代码；写 `state.yaml` 一律走 `scripts/task-state-entry.sh`（禁直写 yaml 块）。
-- 双语言：先写中文（`assets/zh/skills/`），确认后再同步英文。zh 资产变动就 bump 版本号 + Changelog（patch=修 Bug/文案/内部重构，minor=新增能力，major=破坏性）。
+- 双语言（2026-11-09 敲定）：**现在只写中文版**（`assets/zh/skills/`）；英文版不存在维护义务，待中文版稳定后再写，期间不同步。旧约定「确认后再同步英文」作废。zh 资产变动就 bump 版本号 + Changelog（patch=修 Bug/文案/内部重构，minor=新增能力，major=破坏性）。
 - 候选呈现（手定）：单行 `<task_id> (工作流：<mode_label>，阶段：<phase_label>，技能：<skill_label>)`。
 - 每轮改动后跑 26/26 技能测试通过方可提交。
 

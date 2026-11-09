@@ -5,10 +5,7 @@
 import { readdir, readFile, stat } from 'fs/promises';
 import path from 'path';
 
-import {
-  resolveSubagentCapability,
-  type PlatformDegradation,
-} from '../domain/platforms.js';
+import { resolveSubagentCapability, type PlatformDegradation } from '../domain/platforms.js';
 
 /** probe 输出中的单个 agent 条目 */
 export type SubagentAgentEntry = {
@@ -252,9 +249,7 @@ export async function buildSubagentProbeSnapshot(
 ): Promise<SubagentProbeSnapshot> {
   const id = platformId.trim();
   const cap = resolveSubagentCapability(id);
-  const agents =
-    options?.agents ??
-    (cap.supportsSubagent ? await scanSubagents(repoRoot, id) : []);
+  const agents = options?.agents ?? (cap.supportsSubagent ? await scanSubagents(repoRoot, id) : []);
   let reason = options?.reason;
   if (!reason) {
     if (cap.platformDegradation === 'inline') {

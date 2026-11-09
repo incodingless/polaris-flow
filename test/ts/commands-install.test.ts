@@ -135,21 +135,34 @@ describe('installPolarisForPlatform commands', () => {
     },
   );
 
-  it('trae flat：菜单命令落盘且技能名展开为连字符分隔', { timeout: INSTALL_TIMEOUT }, async () => {
-    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-cmd-trae-'));
-    await installPolarisForPlatform(tmpDir, trae, true, 'zh', 'project');
+  it(
+    'trae flat：命令扁平落到 commands/ 顶层，技能名与命令名分隔符均展开为连字符',
+    { timeout: INSTALL_TIMEOUT },
+    async () => {
+      const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-cmd-trae-'));
+      await installPolarisForPlatform(tmpDir, trae, true, 'zh', 'project');
 
-    const command = await readFile(path.join(tmpDir, '.trae/commands/psfl/flow.md'), 'utf-8');
+      // 入口命令：Trae 触发名 = 文件名，故落盘为 psfl-flow.md（不得有 psfl/ 命名空间目录）
+      const command = await readFile(path.join(tmpDir, '.trae/commands/psfl-flow.md'), 'utf-8');
 
-    expect(command).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
-    for (const skill of referencedSkills.flat) {
-      expect(command).toContain(skill);
-    }
-    // trae 侧技能名扁平，但命令目录树与 claude 一致（分类子目录未被扁平化）
-    expect(
-      await readFile(path.join(tmpDir, '.trae/commands/psfl/coding/normal.md'), 'utf-8'),
-    ).toContain('polaris-coding-normal');
-  });
+      expect(command).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
+      expect(command).not.toContain(COMMAND_NAME_PREFIX_PLACEHOLDER);
+      for (const skill of referencedSkills.flat) {
+        expect(command).toContain(skill);
+      }
+      // 命令名按 commandLayout=flat 展开为连字符
+      expect(command).toContain('/psfl-flow');
+      await expect(access(path.join(tmpDir, '.trae/commands/psfl'))).rejects.toThrow();
+
+      // 分类子目录被扁平化为 psfl-<路径>（trae 侧技能名同为扁平）
+      expect(
+        await readFile(path.join(tmpDir, '.trae/commands/psfl-coding-normal.md'), 'utf-8'),
+      ).toContain('polaris-coding-normal');
+      expect(
+        await readFile(path.join(tmpDir, '.trae/commands/psfl-coding-normal.md'), 'utf-8'),
+      ).toContain('/psfl-coding-normal');
+    },
+  );
 
   it(
     'cursor flat：命令扁平落到 commands/ 顶层，命令名分隔符展开为连字符',

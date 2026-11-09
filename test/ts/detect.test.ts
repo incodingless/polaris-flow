@@ -12,6 +12,8 @@ describe('hasSkills', () => {
   const projectRoot = path.join(process.cwd(), '.tmp-detect-test');
 
   beforeEach(async () => {
+    // 先清残留再建：上一次被中断的运行可能跳过 afterEach，留下带 marker 的目录污染本次断言
+    await rm(projectRoot, { recursive: true, force: true });
     await mkdir(projectRoot, { recursive: true });
   });
 
