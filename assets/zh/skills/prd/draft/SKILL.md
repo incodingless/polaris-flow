@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prd{{SKN_SPR}}draft
 description: 触发场景：用户持有「需求基线 Baseline」与「需求澄清纪要」，需要人机协同逐章产出 PRD 初稿（如「写产品需求」「根据需求基线生成PRD初稿」「结合澄清纪要写需求文档」「PRD初稿」「需求规格初稿」「把基线展开成需求文档」）。本技能覆盖单个阶段：基于基线 + 澄清纪要，逐章生成 PRD 初稿并交叉校验。内置 B 端 PRD 人工编写最佳实践：复杂度分级裁剪、问题-方案-目标逻辑、架构图+流程图视觉语言、MoSCoW 优先级、风险前置、重点突出与无歧义语言、初稿边界检查。
-version: 0.3
+version: 0.6
 ---
 # 编写产品需求-编写PRD初稿
 
@@ -24,15 +24,16 @@ version: 0.3
 
 ### Step 0：定位任务标识 + 入口校验
 
+运行以下命令（**直接读 stdout 与退出码**，不做 shell 变量捕获）：
+
 ```bash
-TASK_IDS=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill draft --repo-root "$REPO_ROOT" --phase draft)
-RTID_EXIT=$?
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill draft --repo-root "$REPO_ROOT" --phase draft
 ```
 
-- `RTID_EXIT != 0` → **阻断**，按 stderr 处理
-- `RTID_EXIT == 0` → `$TASK_IDS` 形如 `["id-a","id-b"]`（可能为 `[]`）
+- 退出码 `!= 0` → **阻断**，按 stderr 处理
+- 退出码 `== 0` → stdout 形如 `["id-a","id-b"]`（可能为 `[]`）
 
-按 `$TASK_IDS` 数组长度解读：
+按返回数组长度解读：
 
 - **唯一匹配**：直接读取 `task_id`
 - **多个匹配**：按 `./policies/decision-point.md` 列出候选让用户选择
@@ -57,17 +58,10 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" enter-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement --phase draft
 ```
 
-2. 设置语言
+2. 设置语言：运行 `node "$PLUGIN_ROOT/scripts/get-language-name.mjs"`，取 stdout 作为产物语言。
 
-执行脚本：
-
-```bash
-LANG = $(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")
-LANG_EXIT = $?
-```
-
-- `LANG_EXIT != 0` → 使用当前用户请求语言
-- `LANG_EXIT == 0` → 本阶段所有提问与澄清摘要均采用 $LANG。
+- 退出码 `!= 0` → 使用当前用户请求语言
+- 退出码 `== 0` → 本阶段所有提问与澄清摘要均采用该语言。
 
 输出：`[polaris-flow 需求工程] 编写初稿: task_id=<task_id>`
 
@@ -95,7 +89,7 @@ LANG_EXIT = $?
 ```bash
 node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
-  --set draft.gate.checked_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --set draft.gate.checked_at=@now \
   --set draft.gate.baseline_id=<Baseline 标识> \
   --set draft.gate.clarify_summary_id=<澄清纪要标识，无则 null> \
   --set draft.gate.complexity=<简单/标准/复杂> \
@@ -189,12 +183,12 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
    - 用户确认 OK：把 `draft/sessions/chapter_state.md` 中该章状态由「已生成待确认」置为「已确认」（该文件是中断恢复判断续跑位置的**唯一依据**）；进入下一章节；
    - 用户提出修改意见：用增量编辑修改已落盘文件，重新自检，再次输出【摘要+校验表】，重复直到确认通过。
 
-#### 各章内容标准（融入最佳实践，6 章文件名不变）
+#### 各章内容标准（融入最佳实践，5 个分章文件不变）
 
 - **01-需求背景**：按「问题先行（证据链支撑真实业务问题）→ 方案后置（整体思路）→ 目标闭环（SMART 可量化，承接 Baseline 业务目标）」组织；明确 **本次范围 In** 与 **本次不包含 Out／排除项清单**。
-- **02-业务流程与时序**：**先图后文**——优先给出架构图、业务流程图（BPMN/泳道）、核心对象状态机图、长链路线框图（mermaid 或文本图），再文字描述主流程与主要分支；**末尾附「风险与应对（提纲级）」**：按 技术/业务/合规/依赖 四类列出风险点与应对策略，源自 Baseline 约束汇总 + 澄清纪要风险清单，仅写提纲级，不展开终稿细节。
+- **02-业务流程与时序**：**先图后文**——优先给出架构图、业务流程图（BPMN/泳道）、核心对象状态机图、长链路线框图（mermaid 或文本图），再文字描述主流程与主要分支；**末尾附「风险与应对（提纲级）」**：按 技术/业务/合规/依赖 四类列出风险点与应对策略，源自 Baseline 约束汇总 + 澄清纪要风险清单，仅写提纲级，不展开终稿细节；**待决事项**与风险提纲并列集中标注。
 - **03-需求详情**：功能点按 **MoSCoW（MUST/SHOULD/COULD/WON'T）分级并排序**，MUST 在前、WON'T 单独排除段；场景层用锚点 `[能力名](#{前缀小写}-cap-xxx)` 引用通用能力（如 `[资源管理](#uap-cap-001)`），禁止大段复制通用能力原文，只写场景触发条件、流程、场景独有差异规则（保留原业务层规则）；每条功能用「用户故事+业务规则」格式。
-- **04/05 版本记录、更新记录**：版本号、日期、修订人、修订说明。
+- **04-版本记录**：版本号、日期、修订人、修订说明。
 
 #### 业务层特殊规则
 
@@ -259,13 +253,15 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
 
 ### Step 6：完成 draft 阶段
 
-1. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `refine` 就在这一步）：
+1. 推进阶段游标（下一段由 `workflow.mode` 从阶段表派生：`normal`/`strict` 进 `refine`，`tweak` 直接进 `ship`）：
 
 ```bash
 node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
-  --phase draft --next-phase refine
+  --phase draft
 ```
+
+> **禁止传 `--next-phase`**：显式值会覆盖按档派生，简单档会被强推进 `refine`。
 
 2. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
    先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**

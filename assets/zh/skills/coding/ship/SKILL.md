@@ -1,6 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}ship
 description: "verify 通过后完成交付：终验、分支收尾、worktree 产物合回与清理、OpenSpec 归档，并清空游标。当用户要求交付、合回、归档、完结一个 change 时使用。不要用于：verify 未完成时强行交付、写业务实现、未经用户确认直接归档。"
+version: 0.1
 ---
 
 # Polaris 工作流 - 阶段：交付（ship）

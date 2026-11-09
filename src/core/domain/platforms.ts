@@ -23,15 +23,20 @@ export const PLATFORM_ROOT_DIR_NAMES = ['skills', 'commands', 'agents'] as const
 export type SkillsLayout = 'nested' | 'flat';
 
 /**
- * 命令目录布局。与 `SkillsLayout` **互相独立**（如 Trae：技能 flat、命令 nested）。
- * - `nested`（默认）：`<contextDir>/commands/psfl/<相对路径>`，命令名 = 相对路径的 `/` → `:`
- *   （如 `commands/psfl/coding/normal.md` → `/psfl:coding:normal`）
+ * 命令目录布局。与 `SkillsLayout` **互相独立**。
+ * - `nested`：`<contextDir>/commands/psfl/<相对路径>`，命令名 = 相对路径的 `/` → `:`
+ *   （如 `commands/psfl/coding/normal.md` → `/psfl:coding:normal`，Claude Code 行为）
  * - `flat`：`<contextDir>/commands/psfl-<相对路径，/ → ->.md`，命令名 = 文件名
  *   （如 `commands/psfl-coding-normal.md` → `/psfl-coding-normal`）
  *
- * `flat` 用于 **Cursor**：官方行为是 **CLI 只读 `.cursor/commands/` 顶层的 `.md`、跳过全部子目录**
- * （IDE 才递归扫描）。因此即便保留 `polaris/` 这一层，CLI 也读不到 —— 必须去掉命名空间目录，
- * 改用 `polaris-` 文件名前缀（与 OpenSpec 的 `opsx-*.md` 同构）。
+ * `flat` 用于 **Cursor** 与 **Trae / Trae-CN**：
+ * - Cursor：官方行为是 **CLI 只读 `.cursor/commands/` 顶层的 `.md`、跳过全部子目录**
+ *   （IDE 才递归扫描）。因此即便保留 `polaris/` 这一层，CLI 也读不到 —— 必须去掉命名空间目录，
+ *   改用 `polaris-` 文件名前缀（与 OpenSpec 的 `opsx-*.md` 同构）。
+ * - Trae：嵌套目录只作分类展示，**触发名由路径推导**（实测 `psfl/coding/tweak.md`
+ *   → `/psfl/coding:tweak.md`，带 `.md` 且不折叠 `/` → `:`），且官方明确命令名
+ *   「仅支持小写字母、数字和短横线（-）」—— 冒号形态 `/psfl:coding:tweak` 无法成立。
+ *   命令名唯一可靠来源是文件名 → 扁平落盘。
  */
 export type CommandLayout = 'nested' | 'flat';
 
@@ -352,6 +357,8 @@ export const PLATFORMS: Platform[] = [
     rulesDir: 'rules',
     rulesFormat: 'md',
     skillsLayout: 'flat',
+    /** Trae 触发名由嵌套路径推导且带 .md，不可靠；命令扁平落盘（文件名即触发名） */
+    commandLayout: 'flat',
     supportsHooks: true,
     supportsSubagent: true,
     /** Trae IDE 的面板压缩按钮仅 SOLO Agent 可用；CLI 走斜杠命令 */
@@ -376,6 +383,8 @@ export const PLATFORMS: Platform[] = [
     rulesDir: 'rules',
     rulesFormat: 'md',
     skillsLayout: 'flat',
+    /** 与 trae 同源（国内版）：命令同样扁平落盘 */
+    commandLayout: 'flat',
     supportsHooks: true,
     supportsSubagent: true,
     /** 与 trae 同源（国内版） */

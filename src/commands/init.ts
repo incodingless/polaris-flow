@@ -48,6 +48,7 @@ import {
 import { initializePolarisCommonLayout } from '../core/install/layout.js';
 import { CODEGRAPH_PACKAGE, installCodegraph } from '../core/integrations/codegraph.js';
 import { fileExists } from '../utils/file-system.js';
+import { localIso } from '../utils/time.js';
 import { writeYamlFromTemplate } from '../utils/yaml-io.js';
 import { loadManifestConfig } from '../core/assets/manifest.js';
 import { readInstallSectionFromFile } from '../core/install/channels.js';
@@ -561,7 +562,7 @@ async function generatePolarisGlobalConfig(
     keepComments: true,
     transform: (doc) => {
       doc.set('version', '0.1.0');
-      doc.set('install-time', new Date().toISOString());
+      doc.set('install-time', localIso());
       doc.set(
         'plugins',
         pluginResults.map((p) => ({

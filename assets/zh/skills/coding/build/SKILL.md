@@ -1,6 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}build
 description: "按已评审的实施计划 tasks.md 完成编码实现。当用户要求按计划写代码、实施某个 change、开始编码时使用。不要用于：改需求（走 specify）、改计划（走 tasks）、验收与测试（走 verify）。"
+version: 0.1
 ---
 
 # Polaris 工作流 - 阶段：构建（build）

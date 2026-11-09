@@ -1,7 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery
 description: 触发场景：用户给出需求文档或想法，需要先理清需求、识别并澄清模糊点、推导功能架构（如「探索需求」「澄清需求」「需求理解」「需求基线」「梳理功能架构」「做需求 discovery」）。本技能覆盖单个阶段：探索并澄清需求，输出需求基线（含功能架构草案）。
-version: 0.7
+version: 0.10
 ---
 # 编写产品需求-探索并澄清需求
 
@@ -12,6 +12,7 @@ version: 0.7
 - **定向扫描不越界**：资源加载严格以检索关键词为边界，禁止无目的泛读；隐性信息捕获必须有明确资源支撑。
 - **澄清问题封闭化**：所有待澄清问题必须具体、可直接作答，禁止出现 “还有什么补充” 这类宽泛问题。
 - **变更全程可追溯**：所有需求变更必须记录前后对比与依据，禁止静默修改需求基线。
+- **敏感信息不入档**：密钥、Token、口令、证书、真实个人身份信息与生产数据样例不得写入需求基线、澄清纪要或终稿；确需引用时脱敏为示例值或只记「见 <来源路径/系统>，未摘录」。
 </HARD-GATE>
 
 **启动时必须先输出**：`[polaris-flow PRD] 进入阶段: 探索并澄清需求 — 使用 polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery 技能。`
@@ -28,7 +29,7 @@ version: 0.7
 
 ### Step 0: 设置产物语言
 
-**执行**：`LANG=$(node "$PLUGIN_ROOT/scripts/get-language-name.mjs")`（输出语言显示名，如 `中文` / `English`）；退出码 `≠ 0` 时回退到当前用户请求语言。本阶段所有提问与澄清摘要均采用 `$LANG`。
+**执行**：运行 `node "$PLUGIN_ROOT/scripts/get-language-name.mjs"`，取 stdout 作为产物语言（如 `中文` / `English`），后续提问与澄清摘要均采用该语言；退出码 `≠ 0` 时回退到当前用户请求语言。
 
 ### Step 1: 初始化任务
 
@@ -39,26 +40,32 @@ version: 0.7
 - 环境变量 `$PLUGIN_ROOT` / `$REPO_ROOT`（Trae `env`、 Cursor `env`、Claude `CLAUDE_ENV_FILE`，或 Agent 上下文中的同名赋值）
 - 仍无 `$PLUGIN_ROOT` → 停止并报告阻塞原因（SessionStart 未注入环境变量），提示用户重启会话以触发 SessionStart
 
-```bash
-if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/workflow-entry.mjs" ]; then
-  echo "PLUGIN_ROOT unset or hooks missing — restart session to run SessionStart" >&2
-  exit 2
-fi
+**环境自检**：`$PLUGIN_ROOT` 缺失，或 `$PLUGIN_ROOT/scripts/workflow-entry.mjs` 不存在 → 停止并报告「SessionStart 未注入环境变量」，提示用户重启会话。
 
-ACTIVE_RESULT=$(node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill discovery --repo-root "$REPO_ROOT")
-ACTIVE_EXIT=$?
-echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
+运行以下命令（**直接读 stdout 与退出码**，不做 shell 变量捕获）：
+
+```bash
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" get-active-changes --kind requirement --skill discovery --repo-root "$REPO_ROOT"
 ```
 
-**输出解读**（读 `ACTIVE_RESULT` JSON 数组，元素为 `task_id`）：
+**输出解读**（stdout 为 JSON 数组，元素为 `task_id`；退出码见工具返回）：
 
-| `ACTIVE_EXIT` | 含义 | 后续动作 |
+| 退出码 | 输出 | 后续动作 |
 | ------------- | ---- | -------- |
 | 0 且数组非空 | 存在未完结需求任务 | 按决策点协议询问 A/B/C/D（见下） |
 | 0 且数组为空 | 无活跃需求任务 | 进入 Step 2 开启新任务 |
 | 非 0 | 参数/环境错误 | 停止并报告阻塞原因（按 stderr） |
 
+> 下文 `<skill-dir>` 均指**本 SKILL.md 所在目录**（嵌套布局为 `$PLUGIN_ROOT/prd/discovery/`，平铺布局为 `<skills>/polaris-prd-discovery/`）。
+
 存在活跃任务时，**必须**按 `./policies/decision-point.md` 暂停询问：
+
+> **删除类选项（B 的「重新开始」与 C）两步走，缺一不可**——清点与确认都由 `drop-tasks.mjs` 内建强制：
+>
+> 1. **清点**：运行脚本（**不带** `--confirm`，dry-run 无副作用），按输出回显「将删除 N 个目录、共 M 个文件，不可恢复」；
+> 2. **确认 + 执行**：用户明确确认后加 `--confirm` 重跑，脚本完成「删目录 + 注销游标」；任一 `cursorRemoved=false` 时按 stdout 提示手动补跑 `workflow-entry delete-active`。
+>
+> task_id 合法性（kebab-case、拒绝 `.`/`..`/含 `/`）与路径边界（只接受 `<repoRoot>/.polaris/tasks/<id>`，禁止通配符）由脚本校验，非法直接退出码 2。
 
 - **A. 继续最近任务**：`task_id` = 列表最后一项 → 进入 Step 1.5
 - **B. 选择一个**：列出所有 `task_id` 候选让用户选择之后，再发出以下询问：
@@ -66,20 +73,18 @@ echo "ACTIVE_EXIT=$ACTIVE_EXIT ACTIVE_RESULT=$ACTIVE_RESULT"
   > 当前选择任务 <task_id>，请确认以下操作：
   >
   > - **A. 续写当前任务**：进入 Step 1.5
-  > - **B. 重新开始任务**：对当前 dir 执行下列命令后，进入 Step 2（重新产出需求组并建目录）
+  > - **B. 重新开始任务**：按上面两步对当前任务执行清点 → 确认 → 删除后，进入 Step 2（重新产出需求组并建目录）
   >
 
   ```bash
-  rm -rf "$REPO_ROOT/.polaris/tasks/$task_id"
-  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$task_id"
+  node "<skill-dir>/scripts/drop-tasks.mjs" --repo-root "$REPO_ROOT" --task-id <task_id>            # 第 1 步：清点（dry-run）
+  node "<skill-dir>/scripts/drop-tasks.mjs" --repo-root "$REPO_ROOT" --task-id <task_id> --confirm  # 第 2 步：确认后执行
   ```
-- **C. 丢弃所有**：对每个 id 执行下列命令后，进入 Step 2
+- **C. 丢弃所有**：清点并二次确认后对全部 id 执行（`--task-id` 重复传入），再进入 Step 2
 
 ```bash
-for d in <ACTIVE_RESULT 列表>; do
-  rm -rf "$REPO_ROOT/.polaris/tasks/$d"
-  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" delete-active --kind requirement --skill discovery --repo-root "$REPO_ROOT" --where-task-id "$d"
-done
+node "<skill-dir>/scripts/drop-tasks.mjs" --repo-root "$REPO_ROOT" \
+  --task-id <id1> --task-id <id2> --confirm
 ```
 
 - **D. 取消退出**：结束本 skill
@@ -161,17 +166,13 @@ done
 
 ##### 2.5.1 建目录
 
-> `task-init`，需求任务不创建 `draft-*` 临时目录
+> `task-init`，需求任务不创建 `draft-*` 临时目录。**对需求组里的每个任务各执行一次**（不用 shell 循环），直接读 stdout 与退出码：
 
 ```bash
-for TASK in "<任务1>" "<任务2>" ...; do
-  INIT_RESULT=$(node "$PLUGIN_ROOT/scripts/task-init.mjs" "$REPO_ROOT" --kind requirement --task-id "$TASK")
-  INIT_EXIT=$?
-  echo "TASK=$TASK INIT_EXIT=$INIT_EXIT INIT_RESULT=$INIT_RESULT"
-done
+node "$PLUGIN_ROOT/scripts/task-init.mjs" "$REPO_ROOT" --kind requirement --task-id <task_id>
 ```
 
-| `INIT_EXIT` | `status` | 后续动作 |
+| 退出码 | `status` | 后续动作 |
 |---|---|---|
 | 0 | `ok` | 目录与 `state.yaml` 已建，继续下一个 |
 | 1 | `existing` | **立即中断**：报告冲突目录，请用户改名或删除后重试；**禁止**向既有任务目录写入内容 |
@@ -197,7 +198,7 @@ done
 
 ```bash
 node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set-identity \
-  --repo-root "$REPO_ROOT" --task-id "$TASK" \
+  --repo-root "$REPO_ROOT" --task-id <task_id> \
   --req-name "" --req-name-cn "" --req-prefix ""
 ```
 
@@ -207,15 +208,12 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set-identity \
 
 ##### 2.5.3 登记 workflow 游标（**不可省略**）
 
-`task-init` 只建目录与 `state.yaml`，不写游标；不登记则 Step 1 的 `get-active-changes` 读不到，无法通过「B. 选择一个」恢复）：
+`task-init` 只建目录与 `state.yaml`，不写游标；不登记则 Step 1 的 `get-active-changes` 读不到，无法通过「B. 选择一个」恢复）。**对每个任务各执行一次**；`--started-at` 可省略，缺省写当前 UTC 时间：
 
 ```bash
-for TASK in "<任务1>" "<任务2>" ...; do
-  node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" append-active \
-    --kind requirement --skill discovery --repo-root "$REPO_ROOT" \
-    --task-id "$TASK" --phase discovery --worktree-path "" \
-    --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-done
+node "$PLUGIN_ROOT/scripts/workflow-entry.mjs" append-active \
+  --kind requirement --skill discovery --repo-root "$REPO_ROOT" \
+  --task-id <task_id> --phase discovery --worktree-path ""
 ```
 
 全部登记后，用 `get-active-changes --kind requirement` 校验：每个任务名都在返回的 `task_id` 列表里；缺任何一个都要重跑对应的 `append-active`，不得带着遗漏进入 2.6。
@@ -350,7 +348,7 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --set complexity.overridden=<true|false> \
   --set complexity.override_direction=<up|down|none> \
   --set complexity.override_reason=<覆盖理由，无则空> \
-  --set complexity.confirmed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --set complexity.confirmed_at=@now \
   --set complexity.confirmed_by=user
 ```
 
@@ -574,13 +572,15 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --set workflow.mode=<档>
 ```
 
-2. 更新 `$REPO_ROOT/.polaris/tasks/$task_id/state.yaml`（阶段推进到 `draft` 就在这一步）：
+2. 推进阶段游标（下一段由 `workflow.mode` 从阶段表派生，本技能不指定）：
 
 ```bash
 node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" complete-phase \
   --repo-root "$REPO_ROOT" --task-id "$task_id" --kind requirement \
-  --phase discovery --next-phase draft
+  --phase discovery
 ```
+
+> **禁止传 `--next-phase`**：显式值会覆盖按档派生，简单档将无法跳过 `refine`。
 
 3. 输出阶段完成提示（按 `./policies/auto-transition.md` 的**层级 C 模板**）。
    先按「自动衔接下一阶段」一节运行 `state next`，**下一步的技能名与括注均取自其输出**

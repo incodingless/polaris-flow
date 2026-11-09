@@ -23,6 +23,7 @@ import { POLARIS_ASSET_KINDS, type CopyStats, type PolarisAssetKind } from './in
 import { readAssets } from './assets/manifest.js';
 import { ensureWorkflowStateFile } from './config/workflow-state.js';
 import { copyIfMissing, fileExists } from '../utils/file-system.js';
+import { localIso } from '../utils/time.js';
 import { writeYamlFromTemplate } from '../utils/yaml-io.js';
 
 export type { LockFile, LockSourceEntry } from './install/lock.js';
@@ -232,7 +233,7 @@ export async function generatePolarisConfig(
         doc.delete('platform');
       }
       doc.set('scope', scope);
-      doc.set('install-time', new Date().toISOString());
+      doc.set('install-time', localIso());
       doc.set('main-repo-root', repoRoot);
       doc.set('worktree-dir', worktreeRoot);
 

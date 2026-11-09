@@ -1,6 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}design
 description: "把 plan 阶段的高层 design.md 深化为可实施的详细技术设计（detailed-design.md）并完成评审。当用户要求深化设计、细化技术方案、产出详细设计文档时使用。不要用于：生成高层方案（走 plan）、拆实施任务（走 tasks）、写代码（走 build）。"
+version: 0.1
 ---
 
 # Polaris 工作流 - 阶段：深度设计（design）
@@ -17,7 +18,7 @@ description: "把 plan 阶段的高层 design.md 深化为可实施的详细技�
 - **禁止**重写 OpenSpec `proposal.md` / 高层 `design.md` / `tasks.md` 的结构或范围（深化 ≠ 替代）
 - **禁止**在 Design Doc 中再造第二份需求 spec；缺口只能以 **Spec Patch** 回写 `openspec/changes/<task_id>/specs/*/spec.md`（仅限补充验收场景、修正歧义、添加边界条件）
 - **禁止**跳过 Step 5 主审：必须派发 `design-review-agent`（评审逻辑在 agent 内，禁止在本 skill 内联重写或主代理自审冒充）
-- **禁止**跳过 Step 5 Outside Voice **询问**（按 `.polaris/policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
+- **禁止**跳过 Step 5 Outside Voice **询问**（按 `./policies/outside-voice.md`；用户可选跳过 OV，但不得由 AI 代决）
 - **禁止**在本阶段创建实施计划 / 调用 `writing-plans` / 进入 `/opsx:apply`（实施计划是 `tasks` 阶段；写代码是 `build` 阶段）
 - **禁止**把本 skill 当成 tasks 主审：不派 `tasks-review-agent`、不写 `tasks-review-report.md`
 - **禁止**将专项设计写成 `design.md` 或放入任何子目录；专项必须为变更根目录下的 `<slug>-design.md`

@@ -128,7 +128,7 @@ export async function initializeProjectLayout(
 
   const skillBase = path.join(contextDir, platform.skillsDir, POLARIS_PLUGIN_NAME);
   // 命令根：nested 带 psfl 命名空间目录；flat 直接落平台命令目录
-  // （Cursor CLI 不递归子目录，多一层 psfl/ 就完全读不到）
+  // （Cursor CLI 不递归子目录，多一层 psfl/ 就完全读不到；Trae 触发名由路径推导且带 .md，不可靠）
   const commandBase =
     getCommandLayout(platform) === 'flat'
       ? path.join(contextDir, platform.commandsDir)

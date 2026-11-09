@@ -214,7 +214,7 @@ describe('task-entry · 判定（resume / handover / block）', () => {
     const result = await runTaskEntry({ kind: 'coding', as: 'plan', repoRoot: repo });
     expect(result.payload?.action).toBe('resume');
     expect(result.payload?.phase).toBe('plan');
-    expect(result.payload?.phase_label).toBe('提案');
+    expect(result.payload?.phase_label).toBe('规划');
     expect(result.payload?.state_path).toContain(path.join('.polaris', 'tasks', 't-1', 'state.yaml'));
   });
 
@@ -225,7 +225,7 @@ describe('task-entry · 判定（resume / handover / block）', () => {
     const result = await runTaskEntry({ kind: 'coding', as: 'tweak', repoRoot: repo });
     expect(result.payload?.action).toBe('handover');
     expect(result.payload?.skill).toBe('plan');
-    expect(result.payload?.skill_label).toBe('提案');
+    expect(result.payload?.skill_label).toBe('规划');
     // 不得因「不是本技能」而新建第二个任务
     expect((await loadWorkflowState(repo)).coding_tasks).toHaveLength(1);
   });
@@ -310,7 +310,7 @@ describe('task-entry · select 与参数', () => {
 
     const byId = new Map((result.payload?.candidates ?? []).map((c) => [c.task_id, c]));
     expect([...byId.keys()].sort()).toEqual(['a-1', 'b-2']);
-    expect(byId.get('a-1')?.skill_label).toBe('提案');
+    expect(byId.get('a-1')?.skill_label).toBe('规划');
     expect(byId.get('a-1')?.mode_label).toBe('简单');
     expect(byId.get('b-2')?.phase_label).toBe('澄清');
     expect(byId.get('b-2')?.skill_label).toBe('澄清');

@@ -1,6 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}retro
 description: "复盘与度量回顾：聚合 `.polaris/metrics/` 与 `.polaris/overrides.log`，输出可追溯的复盘报告与改进建议。独立的服务型只读技能，由用户直接调用，不经调度、不推进阶段。当用户要求看度量、复盘、回顾、分析 override 分布或要改进建议时使用。不要用于：伪造不存在的 metrics、写业务实现、替代 verify / ship 做验收与交付。"
+version: 0.1
 ---
 
 # Polaris 工作流 - 阶段：复盘（retro）

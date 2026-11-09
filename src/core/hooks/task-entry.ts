@@ -29,6 +29,7 @@
  *      破坏性或需用户裁决的，刻意留在 `policies/task-entry.md` §5 里用既有原语表达。
  */
 import { resolveTaskStatePath } from '../assets/polaris-paths.js';
+import { localIso } from '../../utils/time.js';
 import { WORKFLOW_MODE_LABELS, modeLabel } from '../config/task-kind-layout.js';
 import {
   loadWorkflowState,
@@ -213,7 +214,7 @@ async function createTask(
     kind,
     repoRoot,
     taskId,
-    startedAt: startedAt ?? new Date().toISOString(),
+    startedAt: startedAt ?? localIso(),
   });
   if (registered.exitCode !== 0) {
     return { exitCode: registered.exitCode, message: registered.message ?? 'append-active 失败' };

@@ -6,7 +6,7 @@
 ## 核心原则
 
 - **输入真相**：以已落盘的 `detailed-design.md` 为主；辅以高层 `design.md`、`proposal.md`、`specs/*/spec.md`、`intention.md`（若有）。**禁止**用 DDD 术语脑补业务对象
-- **结构骨架**：必须 `read_file ./templates/domain-model-disign-template.md`，按模板章节落盘；不得另起一套目录结构
+- **结构骨架**：必须 `read_file ./templates/domain-model-design-template.md`，按模板章节落盘；不得另起一套目录结构
 - **实践透镜**：生成前 `read_file ./references/ddd-domain-model-practices.md`，用其中检查项做划分与自检；**不得**把参考文当作第二需求源
 - **深化不扩 scope**：不得借本专项扩大 plan 已锁定的目标 / Non-goals；缺口只允许标注并留给 Spec Patch
 - **纯领域视角**：本文件写限界上下文、实体/值对象/聚合、领域服务与事件、一致性规则；**禁止**堆砌表结构 DDL、HTTP 契约、框架代码（那些归 data-model / restful-api / repository 专项）
@@ -18,7 +18,7 @@
 | 优先级 | 路径 | 要求 |
 |--------|------|------|
 | 1 | `openspec/changes/<change_id>/detailed-design.md` | **必读全文**；本专项是对其领域面的展开 |
-| 2 | `./templates/domain-model-disign-template.md` | **必读**；输出结构以此为准 |
+| 2 | `./templates/domain-model-design-template.md` | **必读**；输出结构以此为准 |
 | 3 | `./references/ddd-domain-model-practices.md` | **必读**；聚合/实体/值对象划分与自检 |
 | 4 | `openspec/changes/<change_id>/design.md`、`proposal.md` | 边界与 Non-goals |
 | 5 | `specs/*/spec.md`、`intention.md` | 若有；验收与选型约束 |

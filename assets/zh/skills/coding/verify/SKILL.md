@@ -1,6 +1,7 @@
 ---
 name: polaris{{SKN_SPR}}coding{{SKN_SPR}}verify
 description: "验证 build 产出并落盘测试证据：编译检查、需求验收、合规审计、单元/集成/契约测试、覆盖率与代码评审、人工确认。当用户要求验证实现、跑测试、验收、审计实施产出、落盘测试证据时使用。不要用于：写代码（走 build）、交付与归档（走 ship）。"
+version: 0.1
 ---
 
 # Polaris 工作流 - 阶段：验证（verify）
@@ -13,7 +14,7 @@ description: "验证 build 产出并落盘测试证据：编译检查、需求�
 - **禁止**未写入 `.polaris/metrics/<timestamp>-metrics.json` 且未完成出口校验就把 `phase` 推到 ship
 - **禁止**未过 Step 4 编译闸门而继续（探不到构建入口时按 `No-Verification` 记，不阻断）
 - **禁止**从 `state.yaml` 顶层的 `verify_mode` 读取强度 —— 唯一来源是 `runtime.verify.verify_mode`（顶层那份是默认生成的历史遗留死值）
-- **禁止**下调 `risk_level` —— 两轴复核**只升不降**（信号表唯一源：`./policies/risk-signals.md`）；确需下调**必须**由用户按 `./policies/decision-point.md` 显式确认后再改
+- **禁止**下调 `risk_level` —— 两轴复核**只升不降**（判据唯一源：`./policies/complexity-review.md`）；确需下调**必须**由用户按 `./policies/decision-point.md` 显式确认后再改
 - **禁止**本阶段做分支合并 / PR / worktree 合回 / `/opsx:archive`（那是 ship）
 - **禁止**本阶段编写业务实现代码；用户确认修复后回 `/polaris{{SKN_SPR}}coding{{SKN_SPR}}build`，不得在 verify 内静默改实现
 - **禁止**未按 `./policies/decision-point.md` 获得用户对「验证失败 / override / 规格漂移」的明确选择就继续或接受偏差
@@ -452,8 +453,8 @@ git diff --stat <base-ref>...HEAD
 
 **两轴复核（两段式的第二段）—— 只升不降**
 
-用 build 以来的 diff 复核**风险轴**：按 `./policies/risk-signals.md` **§5** 的 glob 扫改动路径，并按 **§4** 的实现侧信号（`D1` / `D3` / `D4` / `D7`）做语义判断。
-取 `risk_level' = max(Step 1 读入的 risk_level, 本次复核值)` —— **只升不降**（下调须用户按 `./policies/decision-point.md` 显式确认）。`complexity_level` 本步**不重判**（实现侧不改需求复杂度）。
+用 build 以来的 diff 复核**深度轴 + 风险**：按 `./policies/complexity-review.md` §二~§四执行（深度轴用 diff 判、风险一票语义判断、glob 兜底沿用 `risk-signals.md` §3）。
+取 `risk_level' = max(Step 1 读入的 risk_level, 本次复核值)` —— **只升不降**（下调须用户按 `./policies/decision-point.md` 显式确认）。`complexity_level` 本步**不重判**（实现侧不改需求幅度）。
 
 **强度补强（二）—— 消费复核后的 `risk_level'`**：
 
@@ -473,13 +474,13 @@ node "$PLUGIN_ROOT/scripts/task-state-entry.mjs" set \
   --set verify_mode=<light|full> \
   --set risk_level=<risk_level'> \
   --set current_tier=<max(complexity_level, risk_level')> \
-  --set runtime.verify.risk_escalation_reason=<上调时记命中的信号编号 / glob 片段；未上调留空> \
-  --set 'workflow.signals=["<复核命中的信号编号>",...]'
+  --set runtime.verify.risk_escalation_reason=<上调时记命中的深度档 / 风险项 / glob 片段；未上调留空> \
+  --set 'workflow.signals=["<复核命中的深度档 / 风险项>",...]'
 ```
 
 - `runtime.verify.verify_mode` —— **强度的唯一读取来源**；顶层 `verify_mode` 为全局快照，两者**成对写入**（本步定档 / Step 17 落盘，均须同步）
 - `risk_level` / `current_tier` —— 复核后的最终档，Step 13 / 14 直接消费
-- `workflow.signals` —— 复核命中的信号编号 / glob 片段（JSON 数组字面量；无命中写 `[]`），**覆盖** specify 5.4.1 的初判值
+- `workflow.signals` —— 复核命中的深度档 / 风险项 / glob 片段（JSON 数组字面量；无命中写 `[]`），**覆盖** specify 5.4.1 的初判值
 
 > **覆盖**：agent 或用户仍可随时按 decision-point 改为 `light|full`。
 
@@ -574,7 +575,7 @@ done
 
 **两轨同源时只跑一次**：若 Step 10 探测到 `integration` 与 `smoke` 是**同一条命令** → 本步不重复执行，复用集成轨的结果并在报告标「两轨同源」。
 
-> **缺口已闭合**（原「小改动碰高危路径两头落空」）：风险轴由 Step 9 复核，`risk_level=critical` 时一票强制 `full`（见 Step 9「补强（二）」），本步的第二个触发条件再兜一层人工覆盖的例外。信号表唯一源：`./policies/risk-signals.md` §5。
+> **缺口已闭合**（原「小改动碰高危路径两头落空」）：风险轴由 Step 9 复核，`risk_level=critical` 时一票强制 `full`（见 Step 9「补强（二）」），本步的第二个触发条件再兜一层人工覆盖的例外。复核判据唯一源：`./policies/complexity-review.md`。
 
 ### Step 14：收口清单
 

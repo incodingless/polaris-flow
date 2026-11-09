@@ -459,7 +459,7 @@ plan 完成后，深度设计（design）是**可选**衔接阶段。**本决策
 | `tweak` | — **不经过本技能**（`plan` 不在它的序列里），天然无此决策 |
 
 > ⚠️ `normal` 档下**不要**把 A 支呈现给用户 —— 那会让 `phase` 落到一个不属于本档的阶段。
-> 档位在 `specify` 出口就已冻结（`./policies/risk-signals.md` §7），本技能**不判档、不改 `mode`**。
+> 档位在 `specify` 出口就已冻结（`./policies/risk-signals.md` §5），本技能**不判档、不改 `mode`**。
 
 按 `./policies/decision-point.md` 暂停，询问是否进入深度设计深化：
 
@@ -472,7 +472,7 @@ B. 否 — 跳过深化，直接进入 tasks（四件套已足够指导细计划
 
 **推荐规则**（可附在选项旁，不强制）：涉及跨服务、数据模型、对外 API 契约、领域模型或高风险 → 推荐 A；四件套已把架构、模块、接口、数据流写清、无需专项展开 → 推荐 B。
 
-**风险轴闸门（`risk_level=critical` 时）**：本决策点**只保留 A**，不呈现 B —— 高危变更必须深化设计，不得跳过。发问时须写明依据（如 `risk_level=critical（命中 D4 破坏性契约变更）`）。降档须先由用户按 `./policies/decision-point.md` 显式下调 `risk_level`（两轴复核只升不降，`./policies/risk-signals.md` §6）。
+**风险轴闸门（`risk_level=critical` 时）**：本决策点**只保留 A**，不呈现 B —— 高危变更必须深化设计，不得跳过。发问时须写明依据（如 `risk_level=critical（命中风险一票：安全 / 鉴权 / 权限）`）。降档须先由用户按 `./policies/decision-point.md` 显式下调 `risk_level`（两轴复核只升不降，`./policies/risk-signals.md` §4）。
 
 #### 6.2 按决策推进阶段
 
