@@ -136,10 +136,10 @@ frontmatter、`## 0. 继承锚点` 与六个必含节（实现方案 / 边界条
 
 `read_file ./policies/detailed-design-precheck.md` 并按其执行：
 
-1. 先过 §2.1 体量门（G1 主文档行数 / G2 分面体量），再对照 proposal / 高层 `design.md` / `detailed-design.md`，逐面判断是否需补充专项、建议哪些、各自范围内外
-2. 按 policy §4 输出预检结论、**体量结论**与建议专项清单
+1. 对照 proposal / 高层 `design.md` / `detailed-design.md`，按 §2 判定门与 §3 双侧触发条件**逐面判断这一面说清了没有、到不到 build 可执行粒度**，据此决定是否需补充专项、建议哪些、各自范围内外。**篇幅（行数 / 表数 / 端点数）不参与判定**
+2. 按 policy §4 输出预检结论、**逐面覆盖结论**（须带节名证据）与建议专项清单
 3. 按 policy §5 + `./policies/decision-point.md` **阻塞等待**：将推荐项的「范围内/范围外」逐条呈现给用户多选（强烈建议/建议默认勾选；可选默认不勾）；也可选「不补充」或「自定义」
-4. 按 policy §6 把最终结论（体量结论 / 预检推荐 / 用户裁定 / 落盘结果）写入 `openspec/changes/<task_id>/specialty-precheck.md`
+4. 按 policy §6 把最终结论（覆盖结论 / 预检推荐 / 用户裁定 / 落盘结果）写入 `openspec/changes/<task_id>/specialty-precheck.md`
 
 - 用户确认清单为空或不补充 → 仍须落 §6 结论文件，再进 4.3
 - 清单非空 → 按用户勾选的文件名与范围内外写入变更**根目录**（扁平，禁止子目录），模板见 policy §3

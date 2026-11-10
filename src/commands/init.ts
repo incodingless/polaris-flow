@@ -22,6 +22,7 @@ import { installOpenSpec } from '../core/integrations/openspec.js';
 import {
   installSuperpowersForPlatforms,
   SUPERPOWERS_MIN_VERSION,
+  SUPERPOWERS_REPO,
 } from '../core/integrations/superpowers.js';
 import {
   writeLockFile,
@@ -51,7 +52,11 @@ import { fileExists } from '../utils/file-system.js';
 import { localIso } from '../utils/time.js';
 import { writeYamlFromTemplate } from '../utils/yaml-io.js';
 import { loadManifestConfig } from '../core/assets/manifest.js';
-import { readInstallSectionFromFile } from '../core/install/channels.js';
+import {
+  readInstallSectionFromFile,
+  resolveInstallChannelConfig,
+} from '../core/install/channels.js';
+import { resolveVersion } from '../core/deps/github.js';
 
 type InstallStatus = 'installed' | 'skipped' | 'failed';
 
@@ -300,10 +305,14 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
       status: osGlobalStatus,
     });
 
-    lockSources.push({
-      id: 'openspec',
-      version: installedVersion,
-    });
+    // `npm list -g` 查不到（例如 CLI 装在用户级目录）时返回 0.0.0，不是真实版本；
+    // 写进 lock 会让 update 把它当成「已装的极旧版本」，因此拿不到具体版本时不记录
+    if (osGlobalStatus === 'installed' && installedVersion !== '0.0.0') {
+      lockSources.push({
+        id: 'openspec',
+        version: installedVersion,
+      });
+    }
   } else {
     log(`\n  ${dim('○')}  OpenSpec ${dim(t(lang, 'skip'))}`);
   }
@@ -324,11 +333,21 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
       status: spGlobalStatus,
     });
 
+    // npx 通道返回的 npx-latest / local / HEAD 都是不可比占位符，写进 lock 会让
+    // update 每次都判定「无法比较」而重装；改记上游 tag 作为「已装版本」的变更信号
     if (spGlobalStatus === 'installed') {
-      lockSources.push({
-        id: 'superpowers',
-        version: spResult.version,
-      });
+      const channel = await resolveInstallChannelConfig();
+      const upstreamVersion = resolveVersion(
+        SUPERPOWERS_REPO,
+        SUPERPOWERS_MIN_VERSION,
+        channel.githubMirror,
+      ).version;
+      if (upstreamVersion) {
+        lockSources.push({
+          id: 'superpowers',
+          version: upstreamVersion,
+        });
+      }
     }
   } else {
     log(`\n  ${dim('○')}  Superpowers ${dim(t(lang, 'skip'))}`);
@@ -357,10 +376,13 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
       status: codegraphGlobalStatus,
     });
 
-    lockSources.push({
-      id: 'codegraph',
-      version: codegraphVersion,
-    });
+    // 与 openspec 同理：0.0.0 是探测失败的兜底值，不写进 lock
+    if (codegraphGlobalStatus === 'installed' && codegraphVersion !== '0.0.0') {
+      lockSources.push({
+        id: 'codegraph',
+        version: codegraphVersion,
+      });
+    }
   } else {
     log(`\n  ${dim('○')}  Codegraph ${dim(t(lang, 'skip'))}`);
   }

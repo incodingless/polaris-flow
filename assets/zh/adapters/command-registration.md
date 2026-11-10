@@ -48,7 +48,6 @@ polaris-flow 的命令文件是**宿主中立的 Markdown**：一份 `assets/{zh
 | Cursor | **IDE 递归扫描子目录；CLI 只读顶层 `.md`、跳过全部子目录** | `flat`（IDE + CLI 双通） |
 
 > 历史旁证：`.claude/commands/opsx/*.md`（嵌套）vs `.cursor/commands/opsx-*.md`（扁平）——OpenSpec 正是按「Claude 嵌套 / Cursor 扁平」分开落盘的。
-> **Trae 的已知不确定点**：官方文档只说明「支持 3 层嵌套」，**未明确子目录是否计入命令名**。若实测发现 Trae 侧命令名与 `/psfl:flow` 不符，把该平台的 `commandLayout` 改成 `flat` 即可（改一个字段，无需动源文件）。
 
 ## 命令文件内的占位符
 

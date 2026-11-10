@@ -145,15 +145,44 @@ precheck_publish() {
   return 0
 }
 
-# 全流程构建：依次 2 → 4 → 8 → 5。任一步失败即中止（取消 exit 3，失败 exit 1）。
+# 全流程构建：依次 2 → 4 → 8 → 5。唯一例外是同步技能查询上游失败（退出码 2，脚本保证未改文件），
+# 此时询问是否跳过该步继续；升级阶段失败可能留下半成品，一律中止。取消 exit 3，失败 exit 1。
 run_flow() {
+  local sync_status=0 answer=''
   printf '\n  %s  %s\n' "$(bold '全流程构建')" "$(dim '2 构建检查 → 4 同步技能 → 8 发布 → 5 打离线包')"
 
   printf '\n  %s\n' "$(green '▶ 1/4') 构建 + lint + test"
   bash devops/build.sh --check || { printf '  %s\n' "$(red '✗ 构建检查失败，流程中止')"; exit 1; }
 
   printf '\n  %s\n' "$(green '▶ 2/4') 同步附带技能（有新版自动升级）"
-  node devops/sync-bundled-skills.mjs --update || { printf '  %s\n' "$(red '✗ 同步技能失败，流程中止')"; exit 1; }
+  node devops/sync-bundled-skills.mjs --update
+  sync_status=$?
+  case "$sync_status" in
+    0) ;;
+    2)
+      # 退出码 2 = 查询上游失败（多为 ls-remote 超时）。sync 脚本在任何写操作之前就退出，
+      # 状态干净，跳过是安全的：离线包沿用上一次成功的附带技能版本。
+      printf '  %s\n' "$(yellow '⚠ 查询上游失败（常见为网络超时），未改动任何文件')"
+      printf '  跳过同步、继续发布与打包？[y/N] '
+      read -r answer || answer=''
+      case "$answer" in
+        y | Y)
+          printf '  %s\n' "$(yellow '已跳过技能同步；离线包将沿用上一次的附带技能版本')"
+          ;;
+        *)
+          printf '  %s\n' "$(red '✗ 已取消，流程中止')"
+          exit 1
+          ;;
+      esac
+      ;;
+    *)
+      # --update 下非 0/2 只可能是升级阶段异常。该阶段 vendor 逐个替换、钉值循环结束才落盘，
+      # 中途失败会留下「vendor 新版 + 钉值旧版」的不一致，禁止跳过以免把不一致带进发版。
+      printf '  %s\n' "$(red '✗ 同步技能失败，流程中止')"
+      printf '  %s\n' "$(yellow '  升级阶段可能只改了一部分，请核对 devops/vendor/bundled-skills 与 src/core/integrations/bundled-skills.ts 的钉值')"
+      exit 1
+      ;;
+  esac
 
   printf '\n  %s\n' "$(green '▶ 3/4') 发布到 Nexus"
   precheck_publish || exit 3

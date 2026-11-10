@@ -115,15 +115,15 @@ enabledAutoRun: false
 
 | # | 标准 | 判定 |
 |---|------|------|
-| S4.1 | `specialty-precheck.md` 存在，且含「**体量结论** / 预检推荐 / 用户裁定 / 落盘结果」四块 | 文件缺失 → Important（Step 4.2 阻塞点未落结论）；缺「体量结论」→ Important（§2.1 体量门无留痕）；其余块不全 → Nice |
+| S4.1 | `specialty-precheck.md` 存在，且含「**覆盖结论** / 预检推荐 / 用户裁定 / 落盘结果」四块 | 文件缺失 → Important（Step 4.2 阻塞点未落结论）；缺「覆盖结论」→ Important（逐面判定无留痕）；其余块不全 → Nice |
 | S4.2 | 预检「落盘结果」与实际落盘的 `*-design.md` 吻合 | 预检判「应补充」而实际未落盘，或落了预检未列的专项 → Important |
 | S4.3 | 用户裁定为「不补充」时，预检推荐中不存在被无理由跳过的「强烈建议」项 | 命中且无用户显式接受风险的记录 → Important |
 | S4.4 | 有专项文档时：与 `detailed-design.md` 无矛盾结论 | 矛盾 → Critical |
 | S4.5 | 有专项文档时：主文档 `## 5. 专项设计索引` 有对应索引行，且该分面细节未在主文档重复出现 | 缺索引 → Important；两套真相 → Critical |
 | S4.6 | 数据模型专项（`data-model-design.md` 等）含迁移 / 回滚要点（若该专项存在） | 缺失 → Important |
-| S4.7 | `specialty-precheck.md` 的体量结论与 `detailed-design.md` **实际相符**：G1 按文件实际总行数核对（阈值 250）；G2 按分面实际规模核对（> 60 行，或 ≥ 3 张表 / 3 个端点 / 3 个实体） | 主文档已越限却记「未触发」，或已触顶的分面被漏记 → Important |
+| S4.7 | `specialty-precheck.md` 的**逐面覆盖结论**与 `detailed-design.md` **实际相符**：每条须写出「已给到可执行粒度 / 缺 <具体要素>」并带节名证据 | 主文档某分面确实缺关键要素却记「已给到可执行粒度 / 无缺口」，或结论只写「已覆盖 / 无需补充」这类无锚结论 → Important |
 
-**S4.7 判定口径**：G1 以 `detailed-design.md` 总行数计，不采信预检自报值；G2 按分面内实际表 / 端点 / 实体计数，边界拿不准时**按触顶处理**并在 Finding 中写明依据（宁可多报一条 Important，不漏）。阈值与 `detailed-design-precheck.md` §2.1 同源，本处内联只为评审时可直接判定；两处不一致时**以 policy 为准**并记一条 Finding。
+**S4.7 判定口径**：以**内容**核，不采信预检自报的笼统结论——按 §3 四类分面逐条对照 `detailed-design.md` 实际章节，检查关键要素（ER 关系 / 迁移回滚 / 事务与读模型 / 鉴权限流错误码分级等）是否真写到可执行粒度。**篇幅（行数 / 表 / 端点 / 实体数量）一律不作判据**。边界拿不准时**按有缺口处理**并在 Finding 中写明依据（宁可多报一条 Important，不漏）。判据口径与 `detailed-design-precheck.md` §2 / §3 同源，本处不内联阈值；两处不一致时**以 policy 为准**并记一条 Finding。
 
 本维**不设整维 N/A**：`specialty-precheck.md` 缺失即按 S4.1 记 Important，不得因「没看到专项」而跳过。
 

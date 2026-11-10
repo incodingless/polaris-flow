@@ -218,29 +218,31 @@ export function formatUserCliPathHint(): string {
 /**
  * 查询 npm registry 上某包的最新版本。
  *
- * 走 `npm view`，registry 显式走 `resolveNpmRegistry()`（环境变量 > 默认 Nexus）：
- * polaris-flow 是私有包只发在公司 Nexus，公网 npm 查不到；openspec/codegraph 等公网包
- * 经 Nexus npm-proxy 同样能转发命中。加短超时与零重试，registry 不可达时快速返回 null。
+ * `registry` 决定 `--registry` 是否带上、带哪个值：
+ * - 缺省（undefined）：走 `resolveNpmRegistry()`（环境变量 > 默认 Nexus）。
+ *   polaris-flow 是私有包只发在公司 Nexus，公网 npm 查不到，程序本体更新必须用这一路。
+ * - `null`：不带 `--registry`，沿用机器 `~/.npmrc`，与组件安装通道未配置 registry 时一致。
+ * - 字符串：显式指定，与组件安装通道配置的 `npm-registry` 对齐。
+ *
+ * 版本探测与实际安装必须同源，否则「查到的最新版本」与「会装到的版本」可能来自不同仓库。
+ * 加短超时与零重试，registry 不可达时快速返回 null。
  */
-export function getLatestNpmVersion(packageName: string): Promise<string | null> {
+export function getLatestNpmVersion(
+  packageName: string,
+  registry?: string | null,
+): Promise<string | null> {
+  const resolvedRegistry = registry === undefined ? resolveNpmRegistry() : registry;
+  const args = ['view', packageName, 'version', '--fetch-timeout=10000', '--fetch-retries=0'];
+  if (resolvedRegistry) {
+    args.push('--registry', resolvedRegistry);
+  }
+
   try {
-    const output = execFileSync(
-      getNodeToolExecutable('npm'),
-      [
-        'view',
-        packageName,
-        'version',
-        '--fetch-timeout=10000',
-        '--fetch-retries=0',
-        '--registry',
-        resolveNpmRegistry(),
-      ],
-      {
-        encoding: 'utf-8',
-        timeout: 15_000,
-        stdio: ['ignore', 'pipe', 'ignore'],
-      },
-    );
+    const output = execFileSync(getNodeToolExecutable('npm'), args, {
+      encoding: 'utf-8',
+      timeout: 15_000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
     // `npm view <pkg> version` 成功时 stdout 为纯版本号；非法输出（如报错）返回 null
     const version = output.split('\n')[0]?.trim() ?? '';
     return Promise.resolve(/^\d/.test(version) ? version : null);

@@ -1,12 +1,36 @@
 # Changelog
 
+## What's Changed [0.9.2] - 2026-11-09
+
+### Changed
+
+- **Trae / Trae-CN 命令改为嵌套命名空间**: 两个平台的 `commandLayout` 由 `flat` 改回 `nested`，命令落盘从 `.trae/commands/psfl-*.md` 变为 `.trae/commands/psfl/<相对路径>`，触发名从 `/psfl-coding-normal` 变为 `/psfl:coding:normal`。技能布局仍为 `flat`（技能名保持 `polaris-coding-normal`），同一平台内命令与技能各用各的分隔符。仅 Cursor 保留 `flat`——其 CLI 只读命令目录顶层 `.md`。此变更撤销 0.9.0 的「Trae 命令触发名不可用」处置：所依据的实测结论经确认不成立
+
+- **菜单 99 同步技能超时可跳过继续**: 全流程构建的「同步附带技能」此前任何失败都中止整条链，网络慢导致 `ls-remote` 超时时发布与打包要全部重来。现按 `sync-bundled-skills.mjs` 退出码分档：退出码 2（查询上游失败，脚本保证未改任何文件）询问是否跳过，选 y 则沿用上一次的附带技能版本继续跑完发布与打离线包；升级阶段异常（非 0/2，vendor 可能已部分替换而钉值未落盘）一律中止并提示核对，不提供跳过，避免把版本不一致带进发版
+
+### Fixed
+
+- **命令布局注释与规范文档的过时结论**: `platforms.ts`、`install/layout.ts`、`install/commands.ts` 中基于旧实测写下的「Trae 必须扁平落盘」注释同步订正；`assets/zh/adapters/command-registration.md` 删除「Trae 已知不确定点 / 实测不符改 flat」段落，配置表与平台依据表恢复为唯一口径
+
+- **Dashboard 推进阶段时锁落在错误的仓库**: `advanceTaskPhase` 调 `runTaskStateEntry` 时未传 `repoRoot`，原语回退到 `git rev-parse` 解析 CLI 进程所在仓库，导致所有项目的阶段写入共用同一把 `task-state-<id>.lock`（全量测试里多个 worker 因此互相自旋，直到 5s 测试超时，并在真实仓留下 stale 锁）。现与 `setTaskCheckbox` 对称，显式传 `repoRoot: projectRoot` 与 `taskId`；`写完不残留锁文件` 用例补上「`.polaris/.locks/` 必须存在于目标项目根」断言，钉住锁归属而非只验「文件不存在」
+
+- **离线包附带技能缺版本标记**: `package.sh` 此前把 `devops/vendor/bundled-skills/` 原样拷进 `release-*/components/`，手工拷入的技能（如 archify）没有 `.polaris-bundled-ref`，而 `sync-bundled-skills.mjs` 只给「有新版」的技能写标记，缺标记会一路带进离线包。运行时 `ensureBundledSkillsSource` 把无标记副本判为历史副本「缺失」，内网离线安装时白跑一次联网重拉并报 Diagram failed（本地副本其实仍会安装，是假告警）。现打包时按 `BUNDLED_SKILL_SPECS` 钉值补齐缺失标记；只补缺失、不覆盖已有值，标记与钉值不一致仍由运行时重拉纠正，运行时判定与既有测试不变
+
+### Tests
+
+- **Trae 命令落盘回归**: `commands-install.test.ts` 的 Trae 用例改为断言 `commands/psfl/` 嵌套落盘、冒号命令名与连字符技能名并存，并守 flat 顶层文件不残留；新增 Trae-CN 用例覆盖 project scope 共用 `.trae/commands/psfl/`。Cursor 与 `resolveCommandDest` 的 flat 断言保持不变
+
 ## What's Changed [0.9.1] - 2026-11-09
 
 ### Fixed
 
+- **`polaris update` 版本未变仍重装第三方依赖**: openspec / superpowers / codegraph 的「已装版本」此前靠 `npm list -g` 现场探测（查不到返回 `0.0.0`），「上游版本」靠 `npm view` / `git ls-remote`（失败返回 `null`），任一探测失效就被判成「有更新」；superpowers 写进 lock 的 `npx-latest` 等占位符恒被判不可比，导致每次 update 必重装，而安装器一律拉 `@latest`，装完仍是同一版本，还会重写项目内的 openspec 配置。现统一以 `skills-lock.json` 的 `sources[].version` 作为已装版本，判定下沉到 `src/core/update/dep-version.ts` 并返回结构化结果：版本未变回显「已是最新」并跳过，上游版本无法确认时同样跳过但明确提示可用 `--force` 重试，只有安装成功才把可比较的上游版本写回 lock；`--force` 仍强制重装。版本探测与安装改用同一套通道配置（npm registry / GitHub 镜像），避免「查到的版本」与「装到的版本」不同源；`init` 不再把 `0.0.0`、`npx-latest` 等不可比占位符写进 lock，缺失记录只触发一次安装以建立基线
+
 - **state.yaml 时间戳为 UTC 导致误读**: 所有时间记录统一走 `new Date().toISOString()`，落盘形如 `started_at: 2026-11-09T06:37:48Z`——人裸读会把 `06:37` 当本地时间（实际是北京 14:37），被当成「时间记录错误」误报；新增 `src/utils/time.ts` 的 `localIso()` 输出本地时区 ISO（`2026-11-09T14:37:48+08:00`，仍可被 `new Date()` 解析，排序 / 比较语义不变），替换 state / workflow / task 游标、锁文件、install-time、create_time 等 15 处写入点；存量 UTC 串无需迁移，两种格式均可解析
 
 ### Tests
+
+- **依赖版本判定与 deps 分支回归测试**: `update-deps-version.test.ts` 迁移到 core 判定模块，覆盖版本相等跳过、已装更新不回退、有更新安装、上游不可达跳过、不可比占位符建立基线、`--force` 强制六类边界；新增 `update-deps.test.ts`，mock 三个安装器与上游探测后断言「版本未变 / 上游不可达时安装器零调用且 lock 不变」「有更新才安装并回写新版本」「脏占位符只装一次」「安装失败不把期望版本记成已装版本」「探测与安装通道一致」等此前完全未被覆盖的 deps 分支行为
 
 - **localIso 时间格式化测试**: 新增 `test/ts/utils-time.test.ts`，覆盖本地时区偏移格式（`±HH:MM`）、与输入时刻的往返一致性、GMT+8 换算（`06:37:48Z` → `14:37:48+08:00`）与缺省当前时间可解析性
 

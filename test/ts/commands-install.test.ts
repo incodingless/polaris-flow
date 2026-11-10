@@ -136,31 +136,58 @@ describe('installPolarisForPlatform commands', () => {
   );
 
   it(
-    'trae flat：命令扁平落到 commands/ 顶层，技能名与命令名分隔符均展开为连字符',
+    'trae 命令 nested：落 commands/psfl/，命令名冒号、技能名连字符',
     { timeout: INSTALL_TIMEOUT },
     async () => {
       const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-cmd-trae-'));
       await installPolarisForPlatform(tmpDir, trae, true, 'zh', 'project');
 
-      // 入口命令：Trae 触发名 = 文件名，故落盘为 psfl-flow.md（不得有 psfl/ 命名空间目录）
-      const command = await readFile(path.join(tmpDir, '.trae/commands/psfl-flow.md'), 'utf-8');
+      // 命令布局 nested → 入口命令落到 psfl/ 命名空间目录
+      const command = await readFile(
+        path.join(tmpDir, '.trae/commands/psfl/flow.md'),
+        'utf-8',
+      );
 
       expect(command).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
       expect(command).not.toContain(COMMAND_NAME_PREFIX_PLACEHOLDER);
+      // 技能布局仍是 flat → 正文技能名展开为连字符形态
       for (const skill of referencedSkills.flat) {
         expect(command).toContain(skill);
       }
-      // 命令名按 commandLayout=flat 展开为连字符
-      expect(command).toContain('/psfl-flow');
-      await expect(access(path.join(tmpDir, '.trae/commands/psfl'))).rejects.toThrow();
+      // 命令布局 nested → 命令名展开为冒号形态
+      expect(command).toContain('/psfl:flow');
+      // flat 形态的顶层文件不得残留
+      await expect(
+        access(path.join(tmpDir, '.trae/commands/psfl-flow.md')),
+      ).rejects.toThrow();
 
-      // 分类子目录被扁平化为 psfl-<路径>（trae 侧技能名同为扁平）
-      expect(
-        await readFile(path.join(tmpDir, '.trae/commands/psfl-coding-normal.md'), 'utf-8'),
-      ).toContain('polaris-coding-normal');
-      expect(
-        await readFile(path.join(tmpDir, '.trae/commands/psfl-coding-normal.md'), 'utf-8'),
-      ).toContain('/psfl-coding-normal');
+      // 分类子目录原样保留；技能名与命令名各自按所属布局展开
+      const normal = await readFile(
+        path.join(tmpDir, '.trae/commands/psfl/coding/normal.md'),
+        'utf-8',
+      );
+      expect(normal).toContain('polaris-coding-normal');
+      expect(normal).toContain('/psfl:coding:normal');
+      await expect(
+        access(path.join(tmpDir, '.trae/commands/psfl-coding-normal.md')),
+      ).rejects.toThrow();
+    },
+  );
+
+  it(
+    'trae-cn 命令 nested：与 trae 共用 .trae/commands/psfl/',
+    { timeout: INSTALL_TIMEOUT },
+    async () => {
+      const traeCn = PLATFORMS.find((p) => p.id === 'trae-cn')!;
+      const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-cmd-trae-cn-'));
+      await installPolarisForPlatform(tmpDir, traeCn, true, 'zh', 'project');
+
+      const command = await readFile(
+        path.join(tmpDir, '.trae/commands/psfl/flow.md'),
+        'utf-8',
+      );
+      expect(command).toContain('/psfl:flow');
+      expect(command).toContain('polaris-coding-specify');
     },
   );
 

@@ -149,6 +149,9 @@ describe('advanceTaskPhase', () => {
 
   it('写完不残留锁文件', async () => {
     await advanceTaskPhase(root, 'c-1', JSON.stringify({ to: 'plan' }), 'coding');
+    // 锁必须落在**目标项目根**：目录存在证明这次确实在原语里加过锁，
+    // 文件不存在证明已释放。只看「文件不存在」会漏掉「锁压根写在别的仓库」这种回归。
+    expect(existsSync(path.join(root, '.polaris', '.locks'))).toBe(true);
     expect(existsSync(getWorkflowLockPath(root))).toBe(false);
     expect(existsSync(getTaskStateLockPath(root, 'c-1'))).toBe(false);
   });

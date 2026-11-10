@@ -182,6 +182,9 @@ updateUpToDate:
 updateDepUpToDate:
   en: already up to date — skipping reinstall
   zh: 已是最新 —— 跳过重复安装
+updateDepUnreachable:
+  en: 'cannot confirm upstream version — skipping reinstall (use --force to reinstall anyway)'
+  zh: 无法确认上游版本 —— 跳过重复安装（如需强制重装请使用 --force）
 updateUpdatedTo:
   en: updated to
   zh: 已更新到

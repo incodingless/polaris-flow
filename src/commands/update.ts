@@ -7,8 +7,10 @@
  * - 命中需更新的类别时以 overwrite=true 重写 —— 原实现非 --force 时只会新增文件、从不改写
  * - hooks 始终走合并（overwriteHooks=false），不整文件替换掉用户在宿主配置里的自有条目
  * - 状态记录在 `.polaris/skills-lock.json`（唯一事实来源），不再写 `.polaris/installed-version`
+ * - 第三方依赖按「lock 中记录的已装版本 vs 上游最新版本」判定（见 core/update/dep-version.ts）：
+ *   版本未变或上游版本无法确认时跳过安装，避免每次 update 都重装组件并重写项目配置
  *
- * 执行顺序刻意是「先资产、后程序」：程序更新后当前进程跑的仍是旧代码，先做完资产更安全。
+ * 程序本体由外部包管理器更新，当前进程仍执行旧代码；资产与依赖都在这个进程内完成。
  */
 import path from 'path';
 
@@ -18,13 +20,8 @@ import { installPolarisForPlatform, type PolarisAssetKind } from '../core/instal
 import { getAssetsDir, loadManifestConfig, readAssets } from '../core/assets/manifest.js';
 import { SOURCES, SUPERPOWERS_MIN_VERSION, SUPERPOWERS_REPO } from '../core/assets/sources.js';
 import { PLATFORMS, getPlatformSkillsDir, type Platform } from '../core/domain/platforms.js';
-import {
-  compareVersions,
-  getCurrentVersion,
-  printVersionInfo,
-  PACKAGE_NAME,
-} from '../core/deps/version.js';
-import { getLatestNpmVersion, getNpmPackageVersion } from '../core/deps/npm.js';
+import { getCurrentVersion, printVersionInfo, PACKAGE_NAME } from '../core/deps/version.js';
+import { getLatestNpmVersion } from '../core/deps/npm.js';
 import { resolveVersion } from '../core/deps/github.js';
 import {
   buildGlobalInstallInvocation,
@@ -42,6 +39,8 @@ import {
   type PlatformAssetFingerprints,
 } from '../core/install/lock.js';
 import { computeAssetFingerprints } from '../core/update/fingerprint.js';
+import { resolveDepUpdateAction } from '../core/update/dep-version.js';
+import { resolveInstallChannelConfig } from '../core/install/channels.js';
 import { localIso } from '../utils/time.js';
 import { pruneOwnedFiles, type PrunableKind } from '../core/update/prune.js';
 import { resolveUpdatePlan, type UpdateDependency, type UpdatePlan } from '../core/update/scope.js';
@@ -85,10 +84,14 @@ export type UpdatePlatformResult = {
   pruned: string[];
 };
 
+/** 第三方依赖的更新状态；unreachable 表示上游版本无法确认，本次跳过安装 */
+export type UpdateDependencyStatus =
+  'up-to-date' | 'unreachable' | 'installed' | 'failed' | 'skipped';
+
 /** 单个第三方依赖的更新结果 */
 export type UpdateDependencyResult = {
   id: UpdateDependency;
-  status: string;
+  status: UpdateDependencyStatus;
   version?: string;
 };
 
@@ -156,16 +159,49 @@ function isPrunableKind(kind: PolarisAssetKind): kind is PrunableKind {
   return kind === 'skills' || kind === 'commands';
 }
 
-/** 版本字符串可作 semver 比较（去掉 `v` 前缀、形如 x.y.z…；`local`/`HEAD`/`npx-latest` 均不可比） */
-export function isConcreteVersion(version: string): boolean {
-  return /^\d+\.\d+\.\d+/.test(version.trim().replace(/^v/, ''));
-}
+/** 依赖更新编排共享的状态，避免三个组件各自重复传递同一组参数 */
+type DepUpdateContext = {
+  sourceEntries: Map<string, LockSourceEntry>;
+  deps: UpdateDependencyResult[];
+  force: boolean;
+  log: Logger;
+  lang: Languages;
+};
 
-/** 两个版本都可比、且 latest 不新于 installed 时，判定「无版本更新」 */
-export function hasNoVersionUpdate(installed: string | null, latest: string | null): boolean {
-  if (!installed || !latest) return false;
-  if (!isConcreteVersion(installed) || !isConcreteVersion(latest)) return false;
-  return compareVersions(latest, installed) <= 0;
+/**
+ * 单个依赖的编排：探测上游版本 → 判定是否重装 → 跳过或调用安装器 → 仅安装成功时回写 lock。
+ *
+ * 「已装版本」只读 lock，不再用 `npm list -g` 现场探测（用户级 CLI 不在全局 prefix 下会
+ * 误报未安装）；回写的是本次解析到的上游版本，使「已装」与「上游」始终处于同一版本坐标系。
+ */
+async function runDependencyUpdate(
+  id: UpdateDependency,
+  label: string,
+  resolveLatest: () => string | null | Promise<string | null>,
+  install: () => Promise<UpdateDependencyStatus>,
+  context: DepUpdateContext,
+): Promise<void> {
+  const installed = context.sourceEntries.get(id)?.version ?? null;
+  const latest = await resolveLatest();
+  const action = resolveDepUpdateAction(installed, latest, context.force);
+
+  if (action.kind === 'skip') {
+    if (action.reason === 'up-to-date') {
+      context.log(`\n  ${label}: ${t(context.lang, 'updateDepUpToDate')} (v${installed})`);
+    } else {
+      context.log(`\n  ${label}: ${t(context.lang, 'updateDepUnreachable')}`);
+    }
+    context.deps.push({ id, status: action.reason, version: action.version ?? undefined });
+    return;
+  }
+
+  context.log(`\n  ${label}...`);
+  const status = await install();
+  context.deps.push({ id, status, version: action.version ?? undefined });
+  // 安装失败时不把「期望版本」记成「已装版本」，下次 update 才能重试
+  if (status === 'installed' && action.version) {
+    context.sourceEntries.set(id, { id, version: action.version });
+  }
 }
 
 /** 程序层结果的人类可读行 */
@@ -338,58 +374,48 @@ export async function runUpdate(
   if (wantsDeps && nothingInstalled) {
     log(`  ${t(lang, 'updateDepsSkipped')}`);
   } else if (wantsDeps) {
+    // 版本探测与安装共用同一套通道配置，避免「查到的版本」与「实际装到的版本」来自不同仓库
+    const channel = await resolveInstallChannelConfig();
+    const context: DepUpdateContext = {
+      sourceEntries,
+      deps,
+      force: Boolean(options.force),
+      log,
+      lang,
+    };
+
     if (plan.deps.includes('openspec')) {
-      const installed = getNpmPackageVersion(OPENSPEC_PACKAGE);
-      const latest = options.force ? null : await getLatestNpmVersion(OPENSPEC_PACKAGE);
-      if (hasNoVersionUpdate(installed, latest)) {
-        log(`\n  ${OPENSPEC_PACKAGE}: ${t(lang, 'updateDepUpToDate')} (v${installed})`);
-        deps.push({ id: 'openspec', status: 'up-to-date', version: installed });
-      } else {
-        log(`\n  ${OPENSPEC_PACKAGE}...`);
-        const status = await installOpenSpec(projectPath, platforms, scope, true);
-        const version = status === 'installed' ? getNpmPackageVersion(OPENSPEC_PACKAGE) : undefined;
-        deps.push({ id: 'openspec', status, version });
-        if (version) {
-          sourceEntries.set('openspec', { id: 'openspec', version });
-        }
-      }
+      await runDependencyUpdate(
+        'openspec',
+        OPENSPEC_PACKAGE,
+        () => getLatestNpmVersion(OPENSPEC_PACKAGE, channel.npmRegistry ?? null),
+        () => installOpenSpec(projectPath, platforms, scope, true),
+        context,
+      );
     }
 
     if (plan.deps.includes('superpowers')) {
-      const installed = sourceEntries.get('superpowers')?.version ?? null;
-      const latest = options.force
-        ? null
-        : resolveVersion(SUPERPOWERS_REPO, SUPERPOWERS_MIN_VERSION).version;
-      if (hasNoVersionUpdate(installed, latest)) {
-        log(`\n  Superpowers: ${t(lang, 'updateDepUpToDate')} (v${installed})`);
-        deps.push({ id: 'superpowers', status: 'up-to-date', version: installed ?? undefined });
-      } else {
-        log('\n  Superpowers...');
-        const result = await installSuperpowersForPlatforms(projectPath, scope, platformIds, true);
-        deps.push({ id: 'superpowers', status: result.status, version: result.version });
-        if (result.status === 'installed') {
-          sourceEntries.set('superpowers', { id: 'superpowers', version: result.version });
-        }
-      }
+      await runDependencyUpdate(
+        'superpowers',
+        'Superpowers',
+        // npx 通道装的是仓库默认分支，tag 只作为「上游是否变化」的信号，不是精确版本绑定
+        () =>
+          resolveVersion(SUPERPOWERS_REPO, SUPERPOWERS_MIN_VERSION, channel.githubMirror).version,
+        async () =>
+          (await installSuperpowersForPlatforms(projectPath, scope, platformIds, true)).status,
+        context,
+      );
     }
 
     if (plan.deps.includes('codegraph')) {
-      const installed = getNpmPackageVersion(CODEGRAPH_PACKAGE);
-      const latest = options.force ? null : await getLatestNpmVersion(CODEGRAPH_PACKAGE);
-      if (hasNoVersionUpdate(installed, latest)) {
-        log(`\n  Codegraph: ${t(lang, 'updateDepUpToDate')} (v${installed})`);
-        deps.push({ id: 'codegraph', status: 'up-to-date', version: installed });
-      } else {
-        log('\n  Codegraph...');
+      await runDependencyUpdate(
+        'codegraph',
+        'Codegraph',
+        () => getLatestNpmVersion(CODEGRAPH_PACKAGE, channel.npmRegistry ?? null),
         // upgradeCli=true：已装 CLI 也重新拉 @latest，但已有 .codegraph 索引时不重建
-        const status = await installCodegraph(projectPath, scope, true, true);
-        const version =
-          status === 'installed' ? getNpmPackageVersion(CODEGRAPH_PACKAGE) : undefined;
-        deps.push({ id: 'codegraph', status, version: version ?? 'latest' });
-        if (version) {
-          sourceEntries.set('codegraph', { id: 'codegraph', version });
-        }
-      }
+        () => installCodegraph(projectPath, scope, true, true),
+        context,
+      );
     }
   }
 
