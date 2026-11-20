@@ -1,5 +1,5 @@
 ---
-name: review-testcase
+name: {{CMD_NS}}review-testcase
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}testing{{CMD_SPR}}review-testcase"]
 description: 测试用例集独立评审（7 维度 + Critical/Major/Minor/Nit 分级 + 可核对的评审报告）

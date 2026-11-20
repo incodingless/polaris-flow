@@ -141,6 +141,20 @@ export async function pruneOwnedFiles(options: {
     return { deleted };
   }
 
-  // nested：commands/psfl 整棵子树归 Polaris 独占
-  return { deleted: await pruneTree(layout.commandsDir, expected) };
+  // nested / namespaced-flat：commands/psfl 整棵子树归 Polaris 独占
+  const deleted = await pruneTree(layout.commandsDir, expected);
+
+  // 0.9.1 的 Trae 曾按 flat 落盘到 commands/psfl-*.md；升级到 namespaced-flat 后这些
+  // 顶层文件不在 psfl/ 树内、pruneTree 看不到，不清理就会与新命令并存成两套触发名。
+  if (getCommandLayout(platform) === 'namespaced-flat') {
+    const commandsRoot = path.join(layout.baseDir, platform.commandsDir);
+    for (const name of await readDirSafe(commandsRoot)) {
+      if (!isOwnedEntryName(name, POLARIS_COMMAND_PREFIX) || !name.endsWith('.md')) continue;
+      const file = path.join(commandsRoot, name);
+      if (expected.has(toPosix(file))) continue;
+      await rm(file, { force: true });
+      deleted.push(file);
+    }
+  }
+  return { deleted };
 }

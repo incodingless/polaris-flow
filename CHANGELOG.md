@@ -4,13 +4,23 @@
 
 ### Changed
 
-- **Trae / Trae-CN 命令改为嵌套命名空间**: 两个平台的 `commandLayout` 由 `flat` 改回 `nested`，命令落盘从 `.trae/commands/psfl-*.md` 变为 `.trae/commands/psfl/<相对路径>`，触发名从 `/psfl-coding-normal` 变为 `/psfl:coding:normal`。技能布局仍为 `flat`（技能名保持 `polaris-coding-normal`），同一平台内命令与技能各用各的分隔符。仅 Cursor 保留 `flat`——其 CLI 只读命令目录顶层 `.md`。此变更撤销 0.9.0 的「Trae 命令触发名不可用」处置：所依据的实测结论经确认不成立
+- **Trae / Trae-CN 命令改用 `namespaced-flat` 布局**: 命令落在 `commands/psfl/` 下但不建子目录，分类压进文件名（`psfl/coding-normal.md`）；命令名与 Claude Code 保持一致，仍是 `/psfl:coding:normal`——`{{CMD_SPR}}` 全展开为 `:`，分类命名空间改由 frontmatter 的 `name` 承担（新增 `{{CMD_NS}}` 占位符，落盘 `name: coding:normal`，配合固定不变的 `command_prefix: psfl`）。14 个中文命令源文件的 `name` 由裸 stem 改为 `{{CMD_NS}}<stem>`，`triggers` 与 `command_prefix` 不变；`{{CMD_NS}}` 在 `nested` / `flat` 及顶层命令上展开为空，故 Claude Code / Qoder / Cursor 的落盘产物完全不变。技能布局保持 `flat`（技能名 `polaris-coding-normal`）。仅 Cursor 保留 `flat`——其 CLI 只读命令目录顶层 `.md`。此变更撤销 0.9.0 的「Trae 命令触发名不可用」处置、0.9.2 中途的纯 `nested` 方案，以及同一轮里「分类改用连字符命令名」的中间方案
 
 - **菜单 99 同步技能超时可跳过继续**: 全流程构建的「同步附带技能」此前任何失败都中止整条链，网络慢导致 `ls-remote` 超时时发布与打包要全部重来。现按 `sync-bundled-skills.mjs` 退出码分档：退出码 2（查询上游失败，脚本保证未改任何文件）询问是否跳过，选 y 则沿用上一次的附带技能版本继续跑完发布与打离线包；升级阶段异常（非 0/2，vendor 可能已部分替换而钉值未落盘）一律中止并提示核对，不提供跳过，避免把版本不一致带进发版
 
+- **离线包随附 CHANGELOG**: `package.sh` 此前只拷 `docs/releases/` 下的安装手册、使用帮助与速查卡，使用者拿到离线包看不到版本变更记录。现在把仓库根 `CHANGELOG.md` 一并拷入 `release-<version>-<YYYYMMDD>/`，使用者可直接核对本次离线包对应的变更；缺失只告警不中断打包，与使用者文档的处置一致
+
+- **`polaris init` 首屏显示当前版本号**: ASCII banner 的 `POLARIS FLOW` 字样下方此前只有分隔线与组件说明，用户无法从启动画面确认装的是哪个版本。现在分隔线后、`OpenSpec + Superpowers + Polaris Workflow` 之前显示 `v<版本号>`，取自 `getCurrentVersion()`（读 `package.json`，与 `update` / `printVersionInfo` 同源），不用资产清单的 `manifest.version`（那是组件版本，非产品版本）。JSON 模式不打 banner，行为不变
+
+- **`flow` 命令恢复开发档位二级菜单**: 此前「开发」类别不分档、去掉了第 2 级询问（档位全由 `intake` 粗判 + `specify` 出口判定）。现在开发类别重新有二级菜单：`C01` 简单 / `C02` 一般 / `C03` 复杂分别声明 `tweak` / `normal` / `strict` 档（等价于直跑对应 thin 命令，交薄编排技能声明后由 `intake` 复核），新增 `C09` 自动判断（不声明档位，仍由 `intake` 粗判）。档位的权威判定仍在 `specify` 出口、选 C01–C03 不等于锁定档位
+
 ### Fixed
 
-- **命令布局注释与规范文档的过时结论**: `platforms.ts`、`install/layout.ts`、`install/commands.ts` 中基于旧实测写下的「Trae 必须扁平落盘」注释同步订正；`assets/zh/adapters/command-registration.md` 删除「Trae 已知不确定点 / 实测不符改 flat」段落，配置表与平台依据表恢复为唯一口径
+- **离线包打包在 macOS bash 3.2 下报 unbound variable**: `package.sh` 的使用者文档缺失分支原写作 `warn "...$doc（跳过）"`，bash 3.2 在 UTF-8 locale 下会把 `$doc` 后紧跟的中文首字节吞进变量名，报 `doc<乱码>: unbound variable`，导致任一文档缺失（如被 .gitignore 排除、本地未生成的 PDF）时整包打包中止。现改为 `${doc}` 显式终止变量名并补防回归注释；当前工作区恰好缺速查卡 PDF，已在 bash 3.2.57 下重放该段验证通过（5 份文档 + CHANGELOG 全部拷入，退出码 0）
+
+- **命令布局注释与规范文档的过时结论**: `platforms.ts`、`install/commands.ts` 的布局注释与 `assets/zh/adapters/command-registration.md` 的三平台规则表按 `{{CMD_NS}}` 机制重写；`README-zh.md`、`使用帮助.md`、两份速查卡、`命令使用说明.md` 统一为「Claude Code / Qoder / Trae / Trae-CN 用 `:`，仅 Cursor 用 `-`」的两类口径
+
+- **Trae 升级后新旧命令并存**: `pruneOwnedFiles` 的 nested 分支只清 `commands/psfl/` 整棵树，0.9.1 按 flat 落在 `commands/` 顶层的 `psfl-*.md` 不在树内，升级到 `namespaced-flat` 后会与新命令并存成两套触发名。现 `prune` 与 `uninstall` 在 `namespaced-flat` 平台顺带清一次顶层 `psfl-*.md`（按归属判定，幂等）
 
 - **Dashboard 推进阶段时锁落在错误的仓库**: `advanceTaskPhase` 调 `runTaskStateEntry` 时未传 `repoRoot`，原语回退到 `git rev-parse` 解析 CLI 进程所在仓库，导致所有项目的阶段写入共用同一把 `task-state-<id>.lock`（全量测试里多个 worker 因此互相自旋，直到 5s 测试超时，并在真实仓留下 stale 锁）。现与 `setTaskCheckbox` 对称，显式传 `repoRoot: projectRoot` 与 `taskId`；`写完不残留锁文件` 用例补上「`.polaris/.locks/` 必须存在于目标项目根」断言，钉住锁归属而非只验「文件不存在」
 
@@ -18,7 +28,7 @@
 
 ### Tests
 
-- **Trae 命令落盘回归**: `commands-install.test.ts` 的 Trae 用例改为断言 `commands/psfl/` 嵌套落盘、冒号命令名与连字符技能名并存，并守 flat 顶层文件不残留；新增 Trae-CN 用例覆盖 project scope 共用 `.trae/commands/psfl/`。Cursor 与 `resolveCommandDest` 的 flat 断言保持不变
+- **Trae 命令落盘与三值布局回归**: `commands-install.test.ts` 的 Trae / Trae-CN 用例断言 `commands/psfl/` 一层平铺、`name: coding:normal`、全冒号的 `/psfl:coding:normal` 命令名、`polaris-coding-normal` 技能名，并守子目录与 flat 顶层文件不残留；Claude / Cursor 用例补上「`name` 不带命名空间」断言；新增 `resolveCommandNamespace` 三类用例（分类/顶层/多级目录）与 `expandCommandNames` 各布局断言（含孤立占位符兜底）
 
 ## What's Changed [0.9.1] - 2026-11-09
 

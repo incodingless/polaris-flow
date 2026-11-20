@@ -57,6 +57,7 @@ import {
   resolveInstallChannelConfig,
 } from '../core/install/channels.js';
 import { resolveVersion } from '../core/deps/github.js';
+import { getCurrentVersion } from '../core/deps/version.js';
 
 type InstallStatus = 'installed' | 'skipped' | 'failed';
 
@@ -122,6 +123,7 @@ const POLARIS_BANNER = [
   `${green('██      ')} ▀██▄▄██▀    ██▄▄▄   ██▄▄▄███   ██       ▄▄▄██▄▄▄  █▄▄▄▄▄██   ${green('██      ')}   ██▄▄▄   ▀██▄▄██▀  ▀██  ██▀ `,
   `${green('▀▀      ')}   ▀▀▀▀       ▀▀▀▀    ▀▀▀▀ ▀▀   ▀▀       ▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀    ${green('██')}          ▀▀▀▀     ▀▀▀▀     ▀▀  ▀▀  `,
   `${green('='.repeat(106))}`,
+  `  ${dim(`v${getCurrentVersion()}`)}`,
   `  ${bold('OpenSpec')} + ${bold('Superpowers')} + ${bold('Polaris')} Workflow`,
   ``,
 ].join('\n');

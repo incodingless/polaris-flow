@@ -144,7 +144,8 @@ export async function installPolarisForPlatform(
     );
   }
 
-  // 3.2 复制命令（落盘路径按平台 commandLayout：nested 保留子目录；flat 扁平为 polaris-<路径>）
+  // 3.2 复制命令（落盘路径按平台 commandLayout：nested 保留子目录；flat 扁平为 psfl-<路径>；
+  //     namespaced-flat 在 commands/psfl/ 内扁平为 <路径>，不建子目录）
   const commands = selectedKinds('commands')
     ? await installPolarisCommandsForPlatform(
         platformLayout.commandsDir,

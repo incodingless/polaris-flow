@@ -10,6 +10,7 @@
 #   ├─ 安装手册-*.md/.pdf     # 使用者文档：从 docs/releases/ 拷入
 #   ├─ 命令使用说明.md
 #   ├─ 使用帮助.md
+#   ├─ CHANGELOG.md          # 变更记录：从仓库根拷入，便于使用者核对版本变更
 #   ├─ 使用者速查卡.pdf
 #   └─ components/
 #      ├─ openspec-<ver>.tgz   # npm pack 产物（离线免构建）
@@ -283,7 +284,7 @@ const m = {
 fs.writeFileSync(process.env.MANIFEST, JSON.stringify(m, null, 2) + "\n");
 '
 
-# --- 6.5 使用者文档（拷入 docs/releases 下的成品，随包分发）---
+# --- 6.5 使用者文档与变更记录（拷入 docs/releases 成品 + 仓库根 CHANGELOG，随包分发）---
 # 离线包自带「怎么装、怎么用」：安装手册（双平台）、命令使用说明、使用帮助、使用者速查卡。
 # 缺失只告警不中断 —— PDF 是本地生成物（.gitignore 排除），没有源文件的人打不出来，
 # 不应因此让整包打包失败。清单写死而非 glob：release-<version>-<YYYYMMDD>/ 里出现别的文档不该被自动带出去。
@@ -305,11 +306,22 @@ for doc in "${RELEASE_DOCS[@]}"; do
     docs_copied="${docs_copied}${doc} "
     docs_count=$((docs_count + 1))
   else
-    warn "缺少使用者文档 docs/releases/$doc（跳过）"
+    # bash 3.2 在 UTF-8 locale 下会把 $doc 后的中文首字节吞进变量名，必须写 ${doc}
+    warn "缺少使用者文档 docs/releases/${doc}（跳过）"
   fi
 done
 if [ "$docs_count" -eq 0 ]; then
   warn "一份使用者文档都没带上，离线包将不含安装手册"
+fi
+
+# CHANGELOG 在仓库根、不在 docs/releases，单独拷入：使用者据此了解本次离线包对应的版本变更。
+# 与使用者文档同样：缺失只告警不中断，避免为一份可选文档让整包打包失败。
+changelog_copied=false
+if [ -f "$ROOT/CHANGELOG.md" ]; then
+  cp "$ROOT/CHANGELOG.md" "$OUT_DIR/CHANGELOG.md"
+  changelog_copied=true
+else
+  warn "缺少仓库根 CHANGELOG.md（跳过）"
 fi
 
 # --- 7. 可选 zip ---
@@ -338,6 +350,9 @@ echo "  install.sh/install.ps1/polaris-preseed.cjs"
 echo "  config.ini（npm-registry 默认 ${REGISTRY}）"
 echo "  bundle-manifest.json"
 echo "  使用者文档 ${docs_count} 份: ${docs_copied:-无}"
+if [ "$changelog_copied" = true ]; then
+  echo "  变更记录 CHANGELOG.md"
+fi
 echo "  components/superpowers@${superpowers_version}"
 echo "  components/openspec@${openspec_version}（tgz）"
 echo "  components/codegraph@${codegraph_version}（tgz）"

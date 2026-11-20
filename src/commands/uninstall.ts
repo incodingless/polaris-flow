@@ -221,7 +221,7 @@ async function buildRemovalPlan(
         }
       }
 
-      // 命令：nested 整棵 psfl 命名空间；flat 逐个 psfl-*.md
+      // 命令：nested / namespaced-flat 整棵 psfl 命名空间；flat 逐个 psfl-*.md
       if (getCommandLayout(platform) === 'flat') {
         const commandsRoot = platformCommandsRoot(platform, projectPath);
         for (const name of await readDirSafe(commandsRoot)) {
@@ -237,6 +237,16 @@ async function buildRemovalPlan(
           path.join(platformCommandsRoot(platform, projectPath), POLARIS_COMMAND_PREFIX),
           `${label} commands`,
         );
+        // 与 prune 对称：0.9.1 的 Trae 曾按 flat 落到 commands/ 顶层，升级后这些
+        // psfl-*.md 不在 psfl/ 目录内，卸载时也要一并清掉。
+        if (getCommandLayout(platform) === 'namespaced-flat') {
+          const commandsRoot = platformCommandsRoot(platform, projectPath);
+          for (const name of await readDirSafe(commandsRoot)) {
+            if (name.startsWith(`${POLARIS_COMMAND_PREFIX}-`) && name.endsWith('.md')) {
+              pushItem(items, seen, 'file', path.join(commandsRoot, name), `${label} commands`);
+            }
+          }
+        }
       }
 
       // hooks：执行阶段移除托管条目（记平台即可）

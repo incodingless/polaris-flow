@@ -9,7 +9,10 @@ import { describe, expect, it } from 'vitest';
 import { installPolarisForPlatform } from '../../src/core/install.js';
 import {
   COMMAND_NAME_PREFIX_PLACEHOLDER,
+  COMMAND_NAMESPACE_PLACEHOLDER,
+  expandCommandNames,
   resolveCommandDest,
+  resolveCommandNamespace,
 } from '../../src/core/install/commands.js';
 import { SKILL_NAME_PREFIX_PLACEHOLDER } from '../../src/core/install/skills.js';
 import { PLATFORMS } from '../../src/core/domain/platforms.js';
@@ -80,9 +83,14 @@ describe('installPolarisForPlatform commands', () => {
       }
 
       // 分类子目录原样保留：coding/ prd/ maintance/
-      expect(
-        await readFile(path.join(tmpDir, '.claude/commands/psfl/coding/normal.md'), 'utf-8'),
-      ).toContain('polaris:coding:normal');
+      const nestedNormal = await readFile(
+        path.join(tmpDir, '.claude/commands/psfl/coding/normal.md'),
+        'utf-8',
+      );
+      expect(nestedNormal).toContain('polaris:coding:normal');
+      // nested 平台命令名从路径推导，{{CMD_NS}} 展开为空，name 保持裸 stem
+      expect(nestedNormal).toContain('name: normal');
+      expect(nestedNormal).not.toContain(COMMAND_NAMESPACE_PLACEHOLDER);
       expect(
         await readFile(path.join(tmpDir, '.claude/commands/psfl/prd/readiness.md'), 'utf-8'),
       ).toContain('polaris:prd:readiness');
@@ -136,13 +144,13 @@ describe('installPolarisForPlatform commands', () => {
   );
 
   it(
-    'trae 命令 nested：落 commands/psfl/，命令名冒号、技能名连字符',
+    'trae namespaced-flat：落 psfl/ 一层，name 补回分类命名空间，命令名全冒号',
     { timeout: INSTALL_TIMEOUT },
     async () => {
       const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'polaris-cmd-trae-'));
       await installPolarisForPlatform(tmpDir, trae, true, 'zh', 'project');
 
-      // 命令布局 nested → 入口命令落到 psfl/ 命名空间目录
+      // 命名空间目录保留；入口命令落到 psfl/flow.md
       const command = await readFile(
         path.join(tmpDir, '.trae/commands/psfl/flow.md'),
         'utf-8',
@@ -150,32 +158,49 @@ describe('installPolarisForPlatform commands', () => {
 
       expect(command).not.toContain(SKILL_NAME_PREFIX_PLACEHOLDER);
       expect(command).not.toContain(COMMAND_NAME_PREFIX_PLACEHOLDER);
+      expect(command).not.toContain(COMMAND_NAMESPACE_PLACEHOLDER);
       // 技能布局仍是 flat → 正文技能名展开为连字符形态
       for (const skill of referencedSkills.flat) {
         expect(command).toContain(skill);
       }
-      // 命令布局 nested → 命令名展开为冒号形态
+      // 顶层命令：菜单显示 psfl:flow，triggers 与 name 必须一致
       expect(command).toContain('/psfl:flow');
-      // flat 形态的顶层文件不得残留
+      expect(command).toContain('name: flow'); // 顶层无分类，{{CMD_NS}} 展开为空
+      expect(command).not.toContain('/psfl/');
+      // 0.9.1 的 flat 顶层文件不得残留
       await expect(
         access(path.join(tmpDir, '.trae/commands/psfl-flow.md')),
       ).rejects.toThrow();
 
-      // 分类子目录原样保留；技能名与命令名各自按所属布局展开
+      // 分类压进文件名、psfl/ 下不建子目录；{{CMD_NS}} 把分类带回 name
       const normal = await readFile(
-        path.join(tmpDir, '.trae/commands/psfl/coding/normal.md'),
+        path.join(tmpDir, '.trae/commands/psfl/coding-normal.md'),
         'utf-8',
       );
+      expect(normal).toContain('name: coding:normal');
       expect(normal).toContain('polaris-coding-normal');
       expect(normal).toContain('/psfl:coding:normal');
+      expect(normal).not.toContain('/psfl:coding-normal');
+      expect(normal).not.toContain(COMMAND_NAMESPACE_PLACEHOLDER);
+      await expect(access(path.join(tmpDir, '.trae/commands/psfl/coding'))).rejects.toThrow();
       await expect(
         access(path.join(tmpDir, '.trae/commands/psfl-coding-normal.md')),
       ).rejects.toThrow();
+      // 跨族命令同样：name 带分类、命令名全冒号、落盘仍是一层平铺
+      const testcase = await readFile(
+        path.join(tmpDir, '.trae/commands/psfl/testing-create-testcase.md'),
+        'utf-8',
+      );
+      expect(testcase).toContain('name: testing:create-testcase');
+      expect(testcase).toContain('/psfl:testing:create-testcase');
+      expect(
+        await readFile(path.join(tmpDir, '.trae/commands/psfl/prd-readiness.md'), 'utf-8'),
+      ).toContain('/psfl:prd:readiness');
     },
   );
 
   it(
-    'trae-cn 命令 nested：与 trae 共用 .trae/commands/psfl/',
+    'trae-cn namespaced-flat：与 trae 共用 .trae/commands/psfl/，name 同样补回分类',
     { timeout: INSTALL_TIMEOUT },
     async () => {
       const traeCn = PLATFORMS.find((p) => p.id === 'trae-cn')!;
@@ -187,7 +212,15 @@ describe('installPolarisForPlatform commands', () => {
         'utf-8',
       );
       expect(command).toContain('/psfl:flow');
+      expect(command).toContain('name: flow');
       expect(command).toContain('polaris-coding-specify');
+      expect(command).not.toContain('/psfl/');
+      const hotfix = await readFile(
+        path.join(tmpDir, '.trae/commands/psfl/maintance-hotfix.md'),
+        'utf-8',
+      );
+      expect(hotfix).toContain('name: maintance:hotfix');
+      expect(hotfix).toContain('/psfl:maintance:hotfix');
     },
   );
 
@@ -214,10 +247,14 @@ describe('installPolarisForPlatform commands', () => {
       // 不得再存在 polaris 命名空间目录（对 CLI 多一层就完全读不到）
       await expect(access(path.join(tmpDir, '.cursor/commands/psfl'))).rejects.toThrow();
 
-      // 分类子目录被扁平化为 psfl-<路径>
-      expect(
-        await readFile(path.join(tmpDir, '.cursor/commands/psfl-coding-normal.md'), 'utf-8'),
-      ).toContain('/psfl-coding-normal');
+      // 分类子目录被扁平化为 psfl-<路径>；flat 平台同样不注入命名空间
+      const flatNormal = await readFile(
+        path.join(tmpDir, '.cursor/commands/psfl-coding-normal.md'),
+        'utf-8',
+      );
+      expect(flatNormal).toContain('/psfl-coding-normal');
+      expect(flatNormal).toContain('name: normal');
+      expect(flatNormal).not.toContain(COMMAND_NAMESPACE_PLACEHOLDER);
       expect(
         await readFile(path.join(tmpDir, '.cursor/commands/psfl-prd-readiness.md'), 'utf-8'),
       ).toContain('/psfl-prd-readiness');
@@ -278,6 +315,72 @@ describe('resolveCommandDest', () => {
     expect(resolveCommandDest('testing/acceptance.md', 'flat')).toBe(
       'psfl-testing-acceptance.md',
     );
+  });
+
+  it('namespaced-flat：分类压进文件名，但不带 psfl- 前缀（命名空间由命令根提供）', () => {
+    expect(resolveCommandDest('flow.md', 'namespaced-flat')).toBe('flow.md');
+    expect(resolveCommandDest('coding/normal.md', 'namespaced-flat')).toBe('coding-normal.md');
+    expect(resolveCommandDest('prd/readiness.md', 'namespaced-flat')).toBe('prd-readiness.md');
+    expect(resolveCommandDest('testing/create-testcase.md', 'namespaced-flat')).toBe(
+      'testing-create-testcase.md',
+    );
+    // 族级命令与同族子目录命令压平后仍互不覆盖
+    expect(resolveCommandDest('prd.md', 'namespaced-flat')).not.toBe(
+      resolveCommandDest('prd/readiness.md', 'namespaced-flat'),
+    );
+  });
+});
+
+describe('expandCommandNames', () => {
+  const raw = [
+    'triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}normal"]',
+    '入口 `/psfl{{CMD_SPR}}flow`',
+    '退出 `/psfl{{CMD_SPR}}maintance{{CMD_SPR}}hotfix`',
+  ].join('\n');
+
+  it('nested 全部展开为冒号', () => {
+    expect(expandCommandNames(raw, 'nested')).toContain('/psfl:coding:normal');
+    expect(expandCommandNames(raw, 'nested')).toContain('/psfl:flow');
+  });
+
+  it('flat 全部展开为连字符', () => {
+    expect(expandCommandNames(raw, 'flat')).toContain('/psfl-coding-normal');
+    expect(expandCommandNames(raw, 'flat')).toContain('/psfl-flow');
+  });
+
+  it('namespaced-flat 同样全部展开为冒号（分类命名空间由 name 承担）', () => {
+    const out = expandCommandNames(raw, 'namespaced-flat');
+    expect(out).toContain('/psfl:coding:normal');
+    expect(out).toContain('/psfl:flow');
+    expect(out).toContain('/psfl:maintance:hotfix');
+    expect(out).not.toContain('/psfl:coding-normal');
+    expect(out).not.toContain(COMMAND_NAME_PREFIX_PLACEHOLDER);
+  });
+
+  it('孤立占位符也会被展开', () => {
+    expect(expandCommandNames('{{CMD_SPR}}', 'flat')).toBe('-');
+    expect(expandCommandNames('{{CMD_SPR}}', 'namespaced-flat')).toBe(':');
+  });
+});
+
+describe('resolveCommandNamespace', () => {
+  it('namespaced-flat：分类目录展开为 <分类>:，顶层命令为空', () => {
+    expect(resolveCommandNamespace('coding/normal.md', 'namespaced-flat')).toBe('coding:');
+    expect(resolveCommandNamespace('testing/create-testcase.md', 'namespaced-flat')).toBe(
+      'testing:',
+    );
+    expect(resolveCommandNamespace('prd/readiness.md', 'namespaced-flat')).toBe('prd:');
+    expect(resolveCommandNamespace('flow.md', 'namespaced-flat')).toBe('');
+    expect(resolveCommandNamespace('prd.md', 'namespaced-flat')).toBe('');
+  });
+
+  it('nested / flat 一律为空（命令名从路径或文件名推导）', () => {
+    expect(resolveCommandNamespace('coding/normal.md', 'nested')).toBe('');
+    expect(resolveCommandNamespace('coding/normal.md', 'flat')).toBe('');
+  });
+
+  it('多级目录以 : 连接', () => {
+    expect(resolveCommandNamespace('a/b/c.md', 'namespaced-flat')).toBe('a:b:');
   });
 });
 

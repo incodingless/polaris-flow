@@ -23,18 +23,26 @@ export const PLATFORM_ROOT_DIR_NAMES = ['skills', 'commands', 'agents'] as const
 export type SkillsLayout = 'nested' | 'flat';
 
 /**
- * 命令目录布局。与 `SkillsLayout` **互相独立**。
+ * 命令目录布局。与 `SkillsLayout` **互相独立**；落盘路径、`{{CMD_SPR}}`、`{{CMD_NS}}`
+ * 三者都由同一个值决定，避免「布局 nested、命令名却按 flat 展开」这类非法组合。
  * - `nested`：`<contextDir>/commands/psfl/<相对路径>`，命令名 = 相对路径的 `/` → `:`
- *   （如 `commands/psfl/coding/normal.md` → `/psfl:coding:normal`，Claude Code 行为）
+ *   （如 `commands/psfl/coding/normal.md` → `/psfl:coding:normal`，Claude Code / Qoder）
  * - `flat`：`<contextDir>/commands/psfl-<相对路径，/ → ->.md`，命令名 = 文件名
  *   （如 `commands/psfl-coding-normal.md` → `/psfl-coding-normal`）
+ * - `namespaced-flat`：`<contextDir>/commands/psfl/<相对路径，/ → ->.md`，命令名仍是
+ *   `/psfl:coding:normal`（如 `commands/psfl/coding-normal.md`）。分类压进文件名使
+ *   `psfl/` 只留一层，命令名与 `nested` 一致；分类命名空间由 frontmatter 的 `name`
+ *   带回来（`{{CMD_NS}}` → `coding:`，落盘为 `name: coding:normal`）。
  *
- * `flat` 仅用于 **Cursor**：官方行为是 **CLI 只读 `.cursor/commands/` 顶层的 `.md`、
- * 跳过全部子目录**（IDE 才递归扫描），多一层命名空间目录 CLI 就读不到；命名空间改由
- * `psfl-` 文件名前缀承担（与 OpenSpec 的 `opsx-*.md` 同构）。
- * 其余平台（Claude Code / Trae / Trae-CN / Qoder）均为 `nested`。
+ * 平台依据：
+ * - `flat` 仅用于 **Cursor**：官方行为是 **CLI 只读 `.cursor/commands/` 顶层的 `.md`、
+ *   跳过全部子目录**（IDE 才递归扫描），多一层命名空间目录 CLI 就读不到；命名空间改由
+ *   `psfl-` 文件名前缀承担（与 OpenSpec 的 `opsx-*.md` 同构）。
+ * - `namespaced-flat` 仅用于 **Trae / Trae-CN**：命令文件需落在 `commands/psfl/` 下、
+ *   但不建子目录；命令名由 frontmatter 的 `command_prefix` + `name` 推导，故用
+ *   `{{CMD_NS}}` 在 `name` 里补回被文件名压平的分类层级。`command_prefix` 恒为 `psfl`。
  */
-export type CommandLayout = 'nested' | 'flat';
+export type CommandLayout = 'nested' | 'flat' | 'namespaced-flat';
 
 /**
  * 宿主形态。同一平台在 IDE 与 CLI 下的**上下文压缩入口不同**（如 Trae：IDE 点面板按钮、CLI 输入 `/compact`），
@@ -353,8 +361,8 @@ export const PLATFORMS: Platform[] = [
     rulesDir: 'rules',
     rulesFormat: 'md',
     skillsLayout: 'flat',
-    /** 技能 flat、命令 nested：两者布局独立，命令落 `commands/psfl/` */
-    commandLayout: 'nested',
+    /** 技能 flat、命令 namespaced-flat：落 `commands/psfl/` 一层，分类由 `name` 的 {{CMD_NS}} 补回 */
+    commandLayout: 'namespaced-flat',
     supportsHooks: true,
     supportsSubagent: true,
     /** Trae IDE 的面板压缩按钮仅 SOLO Agent 可用；CLI 走斜杠命令 */
@@ -379,8 +387,8 @@ export const PLATFORMS: Platform[] = [
     rulesDir: 'rules',
     rulesFormat: 'md',
     skillsLayout: 'flat',
-    /** 与 trae 同源（国内版）：命令同为 nested */
-    commandLayout: 'nested',
+    /** 与 trae 同源（国内版）：命令同为 namespaced-flat */
+    commandLayout: 'namespaced-flat',
     supportsHooks: true,
     supportsSubagent: true,
     /** 与 trae 同源（国内版） */
