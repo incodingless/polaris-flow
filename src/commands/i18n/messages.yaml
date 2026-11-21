@@ -250,3 +250,39 @@ gitMissing:
 companionCliInUserDir:
   en: 'Companion CLIs installed to the user directory (global npm prefix is not writable). To run openspec / codegraph directly, add it to PATH:'
   zh: 伴生 CLI 已装到用户目录（全局 npm 前缀不可写）。要直接运行 openspec / codegraph，把它加进 PATH：
+depStatusUnreachable:
+  en: unreachable
+  zh: 无法确认上游版本
+depStatusSkipped:
+  en: skipped
+  zh: 已跳过
+assetKindSkills:
+  en: skills
+  zh: 技能
+assetKindCommands:
+  en: commands
+  zh: 命令
+assetKindAgents:
+  en: agents
+  zh: 智能体
+assetKindRules:
+  en: rules
+  zh: 规则
+assetKindHooks:
+  en: hooks
+  zh: 钩子
+scopeValueProject:
+  en: project
+  zh: 项目
+scopeValueGlobal:
+  en: global
+  zh: 全局
+languageValueZh:
+  en: zh
+  zh: 中文
+languageValueEn:
+  en: en
+  zh: 英文
+assetsLabel:
+  en: assets
+  zh: 资产

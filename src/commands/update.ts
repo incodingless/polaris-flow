@@ -114,6 +114,31 @@ export type UpdateResult = {
 
 type Logger = (message: string) => void;
 
+/** 依赖 id → 人类可读展示名（与 runDependencyUpdate 传入的 label 保持一致） */
+const DEP_LABELS: Record<UpdateDependency, string> = {
+  openspec: OPENSPEC_PACKAGE,
+  superpowers: 'Superpowers',
+  codegraph: 'Codegraph',
+};
+
+/** 依赖状态 → i18n key（summary 段复用已有短词，避免再造一套状态文案） */
+const DEP_STATUS_KEYS: Record<UpdateDependencyStatus, string> = {
+  'up-to-date': 'updateUpToDate',
+  unreachable: 'depStatusUnreachable',
+  installed: 'updateStatusInstalled',
+  failed: 'failedStatus',
+  skipped: 'depStatusSkipped',
+};
+
+/** 资产类别 → i18n key */
+const ASSET_KIND_KEYS: Record<PolarisAssetKind, string> = {
+  skills: 'assetKindSkills',
+  commands: 'assetKindCommands',
+  agents: 'assetKindAgents',
+  rules: 'assetKindRules',
+  hooks: 'assetKindHooks',
+};
+
 /** 语言：显式选项 > `.polaris/config.yaml` > zh（en 技能资产尚未填充，zh 是唯一可用默认） */
 function resolveLanguage(
   fromOption: Languages | undefined,
@@ -246,9 +271,9 @@ function reportPlatformAssets(result: UpdatePlatformResult, log: Logger, lang: L
       const status = result.hooks?.installed
         ? t(lang, 'updateStatusInstalled')
         : (result.hooks?.reason ?? t(lang, 'skip'));
-      return `hooks (${status})`;
+      return `${t(lang, ASSET_KIND_KEYS[kind])} (${status})`;
     }
-    return `${kind} ${result.copied[kind] ?? 0}`;
+    return `${t(lang, ASSET_KIND_KEYS[kind])} ${result.copied[kind] ?? 0}`;
   });
 
   log(`  ${name}: ${t(lang, 'updateUpdatedTo')} ${parts.join(', ')}`);
@@ -481,13 +506,18 @@ export async function runUpdate(
     reportPlatformAssets(entry, log, lang);
   }
   for (const entry of deps) {
-    log(`  ${entry.id}: ${entry.status}${entry.version ? ` (${entry.version})` : ''}`);
+    const label = DEP_LABELS[entry.id] ?? entry.id;
+    const status = t(lang, DEP_STATUS_KEYS[entry.status] ?? entry.status);
+    log(`  ${label}: ${status}${entry.version ? ` (${entry.version})` : ''}`);
   }
 
   log('');
   log(`  ${t(lang, 'summary')}`);
-  log(`  ${t(lang, 'summaryScope')} ${scope}  ${t(lang, 'summaryLanguage')} ${language}`);
-  log(`  ${PACKAGE_NAME}@${getCurrentVersion()} (assets ${manifest.version})`);
+  const scopeLabel =
+    scope === 'global' ? t(lang, 'scopeValueGlobal') : t(lang, 'scopeValueProject');
+  const languageLabel = language === 'en' ? t(lang, 'languageValueEn') : t(lang, 'languageValueZh');
+  log(`  ${t(lang, 'summaryScope')} ${scopeLabel}  ${t(lang, 'summaryLanguage')} ${languageLabel}`);
+  log(`  ${PACKAGE_NAME}@${getCurrentVersion()} (${t(lang, 'assetsLabel')} ${manifest.version})`);
   log(t(lang, 'updateComplete'));
 
   return result;

@@ -2,7 +2,7 @@
 
 /**
  * 安装后提示用户运行 polaris init。
- *
+ *de
  * 以下情况跳过提示：
  * - CI=true 环境变量已设置
  * - POLARIS_FLOW_NO_HINTS=1 环境变量已设置

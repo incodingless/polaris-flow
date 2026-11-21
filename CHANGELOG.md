@@ -14,6 +14,8 @@
 
 - **`flow` 命令恢复开发档位二级菜单**: 此前「开发」类别不分档、去掉了第 2 级询问（档位全由 `intake` 粗判 + `specify` 出口判定）。现在开发类别重新有二级菜单：`C01` 简单 / `C02` 一般 / `C03` 复杂分别声明 `tweak` / `normal` / `strict` 档（等价于直跑对应 thin 命令，交薄编排技能声明后由 `intake` 复核），新增 `C09` 自动判断（不声明档位，仍由 `intake` 粗判）。档位的权威判定仍在 `specify` 出口、选 C01–C03 不等于锁定档位
 
+- **dev.sh 新增菜单 9 快速发版**: 菜单 9 依次执行菜单 2（构建 + lint + test）、带 `--force` 的发布与菜单 5（打离线包），跳过菜单 99 的附带技能同步步骤，用于技能版本无需更新时的快速发版；与菜单 99 共用参数化后的同一套流程实现，保留发版前置检查、任一步失败即中止与结束回显，发布统一带 `--force`（单独发版菜单 8 仍不带），`h 9` 与 `h 99` 一样指向脚本自身的用法头部
+
 ### Fixed
 
 - **离线包打包在 macOS bash 3.2 下报 unbound variable**: `package.sh` 的使用者文档缺失分支原写作 `warn "...$doc（跳过）"`，bash 3.2 在 UTF-8 locale 下会把 `$doc` 后紧跟的中文首字节吞进变量名，报 `doc<乱码>: unbound variable`，导致任一文档缺失（如被 .gitignore 排除、本地未生成的 PDF）时整包打包中止。现改为 `${doc}` 显式终止变量名并补防回归注释；当前工作区恰好缺速查卡 PDF，已在 bash 3.2.57 下重放该段验证通过（5 份文档 + CHANGELOG 全部拷入，退出码 0）
@@ -25,6 +27,8 @@
 - **Dashboard 推进阶段时锁落在错误的仓库**: `advanceTaskPhase` 调 `runTaskStateEntry` 时未传 `repoRoot`，原语回退到 `git rev-parse` 解析 CLI 进程所在仓库，导致所有项目的阶段写入共用同一把 `task-state-<id>.lock`（全量测试里多个 worker 因此互相自旋，直到 5s 测试超时，并在真实仓留下 stale 锁）。现与 `setTaskCheckbox` 对称，显式传 `repoRoot: projectRoot` 与 `taskId`；`写完不残留锁文件` 用例补上「`.polaris/.locks/` 必须存在于目标项目根」断言，钉住锁归属而非只验「文件不存在」
 
 - **离线包附带技能缺版本标记**: `package.sh` 此前把 `devops/vendor/bundled-skills/` 原样拷进 `release-*/components/`，手工拷入的技能（如 archify）没有 `.polaris-bundled-ref`，而 `sync-bundled-skills.mjs` 只给「有新版」的技能写标记，缺标记会一路带进离线包。运行时 `ensureBundledSkillsSource` 把无标记副本判为历史副本「缺失」，内网离线安装时白跑一次联网重拉并报 Diagram failed（本地副本其实仍会安装，是假告警）。现打包时按 `BUNDLED_SKILL_SPECS` 钉值补齐缺失标记；只补缺失、不覆盖已有值，标记与钉值不一致仍由运行时重拉纠正，运行时判定与既有测试不变
+
+- **`polaris update` 汇总段中英混杂**: 依赖状态、资产类别、范围与语言值在汇总段直接拼接英文枚举（如 `openspec: up-to-date`、`skills 476, commands 14`、`范围： project 语言： zh`、`(assets 0.1.0)`）。现依赖 id 映射为人类可读展示名（openspec → `@fission-ai/openspec`、Superpowers、Codegraph），依赖状态、资产类别、`scope`/`language` 值、`assets` 全部走 i18n（新增 `depStatus*` / `assetKind*` / `scopeValue*` / `languageValue*` / `assetsLabel` 一组 key），英文分支保持原样
 
 ### Tests
 
