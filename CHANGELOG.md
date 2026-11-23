@@ -16,7 +16,11 @@
 
 - **dev.sh 新增菜单 9 快速发版**: 菜单 9 依次执行菜单 2（构建 + lint + test）、带 `--force` 的发布与菜单 5（打离线包），跳过菜单 99 的附带技能同步步骤，用于技能版本无需更新时的快速发版；与菜单 99 共用参数化后的同一套流程实现，保留发版前置检查、任一步失败即中止与结束回显，发布统一带 `--force`（单独发版菜单 8 仍不带），`h 9` 与 `h 99` 一样指向脚本自身的用法头部
 
+- **离线三包统一为 tgz**: `package.sh` 此前把 superpowers 以源码目录形态拷进离线介质的 `components/superpowers/`，与 openspec / codegraph 的 tgz 形态不一致；vendor 缓存也散在 `vendor/tgz/` 与 `vendor/superpowers/` 两处。现三包统一产出 `components/<name>-<version>.tgz`，vendor 缓存集中到 `devops/vendor/components/`，bundle-manifest 中 superpowers 类型改为 `tgz`。生产端用 `tar -czf` 并设 `COPYFILE_DISABLE=1` 避免 macOS 把扩展属性写成 AppleDouble（._*）条目污染解包目录；安装端 `polaris-preseed.cjs` 用 Node 内置 zlib 加极简 tar 解析把 superpowers tgz 解包成目录，运行时拿到的仍是目录路径（`installSource` 只接受目录），`src/` 无需改动。多版本选版由字典序改为点分数字比较，避免 `1.9.0` 被误判为高于 `1.16.1`。旧介质里的源码目录形态不再兼容
+
 ### Fixed
+
+- **`polaris update` 版本检查提示未汉化**: 首屏版本提示 `You are on the latest version.` 及有新版时的 `New version ... available. Run ... to upgrade.` 硬编码在 `src/core/deps/version.ts`，不跟随 `--lang` 或项目配置切换语言。现将两句纳入 `messages.yaml`（新增 `versionCheckUpToDate` / `versionCheckNewAvailable`，以 `{version}` / `{package}` 占位符承载版本与包名），`printVersionInfo` 改为接收调用方注入的翻译函数，避免 core 反向依赖命令层 i18n；中文环境下首屏输出「当前已是最新版本。」
 
 - **离线包打包在 macOS bash 3.2 下报 unbound variable**: `package.sh` 的使用者文档缺失分支原写作 `warn "...$doc（跳过）"`，bash 3.2 在 UTF-8 locale 下会把 `$doc` 后紧跟的中文首字节吞进变量名，报 `doc<乱码>: unbound variable`，导致任一文档缺失（如被 .gitignore 排除、本地未生成的 PDF）时整包打包中止。现改为 `${doc}` 显式终止变量名并补防回归注释；当前工作区恰好缺速查卡 PDF，已在 bash 3.2.57 下重放该段验证通过（5 份文档 + CHANGELOG 全部拷入，退出码 0）
 
@@ -33,6 +37,8 @@
 ### Tests
 
 - **Trae 命令落盘与三值布局回归**: `commands-install.test.ts` 的 Trae / Trae-CN 用例断言 `commands/psfl/` 一层平铺、`name: coding:normal`、全冒号的 `/psfl:coding:normal` 命令名、`polaris-coding-normal` 技能名，并守子目录与 flat 顶层文件不残留；Claude / Cursor 用例补上「`name` 不带命名空间」断言；新增 `resolveCommandNamespace` 三类用例（分类/顶层/多级目录）与 `expandCommandNames` 各布局断言（含孤立占位符兜底）
+
+- **离线预种解包与选版回归**: 新增 `test/ts/polaris-preseed.test.ts`，在隔离 HOME 下以子进程运行 preseed，覆盖三包 local-paths 写入与多版本选择、superpowers 解包后目录优先、重复执行不残留旧文件、路径穿越 / 绝对路径 / 符号链接 / AppleDouble 条目拒绝
 
 ## What's Changed [0.9.1] - 2026-11-09
 

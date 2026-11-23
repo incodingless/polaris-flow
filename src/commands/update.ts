@@ -302,7 +302,7 @@ export async function runUpdate(
 
   if (!json) {
     log(t(lang, 'updateTitle'));
-    await printVersionInfo(log);
+    await printVersionInfo(log, (key) => t(lang, key));
   }
 
   // ---- 1. 程序本体（npm 包） ----

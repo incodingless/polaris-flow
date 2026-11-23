@@ -82,9 +82,10 @@ export async function checkForUpdate(): Promise<VersionCheckResult> {
   };
 }
 
-/** 在命令开头打印版本信息，供 init / update 使用。 */
+/** 在命令开头打印版本信息，文案由调用方注入翻译函数，避免 core 依赖命令层 i18n。 */
 export async function printVersionInfo(
   log: (message: string) => void,
+  translate: (key: string) => string,
 ): Promise<VersionCheckResult> {
   const result = await checkForUpdate();
 
@@ -95,11 +96,12 @@ export async function printVersionInfo(
   }
 
   if (result.hasUpdate) {
-    log(
-      `  New version v${result.latestVersion} available. Run 'npm update -g ${PACKAGE_NAME}' to upgrade.`,
-    );
+    const message = translate('versionCheckNewAvailable')
+      .replace('{version}', result.latestVersion ?? '')
+      .replace('{package}', PACKAGE_NAME);
+    log(`  ${message}`);
   } else {
-    log(`  You are on the latest version.`);
+    log(`  ${translate('versionCheckUpToDate')}`);
   }
 
   return result;

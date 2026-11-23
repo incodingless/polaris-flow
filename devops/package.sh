@@ -13,18 +13,18 @@
 #   ├─ CHANGELOG.md          # 变更记录：从仓库根拷入，便于使用者核对版本变更
 #   ├─ 使用者速查卡.pdf
 #   └─ components/
-#      ├─ openspec-<ver>.tgz   # npm pack 产物（离线免构建）
-#      ├─ codegraph-<ver>.tgz  # npm pack 产物
-#      ├─ superpowers/         # 源码目录（钉 >= minVersion 的 tag）
-#      └─ bundled-skills/      # 附带技能（archify / diagram-design），随包分发给用户
+#      ├─ openspec-<ver>.tgz      # npm pack 产物（离线免构建）
+#      ├─ codegraph-<ver>.tgz     # npm pack 产物
+#      ├─ superpowers-<ver>.tgz   # 源码目录 tar 产物（安装时由 preseed 解包）
+#      └─ bundled-skills/         # 附带技能（archify / diagram-design），随包分发给用户
 #
 # 适用边界：内网可达 Nexus、公网 GitHub 不可达。.tgz 的第三方依赖仍走 config.ini
 # 里的 npm registry，所以 bundle 不是纯离线件。
 #
 # 组件来源（本地 vendor 优先，避免频繁打包反复从 GitHub/npm 拉取）：
-#   devops/vendor/superpowers/       superpowers 完整仓库（含 skills/）
+#   devops/vendor/components/*.tgz   三包 tgz 缓存（唯一持久形态）
+#   devops/vendor/superpowers/       superpowers 源码构建中间态（仅在缓存未命中时 clone，不入包）
 #   devops/vendor/bundled-skills/    附带技能（图表工具），缺则由 init 从 GitHub 补齐
-#   devops/vendor/tgz/*.tgz          本地缓存
 #   ⚠️ 三者都**不提交 git**（.gitignore: `devops/vendor/*`）：它们是后备副本，
 #      优先从 GitHub 下载，本地副本只为网络慢/超时时保住一次安装成功率。
 #
@@ -65,10 +65,10 @@ OUT_DIR="release-${pkg_version}-${build_date}"
 DO_ZIP=false
 REFRESH=false
 
-# 内置/缓存组件目录（superpowers 提交进 git，tgz 本地缓存不提交）
+# 内置/缓存组件目录（均不提交 git，见 .gitignore 的 devops/vendor/*）
 VENDOR_DIR="$ROOT/devops/vendor"
 SUPERPOWERS_VENDOR="$VENDOR_DIR/superpowers"
-TGZ_VENDOR="$VENDOR_DIR/tgz"
+COMPONENTS_VENDOR="$VENDOR_DIR/components"
 
 info() { echo "==> $*"; }
 warn() { echo "warn: $*" >&2; }
@@ -138,7 +138,27 @@ resolve_superpowers_version() {
   fi
 }
 
-# npm pack 一个 CLI 包：优先用 vendor/tgz 缓存，无则 pack 并回填缓存；返回实际版本号
+# 从组件缓存里选出指定前缀的最高版本（点分数字比较，避免字典序把 1.9.0 排在 1.16.1 前面）
+latest_cached_version() {
+  COMPONENTS_DIR="$COMPONENTS_VENDOR" PREFIX="$1" node -e '
+    const fs = require("fs");
+    const dir = process.env.COMPONENTS_DIR;
+    if (!fs.existsSync(dir)) process.exit(0);
+    const re = new RegExp("^" + process.env.PREFIX + "-([0-9]+\\.[0-9]+\\.[0-9]+)\\.tgz$");
+    const versions = fs.readdirSync(dir)
+      .map((name) => (re.exec(name) || [])[1])
+      .filter(Boolean);
+    const parts = (v) => v.split(".").map((n) => parseInt(n, 10) || 0);
+    versions.sort((a, b) => {
+      const A = parts(a), B = parts(b);
+      for (let i = 0; i < 3; i++) if (A[i] !== B[i]) return A[i] - B[i];
+      return 0;
+    });
+    if (versions.length) process.stdout.write(versions[versions.length - 1]);
+  '
+}
+
+# npm pack 一个 CLI 包：优先用 vendor/components 缓存，无则 pack 并回填缓存；返回实际版本号
 pack_cli() {
   local pkg="$1" pinned="$2" out_dir="$3" shortname="$4"
   local version="$pinned"
@@ -146,17 +166,17 @@ pack_cli() {
     version="$(npm view "$pkg" version --registry "$REGISTRY" 2>/dev/null)" \
       || die "无法解析 $pkg 的 latest 版本（registry: ${REGISTRY}）"
   fi
-  local cached="$TGZ_VENDOR/${shortname}-${version}.tgz"
+  local cached="$COMPONENTS_VENDOR/${shortname}-${version}.tgz"
   if [ -f "$cached" ] && [ "$REFRESH" != true ]; then
     info "复用缓存 ${shortname}-${version}.tgz" >&2
     cp "$cached" "$out_dir/"
   else
     info "npm pack ${pkg}@${version} ..." >&2
-    mkdir -p "$TGZ_VENDOR"
+    mkdir -p "$COMPONENTS_VENDOR"
     local packed
-    packed="$(npm pack "$pkg@$version" --pack-destination "$TGZ_VENDOR" --registry "$REGISTRY" 2>/dev/null | tail -1)"
+    packed="$(npm pack "$pkg@$version" --pack-destination "$COMPONENTS_VENDOR" --registry "$REGISTRY" 2>/dev/null | tail -1)"
     [ -n "$packed" ] || die "npm pack $pkg 失败"
-    mv "$TGZ_VENDOR/$packed" "$cached"
+    mv "$COMPONENTS_VENDOR/$packed" "$cached"
     cp "$cached" "$out_dir/"
   fi
   echo "$version"
@@ -167,37 +187,61 @@ info "输出目录: $OUT_DIR"
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR/components"
 
-# --- 1. superpowers 源码（优先内置 vendor，无或 --refresh 则 clone 并回填 vendor） ---
+# --- 1. superpowers tgz（缓存优先；源码目录仅作构建中间态） ---
+# 版本来源优先级：--superpowers 钉值 > 缓存中最高版本 > 源码中间态标记/package.json > 联网 latest
 superpowers_version=""
-if [ "$REFRESH" = true ] || [ ! -d "$SUPERPOWERS_VENDOR/skills" ]; then
-  mkdir -p "$VENDOR_DIR"
-  rm -rf "$SUPERPOWERS_VENDOR"
-  superpowers_version="$(resolve_superpowers_version)"
-  if [ -n "$superpowers_version" ] && [[ "$superpowers_version" != HEAD* ]] && semver_ge "$superpowers_version" "$SUPERPOWERS_MIN_VERSION" 2>/dev/null; then
-    info "git clone superpowers v${superpowers_version} ..."
-    git clone --depth 1 --branch "v${superpowers_version}" "$SUPERPOWERS_REPO" "$SUPERPOWERS_VENDOR" >/dev/null 2>&1 \
-      || git clone --depth 1 --branch "$superpowers_version" "$SUPERPOWERS_REPO" "$SUPERPOWERS_VENDOR" >/dev/null 2>&1 \
-      || die "clone superpowers@$superpowers_version 失败"
-  elif [ -n "$SUPERPOWERS_REF" ]; then
-    info "git clone superpowers ${SUPERPOWERS_REF} ..."
-    git clone --depth 1 --branch "$SUPERPOWERS_REF" "$SUPERPOWERS_REPO" "$SUPERPOWERS_VENDOR" >/dev/null 2>&1 \
-      || die "clone superpowers@$SUPERPOWERS_REF 失败"
-    superpowers_version="$SUPERPOWERS_REF"
-  else
-    warn "未取到 >= ${SUPERPOWERS_MIN_VERSION} 的 tag，clone 默认分支"
-    info "git clone superpowers (HEAD) ..."
-    git clone --depth 1 "$SUPERPOWERS_REPO" "$SUPERPOWERS_VENDOR" >/dev/null 2>&1 \
-      || die "clone superpowers 失败"
-    superpowers_version="HEAD"
-  fi
-  rm -rf "$SUPERPOWERS_VENDOR/.git"
-  echo "$superpowers_version" > "$SUPERPOWERS_VENDOR/.polaris-version"
-else
-  superpowers_version="$(cat "$SUPERPOWERS_VENDOR/.polaris-version" 2>/dev/null || echo vendor)"
-  info "复用内置 superpowers（${superpowers_version}）"
+if [ -n "$SUPERPOWERS_REF" ]; then
+  superpowers_version="$SUPERPOWERS_REF"
+elif [ "$REFRESH" != true ]; then
+  superpowers_version="$(latest_cached_version superpowers)"
 fi
-cp -R "$SUPERPOWERS_VENDOR" "$OUT_DIR/components/superpowers"
-rm -f "$OUT_DIR/components/superpowers/.polaris-version"
+if [ -z "$superpowers_version" ] && [ -d "$SUPERPOWERS_VENDOR/skills" ]; then
+  superpowers_version="$(cat "$SUPERPOWERS_VENDOR/.polaris-version" 2>/dev/null || true)"
+  if [ -z "$superpowers_version" ]; then
+    superpowers_version="$(node -e 'try{const p=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.stdout.write(p.version||"")}catch(e){}' "$SUPERPOWERS_VENDOR/package.json" 2>/dev/null || true)"
+  fi
+fi
+if [ -z "$superpowers_version" ]; then
+  superpowers_version="$(resolve_superpowers_version)"
+fi
+
+sp_cached="$COMPONENTS_VENDOR/superpowers-${superpowers_version}.tgz"
+if [ -f "$sp_cached" ] && [ "$REFRESH" != true ]; then
+  info "复用缓存 superpowers-${superpowers_version}.tgz"
+else
+  # 源码中间态版本不符或要求刷新时重新 clone，避免 tgz 文件名与内容版本错配
+  sp_source_version="$(cat "$SUPERPOWERS_VENDOR/.polaris-version" 2>/dev/null || true)"
+  if [ "$REFRESH" = true ] || [ ! -d "$SUPERPOWERS_VENDOR/skills" ] || [ "$sp_source_version" != "$superpowers_version" ]; then
+    mkdir -p "$VENDOR_DIR"
+    rm -rf "$SUPERPOWERS_VENDOR"
+    if [ -n "$superpowers_version" ] && [[ "$superpowers_version" != HEAD* ]] && semver_ge "$superpowers_version" "$SUPERPOWERS_MIN_VERSION" 2>/dev/null; then
+      info "git clone superpowers v${superpowers_version} ..."
+      git clone --depth 1 --branch "v${superpowers_version}" "$SUPERPOWERS_REPO" "$SUPERPOWERS_VENDOR" >/dev/null 2>&1 \
+        || git clone --depth 1 --branch "$superpowers_version" "$SUPERPOWERS_REPO" "$SUPERPOWERS_VENDOR" >/dev/null 2>&1 \
+        || die "clone superpowers@$superpowers_version 失败"
+    elif [ -n "$SUPERPOWERS_REF" ]; then
+      info "git clone superpowers ${SUPERPOWERS_REF} ..."
+      git clone --depth 1 --branch "$SUPERPOWERS_REF" "$SUPERPOWERS_REPO" "$SUPERPOWERS_VENDOR" >/dev/null 2>&1 \
+        || die "clone superpowers@$SUPERPOWERS_REF 失败"
+    else
+      warn "未取到 >= ${SUPERPOWERS_MIN_VERSION} 的 tag，clone 默认分支"
+      info "git clone superpowers (HEAD) ..."
+      git clone --depth 1 "$SUPERPOWERS_REPO" "$SUPERPOWERS_VENDOR" >/dev/null 2>&1 \
+        || die "clone superpowers 失败"
+    fi
+    rm -rf "$SUPERPOWERS_VENDOR/.git"
+    echo "$superpowers_version" > "$SUPERPOWERS_VENDOR/.polaris-version"
+  else
+    info "复用内置 superpowers 源码（${superpowers_version}）"
+  fi
+  mkdir -p "$COMPONENTS_VENDOR"
+  info "tar pack superpowers-${superpowers_version}.tgz ..."
+  # COPYFILE_DISABLE=1 阻止 macOS bsdtar 把扩展属性写成 AppleDouble（._*）条目，
+  # 否则解包目录会多出一套元数据文件；Linux 忽略此变量，无副作用。
+  COPYFILE_DISABLE=1 tar -czf "$sp_cached" --exclude='.polaris-version' -C "$SUPERPOWERS_VENDOR" . \
+    || die "打包 superpowers-${superpowers_version}.tgz 失败"
+fi
+cp "$sp_cached" "$OUT_DIR/components/"
 
 # --- 1.5 附带技能（图表工具 archify / diagram-design）---
 # 源与 superpowers 同性质：devops/vendor 下的本地副本，优先从 GitHub 拉、不提交 git。
@@ -278,7 +322,7 @@ const m = {
   components: {
     openspec: { version: process.env.OPENSPEC_VERSION, type: "tgz" },
     codegraph: { version: process.env.CODEGRAPH_VERSION, type: "tgz" },
-    superpowers: { version: process.env.SUPERPOWERS_VERSION, type: "source" },
+    superpowers: { version: process.env.SUPERPOWERS_VERSION, type: "tgz" },
   },
 };
 fs.writeFileSync(process.env.MANIFEST, JSON.stringify(m, null, 2) + "\n");
@@ -353,7 +397,7 @@ echo "  使用者文档 ${docs_count} 份: ${docs_copied:-无}"
 if [ "$changelog_copied" = true ]; then
   echo "  变更记录 CHANGELOG.md"
 fi
-echo "  components/superpowers@${superpowers_version}"
+echo "  components/superpowers@${superpowers_version}（tgz）"
 echo "  components/openspec@${openspec_version}（tgz）"
 echo "  components/codegraph@${codegraph_version}（tgz）"
 if [ "$DO_ZIP" = true ]; then

@@ -146,6 +146,12 @@ npmDepNotInstalled:
 updateTitle:
   en: Polaris Update
   zh: Polaris 更新
+versionCheckUpToDate:
+  en: You are on the latest version.
+  zh: 当前已是最新版本。
+versionCheckNewAvailable:
+  en: "New version v{version} available. Run 'npm update -g {package}' to upgrade."
+  zh: '发现新版本 v{version}。请运行 `npm update -g {package}` 升级。'
 npmPackageFailed:
   en: 'npm package: update failed'
   zh: npm 包：更新失败
