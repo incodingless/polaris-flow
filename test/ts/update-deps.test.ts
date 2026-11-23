@@ -11,7 +11,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { runUpdate } from '../../src/commands/update.js';
 import { loadI18n } from '../../src/commands/i18n/index.js';
-import { readLockFile, saveLockFile, type LockSourceEntry } from '../../src/core/install/lock.js';
+import {
+  readInstallState,
+  saveInstallState,
+  type InstallSourceEntry,
+} from '../../src/core/install/install-state.js';
 import { getLatestNpmVersion } from '../../src/core/deps/npm.js';
 import { resolveVersion } from '../../src/core/deps/github.js';
 import { resolveInstallChannelConfig } from '../../src/core/install/channels.js';
@@ -79,8 +83,8 @@ beforeEach(() => {
   vi.mocked(installCodegraph).mockResolvedValue('installed');
 });
 
-/** 造一个「已装 Polaris 的 claude 项目」，并预置 lock 里的依赖版本 */
-async function makeProject(sources: LockSourceEntry[]): Promise<string> {
+/** 造一个「已装 Polaris 的 claude 项目」，并预置 install-state 里的依赖版本 */
+async function makeProject(sources: InstallSourceEntry[]): Promise<string> {
   const projectPath = await mkdtemp(path.join(os.tmpdir(), 'polaris-update-deps-'));
   await mkdir(path.join(projectPath, '.claude', 'skills', 'polaris'), { recursive: true });
   await mkdir(path.join(projectPath, '.polaris'), { recursive: true });
@@ -89,23 +93,20 @@ async function makeProject(sources: LockSourceEntry[]): Promise<string> {
     ['language: zh', 'scope: project', ''].join('\n'),
     'utf-8',
   );
-  await saveLockFile(projectPath, {
+  await saveInstallState(projectPath, {
     version: 1,
-    lang: 'zh',
-    scope: 'project',
     platforms: ['claude'],
     sources,
-    installedAt: new Date().toISOString(),
   });
   return projectPath;
 }
 
 /** 三个组件都记录为当前上游版本 */
-function currentSources(): LockSourceEntry[] {
+function currentSources(): InstallSourceEntry[] {
   return [
-    { id: 'openspec', version: NPM_VERSION },
-    { id: 'superpowers', version: SUPERPOWERS_VERSION },
-    { id: 'codegraph', version: NPM_VERSION },
+    { id: 'openspec', version: NPM_VERSION, status: 'installed' },
+    { id: 'superpowers', version: SUPERPOWERS_VERSION, status: 'installed' },
+    { id: 'codegraph', version: NPM_VERSION, status: 'installed' },
   ];
 }
 
@@ -123,10 +124,10 @@ function expectAllInstalled(): void {
   expect(installCodegraph).toHaveBeenCalledTimes(1);
 }
 
-/** lock 中除 polaris 自身外的依赖版本 */
-async function depSources(projectPath: string): Promise<LockSourceEntry[] | undefined> {
-  const lock = await readLockFile(projectPath);
-  return lock?.sources.filter((entry) => entry.id !== 'polaris');
+/** install-state 中除 polaris 自身外的依赖版本 */
+async function depSources(projectPath: string): Promise<InstallSourceEntry[] | undefined> {
+  const state = await readInstallState(projectPath);
+  return state?.sources.filter((entry) => entry.id !== 'polaris');
 }
 
 describe('runUpdate deps 分支', () => {
@@ -174,9 +175,9 @@ describe('runUpdate deps 分支', () => {
     ]);
     expectAllInstalled();
     expect(await depSources(projectPath)).toEqual([
-      { id: 'openspec', version: '2.0.0' },
-      { id: 'superpowers', version: '5.0.0' },
-      { id: 'codegraph', version: '2.0.0' },
+      { id: 'openspec', version: '2.0.0', status: 'installed' },
+      { id: 'superpowers', version: '5.0.0', status: 'installed' },
+      { id: 'codegraph', version: '2.0.0', status: 'installed' },
     ]);
   });
 
@@ -200,9 +201,9 @@ describe('runUpdate deps 分支', () => {
 
   it('lock 里是 npx-latest / 0.0.0 脏值时只装一次建立基线，之后稳定跳过', async () => {
     const projectPath = await makeProject([
-      { id: 'openspec', version: '0.0.0' },
-      { id: 'superpowers', version: 'npx-latest' },
-      { id: 'codegraph', version: '0.0.0' },
+      { id: 'openspec', version: '0.0.0', status: 'installed' },
+      { id: 'superpowers', version: 'npx-latest', status: 'installed' },
+      { id: 'codegraph', version: '0.0.0', status: 'installed' },
     ]);
 
     const first = await runUpdate(projectPath, { only: ['deps'], json: true });
@@ -235,6 +236,7 @@ describe('runUpdate deps 分支', () => {
     expect((await depSources(projectPath))?.find((entry) => entry.id === 'openspec')).toEqual({
       id: 'openspec',
       version: NPM_VERSION,
+      status: 'installed',
     });
   });
 

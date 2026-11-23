@@ -7,10 +7,11 @@ import { getNodeToolExecutable } from '../deps/npm.js';
 import { cleanupTemp, fetchRepo, resolveVersion } from '../deps/github.js';
 import { installSource } from '../install/source-installer.js';
 import {
-  getSuperpowersSource,
-  SUPERPOWERS_REPO,
-  SUPERPOWERS_MIN_VERSION,
-} from '../assets/sources.js';
+  dependencyMinVersion,
+  dependencyRepo,
+  requireDependency,
+  toRepoUrl,
+} from '../deps/registry.js';
 import { resolveInstallChannelConfig } from '../install/channels.js';
 import { getBaseDir } from './detect.js';
 import { PLATFORMS } from '../domain/platforms.js';
@@ -36,7 +37,21 @@ const SKILLS_AGENT_MAP: Record<string, string> = PLATFORMS.reduce(
   {} as Record<string, string>,
 );
 const VALID_PLATFORM_IDS = new Set(Object.keys(SKILLS_AGENT_MAP));
-const SUPERPOWERS_INSTALL_TIMEOUT_MS = 300_000;
+
+/**
+ * superpowers 的登记声明。取 method 前先窄化——`npx-skills` 才有 repo / placement，
+ * 表里改了 kind 而没同步本文件时，这里会立刻抛错而不是静默装错位置。
+ */
+function superpowersMethod(): Extract<
+  ReturnType<typeof requireDependency>['method'],
+  { kind: 'npx-skills' }
+> {
+  const method = requireDependency('superpowers').method;
+  if (method.kind !== 'npx-skills') {
+    throw new Error('superpowers must be declared as method.kind = "npx-skills"');
+  }
+  return method;
+}
 
 function buildSuperpowersInstallCommand(
   scope: InstallScope,
@@ -56,7 +71,7 @@ function buildSuperpowersInstallCommand(
   // 末尾的 `-y` 是给 skills CLI 的：跳过它自己的交互确认。两者缺一不可：
   // 少了 npx 的 `--yes`，首次运行会停在 "Ok to proceed? (y)" 等输入，
   // 非交互环境（CI / hook / 管道）直接挂死。
-  const args = ['--yes', 'skills', 'add', 'obra/superpowers', '-y'];
+  const args = ['--yes', 'skills', 'add', dependencyRepo(requireDependency('superpowers')), '-y'];
   if (scope === 'global') {
     args.push('-g');
   }
@@ -82,9 +97,9 @@ async function installSuperpowersFromLocalPath(
   }
 
   console.warn(`    ↳ 使用本地目录 ${localPath} ...`);
-  const source = getSuperpowersSource();
+  const placement = superpowersMethod().placement;
   for (const platform of platforms) {
-    await installSource(source, localPath, baseDir, platform, scope);
+    await installSource(placement, localPath, baseDir, platform, scope);
   }
   return { status: 'installed', version: 'local', method: 'local' };
 }
@@ -96,11 +111,12 @@ async function installSuperpowersViaGitHub(
   scope: InstallScope,
   mirror?: string,
 ): Promise<SuperpowersInstallResult | null> {
-  const source = getSuperpowersSource();
+  const spec = requireDependency('superpowers');
+  const repoUrl = toRepoUrl(dependencyRepo(spec));
   let localPath: string | undefined;
 
   try {
-    const resolved = resolveVersion(SUPERPOWERS_REPO, SUPERPOWERS_MIN_VERSION, mirror);
+    const resolved = resolveVersion(repoUrl, dependencyMinVersion(spec), mirror);
     const version = resolved.version;
 
     if (version) {
@@ -111,13 +127,19 @@ async function installSuperpowersViaGitHub(
       console.warn(`    ↳ 无可用 tag，将 clone 默认分支...`);
     }
 
-    console.warn(`    ↳ git clone ${SUPERPOWERS_REPO} ...`);
+    console.warn(`    ↳ git clone ${dependencyRepo(spec)} ...`);
 
-    const fetched = await fetchRepo(SUPERPOWERS_REPO, version, mirror);
+    const fetched = await fetchRepo(repoUrl, version, mirror);
     localPath = fetched.localPath;
 
     for (const platform of platforms) {
-      await installSource(source, fetched.localPath, baseDir, platform, scope);
+      await installSource(
+        superpowersMethod().placement,
+        fetched.localPath,
+        baseDir,
+        platform,
+        scope,
+      );
     }
 
     return {
@@ -153,7 +175,7 @@ async function installSuperpowersViaNpx(
     execFileSync(command.command, command.args, {
       cwd: projectPath,
       stdio: 'inherit',
-      timeout: SUPERPOWERS_INSTALL_TIMEOUT_MS,
+      timeout: superpowersMethod().timeoutMs,
       shell: process.platform === 'win32',
     });
     return { status: 'installed', version: 'npx-latest', method: 'npx' };
@@ -221,9 +243,4 @@ export async function installSuperpowersForPlatforms(
   };
 }
 
-export {
-  SUPERPOWERS_MIN_VERSION,
-  SUPERPOWERS_REPO,
-  SKILLS_AGENT_MAP,
-  buildSuperpowersInstallCommand,
-};
+export { SKILLS_AGENT_MAP, buildSuperpowersInstallCommand };

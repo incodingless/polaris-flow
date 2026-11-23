@@ -53,6 +53,18 @@ export function getCurrentVersion(): string {
 }
 
 /**
+ * 从命令行输出里取出第一个 semver。
+ *
+ * 不同 CLI 的 `--version` 输出格式不一（`1.7.0` / `openspec 1.7.0` / `v1.7.0-beta.1`），
+ * 统一用正则抓取而不是按前缀切片。取不到返回 null —— 调用方必须据此放弃判断，
+ * 不要猜一个版本来比较。
+ */
+export function extractSemver(raw: string): string | null {
+  const match = raw.match(/\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?/);
+  return match ? match[0] : null;
+}
+
+/**
  * 从 npm registry 获取最新版本。
  * 网络不可达时返回 null。
  */

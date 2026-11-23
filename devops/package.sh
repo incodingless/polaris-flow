@@ -21,6 +21,13 @@
 # 适用边界：内网可达 Nexus、公网 GitHub 不可达。.tgz 的第三方依赖仍走 config.ini
 # 里的 npm registry，所以 bundle 不是纯离线件。
 #
+# ⚠️ 与 `src/core/deps/registry.ts` 的依赖登记表保持同步：
+#   - `github-copy` 类依赖（附带技能）：把源放进 devops/vendor/bundled-skills/<id>/ 即可，
+#     本脚本整目录拷贝，**无需改代码**；registry 里的 fallback.relPath 应指向它
+#   - `npm-cli` 类依赖（openspec / codegraph）：新增一条时必须在下面加一次 pack_cli 调用
+#     并产出 components/<relPath>-<ver>.tgz，否则离线安装拿不到保底（声明了 fallback 却是空的）
+#   - `npx-skills` 类依赖（superpowers）：tgz 由源码目录 tar 出来，preseed 解包成目录供 installSource 消费
+#
 # 组件来源（本地 vendor 优先，避免频繁打包反复从 GitHub/npm 拉取）：
 #   devops/vendor/components/*.tgz   三包 tgz 缓存（唯一持久形态）
 #   devops/vendor/superpowers/       superpowers 源码构建中间态（仅在缓存未命中时 clone，不入包）

@@ -26,8 +26,8 @@ import { copyIfMissing, fileExists } from '../utils/file-system.js';
 import { localIso } from '../utils/time.js';
 import { writeYamlFromTemplate } from '../utils/yaml-io.js';
 
-export type { LockFile, LockSourceEntry } from './install/lock.js';
-export { writeLockFile } from './install/lock.js';
+export type { InstallState, InstallSourceEntry } from './install/install-state.js';
+export { writeInstallState } from './install/install-state.js';
 export { installSource } from './install/source-installer.js';
 
 export { copyPolarisSkillsForPlatform } from './install/skills.js';

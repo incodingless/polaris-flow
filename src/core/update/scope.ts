@@ -4,22 +4,19 @@
  * 三层与可选项：
  * - program：CLI 程序本体（npm 包）
  * - assets ：Polaris 资产，细分为 skills / commands / agents / rules / hooks
- * - deps   ：第三方依赖，openspec / superpowers / codegraph
+ * - deps   ：第三方依赖，清单取自 `core/deps/registry.ts`（可自动升级的那些）
  *
  * 组名（assets / deps / all）展开为成员；显式成员名直接命中。未知项直接抛错，
  * 不静默忽略 —— 静默忽略会让用户以为已经更新了某个范围。
  */
 import { POLARIS_ASSET_KINDS, type PolarisAssetKind } from '../install/types.js';
+import { trackedDependencyIds } from '../deps/registry.js';
 
 /** 可独立更新的第三方依赖 */
-export type UpdateDependency = 'openspec' | 'superpowers' | 'codegraph';
+export type UpdateDependency = string;
 
-/** 全部第三方依赖（按 init 的安装顺序） */
-export const UPDATE_DEPENDENCIES: readonly UpdateDependency[] = [
-  'openspec',
-  'superpowers',
-  'codegraph',
-];
+/** 全部第三方依赖（顺序与依赖登记表一致） */
+export const UPDATE_DEPENDENCIES: readonly UpdateDependency[] = trackedDependencyIds();
 
 /** 展开后的更新计划 */
 export type UpdatePlan = {
@@ -94,12 +91,12 @@ function expandItem(plan: UpdatePlan, item: string): void {
     case 'deps':
       addDeps(plan, UPDATE_DEPENDENCIES);
       return;
-    case 'openspec':
-    case 'superpowers':
-    case 'codegraph':
-      addDeps(plan, [item]);
-      return;
     default:
+      // 依赖成员名由登记表决定，新增依赖自动可被 --only / --skip 命中
+      if (UPDATE_DEPENDENCIES.includes(item)) {
+        addDeps(plan, [item]);
+        return;
+      }
       throw new Error(`未知的更新项 "${item}"，可选值：${UPDATE_TARGETS.join(', ')}`);
   }
 }

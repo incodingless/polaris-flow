@@ -6,12 +6,6 @@ install-time: "2026-06-25T02:05:29.066Z"
 # 控制台端口号
 dashboard-port: 19080
 
-# 插件信息
-plugins:
-  openspec: 0.4.0
-  superpowers: 6.0.3
-  codegraph: 0.1.0
-
 supported-platforms:
   - trae
   - trae-cn

@@ -27,7 +27,11 @@ export type CheckResponse = {
 
 /** doctor 状态 → 面板状态 */
 function toCheckStatus(status: DiagnosticStatus): CheckStatus {
-  return status === 'fail' ? 'error' : status;
+  if (status === 'fail') return 'error';
+  // 'skip'（optional 依赖未装）面板无对应态，归入 ok —— 它按设计不构成问题，
+  // 映射成 warn 会让可选组件缺失变成常态告警，反而淹掉真正的降级项
+  if (status === 'skip') return 'ok';
+  return status;
 }
 
 /** 取项目配置里的安装作用域（影响 doctor 检查哪一套 skills） */

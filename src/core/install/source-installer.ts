@@ -1,12 +1,14 @@
 /**
- * SkillSource 执行器：把 GitHub clone 或 bundled 仓库中的 skills 目录拷贝到平台目标。
- * 供 install/commands.ts 与 deps/superpowers.ts 复用，避免 deps 反向依赖 install/commands。
+ * 外部技能落盘执行器：把 GitHub clone 或本地目录中的 skills 子树拷到平台目标。
+ * 只服务「已拿到源目录」之后的复制环节，获取通道见各 installer。
+ *
+ * 入参用 registry 的 `SkillsPlacement`（只含落盘位置），不关心依赖是谁。
  */
 import path from 'path';
 import fs from 'fs/promises';
 
 import { copyDirContents, copyFile, ensureDir } from '../../utils/file-system.js';
-import type { SkillSource } from '../assets/sources.js';
+import type { SkillsPlacement } from '../deps/registry.js';
 import { type Platform, getPlatformSkillsDir } from '../domain/platforms.js';
 import type { InstallScope, Languages } from '../config/polaris-project-config.js';
 
@@ -17,10 +19,12 @@ function resolveLangPath(assetPath: string, lang: Languages): string {
 }
 
 /**
- * 从 GitHub clone 或 bundled 仓库复制 skills 到平台目录。
+ * 从已获取的源目录复制 skills（及 extraPaths）到平台目录。
+ * @param placement 落盘位置声明（skillsPath / targetDir / extraPaths）
+ * @param repoPath 上游仓库或本地目录的根
  */
 export async function installSource(
-  source: SkillSource,
+  placement: SkillsPlacement,
   repoPath: string,
   baseDir: string,
   platform: Platform,
@@ -33,15 +37,15 @@ export async function installSource(
 
   const l = lang ?? 'zh';
 
-  if (source.skillsPath) {
-    const resolvedPath = resolveLangPath(source.skillsPath, l);
+  if (placement.skillsPath) {
+    const resolvedPath = resolveLangPath(placement.skillsPath, l);
     const srcSkills = path.join(repoPath, resolvedPath);
-    const destSkills = path.join(platformSkillsRoot, source.targetDir ?? '');
+    const destSkills = path.join(platformSkillsRoot, placement.targetDir ?? '');
     await copyDirContents(srcSkills, destSkills);
   }
 
-  if (source.extraPaths) {
-    for (const ep of source.extraPaths) {
+  if (placement.extraPaths) {
+    for (const ep of placement.extraPaths) {
       const langEp = resolveLangPath(ep, l);
       const srcExtra = path.join(repoPath, langEp);
       let srcActual = srcExtra;
@@ -55,7 +59,7 @@ export async function installSource(
       if (!stat) continue;
 
       const destRel = ep.replace(/^assets\/(zh|en|shared)\//, '').replace(/^zh\//, '');
-      const destPath = path.join(platformSkillsRoot, source.targetDir ?? '', destRel);
+      const destPath = path.join(platformSkillsRoot, placement.targetDir ?? '', destRel);
 
       if (stat.isDirectory()) {
         await copyDirContents(srcActual, destPath);

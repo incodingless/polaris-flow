@@ -1,7 +1,7 @@
 /**
  * 第三方依赖（openspec / superpowers / codegraph）的更新判定（纯函数，无 I/O）。
  *
- * 「已装版本」以 `.polaris/skills-lock.json` 的 `sources[].version` 为唯一事实来源，
+ * 「已装版本」以 `.polaris/install-state.json` 的 `sources[].version` 为唯一事实来源，
  * 记录的是上次安装时解析到的上游版本，而不是 `npm list -g` 的现场探测结果：
  * 全局 npm prefix 不可写时伴生 CLI 会装到 `~/.polaris/cli`，现场探测查不到会返回
  * `0.0.0`，把「已装」误判成「未装」。

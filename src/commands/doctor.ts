@@ -22,10 +22,18 @@ export async function runDoctor(
     console.log(`Polaris Flow Doctor — ${projectPath}`);
     console.log('');
     for (const item of checks) {
-      const icon = item.status === 'ok' ? '✓' : item.status === 'warn' ? '!' : '✗';
+      // skip = 已知未装但按设计不阻断（optional 依赖），用空心圈与 ok 的实心勾区分
+      const icon =
+        item.status === 'ok'
+          ? '✓'
+          : item.status === 'warn'
+            ? '!'
+            : item.status === 'skip'
+              ? '○'
+              : '✗';
       console.log(`  ${icon} ${item.name}: ${item.message}`);
-      // hint 是给失败项的修复指引：缩进两格输出，保持与诊断行同一视觉层级
-      if (item.hint && item.status !== 'ok') {
+      // hint 是给非 ok 项的修复指引：缩进两格输出，保持与诊断行同一视觉层级
+      if (item.hint && item.status !== 'ok' && item.status !== 'skip') {
         for (const line of item.hint.split('\n')) {
           console.log(line ? `      ${line}` : '');
         }

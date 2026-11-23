@@ -15,7 +15,7 @@ import { runUpdate } from '../../src/commands/update.js';
 import { loadI18n } from '../../src/commands/i18n/index.js';
 import { readAssets } from '../../src/core/assets/manifest.js';
 import { PLATFORMS } from '../../src/core/domain/platforms.js';
-import { readLockFile, saveLockFile } from '../../src/core/install/lock.js';
+import { readInstallState, saveInstallState } from '../../src/core/install/install-state.js';
 import { computeAssetFingerprints } from '../../src/core/update/fingerprint.js';
 import { fileExists } from '../../src/utils/file-system.js';
 
@@ -55,13 +55,10 @@ async function plant(filePath: string): Promise<string> {
 async function seedLockWithCurrentFingerprints(projectPath: string): Promise<void> {
   const assets = await readAssets('zh');
   const fresh = await computeAssetFingerprints(assets, CLAUDE, null, 'project');
-  await saveLockFile(projectPath, {
+  await saveInstallState(projectPath, {
     version: 1,
-    lang: 'zh',
-    scope: 'project',
     platforms: ['claude'],
     sources: [],
-    installedAt: new Date().toISOString(),
     assets: { claude: { ...fresh } },
   });
 }
@@ -97,12 +94,10 @@ describe('runUpdate', () => {
         await fileExists(path.join(projectPath, '.claude', 'commands', 'psfl', COMMAND_PATH)),
       ).toBe(false);
 
-      const lock = await readLockFile(projectPath);
-      expect(lock?.lang).toBe('zh');
-      expect(lock?.platforms).toEqual(['claude']);
-      expect(lock?.assets?.claude?.skills).toMatch(/^[0-9a-f]{16}$/);
-      expect(lock?.updatedAt).toBeTruthy();
-      expect(result.lockPath).toBeTruthy();
+      const state = await readInstallState(projectPath);
+      expect(state?.platforms).toEqual(['claude']);
+      expect(state?.assets?.claude?.skills).toMatch(/^[0-9a-f]{16}$/);
+      expect(result.statePath).toBeTruthy();
     },
     INSTALL_TIMEOUT,
   );
@@ -213,9 +208,11 @@ describe('runUpdate', () => {
       expect(result.assetsSkipped).toBe(true);
       expect(result.depsSkipped).toBe(false);
       expect(result.assets).toEqual([]);
-      expect(result.lockPath).toBeNull();
+      expect(result.statePath).toBeNull();
       expect(process.exitCode).toBe(1);
-      expect(await fileExists(path.join(projectPath, '.polaris', 'skills-lock.json'))).toBe(false);
+      expect(await fileExists(path.join(projectPath, '.polaris', 'install-state.json'))).toBe(
+        false,
+      );
     } finally {
       process.exitCode = savedExitCode;
     }

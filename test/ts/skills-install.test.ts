@@ -15,10 +15,12 @@ import {
   validateSkillAssetsNoCrossSkillParentRefs,
 } from '../../src/core/install/skills.js';
 import { readAssets, type Assets } from '../../src/core/assets/manifest.js';
+import { isBundledSkillPresent } from '../../src/core/integrations/bundled-skills.js';
 import {
-  BUNDLED_SKILL_SPECS,
-  isBundledSkillPresent,
-} from '../../src/core/integrations/bundled-skills.js';
+  githubCopyDependencies,
+  pinExpectation,
+  type GithubCopyDependency,
+} from '../../src/core/deps/registry.js';
 import { parseSkillAssetPath } from '../../src/core/assets/layout.js';
 import { PLATFORMS } from '../../src/core/domain/platforms.js';
 
@@ -425,11 +427,11 @@ describe('validateSkillAssetsNoCrossSkillParentRefs', () => {
  * 那是开发态资产（不入 git、不入 npm 包），因此这里用 fixture —— 测试不依赖仓库里有没有真实技能。
  */
 describe('bundled skills 安装（第三方工具，不进技能族）', () => {
-  it('BUNDLED_SKILL_SPECS 全部钉死版本（否则同一 polaris 版本在不同日期装出不同内容）', () => {
-    for (const spec of BUNDLED_SKILL_SPECS) {
+  it('附带技能全部钉死版本（否则同一 polaris 版本在不同日期装出不同内容）', () => {
+    for (const { spec, method } of githubCopyDependencies()) {
       expect(
-        Boolean(spec.version || spec.commit),
-        `${spec.name} 缺 version / commit，会随上游默认分支漂移`,
+        Boolean('version' in method.pin || 'commit' in method.pin),
+        `${spec.id} 未钉版本（pin.track = default-branch），会随上游默认分支漂移`,
       ).toBe(true);
     }
   });
@@ -468,18 +470,21 @@ describe('bundled skills 安装（第三方工具，不进技能族）', () => {
 
   it('版本标记与钉值不一致时视为缺失（否则改了钉值老用户永远不更新）', async () => {
     const source = await makeBundledSource();
-    const spec = { name: 'archify', repo: 'owner/repo', version: '9.9.9' };
+    const dep = githubCopyDependencies().find((item) => item.spec.id === 'archify')!;
+    const pinned = pinExpectation(dep.method);
 
     // 没有标记文件（历史副本）→ 按缺失处理，宁可重拉一次
-    expect(await isBundledSkillPresent(source, 'archify', spec)).toBe(false);
+    expect(await isBundledSkillPresent(source, dep)).toBe(false);
 
-    await writeFile(path.join(source, 'archify', '.polaris-bundled-ref'), '9.9.9\n', 'utf-8');
-    expect(await isBundledSkillPresent(source, 'archify', spec)).toBe(true);
+    await writeFile(path.join(source, 'archify', '.polaris-bundled-ref'), `${pinned}\n`, 'utf-8');
+    expect(await isBundledSkillPresent(source, dep)).toBe(true);
 
     // 钉值升了 → 再次视为缺失，触发重新拉取
-    expect(await isBundledSkillPresent(source, 'archify', { ...spec, version: '9.9.10' })).toBe(
-      false,
-    );
+    const bumped: GithubCopyDependency = {
+      ...dep,
+      method: { ...dep.method, pin: { version: '9.9.10' } },
+    };
+    expect(await isBundledSkillPresent(source, bumped)).toBe(false);
   });
 
   it(

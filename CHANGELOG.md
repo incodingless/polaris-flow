@@ -1,5 +1,68 @@
 # Changelog
 
+## What's Changed [0.9.3] - 2026-11-23
+
+### Added
+
+- **依赖登记表与安装分派层**: 新增 `src/core/deps/registry.ts` 作为「polaris 需要从外部获取哪些组件」的唯一声明源，合并此前分裂的三份清单（`assets/sources.ts` 的 `SOURCES`、`integrations/bundled-skills.ts` 的 `BUNDLED_SKILL_SPECS`、`install/channels.ts` 的 `CHANNEL_COMPONENT_IDS`）。每条声明自带安装方式（`method` 判别联合：`npm-cli` / `npx-skills` / `github-copy`）、已装判据（`probe`）、本地保底载体（`fallback`）、重要度（`required` / `recommended` / `optional`）与版本追踪开关。配套新增 `deps/probe.ts`（判据执行器）与 `deps/install-dependency.ts`（安装分派器），把原先散在三处、各写一遍的「在线 → 镜像 → 本地」回退链统一到一条分派路径上。增补同类依赖（再引一个 GitHub 技能目录或 npm 全局 CLI）只需在登记表加一条 record，编译器的判别联合与结构性测试会拦住漏字段；引入全新安装范式（pip / zip / brew）仍需新增一个 `method.kind` 分支与 installer，这是有意保留的边界。**Polaris 自身不在表内**——它随 npm 包分发、由 `core/install.ts` 按平台落盘，没有「获取」这一步，其已装判据独立为 `probe.ts` 的 `POLARIS_SELF_PROBE`
+- **`install.local-paths` 覆盖附带技能**: 本地目录通道的组件清单改为从登记表派生（非 bundled 即可配置），顺带补上 archify / diagram-design 此前无法按组件指定本机源码目录的缺口——它们只能靠 `POLARIS_BUNDLED_SKILLS_SOURCE` 整批覆盖源根。现支持 `install.local-paths.archify` 或 `POLARIS_ARCHIFY_PATH`，单条目录会先拷进 `~/.polaris/components/bundled-skills/<id>/` 再随平台分发，组件目录仍是唯一载体
+
+### Changed
+
+- **`polaris init` 改为表驱动编排**: 原先 OpenSpec / Superpowers / Codegraph / Diagram / Polaris 五段手写流程（各段自行推日志、判状态、写 lock、打失败原因，约 130 行同构代码）改为遍历登记表的循环。新增依赖不再需要改 `init.ts`。`prompts.ts` 的平台动作计划由四个硬编码字段（`polarisAction` / `spAction` / `osAction` / `codegraphAction`）改为 `actions: Record<depId, ComponentAction>`，交互提问范围由重要度推导（`optional` 不拦人），与原有「只问四个主组件」的行为一致
+- **依赖失败语义按重要度分级**: 安装结果汇总从「平台失败 / Superpowers 失败」两档改为 `required` / `recommended` / `optional` 三档，分级来自登记表而非各组件自己的代码分支。Superpowers 归入 `required`（多数技能的 subagent 派发依赖它），Codegraph 为 `recommended`，图表技能为 `optional`。init 结束时的汇总按档位分别以红/黄/灰输出
+- **`polaris update` 的依赖清单从登记表派生**: `UPDATE_DEPENDENCIES` 不再硬编码 `openspec / superpowers / codegraph`，`--only <dep>` / `--skip <dep>` 自动覆盖新增依赖；尚无自动升级实现的依赖会明确提示「请重新执行 polaris init」，不再静默跳过
+- **`polaris update` 的依赖升级改为表驱动**: deps 分支原来为每个组件手写一段 `if (plan.deps.includes('xxx'))` + 专用探测 + 专用安装调用（三段近乎同构，新增依赖不会自动获得升级能力），现改为遍历 `plan.deps` 逐条按登记表声明执行：探测上游版本由新增的 `deps/latest-version.ts` 按 `method.kind` 分派（`npm-cli` 查 npm registry、`npx-skills` 读仓库 tag、`github-copy` 不参与版本比较），安装统一走 `acquireDependency` 的 installer 分派。新增一条 `npm-cli` / `npx-skills` 依赖后 `polaris update --only <新id>` 即可真正升级，`update.ts` 不用改。探测与安装共用同一份 `resolveInstallChannelConfig()` 结果，避免「查到的版本」与「实际装到的版本」来自不同仓库。真实差异未被「合并成一次调用」抹平：codegraph 在 update 场景要连已装 CLI 一起重拉 @latest（init 场景不需要），为此 `acquireDependency` 新增可选的 `AcquireOptions.upgradeInstalled`，仅由 codegraph 分支透传给 `installCodegraph` 的 `upgradeCli`，installer 签名未动；openspec 的 `Platform[]` 与 superpowers 的 `string[]` 差异本就在 `acquireDependency` 内部消化，update 侧不再自行转换。判定与写锁语义原样保留：`up-to-date` / `unreachable` / 需安装三种结果各有日志与结果记录，安装失败仍不写版本（下次 update 才会重试），`--force` 仍绕过版本比对；`github-copy` 若因声明改动进入依赖清单，明确提示「暂无自动升级实现」并记 `skipped`，不静默跳过
+- **包名与超时收敛到声明**: `@fission-ai/openspec` / `@colbymchenry/codegraph` 的字面量此前散在 init / update / uninstall / 两个 installer 共 5 处，现统一从 `method.pkg` 取；`npm i -g` 的超时（120s / 180s / npx 300s）也改为随声明走，不再在各 installer 里写魔法数字
+- **`hasSkills` 走 probe 判据**: 组件「是否已装」的判定从 `detect.ts` 的 switch + `SUPERPOWERS_MARKERS` 副本改为消费登记表的 `probe` 声明（只取 skills 目录部分，不因全局装了 CLI 就认为项目内已装）。`probe.ts` 与 `bundled-skills.ts` 共用 `BUNDLED_REF_MARKER` 常量，避免写入与读取的标记文件名分叉
+
+- **`polaris doctor` 改为按依赖登记表逐条检查**: 此前只查 `openspec` 一条，`superpowers`（required）完全没检查，`codegraph` 与两个图表技能也不在诊断范围内；且 openspec 用 `isCommandAvailable` 只看 PATH，而 init 在全局 npm 目录不可写时会把 CLI 装到 `~/.polaris/cli/bin`，导致已装的被误报成缺失。现逐条走 `probeDependency`（与 init 完全同源的判据，多平台任一命中即算已装），按 `requiredness` 分级：`required` 缺失为 `fail`（doctor 以非零码退出，并给出 `polaris init` / `install.local-paths.<id>` 与本地保底载体路径的指引）、`recommended` 缺失为 `warn`、`optional` 缺失为新增的 `skip` 级别（空心圈、不告警、不影响退出码）。`DiagnosticStatus` 因此扩展为 `ok|warn|fail|skip`；dashboard `/api/check` 把 `skip` 归入 `ok`（面板只有三态，映射成 warn 会让可选组件缺失变成常态告警）
+
+- **`polaris doctor` 增加基线漂移检查**: `openspec init` 的产物是项目里的技能与命令文件，不是指向全局 CLI 的引用——所以「项目技能的版本」等于上次 init 时那个 CLI 的版本。用户手动 `npm i -g @fission-ai/openspec@latest` 升级 CLI 后，项目里的 `openspec-*` 技能会静默过期，而 probe 只能回答「在不在」，回答不了「旧不旧」。现在 doctor 比对 `install-state.json` 的生成基线与 `openspec --version` 实测值（不走 `npm list -g`——用户级安装查不到），不一致时报 `openspec-skills` warn 并给出 `polaris update --only openspec` 的修复指引。任一侧不可比时**不判断也不输出该项**（宁可少报不误报）；忽略 prerelease 差异。superpowers 与 codegraph 不做此检查：前者 npx 通道无本地版本号（要比对得联网），后者项目产物是可重建索引
+
+- **全局配置不再记录已装组件**: `~/.polaris/polaris.yaml` 的 `plugins` 段删除。它是全局框架配置，而组件按作用域落在各项目、记录在项目的 `.polaris/install-state.json`——全局再写一份是假多源。且原实现 `if (!overwrite && existed) return` 让该段从第二次 init 起永久冻结（实际数据里 `superpowers: failed` 挂了三个月），又是除 init 外无人读的死数据。模板与写入代码同步移除；已装机器上的残留由新增的 `removeYamlTopLevelKeys()` 在下次 init 时就地清掉（保留注释与其余配置，键不存在时不改写文件）。顺带把 `install.local-paths` 的写入从硬编码三组件改为遍历 `localPathComponentIds()`，新增依赖自动获得配置位
+
+### Removed
+
+- **`src/core/assets/sources.ts`**: `SOURCES` 数组与 `getSuperpowersSource` / `getOpenspecSource` / `getCodegraphSource` / `getPolarisSource` 全部移除（`getPolarisSource` 本就是死代码）。`SkillSource` 类型由 `registry.ts` 的 `SkillsPlacement` 取代，`installSource` 只接收落盘位置，不再持有依赖身份字段
+- **`BUNDLED_SKILL_SPECS` 与 `CHANNEL_COMPONENT_IDS` 硬编码数组**: 改由 `githubCopyDependencies()` / `localPathComponentIds()` 从登记表派生
+- **`bundled` 安装方式与 Polaris 自身条目**: 依赖表只描述「从外部获取什么」，`bundled` 这个 kind（只服务 Polaris 自身）随之失去用途一并移除；`install-dependency.ts` 的对应分派分支删除。Polaris 的已装判据搬到 `deps/probe.ts` 的 `POLARIS_SELF_PROBE`，`hasSkills(skillsDir, 'polaris')` 的 4 个调用点（doctor / update / uninstall / prompts）行为不变
+- **`autoUpdateDependencyIds()`**: 与 `trackedDependencyIds()` 语义重合（差异原本只为排除 bundled 的 Polaris），合并为后者
+- **`DependencyOutcome.version` 死字段**: 安装分派层自报的版本无人消费——init 写 lock 走 `resolveDependencyVersion(spec, outcome)` 从安装产物反查（npm 全局包版本 / 仓库 tag），update 写的是探测到的上游版本。保留它要让 openspec / codegraph 分支在安装成功后额外 spawn 一次 `npm list -g`（本机实测 0.75s/次），`update-deps` 回归用例因此从 73ms 涨到 5.7s。现 `DependencyOutcome` 只留 `status` 与 `errors`
+- **`.polaris/skills-lock.json` 的 4 个死字段**: `lang` / `scope` 以 `.polaris/config.yaml` 为准、`installedAt` / `updatedAt` 无人消费，全部删除；语言与作用域不再在记录里留第二份真相
+
+### Breaking
+
+- **`polaris init --json` 输出结构变更**: `results[].openspec` / `results[].superpowers` 两个固定字段被 `results[].dependencies`（`depId → status` 映射）取代，Codegraph 及附带技能的状态也一并纳入。消费该 JSON 的外部脚本需同步调整
+
+- **安装状态记录改名并重构**: `.polaris/skills-lock.json` → `.polaris/install-state.json`。旧名两处不准——`skills` 覆盖不了它同时记录的 commands / agents / rules / hooks 五类资产指纹，`lock` 会被读成包管理那种「锁死精确版本保证可复现」的 lockfile（有 integrity、锁传递依赖），而它实际只记「上次操作的结果」。结构上 `sources[]` 从 `{ id, version }` 扩为 `{ id, version, status }` 并纳入附带技能（archify / diagram-design 此前完全不记录，装没装、哪版都查不到），失败也记 `status` 以便区分「没装过」与「装了但当时失败」。`sources[].version` 的语义明确为**上次安装基线**而非当前实际版本——CLI 是机器级共享的，随时会被 `npm i -g` 改，要当前版本只能现查。`UpdateResult.lockPath` 随之改名 `statePath`。**旧文件不兼容**：不提供迁移，首次 `update` 读不到记录会全量重写一次资产（慢一次，不坏）
+
+- **`polaris update --json` 输出字段变更**: `lockPath` → `statePath`
+
+- **离线三包统一为 tgz**: `package.sh` 此前把 superpowers 以源码目录形态拷进离线介质的 `components/superpowers/`，与 openspec / codegraph 的 tgz 形态不一致；vendor 缓存也散在 `vendor/tgz/` 与 `vendor/superpowers/` 两处。现三包统一产出 `components/<name>-<version>.tgz`，vendor 缓存集中到 `devops/vendor/components/`，bundle-manifest 中 superpowers 类型改为 `tgz`。生产端用 `tar -czf` 并设 `COPYFILE_DISABLE=1` 避免 macOS 把扩展属性写成 AppleDouble（._*）条目污染解包目录；安装端 `polaris-preseed.cjs` 用 Node 内置 zlib 加极简 tar 解析把 superpowers tgz 解包成目录，运行时拿到的仍是目录路径（`installSource` 只接受目录），`src/` 无需改动。多版本选版由字典序改为点分数字比较，避免 `1.9.0` 被误判为高于 `1.16.1`。旧介质里的源码目录形态不再兼容
+
+### Fixed
+
+- **附带技能升级脚本吞掉 git 真实错误**: `sync-bundled-skills.mjs --update` 拉取上游时，`fetchToTemp` 的 `catch {}` 丢弃了 git 的 stderr，网络超时/连接失败被误判成 tag 命名不对，接着把 `v<tag>` 与裸 tag 两种形式各试一遍、每次白等 180 秒，最后只抛一句 `clone tag <ver> 失败`，看不出是网络还是 tag 问题。现保留最后一次 git 错误并在异常消息里带上仓库 URL 与真实原因；识别到网络类故障立即停止重试；升级循环捕获拉取失败，按脚本约定以退出码 2 结束并提示内网可设置 `POLARIS_GITHUB_MIRROR` 或直接重跑。钉值文件在所有技能升级成功前不会写入，失败不留半成品
+
+- **doctor smoke 测试误被依赖缺失打断**: 依赖登记表重构后 superpowers 标为 `required`，doctor 按设计在依赖缺失时以退出码 1 结束；而 `cli.test.ts` 的 doctor 用例用 `execFileSync`，子进程非零退出直接抛错，断言根本没执行，导致 `dev.sh` 构建检查失败。现改用 `spawnSync` 并断言诊断标题与 node 输出，只验证命令能跑，不要求测试机装齐全部依赖
+
+### Tests
+
+- **离线预种解包与选版回归**: 新增 `test/ts/polaris-preseed.test.ts`，在隔离 HOME 下以子进程运行 preseed，覆盖三包 local-paths 写入与多版本选择、superpowers 解包后目录优先、重复执行不残留旧文件、路径穿越 / 绝对路径 / 符号链接 / AppleDouble 条目拒绝
+
+- **依赖登记表结构校验**: 新增 `test/ts/dependency-registry.test.ts`，12 项声明自洽性检查——id 唯一、必填字段非空、`method.kind` 都有对应 installer、`method` 与 `fallback` 载体形态匹配（npm 包配 tgz / 目录源配 dir 或 skills-dir）、`required` 集合固定为 openspec / superpowers、本地目录通道覆盖全部依赖、只有能取到可比版本的依赖才参与 lock 追踪、Polaris 自身不在依赖表内且其判据独立可判定。目的是让「增补一条依赖」在编译期之外有第二道保险
+
+- **init 分级汇总与附带技能钉值校验**: `init.test.ts` 适配 `dependencies` 映射与新分级（required 失败计入失败、recommended / optional 分组不误报）；`skills-install.test.ts` 的钉值校验改为遍历 `githubCopyDependencies()`，版本标记用例改用登记表里的真实声明（含 pin 升版后视为缺失的回归）
+
+- **doctor 依赖覆盖与分级**: `doctor.test.ts` 新增 6 项——断言登记表里每个依赖 id 都出现在诊断结果中（防止加依赖后漏检），以及 `dependencyDiagnosticStatus` 的分级规则（已装一律 ok、required 缺失 fail、recommended 缺失 warn、optional 缺失 skip），并确认 `skip` / `warn` 不影响退出码
+
+- **安装状态记录改名回归**: `update.test.ts` / `update-deps.test.ts` 适配 `install-state.json` 与新结构——`sourceEntries` 断言补 `status`、`lockPath` 断言改 `statePath`、指纹种子改用 `saveInstallState`；`update-deps` 的「脏值只装一次建立基线」用例同时覆盖附带技能纳入记录后的行为
+
+- **doctor 基线判定与版本解析**: `doctor.test.ts` 增至 16 项，新增 `classifyOpenspecBaseline` 的 6 项（一致 / 升级漂移 / 降级漂移 / 忽略 prerelease / 四种不可比场景返回 null）与 `extractSemver` 的 2 项（`1.7.0` / `openspec 1.7.0` / `v1.7.0-beta.1` 均能取到，`unknown` 与空串返回 null）
+
+- **全局配置废弃键清理**: `yaml-io.test.ts` 新增 `removeYamlTopLevelKeys` 的 3 项——删键后其余键与注释保留、键不存在时不改写文件、文件不存在不抛
+
 ## What's Changed [0.9.2] - 2026-11-09
 
 ### Changed
@@ -15,8 +78,6 @@
 - **`flow` 命令恢复开发档位二级菜单**: 此前「开发」类别不分档、去掉了第 2 级询问（档位全由 `intake` 粗判 + `specify` 出口判定）。现在开发类别重新有二级菜单：`C01` 简单 / `C02` 一般 / `C03` 复杂分别声明 `tweak` / `normal` / `strict` 档（等价于直跑对应 thin 命令，交薄编排技能声明后由 `intake` 复核），新增 `C09` 自动判断（不声明档位，仍由 `intake` 粗判）。档位的权威判定仍在 `specify` 出口、选 C01–C03 不等于锁定档位
 
 - **dev.sh 新增菜单 9 快速发版**: 菜单 9 依次执行菜单 2（构建 + lint + test）、带 `--force` 的发布与菜单 5（打离线包），跳过菜单 99 的附带技能同步步骤，用于技能版本无需更新时的快速发版；与菜单 99 共用参数化后的同一套流程实现，保留发版前置检查、任一步失败即中止与结束回显，发布统一带 `--force`（单独发版菜单 8 仍不带），`h 9` 与 `h 99` 一样指向脚本自身的用法头部
-
-- **离线三包统一为 tgz**: `package.sh` 此前把 superpowers 以源码目录形态拷进离线介质的 `components/superpowers/`，与 openspec / codegraph 的 tgz 形态不一致；vendor 缓存也散在 `vendor/tgz/` 与 `vendor/superpowers/` 两处。现三包统一产出 `components/<name>-<version>.tgz`，vendor 缓存集中到 `devops/vendor/components/`，bundle-manifest 中 superpowers 类型改为 `tgz`。生产端用 `tar -czf` 并设 `COPYFILE_DISABLE=1` 避免 macOS 把扩展属性写成 AppleDouble（._*）条目污染解包目录；安装端 `polaris-preseed.cjs` 用 Node 内置 zlib 加极简 tar 解析把 superpowers tgz 解包成目录，运行时拿到的仍是目录路径（`installSource` 只接受目录），`src/` 无需改动。多版本选版由字典序改为点分数字比较，避免 `1.9.0` 被误判为高于 `1.16.1`。旧介质里的源码目录形态不再兼容
 
 ### Fixed
 
@@ -37,8 +98,6 @@
 ### Tests
 
 - **Trae 命令落盘与三值布局回归**: `commands-install.test.ts` 的 Trae / Trae-CN 用例断言 `commands/psfl/` 一层平铺、`name: coding:normal`、全冒号的 `/psfl:coding:normal` 命令名、`polaris-coding-normal` 技能名，并守子目录与 flat 顶层文件不残留；Claude / Cursor 用例补上「`name` 不带命名空间」断言；新增 `resolveCommandNamespace` 三类用例（分类/顶层/多级目录）与 `expandCommandNames` 各布局断言（含孤立占位符兜底）
-
-- **离线预种解包与选版回归**: 新增 `test/ts/polaris-preseed.test.ts`，在隔离 HOME 下以子进程运行 preseed，覆盖三包 local-paths 写入与多版本选择、superpowers 解包后目录优先、重复执行不残留旧文件、路径穿越 / 绝对路径 / 符号链接 / AppleDouble 条目拒绝
 
 ## What's Changed [0.9.1] - 2026-11-09
 

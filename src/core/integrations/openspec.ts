@@ -18,7 +18,14 @@ import {
   resolveCliInstallTarget,
 } from '../deps/npm.js';
 import { getBaseDir } from './detect.js';
-import { getOpenspecSource } from '../assets/sources.js';
+import {
+  dependencyMinVersion,
+  dependencyPackageName,
+  dependencyRepo,
+  dependencyTimeoutMs,
+  requireDependency,
+  toRepoUrl,
+} from '../deps/registry.js';
 import { resolveInstallChannelConfig } from '../install/channels.js';
 import {
   buildNpmGlobalInstallArgs,
@@ -198,7 +205,8 @@ function isCommandAvailable(command: string): boolean {
 function buildOpenSpecCliInstallArgs(registry?: string, prefix?: string): string[] {
   // CLI 工具始终全局安装，避免在目标项目目录产生 node_modules；
   // 全局目录不可写时 prefix 指向 ~/.polaris/cli（用户级安装）
-  return buildNpmGlobalInstallArgs('@fission-ai/openspec@latest', registry, prefix);
+  const pkg = dependencyPackageName(requireDependency('openspec'));
+  return buildNpmGlobalInstallArgs(`${pkg}@latest`, registry, prefix);
 }
 
 /** 清理旧版 init 在目标项目误装的本地 OpenSpec CLI 产物 */
@@ -257,7 +265,7 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
     console.warn(`    ↳ 全局目录不可写，改装用户目录: ${target.prefix}/bin`);
   }
 
-  const source = getOpenspecSource();
+  const spec = requireDependency('openspec');
   const channel = await resolveInstallChannelConfig();
 
   // --- 1. npm 通道 ---
@@ -267,7 +275,7 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
       buildOpenSpecCliInstallArgs(channel.npmRegistry, target.prefix),
       {
         stdio: 'inherit',
-        timeout: 120_000,
+        timeout: dependencyTimeoutMs(spec),
         shell: process.platform === 'win32',
       },
     );
@@ -280,11 +288,12 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
   }
 
   // --- 2. git 镜像通道 ---
-  if (source.repo) {
-    console.warn(`    ↳ git 镜像通道: ${source.repo} ...`);
+  const repo = dependencyRepo(spec);
+  if (repo) {
+    console.warn(`    ↳ git 镜像通道: ${repo} ...`);
     const ok = await installCliFromGitRepo(
-      source.repo,
-      source.minVersion,
+      toRepoUrl(repo),
+      dependencyMinVersion(spec),
       channel.githubMirror,
       channel.npmRegistry,
       target.prefix,

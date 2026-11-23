@@ -123,11 +123,20 @@ function git(gitArgs, { allowFail = false } = {}) {
       msg.includes('ETIMEDOUT') ||
       msg.includes('timed out');
     if (timedOut) {
-      throw new Error(`git ${gitArgs.join(' ')} 超时（${Math.round(timeout / 1000)} 秒无响应，网络可能很慢）`);
+      throw new Error(
+        `git ${gitArgs.join(' ')} 超时（${Math.round(timeout / 1000)} 秒无响应，网络可能很慢）`,
+      );
     }
     const stderr = (error.stderr || '').toString().trim();
     throw new Error(`git ${gitArgs.join(' ')} 失败: ${stderr || error.message}`);
   }
+}
+
+/** 识别网络类故障：这类错误换 tag 命名形式重试只是白等一次超时 */
+function isNetworkError(message) {
+  return /timed?\s*out|timeout|ETIMEDOUT|Couldn't connect|Failed to connect|Empty reply|Recv failure|Connection refused|network is unreachable|超时/i.test(
+    message || '',
+  );
 }
 
 /**
@@ -197,20 +206,21 @@ function fetchToTemp(spec, upstream, repoUrl) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `polaris-sync-${spec.name}-`));
   if (upstream.refType === 'tag') {
     const candidates = [`v${upstream.ref.replace(/^v/, '')}`, upstream.ref];
-    let ok = false;
+    let lastError;
     for (const ref of candidates) {
       try {
         git(['clone', '--depth', '1', '--branch', ref, repoUrl, tmp]);
-        ok = true;
-        break;
-      } catch {
-        // 试下一个命名形式
+        return tmp;
+      } catch (error) {
+        lastError = error;
+        // 网络故障下换命名形式再试只会白等一次超时，直接失败并保留真实原因
+        if (isNetworkError(error.message)) break;
       }
     }
-    if (!ok) {
-      fs.rmSync(tmp, { recursive: true, force: true });
-      throw new Error(`${spec.name}: clone tag ${upstream.ref} 失败`);
-    }
+    fs.rmSync(tmp, { recursive: true, force: true });
+    throw new Error(
+      `${spec.name}: clone tag ${upstream.ref} 失败（${repoUrl}）: ${(lastError?.message || '未知错误').trim()}`,
+    );
   } else {
     try {
       git(['-C', tmp, 'init', '-q']);
@@ -364,7 +374,15 @@ let tsChanged = false;
 for (const row of outdated) {
   console.log(`\n▶ 升级 ${row.spec.name} → ${row.upstream.ref}`);
   const repoUrl = rewriteGithubRepoUrl(`https://github.com/${row.spec.repo}`);
-  const tmp = fetchToTemp(row.spec, row.upstream, repoUrl);
+  let tmp;
+  try {
+    tmp = fetchToTemp(row.spec, row.upstream, repoUrl);
+  } catch (error) {
+    console.error(`\n✗ 升级 ${row.spec.name} 失败：${error.message}`);
+    console.error('  内网环境请设置 POLARIS_GITHUB_MIRROR 指向可达的 GitHub 镜像后重试；');
+    console.error('  网络抖动重跑即可，钉值文件在全部技能升级成功前不会写入。');
+    process.exit(2);
+  }
   try {
     replaceVendorSkill(row.spec, tmp, row.upstream);
   } finally {

@@ -35,9 +35,10 @@ import { PACKAGE_NAME } from '../core/deps/version.js';
 import { detectPackageManager, type PackageManager } from '../core/deps/self-update.js';
 import { getNodeToolExecutable } from '../core/deps/npm.js';
 import { CODEGRAPH_PACKAGE } from '../core/integrations/codegraph.js';
+import { dependencyPackageName, requireDependency } from '../core/deps/registry.js';
 import { bold, dim, green, yellow, red, cyan } from '../utils/color.js';
 
-const OPENSPEC_PACKAGE = '@fission-ai/openspec';
+const OPENSPEC_PACKAGE = dependencyPackageName(requireDependency('openspec'));
 
 /** --keep-data 时保留的 .polaris 运行时数据子目录 */
 const KEEP_DATA_SUBDIRS = ['tasks', 'testcases', 'sessions', 'archive', 'metrics'];
