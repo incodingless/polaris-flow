@@ -38,6 +38,7 @@
 
 ### Breaking
 
+- **`polaris update` 的范围词表与默认行为重构**: `--only` / `--skip` 的可选值收敛为 6 项——`framework`（程序本体 + 全部资产五类，**并成为默认范围**）、`deps`（三方依赖组）、`all`、`openspec` / `superpowers` / `codegraph`（单个依赖）。两处不兼容：① 旧的 `program` / `assets` / `skills` / `commands` / `agents` / `rules` / `hooks` 不再是合法项——资产五类由同一份清单一起生成、一起过期，按类别挑着更的场景不成立，细粒度重写改用 `--force` 配合指纹门控；② 默认（不带参数）从「全量含依赖」改为「只更程序本体 + 资产」——依赖升级要联网探测、慢且有失败面，改为显式选择（`--only deps` / `--only openspec` 或 `all`）。配合 `--only` 与 `--skip` 的语义不变：`--skip` 仍是全量减去指定项
 - **`polaris init --json` 输出结构变更**: `results[].openspec` / `results[].superpowers` 两个固定字段被 `results[].dependencies`（`depId → status` 映射）取代，Codegraph 及附带技能的状态也一并纳入。消费该 JSON 的外部脚本需同步调整
 
 - **安装状态记录改名并重构**: `.polaris/skills-lock.json` → `.polaris/install-state.json`。旧名两处不准——`skills` 覆盖不了它同时记录的 commands / agents / rules / hooks 五类资产指纹，`lock` 会被读成包管理那种「锁死精确版本保证可复现」的 lockfile（有 integrity、锁传递依赖），而它实际只记「上次操作的结果」。结构上 `sources[]` 从 `{ id, version }` 扩为 `{ id, version, status }` 并纳入附带技能（archify / diagram-design 此前完全不记录，装没装、哪版都查不到），失败也记 `status` 以便区分「没装过」与「装了但当时失败」。`sources[].version` 的语义明确为**上次安装基线**而非当前实际版本——CLI 是机器级共享的，随时会被 `npm i -g` 改，要当前版本只能现查。`UpdateResult.lockPath` 随之改名 `statePath`。**旧文件不兼容**：不提供迁移，首次 `update` 读不到记录会全量重写一次资产（慢一次，不坏）

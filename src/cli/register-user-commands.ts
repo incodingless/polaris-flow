@@ -9,7 +9,7 @@ import { uninstallCommand } from '../commands/uninstall.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { statusCommand } from '../commands/status.js';
 import { DEFAULT_DASHBOARD_PORT, dashboardCommand } from '../commands/dashboard.js';
-import { UPDATE_TARGETS } from '../core/update/scope.js';
+import { UPDATE_DEPENDENCIES, UPDATE_TARGETS } from '../core/update/scope.js';
 import { parseLocalPathPairs } from '../core/install/channels.js';
 
 /** 逗号分隔列表选项 → 去空数组 */
@@ -122,7 +122,9 @@ export function registerUserCommands(program: Command): void {
 
   program
     .command('update')
-    .description('Update the Polaris program, bundled assets, and dependencies (scope selectable)')
+    .description(
+      'Update the Polaris program and assets (default scope); dependencies are opt-in via --only/--skip',
+    )
     .argument('[path]', 'target project directory', process.cwd())
     .option(
       '--only <items>',
@@ -137,8 +139,8 @@ export function registerUserCommands(program: Command): void {
     .option('--json', 'output JSON')
     .addHelpText(
       'after',
-      `\n  targets: groups are 'program' | 'assets' | 'deps' | 'all';\n` +
-        `           members are '${UPDATE_TARGETS.filter((name) => name !== 'all').join("' | '")}'\n`,
+      `\n  targets: ${UPDATE_TARGETS.map((name) => `'${name}'`).join(' | ')}\n` +
+        `  default scope: 'framework' (program + assets); 'deps' groups ${UPDATE_DEPENDENCIES.join(' / ')}\n`,
     )
     .action(async (path: string, options) => {
       try {

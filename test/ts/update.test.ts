@@ -9,7 +9,7 @@
 import path from 'path';
 import os from 'os';
 import { mkdir, mkdtemp, writeFile } from 'fs/promises';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { runUpdate } from '../../src/commands/update.js';
 import { loadI18n } from '../../src/commands/i18n/index.js';
@@ -18,6 +18,17 @@ import { PLATFORMS } from '../../src/core/domain/platforms.js';
 import { readInstallState, saveInstallState } from '../../src/core/install/install-state.js';
 import { computeAssetFingerprints } from '../../src/core/update/fingerprint.js';
 import { fileExists } from '../../src/utils/file-system.js';
+
+// 默认范围含程序本体（联网自更新）；本文件只测资产层，mock 掉程序层避免网络依赖与全局安装副作用
+vi.mock('../../src/core/deps/self-update.js', () => ({
+  updatePolarisProgram: vi.fn(async () => ({
+    status: 'skipped',
+    currentVersion: '0.0.0-test',
+    latestVersion: null,
+    reason: 'transient-runner',
+  })),
+  buildGlobalInstallInvocation: () => ({ command: 'npm', args: ['install', '-g', 'test'] }),
+}));
 
 /** 单次真实安装实测 28~34s */
 const INSTALL_TIMEOUT = 120_000;
@@ -28,6 +39,9 @@ const CLAUDE = PLATFORMS.find((platform) => platform.id === 'claude')!;
 
 const SKILL_PATH = path.join('coding', 'build', 'SKILL.md');
 const COMMAND_PATH = path.join('coding', 'normal.md');
+
+/** framework 范围覆盖的全部资产类别（细分类已不可单独指定） */
+const ALL_ASSETS = ['skills', 'commands', 'agents', 'rules', 'hooks'];
 
 /** 造一个「已装 Polaris 的 claude 项目」：探测目录 + polaris 插件根 + config.yaml */
 async function makeInstalledProject(): Promise<string> {
@@ -69,30 +83,34 @@ beforeAll(async () => {
 
 describe('runUpdate', () => {
   it(
-    '只更新 skills：语言与 scope 从 config.yaml 回读，其余层不落盘',
+    '资产层更新：语言与 scope 从 config.yaml 回读，程序与依赖层不执行',
     async () => {
       const projectPath = await makeInstalledProject();
 
-      const result = await runUpdate(projectPath, { only: ['skills'], json: true });
+      // 依赖层需联网探测，不纳入本用例；程序层已被 mock 为 skipped
+      const result = await runUpdate(projectPath, {
+        only: ['framework'],
+        json: true,
+      });
 
       // config.yaml 里是 zh；未传 --lang 时必须回读，不能退回默认值
       expect(result.language).toBe('zh');
       expect(result.scope).toBe('project');
-      expect(result.program).toBeNull();
+      expect(result.program?.status).toBe('skipped');
       expect(result.deps).toEqual([]);
       expect(result.assetsSkipped).toBe(false);
 
       const claude = result.assets.find((entry) => entry.platform === 'claude');
-      expect(claude?.updated).toEqual(['skills']);
+      expect(claude?.updated).toEqual(ALL_ASSETS);
       expect(claude?.copied.skills).toBeGreaterThan(0);
 
       expect(
         await fileExists(path.join(projectPath, '.claude', 'skills', 'polaris', SKILL_PATH)),
       ).toBe(true);
-      // 未选中的类别不落盘
+      // 资产五类随 framework 范围一起更新，不再支持按类别挑选
       expect(
         await fileExists(path.join(projectPath, '.claude', 'commands', 'psfl', COMMAND_PATH)),
-      ).toBe(false);
+      ).toBe(true);
 
       const state = await readInstallState(projectPath);
       expect(state?.platforms).toEqual(['claude']);
@@ -108,10 +126,10 @@ describe('runUpdate', () => {
       const projectPath = await makeInstalledProject();
       await seedLockWithCurrentFingerprints(projectPath);
 
-      const result = await runUpdate(projectPath, { only: ['skills'], json: true });
+      const result = await runUpdate(projectPath, { only: ['framework'], json: true });
 
       expect(result.assets[0].updated).toEqual([]);
-      expect(result.assets[0].unchanged).toEqual(['skills']);
+      expect(result.assets[0].unchanged).toEqual(ALL_ASSETS);
       expect(result.assets[0].copied.skills).toBeUndefined();
       // 跳过意味着没有调用安装器
       expect(
@@ -122,38 +140,25 @@ describe('runUpdate', () => {
   );
 
   it(
-    '--force 忽略指纹并重写所选类别',
+    '--force 忽略指纹并重写所选范围',
     async () => {
       const projectPath = await makeInstalledProject();
       await seedLockWithCurrentFingerprints(projectPath);
 
-      // 选 rules 类别（当前资产无 rules/，拷贝量为 0）—— 本用例只验证「绕过指纹门控」
-      const withoutForce = await runUpdate(projectPath, { only: ['rules'], json: true });
+      const withoutForce = await runUpdate(projectPath, {
+        only: ['framework'],
+        json: true,
+      });
       expect(withoutForce.assets[0].updated).toEqual([]);
 
-      const forced = await runUpdate(projectPath, { only: ['rules'], force: true, json: true });
-      expect(forced.assets[0].updated).toEqual(['rules']);
+      const forced = await runUpdate(projectPath, {
+        only: ['framework'],
+        force: true,
+        json: true,
+      });
+      expect(forced.assets[0].updated).toEqual(ALL_ASSETS);
     },
     FAST_TIMEOUT,
-  );
-
-  it(
-    '命令层独立可选：--only commands 不改动技能文件',
-    async () => {
-      const projectPath = await makeInstalledProject();
-
-      const result = await runUpdate(projectPath, { only: ['commands'], json: true });
-
-      expect(result.assets[0].updated).toEqual(['commands']);
-      expect(result.assets[0].copied.commands).toBeGreaterThan(0);
-      expect(
-        await fileExists(path.join(projectPath, '.claude', 'commands', 'psfl', COMMAND_PATH)),
-      ).toBe(true);
-      expect(
-        await fileExists(path.join(projectPath, '.claude', 'skills', 'polaris', SKILL_PATH)),
-      ).toBe(false);
-    },
-    INSTALL_TIMEOUT,
   );
 
   it(
@@ -165,7 +170,7 @@ describe('runUpdate', () => {
       );
 
       const result = await runUpdate(projectPath, {
-        only: ['skills'],
+        only: ['framework'],
         force: true,
         prune: true,
         json: true,
@@ -189,9 +194,13 @@ describe('runUpdate', () => {
         path.join(projectPath, '.claude', 'skills', 'polaris', 'coding', 'refactor', 'SKILL.md'),
       );
 
-      const result = await runUpdate(projectPath, { only: ['skills'], force: true, json: true });
+      const result = await runUpdate(projectPath, {
+        only: ['framework'],
+        force: true,
+        json: true,
+      });
 
-      expect(result.assets[0].updated).toEqual(['skills']);
+      expect(result.assets[0].updated).toEqual(ALL_ASSETS);
       expect(result.assets[0].pruned).toEqual([]);
       expect(await fileExists(staleSkill)).toBe(true);
     },
@@ -203,7 +212,7 @@ describe('runUpdate', () => {
     const savedExitCode = process.exitCode;
 
     try {
-      const result = await runUpdate(projectPath, { only: ['skills'], json: true });
+      const result = await runUpdate(projectPath, { only: ['framework'], json: true });
 
       expect(result.assetsSkipped).toBe(true);
       expect(result.depsSkipped).toBe(false);
@@ -221,7 +230,7 @@ describe('runUpdate', () => {
   it('--only 与 --skip 同时使用直接报错', async () => {
     const projectPath = await mkdtemp(path.join(os.tmpdir(), 'polaris-update-bad-'));
     await expect(
-      runUpdate(projectPath, { only: ['skills'], skip: ['deps'], json: true }),
+      runUpdate(projectPath, { only: ['framework'], skip: ['deps'], json: true }),
     ).rejects.toThrow(/不能同时使用/);
   });
 });
