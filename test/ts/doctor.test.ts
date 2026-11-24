@@ -39,6 +39,19 @@ describe('doctor', () => {
     expect(nodeCheck?.status).toBe('ok');
   });
 
+  it('诊断文案跟随语言参数：zh 输出中文、en 输出英文', async () => {
+    const zhChecks = await runDiagnostics(projectRoot, 'project', 'zh');
+    const zhGit = zhChecks.find((c) => c.name === 'git');
+    // 本机/CI 均有 git；若某环境真缺 git，改断言依赖可用性会误报，故此处直接校验中文文案集合
+    const zhMessages = zhChecks.map((c) => c.message).join('\n');
+    expect(zhGit?.status === 'ok' ? zhGit.message : zhMessages).toMatch(/可用|未在 PATH 中找到/);
+    expect(zhMessages).not.toMatch(/\binstalled \(/);
+
+    const enChecks = await runDiagnostics(projectRoot, 'project', 'en');
+    const enGit = enChecks.find((c) => c.name === 'git');
+    expect(enGit?.status === 'ok' ? enGit.message : '').toBe('available');
+  });
+
   it('hasDiagnosticFailure reflects fail status', () => {
     expect(hasDiagnosticFailure([{ name: 'a', status: 'ok', message: '' }])).toBe(false);
     expect(hasDiagnosticFailure([{ name: 'a', status: 'fail', message: '' }])).toBe(true);

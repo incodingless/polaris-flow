@@ -1,6 +1,7 @@
 import path from 'path';
 
 import { hasDiagnosticFailure, runDiagnostics } from '../core/doctor.js';
+import { loadPolarisConfig } from '../core/config/polaris-project-config.js';
 import type { InstallScope } from '../core/config/polaris-project-config.js';
 
 export type DoctorOptions = {
@@ -14,7 +15,9 @@ export async function runDoctor(
 ): Promise<{ checks: Awaited<ReturnType<typeof runDiagnostics>> }> {
   const projectPath = path.resolve(rawPath || process.cwd());
   const scope = options.scope ?? 'project';
-  const checks = await runDiagnostics(projectPath, scope);
+  // 输出语言跟随 init 时写入 `.polaris/config.yaml` 的 language（与 update 的取值约定一致）
+  const config = await loadPolarisConfig(projectPath);
+  const checks = await runDiagnostics(projectPath, scope, config?.language ?? 'zh');
 
   if (options.json) {
     console.log(JSON.stringify({ projectPath, checks }, null, 2));

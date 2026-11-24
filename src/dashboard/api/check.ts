@@ -9,7 +9,7 @@
  * `openspec/polaris.yaml` 等）。那些路径已失实，整块替换。
  */
 import type { InstallScope } from '../../core/assets/polaris-paths.js';
-import { loadPolarisConfig } from '../../core/config/polaris-project-config.js';
+import { loadPolarisConfig, type Languages } from '../../core/config/polaris-project-config.js';
 import { runDiagnostics, type DiagnosticStatus } from '../../core/doctor.js';
 
 export type CheckStatus = 'ok' | 'warn' | 'error';
@@ -34,19 +34,26 @@ function toCheckStatus(status: DiagnosticStatus): CheckStatus {
   return status;
 }
 
-/** 取项目配置里的安装作用域（影响 doctor 检查哪一套 skills） */
-async function resolveScope(projectRoot: string): Promise<InstallScope> {
+/** 取项目配置里的安装作用域与语言（影响 doctor 检查哪一套 skills、诊断文案输出语言） */
+async function resolveCheckContext(projectRoot: string): Promise<{
+  scope: InstallScope;
+  lang: Languages;
+}> {
   try {
     const config = await loadPolarisConfig(projectRoot);
-    return config?.scope === 'global' ? 'global' : 'project';
+    return {
+      scope: config?.scope === 'global' ? 'global' : 'project',
+      lang: config?.language ?? 'zh',
+    };
   } catch {
-    return 'project';
+    return { scope: 'project', lang: 'zh' };
   }
 }
 
 /** 运行诊断 */
 export async function runChecks(projectRoot: string): Promise<CheckResponse> {
-  const items = await runDiagnostics(projectRoot, await resolveScope(projectRoot));
+  const { scope, lang } = await resolveCheckContext(projectRoot);
+  const items = await runDiagnostics(projectRoot, scope, lang);
   const checks: CheckItem[] = items.map((item) => ({
     name: item.name,
     status: toCheckStatus(item.status),

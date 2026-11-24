@@ -21,6 +21,8 @@
 
 - **`polaris doctor` 增加基线漂移检查**: `openspec init` 的产物是项目里的技能与命令文件，不是指向全局 CLI 的引用——所以「项目技能的版本」等于上次 init 时那个 CLI 的版本。用户手动 `npm i -g @fission-ai/openspec@latest` 升级 CLI 后，项目里的 `openspec-*` 技能会静默过期，而 probe 只能回答「在不在」，回答不了「旧不旧」。现在 doctor 比对 `install-state.json` 的生成基线与 `openspec --version` 实测值（不走 `npm list -g`——用户级安装查不到），不一致时报 `openspec-skills` warn 并给出 `polaris update --only openspec` 的修复指引。任一侧不可比时**不判断也不输出该项**（宁可少报不误报）；忽略 prerelease 差异。superpowers 与 codegraph 不做此检查：前者 npx 通道无本地版本号（要比对得联网），后者项目产物是可重建索引
 
+- **`polaris doctor` 诊断文案跟随 init 时选择的语言**: 此前诊断消息硬编码英文（部分中英混杂），init 选了中文的用户看到的是 `installed (required)` / `not found in PATH` 这类输出。现 `runDiagnostics` 增加 `lang` 参数，doctor 文案表（en / zh 双语）随判定逻辑放在 `core/doctor.ts` 内（core 依层不可 import `commands/i18n`，且 dashboard 也能用同一份表）；CLI 与 dashboard `/api/check` 均从 `.polaris/config.yaml` 的 `language` 取值传入，config 缺失时落 zh（与 `polaris update` 的取值约定一致）。`--json` 输出的 `message` 字段随之本地化
+
 - **全局配置不再记录已装组件**: `~/.polaris/polaris.yaml` 的 `plugins` 段删除。它是全局框架配置，而组件按作用域落在各项目、记录在项目的 `.polaris/install-state.json`——全局再写一份是假多源。且原实现 `if (!overwrite && existed) return` 让该段从第二次 init 起永久冻结（实际数据里 `superpowers: failed` 挂了三个月），又是除 init 外无人读的死数据。模板与写入代码同步移除；已装机器上的残留由新增的 `removeYamlTopLevelKeys()` 在下次 init 时就地清掉（保留注释与其余配置，键不存在时不改写文件）。顺带把 `install.local-paths` 的写入从硬编码三组件改为遍历 `localPathComponentIds()`，新增依赖自动获得配置位
 
 ### Removed
