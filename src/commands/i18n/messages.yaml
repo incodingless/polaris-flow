@@ -301,3 +301,117 @@ languageValueEn:
 assetsLabel:
   en: assets
   zh: 资产
+statusNotGitRepo:
+  en: Not a git repository.
+  zh: 当前目录不是 git 仓库。
+statusMainRepo:
+  en: 'Main repository: {path}'
+  zh: 主仓库：{path}
+statusSectionCoding:
+  en: Coding tasks
+  zh: 编码任务
+statusSectionRequirement:
+  en: Requirement tasks
+  zh: 需求任务
+statusSectionTestcase:
+  en: Testcase tasks
+  zh: 测试任务
+statusSectionPrototype:
+  en: Prototype tasks
+  zh: 原型任务
+statusSectionDebug:
+  en: Debug tasks
+  zh: 缺陷任务
+statusNone:
+  en: (none)
+  zh: （无）
+statusUnknownPhase:
+  en: unknown
+  zh: 未知
+uninstallTitle:
+  en: Polaris Uninstall
+  zh: Polaris 卸载
+uninstallProject:
+  en: Project
+  zh: 项目
+uninstallWillRemove:
+  en: Will remove
+  zh: 将删除
+uninstallWillRemoveHooks:
+  en: Will remove managed hooks
+  zh: 将移除托管 hooks
+uninstallHookEntries:
+  en: Polaris hook entries of {platform}
+  zh: '{platform} 的 Polaris hook 条目'
+uninstallWillRun:
+  en: Will run (uninstall global packages)
+  zh: 将执行（卸载全局软件）
+uninstallKeepDataNote:
+  en: '--keep-data: keeping tasks/testcases/sessions/archive/metrics under .polaris'
+  zh: '--keep-data：保留 .polaris 下的 tasks/testcases/sessions/archive/metrics'
+uninstallKeptAgentsRules:
+  en: 'Not removed: agents / rules share directories with your own content; excluded to avoid accidental deletion'
+  zh: 未删除：agents / rules 与用户自有内容共用目录，为避免误删不参与卸载
+uninstallKeptSuperpowers:
+  en: 'Not removed: superpowers is a standalone skill pack; uninstall it with `npx skills remove obra/superpowers`'
+  zh: '未删除：superpowers 是独立技能包，如需卸载请用 `npx skills remove obra/superpowers`'
+uninstallNothing:
+  en: No uninstallable Polaris components found.
+  zh: 未检测到可卸载的 Polaris 组件。
+uninstallNothingHint:
+  en: (run polaris init first)
+  zh: （先运行 polaris init 安装）
+uninstallDryRunNote:
+  en: '--dry-run: nothing was deleted.'
+  zh: '--dry-run：未删除任何内容。'
+uninstallNonInteractive:
+  en: 'Non-interactive environment: use --yes or --dry-run.'
+  zh: 非交互环境：请使用 --yes 或 --dry-run。
+uninstallConfirm:
+  en: Delete the items above?
+  zh: 确认删除以上内容？
+uninstallCancelled:
+  en: Cancelled, nothing was deleted.
+  zh: 已取消，未删除任何内容。
+uninstallRemoveFailed:
+  en: 'Failed to delete {path}: {error}'
+  zh: '删除失败 {path}：{error}'
+uninstallNpmFailed:
+  en: 'Failed to uninstall {command}: {error}'
+  zh: '卸载失败 {command}：{error}'
+uninstallComplete:
+  en: Uninstall complete
+  zh: 卸载完成
+uninstallSummaryDeleted:
+  en: '{count} item(s) deleted'
+  zh: 删除 {count} 项
+uninstallSummaryHooks:
+  en: '{count} hook entries removed'
+  zh: 移除 hook 条目 {count} 条
+uninstallSummaryKept:
+  en: Kept data
+  zh: 保留数据
+dashboardInvalidPort:
+  en: 'Invalid port: {port} (expected an integer between 1 and 65535)'
+  zh: 无效端口：{port}（应为 1-65535 的整数）
+dashboardPortInUse:
+  en: 'Port {port} is already in use. Try another port: polaris dashboard --port <n>'
+  zh: 端口 {port} 已被占用。换一个端口：polaris dashboard --port <n>
+dashboardStartFailed:
+  en: 'Failed to start: {error}'
+  zh: 启动失败：{error}
+dashboardApiOnlyError:
+  en: 'API-only mode: use `npm run dev` (inside dashboard/) for the vite dev server'
+  zh: API-only 模式：前端请用 `npm run dev`（dashboard/ 内）访问 vite dev server
+dashboardLabelProject:
+  en: Project
+  zh: 项目
+dashboardLabelWeb:
+  en: Web
+  zh: 前端
+dashboardApiOnlyWeb:
+  en: API-only mode (start the vite dev server in dashboard/ separately)
+  zh: 仅 API 模式（请另起 dashboard/ 的 vite dev）
+dashboardStopHint:
+  en: Press Ctrl+C to stop
+  zh: 按 Ctrl+C 停止

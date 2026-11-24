@@ -7,6 +7,7 @@
 import path from 'path';
 
 import { startDashboard } from '../dashboard/server.js';
+import { resolveProjectLanguage, tf } from './i18n/index.js';
 
 /** 默认端口（沿用旧 Dashboard API 端口，取代原先 5173/3700 的双默认） */
 export const DEFAULT_DASHBOARD_PORT = 3700;
@@ -33,9 +34,13 @@ function parsePort(raw: string | undefined): number | null {
  * 启动工作台；失败时置 `process.exitCode = 1`，不把异常抛给 Commander。
  */
 export async function runDashboard(rawPath: string, options: DashboardOptions = {}): Promise<void> {
+  // 交互输出语言跟随 init 时写入 `.polaris/config.yaml` 的 language
+  const projectPath = path.resolve(rawPath || process.cwd());
+  const lang = await resolveProjectLanguage(projectPath);
+
   const port = parsePort(options.port);
   if (port === null) {
-    console.error(`[dashboard] 无效端口：${options.port}（应为 1-65535 的整数）`);
+    console.error(`[dashboard] ${tf(lang, 'dashboardInvalidPort', { port: options.port ?? '' })}`);
     process.exitCode = 1;
     return;
   }
@@ -43,9 +48,10 @@ export async function runDashboard(rawPath: string, options: DashboardOptions = 
   try {
     await startDashboard({
       port,
-      projectPath: path.resolve(rawPath || process.cwd()),
+      projectPath,
       open: options.open !== false,
       apiOnly: options.apiOnly === true,
+      lang,
     });
   } catch (err) {
     console.error(`[dashboard] ${(err as Error).message}`);

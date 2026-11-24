@@ -37,6 +37,8 @@ import { getNodeToolExecutable } from '../core/deps/npm.js';
 import { CODEGRAPH_PACKAGE } from '../core/integrations/codegraph.js';
 import { dependencyPackageName, requireDependency } from '../core/deps/registry.js';
 import { bold, dim, green, yellow, red, cyan } from '../utils/color.js';
+import { resolveProjectLanguage, t, tf } from './i18n/index.js';
+import type { Languages } from '../core/config/polaris-project-config.js';
 
 const OPENSPEC_PACKAGE = dependencyPackageName(requireDependency('openspec'));
 
@@ -295,15 +297,25 @@ async function buildRemovalPlan(
   return { items, hooksRemovals, npmUninstalls };
 }
 
+/** 冒号随语言走：zh 用全角，en 用半角 */
+function colon(lang: Languages): string {
+  return lang === 'zh' ? '：' : ':';
+}
+
 /** 执行目录/文件删除；失败逐项记录，不阻断 */
-async function executeRemovals(items: RemovalItem[]): Promise<string[]> {
+async function executeRemovals(items: RemovalItem[], lang: Languages): Promise<string[]> {
   const removed: string[] = [];
   for (const item of items) {
     try {
       await rm(item.path, { recursive: true, force: true });
       removed.push(item.path);
     } catch (err) {
-      console.error(`    ${red('✗')} 删除失败 ${item.path}: ${(err as Error).message}`);
+      console.error(
+        `    ${red('✗')} ${tf(lang, 'uninstallRemoveFailed', {
+          path: item.path,
+          error: (err as Error).message,
+        })}`,
+      );
     }
   }
   return removed;
@@ -315,42 +327,41 @@ function printPlan(
   projectPath: string,
   keepData: boolean,
   superpowersHint: boolean,
+  lang: Languages,
 ): void {
-  console.log(`\n  ${bold('Polaris 卸载')}`);
-  console.log(`  ${dim('项目')} ${bold(projectPath)}\n`);
+  console.log(`\n  ${bold(t(lang, 'uninstallTitle'))}`);
+  console.log(`  ${dim(t(lang, 'uninstallProject'))} ${bold(projectPath)}\n`);
 
   if (plan.items.length > 0) {
-    console.log(`  ${bold('将删除')}：`);
+    console.log(`  ${bold(`${t(lang, 'uninstallWillRemove')}${colon(lang)}`)}`);
     for (const item of plan.items) {
       console.log(`    ${yellow('•')} ${cyan(item.path)}  ${dim(`(${item.label})`)}`);
     }
   }
 
   if (plan.hooksRemovals.length > 0) {
-    console.log(`\n  ${bold('将移除托管 hooks')}：`);
+    console.log(`\n  ${bold(`${t(lang, 'uninstallWillRemoveHooks')}${colon(lang)}`)}`);
     for (const { platform } of plan.hooksRemovals) {
-      console.log(`    ${yellow('•')} ${platform.name} 的 Polaris hook 条目`);
+      console.log(
+        `    ${yellow('•')} ${tf(lang, 'uninstallHookEntries', { platform: platform.name })}`,
+      );
     }
   }
 
   if (plan.npmUninstalls.length > 0) {
-    console.log(`\n  ${bold('将执行（卸载全局软件）')}：`);
+    console.log(`\n  ${bold(`${t(lang, 'uninstallWillRun')}${colon(lang)}`)}`);
     for (const { command, args } of plan.npmUninstalls) {
       console.log(`    ${yellow('•')} ${command} ${args.join(' ')}`);
     }
   }
 
   if (keepData) {
-    console.log(
-      `\n  ${dim('--keep-data：保留 .polaris 下的 tasks/testcases/sessions/archive/metrics')}`,
-    );
+    console.log(`\n  ${dim(t(lang, 'uninstallKeepDataNote'))}`);
   }
 
-  console.log(`\n  ${dim('未删除：agents / rules 与用户自有内容共用目录，为避免误删不参与卸载')}`);
+  console.log(`\n  ${dim(t(lang, 'uninstallKeptAgentsRules'))}`);
   if (superpowersHint) {
-    console.log(
-      `  ${dim('未删除：superpowers 是独立技能包，如需卸载请用 `npx skills remove obra/superpowers`')}`,
-    );
+    console.log(`  ${dim(t(lang, 'uninstallKeptSuperpowers'))}`);
   }
   console.log('');
 }
@@ -360,6 +371,8 @@ export async function runUninstall(
   options: UninstallOptions = {},
 ): Promise<UninstallResult> {
   const projectPath = path.resolve(rawPath || process.cwd());
+  // 交互输出语言跟随 init 时写入 `.polaris/config.yaml` 的 language
+  const lang = await resolveProjectLanguage(projectPath);
   const targets = resolveUninstallTargets(options.targets);
   const keepData = Boolean(options.keepData);
   const dryRun = Boolean(options.dryRun);
@@ -404,9 +417,7 @@ export async function runUninstall(
         nothingToRemove: true,
       };
     }
-    log(
-      `\n  ${yellow('未检测到可卸载的 Polaris 组件。')} ${dim('（先运行 polaris init 安装）')}\n`,
-    );
+    log(`\n  ${yellow(t(lang, 'uninstallNothing'))} ${dim(t(lang, 'uninstallNothingHint'))}\n`);
     return {
       projectPath,
       targets,
@@ -420,11 +431,11 @@ export async function runUninstall(
   }
 
   if (!json) {
-    printPlan(plan, projectPath, keepData, superpowersHint);
+    printPlan(plan, projectPath, keepData, superpowersHint, lang);
   }
 
   if (dryRun) {
-    log(`  ${dim('--dry-run：未删除任何内容。')}\n`);
+    log(`  ${dim(t(lang, 'uninstallDryRunNote'))}\n`);
     if (json) {
       console.log(
         JSON.stringify(
@@ -457,7 +468,7 @@ export async function runUninstall(
 
   if (!options.yes) {
     if (!process.stdin.isTTY) {
-      console.error(`\n  ${red('非交互环境')}：请使用 --yes 或 --dry-run。\n`);
+      console.error(`\n  ${red(t(lang, 'uninstallNonInteractive'))}\n`);
       process.exitCode = 1;
       return {
         projectPath,
@@ -470,9 +481,9 @@ export async function runUninstall(
         nothingToRemove: false,
       };
     }
-    const answer = await confirm({ message: '确认删除以上内容？', default: false });
+    const answer = await confirm({ message: t(lang, 'uninstallConfirm'), default: false });
     if (!answer) {
-      log(`\n  ${dim('已取消，未删除任何内容。')}\n`);
+      log(`\n  ${dim(t(lang, 'uninstallCancelled'))}\n`);
       return {
         projectPath,
         targets,
@@ -487,7 +498,7 @@ export async function runUninstall(
   }
 
   // 执行删除
-  const removed = await executeRemovals(plan.items);
+  const removed = await executeRemovals(plan.items, lang);
 
   // 移除 hooks 托管条目
   let removedHooks = 0;
@@ -508,7 +519,10 @@ export async function runUninstall(
       npmUninstalled.push(`${command} ${args.join(' ')}`);
     } catch (err) {
       console.error(
-        `    ${red('✗')} 卸载失败 ${command} ${args.join(' ')}: ${(err as Error).message}`,
+        `    ${red('✗')} ${tf(lang, 'uninstallNpmFailed', {
+          command: `${command} ${args.join(' ')}`,
+          error: (err as Error).message,
+        })}`,
       );
     }
   }
@@ -533,12 +547,18 @@ export async function runUninstall(
     return result;
   }
 
-  log(`\n  ${green('✓')} ${bold('卸载完成')}`);
+  log(`\n  ${green('✓')} ${bold(t(lang, 'uninstallComplete'))}`);
   log(
-    `    ${dim('删除')} ${removed.length} ${dim('项')}${removedHooks > 0 ? ` · ${dim('移除 hook 条目')} ${removedHooks} ${dim('条')}` : ''}`,
+    `    ${dim(tf(lang, 'uninstallSummaryDeleted', { count: removed.length }))}${
+      removedHooks > 0
+        ? ` · ${dim(tf(lang, 'uninstallSummaryHooks', { count: removedHooks }))}`
+        : ''
+    }`,
   );
   if (keptData.length > 0) {
-    log(`    ${dim('保留数据')} ${keptData.map((p) => path.basename(p)).join(', ')}`);
+    log(
+      `    ${dim(t(lang, 'uninstallSummaryKept'))} ${keptData.map((p) => path.basename(p)).join(', ')}`,
+    );
   }
   log('');
 

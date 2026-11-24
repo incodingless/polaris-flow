@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 
 import { handleRequest } from './router.js';
 import { serveStatic } from './static.js';
+import { t, tf } from '../commands/i18n/index.js';
+import type { Languages } from '../core/config/polaris-project-config.js';
 
 export type StartDashboardOptions = {
   /** 服务端口 */
@@ -25,6 +27,8 @@ export type StartDashboardOptions = {
   open?: boolean;
   /** 只起 API，不做静态托管（供 dashboard/ 内的 vite dev 使用） */
   apiOnly?: boolean;
+  /** 交互输出语言；默认 zh（跟随 `.polaris/config.yaml` 的 language，由命令入口解析后传入） */
+  lang?: Languages;
 };
 
 /**
@@ -59,8 +63,9 @@ export function openBrowser(url: string): void {
  */
 export async function startDashboard(options: StartDashboardOptions): Promise<void> {
   const { port } = options;
+  const lang = options.lang ?? 'zh';
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error(`无效端口：${port}`);
+    throw new Error(tf(lang, 'dashboardInvalidPort', { port }));
   }
 
   const apiOnly = options.apiOnly === true;
@@ -70,7 +75,9 @@ export async function startDashboard(options: StartDashboardOptions): Promise<vo
   // 产物缺失时提前失败，不静默降级成「只起 API」
   if (!apiOnly && !existsSync(path.join(webRoot, 'index.html'))) {
     throw new Error(
-      `未找到前端产物：${webRoot}\n  请先构建：pnpm run build（或 pnpm run build:web）`,
+      lang === 'zh'
+        ? `未找到前端产物：${webRoot}\n  请先构建：pnpm run build（或 pnpm run build:web）`
+        : `Frontend build not found: ${webRoot}\n  Build it first: pnpm run build (or pnpm run build:web)`,
     );
   }
 
@@ -90,11 +97,7 @@ export async function startDashboard(options: StartDashboardOptions): Promise<vo
 
     if (apiOnly) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: 'API-only 模式：前端请用 `npm run dev`（dashboard/ 内）访问 vite dev server',
-        }),
-      );
+      res.end(JSON.stringify({ error: t(lang, 'dashboardApiOnlyError') }));
       return;
     }
 
@@ -110,8 +113,8 @@ export async function startDashboard(options: StartDashboardOptions): Promise<vo
       reject(
         new Error(
           err.code === 'EADDRINUSE'
-            ? `端口 ${port} 已被占用。换一个端口：polaris dashboard --port <n>`
-            : `启动失败：${err.message}`,
+            ? tf(lang, 'dashboardPortInUse', { port })
+            : tf(lang, 'dashboardStartFailed', { error: err.message }),
         ),
       );
     });
@@ -126,14 +129,14 @@ export async function startDashboard(options: StartDashboardOptions): Promise<vo
   });
 
   const origin = `http://${host}:${port}`;
-  console.log(`[dashboard] 项目  ${projectRoot}`);
+  console.log(`[dashboard] ${t(lang, 'dashboardLabelProject')}  ${projectRoot}`);
   console.log(`[dashboard] API   ${origin}/api`);
   console.log(
     apiOnly
-      ? '[dashboard] 前端  仅 API 模式（请另起 dashboard/ 的 vite dev）'
-      : `[dashboard] 前端  ${origin}`,
+      ? `[dashboard] ${t(lang, 'dashboardLabelWeb')}  ${t(lang, 'dashboardApiOnlyWeb')}`
+      : `[dashboard] ${t(lang, 'dashboardLabelWeb')}  ${origin}`,
   );
-  console.log('[dashboard] 按 Ctrl+C 停止');
+  console.log(`[dashboard] ${t(lang, 'dashboardStopHint')}`);
 
   // 已在监听，此时开浏览器不会出现「页面先于服务」的竞态
   if (options.open !== false) {

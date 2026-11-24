@@ -23,6 +23,8 @@
 
 - **`polaris doctor` 诊断文案跟随 init 时选择的语言**: 此前诊断消息硬编码英文（部分中英混杂），init 选了中文的用户看到的是 `installed (required)` / `not found in PATH` 这类输出。现 `runDiagnostics` 增加 `lang` 参数，doctor 文案表（en / zh 双语）随判定逻辑放在 `core/doctor.ts` 内（core 依层不可 import `commands/i18n`，且 dashboard 也能用同一份表）；CLI 与 dashboard `/api/check` 均从 `.polaris/config.yaml` 的 `language` 取值传入，config 缺失时落 zh（与 `polaris update` 的取值约定一致）。`--json` 输出的 `message` 字段随之本地化
 
+- **全部用户面命令的交互输出跟随 init 时选择的语言**: `polaris init` 之外的 5 个用户命令现在统一从 `.polaris/config.yaml` 的 `language` 取输出语言——`status` 此前硬编码英文（`Main repository:` / `Coding tasks` 等），`uninstall` 此前硬编码中文，`dashboard` 的启动横幅与错误提示中英混杂；现均双语化（`update` / `doctor` 已在此前条目落地）。语言解析收口为共享函数 `resolveProjectLanguage()`（`commands/i18n`），config 缺失时落 zh；`status` / `uninstall` / `update` 的 `--json` 输出保持机器可读、不本地化（status 的 `error` 字段维持 `not a git repository` 稳定值）。i18n 模块新增带 `{name}` 占位符插值的 `tf()` 助手与 40 余条 status / uninstall / dashboard 双语键
+
 - **全局配置不再记录已装组件**: `~/.polaris/polaris.yaml` 的 `plugins` 段删除。它是全局框架配置，而组件按作用域落在各项目、记录在项目的 `.polaris/install-state.json`——全局再写一份是假多源。且原实现 `if (!overwrite && existed) return` 让该段从第二次 init 起永久冻结（实际数据里 `superpowers: failed` 挂了三个月），又是除 init 外无人读的死数据。模板与写入代码同步移除；已装机器上的残留由新增的 `removeYamlTopLevelKeys()` 在下次 init 时就地清掉（保留注释与其余配置，键不存在时不改写文件）。顺带把 `install.local-paths` 的写入从硬编码三组件改为遍历 `localPathComponentIds()`，新增依赖自动获得配置位
 
 ### Removed
@@ -339,9 +341,11 @@
 - **`prd` 技能族防「篇幅膨胀 / 内容空洞 / 表述冗余」**: 需求文档生成此前只堵「空洞」（基线唯一来源 + 事实假设分离 + 锚点禁复制），不堵「冗余」（有而啰嗦）。本轮四层补齐：前置约束（读者定位「禁科普/禁铺垫」、文风负面清单、按复杂度三档的篇幅/条目上限 800/2000/4000 字）、过程管控（冗余自检「可无损删减 ≥20% 才达标」、极简主义者角色锚定）、后置精炼（refine 合并时全篇冗余扫描）、评审兜底（review 维度4「无模糊表述」扩充空泛词/铺垫句/同义重复）。落点 `assets/zh/skills/prd/` 的 draft / refine / review
 
 > 技能判据侧改动按双语言约定，待英文同步后补记本 Changelog：
+>
 > - `design` 阶段：图表要求与主审 S3.5 / S4.1 / S4.7 / S1 判定口径。
 
 ## What's Changed [0.1.2] - 2026-10-13
+
 ### Added
 
 - **内网分发改到 Nexus 3（Nexus 2.15.1 方案作废）**: 原 Nexus 2.15.1 没有 npm 仓库插件（`npm-hosted` 实为 maven2 provider），`npm publish` 只把 packument 存成单个 leaf 文件、tarball 从不落盘——表现为元数据 200 / `npm view` 正常，但 `npm install` 与 `npm pack` 全 404（连经它代理的 34 个公网依赖 tarball 也 404），且「packument 已占同名路径、建不出目录」形成死锁，据此弃用。分发改到 `http://192.168.103.96:8081/repository` 上的 **Nexus/3.90.1-01 (COMMUNITY)**，三仓：`npm-hosted`（发布）/ `npm-proxy`（代理 registry.npmjs.org）/ `npm-group`（聚合读）；**发布只能进 hosted，group 只读**。认证按 Nexus 3 口径：启用 `npm Bearer Token Realm` 后 `npm login --auth-type=legacy` 写 `_authToken`（默认 30 天过期，Community 版无 User Token 过期配置项），需要长期发布改用 Basic `_auth=base64(user:pass)`（永不过期，两种写法不可并存）；匿名读须给 `nx-anonymous` 加 `npm-group` 的 browse / read，否则使用者装包直接 `E401`。`install.sh` / `install.ps1` / `publish.sh` 的 registry 常量、发布指南与两份安装手册同步换新地址与新口径，`publish.sh` 增补 tarball 下载检查——发布后验收判据由「metadata 200」改为 **tarball 可直接下载 + 全新缓存 `npm pack` 通过**
