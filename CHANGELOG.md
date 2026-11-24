@@ -25,6 +25,8 @@
 
 - **全部用户面命令的交互输出跟随 init 时选择的语言**: `polaris init` 之外的 5 个用户命令现在统一从 `.polaris/config.yaml` 的 `language` 取输出语言——`status` 此前硬编码英文（`Main repository:` / `Coding tasks` 等），`uninstall` 此前硬编码中文，`dashboard` 的启动横幅与错误提示中英混杂；现均双语化（`update` / `doctor` 已在此前条目落地）。语言解析收口为共享函数 `resolveProjectLanguage()`（`commands/i18n`），config 缺失时落 zh；`status` / `uninstall` / `update` 的 `--json` 输出保持机器可读、不本地化（status 的 `error` 字段维持 `not a git repository` 稳定值）。i18n 模块新增带 `{name}` 占位符插值的 `tf()` 助手与 40 余条 status / uninstall / dashboard 双语键
 
+- **`polaris --help` 与子命令帮助跟随语言输出**: 此前 help 在命令动作之外输出，i18n 的懒加载（preAction）覆盖不到，描述与选项文案全部硬编码英文。现在 CLI 入口在注册命令**之前**解析语言（`.polaris/config.yaml`，缺失落 zh）并传入注册函数，6 个子命令的 description / argument / option 文案与 `update` / `uninstall` 的 after-help 全部双语化；Commander 内置的 `Usage:` / `Arguments:` / `Options:` / `Commands:` 段标题及 `display help for command` / `output the version number` 固定提示语由 `localizeHelpOutput()` 在 `helpInformation()` 输出层替换。`polaris-flow` 运行时入口（hooks/scripts 机器链路）不本地化
+
 - **全局配置不再记录已装组件**: `~/.polaris/polaris.yaml` 的 `plugins` 段删除。它是全局框架配置，而组件按作用域落在各项目、记录在项目的 `.polaris/install-state.json`——全局再写一份是假多源。且原实现 `if (!overwrite && existed) return` 让该段从第二次 init 起永久冻结（实际数据里 `superpowers: failed` 挂了三个月），又是除 init 外无人读的死数据。模板与写入代码同步移除；已装机器上的残留由新增的 `removeYamlTopLevelKeys()` 在下次 init 时就地清掉（保留注释与其余配置，键不存在时不改写文件）。顺带把 `install.local-paths` 的写入从硬编码三组件改为遍历 `localPathComponentIds()`，新增依赖自动获得配置位
 
 ### Removed

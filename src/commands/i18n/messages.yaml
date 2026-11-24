@@ -415,3 +415,133 @@ dashboardApiOnlyWeb:
 dashboardStopHint:
   en: Press Ctrl+C to stop
   zh: 按 Ctrl+C 停止
+cliDescription:
+  en: 'Polaris workflow platform: init, status, dashboard, doctor, update, uninstall'
+  zh: Polaris 工作流平台：init、status、dashboard、doctor、update、uninstall
+helpUsage:
+  en: 'Usage:'
+  zh: 用法：
+helpArguments:
+  en: 'Arguments:'
+  zh: 参数：
+helpOptions:
+  en: 'Options:'
+  zh: 选项：
+helpCommands:
+  en: 'Commands:'
+  zh: 命令：
+helpDisplayHelpFor:
+  en: display help for command
+  zh: 显示命令帮助
+helpOutputVersion:
+  en: output the version number
+  zh: 输出版本号
+cmdInitDesc:
+  en: Initialize Polaris workflow in a project
+  zh: 在项目中初始化 Polaris 工作流
+argTargetDir:
+  en: target project directory
+  zh: 目标项目目录
+argWorkingDir:
+  en: working directory
+  zh: 工作目录
+argProjectRoot:
+  en: project root to visualize
+  zh: 要可视化的项目根目录
+optYes:
+  en: non-interactive; use detected platforms
+  zh: 非交互执行；使用检测到的平台
+optScopePlain:
+  en: 'install scope: project or global'
+  zh: '安装范围：project 或 global'
+optOverwrite:
+  en: overwrite existing components
+  zh: 覆盖已有组件
+optSkipExisting:
+  en: skip existing components
+  zh: 跳过已有组件
+optLangInit:
+  en: 'skill language: zh or en'
+  zh: '技能语言：zh 或 en'
+optPlatforms:
+  en: comma-separated platform ids (e.g. trae,claude,cursor); skips platform prompt
+  zh: 逗号分隔的平台 id（如 trae,claude,cursor）；跳过平台选择提问
+optGithubMirror:
+  en: GitHub mirror base URL for the git-clone install channel
+  zh: git-clone 安装通道的 GitHub 镜像地址
+optNpmRegistry:
+  en: npm registry override for the npm install channel
+  zh: npm 安装通道的 registry 覆盖地址
+optLocalPath:
+  en: local source dir for a component (openspec|superpowers|codegraph=DIR); repeatable
+  zh: 组件的本地源码目录（openspec|superpowers|codegraph=目录）；可重复
+optJson:
+  en: output JSON
+  zh: 以 JSON 输出
+cmdStatusDesc:
+  en: Show active workflow changes (worktree-aware)
+  zh: 查看在途工作流任务（含 worktree 定位）
+cmdDashboardDesc:
+  en: Start the local workbench (API + web UI on one port)
+  zh: 启动本地工作台（API 与 Web 界面同端口）
+optPort:
+  en: server port
+  zh: 服务端口
+optNoOpen:
+  en: do not open the browser automatically
+  zh: 不自动打开浏览器
+optApiOnly:
+  en: serve the API only (for `npm run dev` in dashboard/)
+  zh: 只起 API（配合 dashboard/ 内的 `npm run dev`）
+cmdDoctorDesc:
+  en: Diagnose environment and installation health
+  zh: 诊断环境与安装健康状态
+cmdUpdateDesc:
+  en: Update the Polaris program and assets (default scope); dependencies are opt-in via --only/--skip
+  zh: 更新 Polaris 程序本体与资产（默认范围）；三方依赖需通过 --only/--skip 显式选择
+optOnly:
+  en: only update these targets (comma-separated); cannot be combined with --skip
+  zh: 只更新这些目标（逗号分隔）；不能与 --skip 同用
+optSkip:
+  en: update all except these targets (comma-separated)
+  zh: 更新除这些目标外的全部（逗号分隔）
+optForce:
+  en: ignore source fingerprints and rewrite the selected targets
+  zh: 忽略源指纹，强制重写所选目标
+optPrune:
+  en: remove stale files in Polaris-owned directories (skills, commands)
+  zh: 清理 Polaris 独占目录中的陈旧文件（skills、commands）
+optLangUpdate:
+  en: 'skill language: zh or en (default: from .polaris/config.yaml)'
+  zh: '技能语言：zh 或 en（默认读 .polaris/config.yaml）'
+optScopeUpdate:
+  en: 'install scope: project or global (default: config.yaml)'
+  zh: 安装范围：project 或 global（默认读 config.yaml）
+helpUpdateTargets:
+  en: 'targets: {targets}'
+  zh: '更新目标：{targets}'
+helpUpdateDefault:
+  en: "default scope: 'framework' (program + assets); 'deps' groups {deps}"
+  zh: 默认范围：framework（程序本体 + 资产）；deps 组合 {deps}
+cmdUninstallDesc:
+  en: Uninstall Polaris components from a project
+  zh: 从项目卸载 Polaris 组件
+optTargets:
+  en: "uninstall targets (comma-separated): 'assets' (default) | 'deps' | 'program' | 'all'"
+  zh: '卸载目标（逗号分隔）：assets（默认）| deps | program | all'
+optKeepData:
+  en: keep .polaris runtime data (tasks/sessions/metrics/archive)
+  zh: 保留 .polaris 运行时数据（tasks/sessions/metrics/archive）
+optYesUninstall:
+  en: skip confirmation and delete directly
+  zh: 跳过确认，直接删除
+optDryRun:
+  en: list what would be removed without deleting
+  zh: 只列出将删除的路径，不实际删除
+helpUninstallAfter:
+  en: |
+    targets: 'assets' = Polaris-owned files (default); 'deps' = openspec/codegraph in-project;
+             'program' = global ~/.polaris + npm -g polaris-flow/openspec/codegraph; 'all' = everything
+  zh: |
+    targets：assets = Polaris 自有文件（默认）；deps = 项目内 openspec/codegraph；
+             program = 全局 ~/.polaris + npm -g polaris-flow/openspec/codegraph；all = 全部
