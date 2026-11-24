@@ -107,17 +107,23 @@ target_file() {
   esac
 }
 
+# 执行前回显实际命令：脚本自身可能长时间静默（如网络查询），
+# 先打印一行让用户知道「已经开始跑、跑的是哪条」，避免误判为卡死。
+announce() {
+  printf '\n  %s\n' "$(bold '→') $(dim "$*")"
+}
+
 run_item() {
   case "$1" in
-    1) exec bash devops/build.sh ;;
-    2) exec bash devops/build.sh --check ;;
-    3) exec pnpm test ;;
-    4) exec node devops/sync-bundled-skills.mjs ;;
-    5) exec bash devops/package.sh ;;
-    6) exec npm pack --dry-run ;;
+    1) announce 'bash devops/build.sh'; exec bash devops/build.sh ;;
+    2) announce 'bash devops/build.sh --check'; exec bash devops/build.sh --check ;;
+    3) announce 'pnpm test'; exec pnpm test ;;
+    4) announce 'node devops/sync-bundled-skills.mjs'; exec node devops/sync-bundled-skills.mjs ;;
+    5) announce 'bash devops/package.sh'; exec bash devops/package.sh ;;
+    6) announce 'npm pack --dry-run'; exec npm pack --dry-run ;;
     # 前置检查不通过时以 3 退出，让调用方区分「取消」与「编号不存在」
-    7) precheck_publish || exit 3; exec bash devops/publish.sh --dry-run ;;
-    8) precheck_publish || exit 3; exec bash devops/publish.sh ;;
+    7) precheck_publish || exit 3; announce 'bash devops/publish.sh --dry-run'; exec bash devops/publish.sh --dry-run ;;
+    8) precheck_publish || exit 3; announce 'bash devops/publish.sh'; exec bash devops/publish.sh ;;
     9) run_flow 1 ;;
     99) run_flow 0 ;;
     *) return 1 ;;

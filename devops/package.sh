@@ -261,29 +261,29 @@ if [ -d "$BUNDLED_VENDOR" ]; then
   # 缺标记会被当成历史副本，离线安装时白跑一次联网重拉并报「缺失」。vendor 里的技能有的是手工
   # 拷入的，而 sync-bundled-skills.mjs 只给「有新版」的技能写标记，缺标记会一路带进离线包。
   # 只补缺失、不覆盖已有值：标记与钉值不一致时应由运行时重拉纠正，打包不该抹平这种不一致。
-  SPEC_FILE="$ROOT/src/core/integrations/bundled-skills.ts" \
+  SPEC_FILE="$ROOT/src/core/deps/registry.ts" \
   BUNDLED_DEST="$OUT_DIR/components/bundled-skills" \
   node - <<'NODE'
 const fs = require('fs');
 const path = require('path');
 const source = fs.readFileSync(process.env.SPEC_FILE, 'utf8');
-const start = source.indexOf('export const BUNDLED_SKILL_SPECS');
-if (start === -1) throw new Error('找不到 BUNDLED_SKILL_SPECS，钉值源文件结构已变');
+const start = source.indexOf('export const DEPENDENCIES');
+if (start === -1) throw new Error('找不到 DEPENDENCIES，registry.ts 结构已变');
 const block = source.slice(start);
-const nameRe = /name:\s*'([^']+)'/g;
-const entries = [];
+const entryRe = /^  \{\r?\n([\s\S]*?)^  \},?\r?$/gm;
 let m;
-while ((m = nameRe.exec(block)) !== null) entries.push({ name: m[1], from: m.index });
-if (entries.length === 0) throw new Error('未解析到任何附带技能钉值');
-for (let i = 0; i < entries.length; i++) {
-  const chunk = block.slice(entries[i].from, entries[i + 1]?.from ?? block.length);
-  const ref = (chunk.match(/commit:\s*'([^']+)'/) || [])[1]
-    ?? (chunk.match(/version:\s*'([^']+)'/) || [])[1];
-  const dir = path.join(process.env.BUNDLED_DEST, entries[i].name);
+while ((m = entryRe.exec(block)) !== null) {
+  const chunk = m[1];
+  if (!/kind:\s*'github-copy'/.test(chunk)) continue;
+  const pick = (re) => chunk.match(re)?.[1];
+  const name = pick(/targetDirName:\s*'([^']+)'/) ?? pick(/^\s*id:\s*'([^']+)'/m);
+  const ref = pick(/pin:\s*\{\s*commit:\s*'([^']+)'\s*\}/)
+    ?? pick(/pin:\s*\{\s*version:\s*'([^']+)'\s*\}/);
+  const dir = path.join(process.env.BUNDLED_DEST, name);
   const marker = path.join(dir, '.polaris-bundled-ref');
   if (!ref || !fs.existsSync(path.join(dir, 'SKILL.md')) || fs.existsSync(marker)) continue;
   fs.writeFileSync(marker, `${ref}\n`, 'utf8');
-  console.log(`  补写版本标记: ${entries[i].name} -> ${ref}`);
+  console.log(`  补写版本标记: ${name} -> ${ref}`);
 }
 NODE
 

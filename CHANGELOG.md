@@ -13,6 +13,7 @@
 - **依赖失败语义按重要度分级**: 安装结果汇总从「平台失败 / Superpowers 失败」两档改为 `required` / `recommended` / `optional` 三档，分级来自登记表而非各组件自己的代码分支。Superpowers 归入 `required`（多数技能的 subagent 派发依赖它），Codegraph 为 `recommended`，图表技能为 `optional`。init 结束时的汇总按档位分别以红/黄/灰输出
 - **`polaris update` 的依赖清单从登记表派生**: `UPDATE_DEPENDENCIES` 不再硬编码 `openspec / superpowers / codegraph`，`--only <dep>` / `--skip <dep>` 自动覆盖新增依赖；尚无自动升级实现的依赖会明确提示「请重新执行 polaris init」，不再静默跳过
 - **`polaris update` 的依赖升级改为表驱动**: deps 分支原来为每个组件手写一段 `if (plan.deps.includes('xxx'))` + 专用探测 + 专用安装调用（三段近乎同构，新增依赖不会自动获得升级能力），现改为遍历 `plan.deps` 逐条按登记表声明执行：探测上游版本由新增的 `deps/latest-version.ts` 按 `method.kind` 分派（`npm-cli` 查 npm registry、`npx-skills` 读仓库 tag、`github-copy` 不参与版本比较），安装统一走 `acquireDependency` 的 installer 分派。新增一条 `npm-cli` / `npx-skills` 依赖后 `polaris update --only <新id>` 即可真正升级，`update.ts` 不用改。探测与安装共用同一份 `resolveInstallChannelConfig()` 结果，避免「查到的版本」与「实际装到的版本」来自不同仓库。真实差异未被「合并成一次调用」抹平：codegraph 在 update 场景要连已装 CLI 一起重拉 @latest（init 场景不需要），为此 `acquireDependency` 新增可选的 `AcquireOptions.upgradeInstalled`，仅由 codegraph 分支透传给 `installCodegraph` 的 `upgradeCli`，installer 签名未动；openspec 的 `Platform[]` 与 superpowers 的 `string[]` 差异本就在 `acquireDependency` 内部消化，update 侧不再自行转换。判定与写锁语义原样保留：`up-to-date` / `unreachable` / 需安装三种结果各有日志与结果记录，安装失败仍不写版本（下次 update 才会重试），`--force` 仍绕过版本比对；`github-copy` 若因声明改动进入依赖清单，明确提示「暂无自动升级实现」并记 `skipped`，不静默跳过
+- **`polaris init` 不再每次重装已装的 OpenSpec CLI**: 原先 `ensureOpenSpecCli` 里的 `alreadyInstalled` 只用来把日志词从 `Installing` 改成 `Upgrading`，随后照样执行 `npm i -g @fission-ai/openspec@latest`——机器上早就有 CLI 也每次联网改全局，内网或 registry 不可达时要先白等 npm（120s）+ git + 本地三条通道依次失败，才走到「沿用既有版本」的兜底。现与 codegraph 的 `ensureCodegraphCli` 对齐：已装且未要求升级时直接返回 `ready`，只跑项目侧的 `openspec init` 落盘；CLI 升级改为由 `polaris update --only openspec` 显式触发（`AcquireOptions.upgradeInstalled` 透传到 installer 新增的 `upgradeCli` 形参，`installOpenSpec` 其余签名与调用点不变）。判定抽成纯函数 `resolveOpenSpecCliAction`，5 条单测覆盖「未装 / 已装 × 是否要求升级」。三通道全失败且原本已装时仍保留 `OpenSpec upgrade failed, using existing version` 兜底，不阻断项目初始化
 - **包名与超时收敛到声明**: `@fission-ai/openspec` / `@colbymchenry/codegraph` 的字面量此前散在 init / update / uninstall / 两个 installer 共 5 处，现统一从 `method.pkg` 取；`npm i -g` 的超时（120s / 180s / npx 300s）也改为随声明走，不再在各 installer 里写魔法数字
 - **`hasSkills` 走 probe 判据**: 组件「是否已装」的判定从 `detect.ts` 的 switch + `SUPERPOWERS_MARKERS` 副本改为消费登记表的 `probe` 声明（只取 skills 目录部分，不因全局装了 CLI 就认为项目内已装）。`probe.ts` 与 `bundled-skills.ts` 共用 `BUNDLED_REF_MARKER` 常量，避免写入与读取的标记文件名分叉
 
@@ -43,11 +44,19 @@
 
 ### Fixed
 
+- **升级失败被当成成功，导致升级永不重试**: `ensureOpenSpecCli` / `ensureCodegraphCli` 在三条通道（npm → git 镜像 → 本地目录）全部失败、但机器上原本装着 CLI 时，都选择「沿用既有命令」并让上层拿到成功状态——openspec 返回 `ready`、codegraph 返回原命令。installer 于是报 `installed`，`polaris update` 把**根本没装上的新版本**写进 `install-state.json`；下次 update 探测到的上游版本与记录一致，判定 `up-to-date`，于是永远不会再重试。现区分两种场景：init（未要求升级）照旧沿用既有 CLI、不阻断后续步骤；要求升级时一律报 `failed`（openspec 直接返回 `failed`，codegraph 让 `ensureCodegraphCli` 返回 null），update 因此不写版本、下次仍会重试。附带修掉 codegraph 无 `.codegraph` 索引的分支忽略 `upgradeCli` 的问题——那条路径此前连升级都不尝试，却照样记录新版本。升级失败时保留既有 CLI 的事实由日志说明（`keeping the installed CLI`），不再伪装成功
+
 - **附带技能升级脚本吞掉 git 真实错误**: `sync-bundled-skills.mjs --update` 拉取上游时，`fetchToTemp` 的 `catch {}` 丢弃了 git 的 stderr，网络超时/连接失败被误判成 tag 命名不对，接着把 `v<tag>` 与裸 tag 两种形式各试一遍、每次白等 180 秒，最后只抛一句 `clone tag <ver> 失败`，看不出是网络还是 tag 问题。现保留最后一次 git 错误并在异常消息里带上仓库 URL 与真实原因；识别到网络类故障立即停止重试；升级循环捕获拉取失败，按脚本约定以退出码 2 结束并提示内网可设置 `POLARIS_GITHUB_MIRROR` 或直接重跑。钉值文件在所有技能升级成功前不会写入，失败不留半成品
 
 - **doctor smoke 测试误被依赖缺失打断**: 依赖登记表重构后 superpowers 标为 `required`，doctor 按设计在依赖缺失时以退出码 1 结束；而 `cli.test.ts` 的 doctor 用例用 `execFileSync`，子进程非零退出直接抛错，断言根本没执行，导致 `dev.sh` 构建检查失败。现改用 `spawnSync` 并断言诊断标题与 node 输出，只验证命令能跑，不要求测试机装齐全部依赖
 
+- **附带技能维护脚本未跟上依赖登记表重构**: 钉值合并进 `src/core/deps/registry.ts` 的 `DEPENDENCIES` 后，`sync-bundled-skills.mjs` 仍按旧 `BUNDLED_SKILL_SPECS` 解析，菜单 4 直接抛「找不到」；同一处字符串还用于 `--update` 回写钉值与 `package.sh` 补版本标记，菜单 5 也会挂。现三处统一改为从 `DEPENDENCIES` 中筛 `method.kind === 'github-copy'` 的条目，按顶层块解析 `id` / `targetDirName` / `repo` / `pin.version` 或 `pin.commit` / `subdir`；回写只替换对应条目的 pin 行，不动其它四条声明。vendor 文档中的裁剪规则引用同步更新
+
+- **dev.sh 菜单执行期间长时间无输出**: `dev.sh` 用 `exec` 调子脚本，执行前没有任何回显；`sync-bundled-skills.mjs` 又因为先循环做 `git ls-remote`（每次可能 60 秒超时）、再统一打印表格，等待期间完全静默，容易被误判为卡死。现 `dev.sh` 在 `exec` 前统一回显实际命令；同步脚本改流式输出——标题、每个技能的「正在查询」与查询结果即时打印，且用 `fs.writeSync` 而非 `console.log`，避免 stdout 是 pipe 时被 `execFileSync` 阻塞、进度排队到结束才出现。升级阶段的「▶ 升级」同样在 clone 前即时输出
+
 ### Tests
+
+- **CLI 获取语义的回归防线**: `openspec.test.ts` 增 4 项、新文件 `codegraph.test.ts` 增 5 项，把三条获取通道（npm / git 镜像 / 本地目录）换成桩，用 `resolveCliExecutable` 作为「机器上是否已有 CLI」的唯一自变量，断言两件事——init 场景（未要求升级）**一次全局安装都不发起**，要求升级而三通道全失败时**必须报 `failed` 而不是 `installed`**。codegraph 侧另覆盖「有索引 → 升级失败仍报 failed，且不重建索引」与「无索引分支确实透传 upgradeCli」。这两个断言是「升级失败被当成成功」那个 bug 的直接防线：把修复回退后，三处断言分别以 `expected 'installed' to be 'failed'` / `expected 'ready' to be 'failed'` 报错，已用变异验证确认
 
 - **离线预种解包与选版回归**: 新增 `test/ts/polaris-preseed.test.ts`，在隔离 HOME 下以子进程运行 preseed，覆盖三包 local-paths 写入与多版本选择、superpowers 解包后目录优先、重复执行不残留旧文件、路径穿越 / 绝对路径 / 符号链接 / AppleDouble 条目拒绝
 

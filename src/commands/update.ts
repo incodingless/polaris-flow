@@ -238,7 +238,7 @@ async function updateOneDependency(spec: DependencySpec, context: DepUpdateConte
   }
 
   context.log(`\n  ${label}...`);
-  // upgradeInstalled：update 场景连已装的 CLI 也要重拉 @latest（只影响 codegraph）
+  // upgradeInstalled：update 场景连已装的 CLI 也要重拉 @latest（openspec / codegraph）
   const outcome = await acquireDependency(
     spec,
     { projectPath: context.projectPath, scope: context.scope, platforms: context.platforms },

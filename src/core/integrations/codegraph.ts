@@ -121,8 +121,13 @@ async function ensureCodegraphCli(
     }
   }
 
-  // 升级失败时既有命令仍可用，不阻断后续步骤
-  return existingCommand;
+  // 三条通道都没装成。init 场景（upgrade=false）沿用既有命令即可，不阻断后续步骤；
+  // 但要求升级时（update）必须返回 null 让调用方如实报 failed —— 否则 update 会把没装上的
+  // 新版本写进 lock，下次比对判 up-to-date，升级永远不再重试。
+  if (upgrade && existingCommand) {
+    console.warn('    CodeGraph upgrade failed, keeping the installed CLI');
+  }
+  return upgrade ? null : existingCommand;
 }
 
 /**
@@ -144,7 +149,7 @@ async function installCodegraph(
     return upgraded ? 'installed' : 'failed';
   }
 
-  const codegraphCommand = await ensureCodegraphCli(projectPath, shouldInstallCli);
+  const codegraphCommand = await ensureCodegraphCli(projectPath, shouldInstallCli, upgradeCli);
   if (!codegraphCommand) {
     if (!shouldInstallCli) {
       console.log('    CodeGraph CLI not installed, skipping setup');

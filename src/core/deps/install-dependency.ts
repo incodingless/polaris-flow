@@ -56,15 +56,15 @@ export type AcquireContext = {
 /**
  * 获取阶段的行为开关。缺省即 init 语义，update 只翻转它真正需要的那一项。
  *
- * 之所以只给一个布尔而不是 `mode: 'init' | 'update'`：init 与 update 对 openspec /
- * superpowers 的期望完全相同，唯一差异在 codegraph——update 要连已装的 CLI 一起重拉
- * @latest，init 则「已装即就绪」。用字符串 mode 会诱使后来者给其余 installer 开
- * 无实据的分支。
+ * 之所以只给一个布尔而不是 `mode: 'init' | 'update'`：init 与 update 对 superpowers 的
+ * 期望完全相同，差异只在「CLI 已装是否还要重拉」——用字符串 mode 会诱使后来者给其余
+ * installer 开无实据的分支。
  */
 export type AcquireOptions = {
   /**
-   * 为 true 时，CLI 已安装也要重新拉 @latest（只透传给 codegraph 的 `upgradeCli`）。
-   * 已有 `.codegraph` 索引时仍不重建索引——重建代价高，与「升级 CLI」是两件事。
+   * 为 true 时，CLI 已安装也要重新拉 @latest（透传给 openspec / codegraph 的
+   * `upgradeCli`）。已有 `.codegraph` 索引时仍不重建索引——重建代价高，与「升级 CLI」
+   * 是两件事。init 缺省 false：已装即视为就绪，只做项目侧初始化。
    */
   upgradeInstalled?: boolean;
 };
@@ -220,7 +220,13 @@ export async function acquireDependency(
   switch (installer) {
     case 'openspec': {
       const platforms = ctx.platforms.filter((p) => p.openspecToolId);
-      const status = await installOpenSpec(ctx.projectPath, platforms, ctx.scope, true);
+      const status = await installOpenSpec(
+        ctx.projectPath,
+        platforms,
+        ctx.scope,
+        true,
+        options.upgradeInstalled ?? false,
+      );
       return { status };
     }
     case 'codegraph': {
