@@ -14,6 +14,7 @@ import {
   type WorkflowTaskKind,
 } from '../core/config/workflow-state.js';
 import { loadTaskStateFromFile } from '../core/config/task-state.js';
+import { resolveProjectLanguage, t, tf } from './i18n/index.js';
 
 export type StatusOptions = {
   json?: boolean;
@@ -24,6 +25,8 @@ export type StatusOptions = {
  */
 export async function runStatus(rawPath: string, options: StatusOptions = {}): Promise<void> {
   const cwd = path.resolve(rawPath || process.cwd());
+  // 交互输出语言跟随 init 时写入 `.polaris/config.yaml` 的 language；JSON 输出保持机器可读，不本地化
+  const lang = await resolveProjectLanguage(cwd);
   const { mainRepo, state } = await loadWorkflowFromCwd(cwd);
 
   if (!mainRepo) {
@@ -38,7 +41,7 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
     if (options.json) {
       console.log(JSON.stringify(payload, null, 2));
     } else {
-      console.log('Not a git repository.');
+      console.log(t(lang, 'statusNotGitRepo'));
     }
     process.exitCode = 1;
     return;
@@ -69,37 +72,37 @@ export async function runStatus(rawPath: string, options: StatusOptions = {}): P
     return;
   }
 
-  console.log(`Main repository: ${mainRepo}`);
+  console.log(tf(lang, 'statusMainRepo', { path: mainRepo }));
   console.log('');
 
   const printSection = async (
-    title: string,
+    titleKey: string,
     kind: WorkflowTaskKind,
     entries: WorkflowTaskEntry[],
   ) => {
-    console.log(`${title}:`);
+    console.log(`${t(lang, titleKey)}:`);
     if (entries.length === 0) {
-      console.log('  (none)');
+      console.log(`  ${t(lang, 'statusNone')}`);
       return;
     }
     for (const entry of entries) {
       const statePath = resolveTaskStatePath(mainRepo, kind, entry.task_id, entry.worktree_path);
       const taskState = await loadTaskStateFromFile(statePath);
-      const phase = String(taskState?.phase ?? '') || 'unknown';
+      const phase = String(taskState?.phase ?? '') || t(lang, 'statusUnknownPhase');
       const worktree = entry.worktree_path ? ` @ ${entry.worktree_path}` : '';
       console.log(`  • ${entry.task_id} [${phase}]${worktree}`);
     }
   };
 
-  await printSection('Coding tasks', 'coding', codingTasks);
+  await printSection('statusSectionCoding', 'coding', codingTasks);
   console.log('');
-  await printSection('Requirement tasks', 'requirement', requirementTasks);
+  await printSection('statusSectionRequirement', 'requirement', requirementTasks);
   console.log('');
-  await printSection('Testcase tasks', 'testcase', testcaseTasks);
+  await printSection('statusSectionTestcase', 'testcase', testcaseTasks);
   console.log('');
-  await printSection('Prototype tasks', 'prototype', prototypeTasks);
+  await printSection('statusSectionPrototype', 'prototype', prototypeTasks);
   console.log('');
-  await printSection('Debug tasks', 'debug', debugTasks);
+  await printSection('statusSectionDebug', 'debug', debugTasks);
 }
 
 /**

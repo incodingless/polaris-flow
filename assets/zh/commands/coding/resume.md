@@ -1,5 +1,5 @@
 ---
-name: resume
+name: {{CMD_NS}}resume
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}resume"]
 description: 接续未完成的 coding 任务（新开会话恢复在途任务，由 intake 恢复分发到当前阶段技能）

@@ -1,5 +1,5 @@
 ---
-name: acceptance
+name: {{CMD_NS}}acceptance
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}testing{{CMD_SPR}}acceptance"]
 description: 编写验收标准工作流（把需求条目转换为 GWT 可判定验收标准：需求条目拆解 → 按场景编写 → 可验证性自检 → 输出清单）

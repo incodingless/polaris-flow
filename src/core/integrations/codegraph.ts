@@ -4,7 +4,14 @@ import path from 'path';
 import { getNpmExecutable } from './openspec.js';
 import { resolveCliExecutable, resolveCliInstallTarget } from '../deps/npm.js';
 import { printCommandErrorDetails } from '../command-error.js';
-import { getCodegraphSource } from '../assets/sources.js';
+import {
+  dependencyMinVersion,
+  dependencyPackageName,
+  dependencyRepo,
+  dependencyTimeoutMs,
+  requireDependency,
+  toRepoUrl,
+} from '../deps/registry.js';
 import { resolveInstallChannelConfig } from '../install/channels.js';
 import {
   buildNpmGlobalInstallArgs,
@@ -14,8 +21,8 @@ import {
 
 import type { InstallScope } from '../config/polaris-project-config.js';
 
-/** CodeGraph CLI 的 npm 包名 */
-export const CODEGRAPH_PACKAGE = '@colbymchenry/codegraph';
+/** CodeGraph 的 npm 包名（取自登记表，勿在别处再写字面量） */
+export const CODEGRAPH_PACKAGE = dependencyPackageName(requireDependency('codegraph'));
 
 function hasCodegraphProjectIndex(projectPath: string): boolean {
   const codegraphDir = path.join(projectPath, '.codegraph');
@@ -56,18 +63,22 @@ async function ensureCodegraphCli(
     console.warn(`    ↳ 全局目录不可写，改装用户目录: ${target.prefix}/bin`);
   }
 
-  const source = getCodegraphSource();
+  const spec = requireDependency('codegraph');
   const channel = await resolveInstallChannelConfig();
 
   // --- 1. npm 通道 ---
   try {
     execFileSync(
       getNpmExecutable(),
-      buildNpmGlobalInstallArgs(`${CODEGRAPH_PACKAGE}@latest`, channel.npmRegistry, target.prefix),
+      buildNpmGlobalInstallArgs(
+        `${dependencyPackageName(spec)}@latest`,
+        channel.npmRegistry,
+        target.prefix,
+      ),
       {
         cwd: projectPath,
         stdio: 'inherit',
-        timeout: 180_000,
+        timeout: dependencyTimeoutMs(spec),
         shell: process.platform === 'win32',
       },
     );
@@ -79,11 +90,12 @@ async function ensureCodegraphCli(
   }
 
   // --- 2. git 镜像通道 ---
-  if (source.repo) {
-    console.warn(`    ↳ git 镜像通道: ${source.repo} ...`);
+  const repo = dependencyRepo(spec);
+  if (repo) {
+    console.warn(`    ↳ git 镜像通道: ${repo} ...`);
     const ok = await installCliFromGitRepo(
-      source.repo,
-      source.minVersion,
+      toRepoUrl(repo),
+      dependencyMinVersion(spec),
       channel.githubMirror,
       channel.npmRegistry,
       target.prefix,
@@ -109,8 +121,13 @@ async function ensureCodegraphCli(
     }
   }
 
-  // 升级失败时既有命令仍可用，不阻断后续步骤
-  return existingCommand;
+  // 三条通道都没装成。init 场景（upgrade=false）沿用既有命令即可，不阻断后续步骤；
+  // 但要求升级时（update）必须返回 null 让调用方如实报 failed —— 否则 update 会把没装上的
+  // 新版本写进 lock，下次比对判 up-to-date，升级永远不再重试。
+  if (upgrade && existingCommand) {
+    console.warn('    CodeGraph upgrade failed, keeping the installed CLI');
+  }
+  return upgrade ? null : existingCommand;
 }
 
 /**
@@ -132,7 +149,7 @@ async function installCodegraph(
     return upgraded ? 'installed' : 'failed';
   }
 
-  const codegraphCommand = await ensureCodegraphCli(projectPath, shouldInstallCli);
+  const codegraphCommand = await ensureCodegraphCli(projectPath, shouldInstallCli, upgradeCli);
   if (!codegraphCommand) {
     if (!shouldInstallCli) {
       console.log('    CodeGraph CLI not installed, skipping setup');

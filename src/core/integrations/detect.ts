@@ -11,17 +11,8 @@ import { fileExists, readDir } from '../../utils/file-system.js';
 import { PLATFORMS, type Platform } from '../domain/platforms.js';
 import type { InstallScope } from '../config/polaris-project-config.js';
 import { getPlatformContextDir } from '../domain/platforms.js';
-import { POLARIS_FLOW_PLUGIN_NAME, POLARIS_PLUGIN_NAME } from '../config/polaris-constants.js';
-
-/** superpowers 特征 skill（命中任一即视为已装） */
-const SUPERPOWERS_MARKERS = [
-  'brainstorming',
-  'using-superpowers',
-  'writing-plans',
-  'test-driven-development',
-  'subagent-driven-development',
-  'request-code-review',
-] as const;
+import { SUPERPOWERS_MARKERS, findDependency } from '../deps/registry.js';
+import { POLARIS_SELF_PROBE, probeInSkillsDir } from '../deps/probe.js';
 
 export type PluginName = 'superpowers' | 'openspec';
 
@@ -96,40 +87,18 @@ async function detectPlatforms(projectPath: string): Promise<Set<string>> {
 /**
  * 检查指定 scope 的 baseDir 下，某平台组件是否已安装。
  * 只检查当前安装目标目录（project 或 global），不跨 scope 查主目录，避免误报。
+ *
+ * 判据来自 `deps/registry.ts` 的 probe 声明；Polaris 自身不在依赖表里
+ * （它随包分发，不是外部依赖），用 `POLARIS_SELF_PROBE`。这里只看 skills 目录部分，
+ * 不因为全局装了 CLI 就认为项目里已装（否则 init 会跳过落盘）。
  */
-async function hasSkills(
-  skillsDir: string,
-  component: 'openspec' | 'superpowers' | 'polaris' | 'codegraph',
-): Promise<boolean> {
-  const entries = (await fileExists(skillsDir)) ? await readDir(skillsDir) : [];
-
-  switch (component) {
-    case 'openspec':
-      if (entries.some((e) => e.startsWith('openspec-'))) return true;
-      break;
-    case 'superpowers':
-      if (SUPERPOWERS_MARKERS.some((name) => entries.includes(name))) return true;
-      break;
-    case 'codegraph':
-      if (entries.some((e) => e.startsWith('codegraph-'))) return true;
-      break;
-    case 'polaris':
-      // polaris（嵌套包根）或 polaris-*（扁平子 skill）；兼容旧 polaris-flow*
-      if (
-        entries.some(
-          (e) =>
-            e === POLARIS_PLUGIN_NAME ||
-            e.startsWith(`${POLARIS_PLUGIN_NAME}-`) ||
-            e === POLARIS_FLOW_PLUGIN_NAME ||
-            e.startsWith(`${POLARIS_FLOW_PLUGIN_NAME}-`),
-        )
-      ) {
-        return true;
-      }
-      break;
+async function hasSkills(skillsDir: string, component: string): Promise<boolean> {
+  if (component === 'polaris') {
+    return probeInSkillsDir(POLARIS_SELF_PROBE, skillsDir);
   }
-
-  return false;
+  const spec = findDependency(component);
+  if (!spec) return false;
+  return probeInSkillsDir(spec.probe, skillsDir);
 }
 
 /**
@@ -256,8 +225,8 @@ function resolveCommandPath(command: string): string {
   }
 }
 
-/** 读取 CLI --version 首行 */
-function readCliVersion(command: string): string {
+/** 读取 CLI --version 首行（供组件探测与 doctor 基线比对复用） */
+export function readCliVersion(command: string): string {
   try {
     const out = execFileSync(command, ['--version'], {
       encoding: 'utf-8',

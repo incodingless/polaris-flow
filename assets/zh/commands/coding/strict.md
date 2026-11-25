@@ -1,5 +1,5 @@
 ---
-name: strict
+name: {{CMD_NS}}strict
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}strict"]
 description: 复杂需求的完整链路入口：声明 strict 工作流 → 任务管理与调度 → 澄清 → 提案 → 深度设计 → 任务规划 → 构建 → 验收 → 交付

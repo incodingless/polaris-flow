@@ -10,18 +10,21 @@ import { parse as parseYaml } from 'yaml';
 
 import { getGlobalPolarisConfigPath } from '../assets/polaris-paths.js';
 import { POLARIS_NPM_REGISTRY_ENV } from '../config/polaris-constants.js';
+import { localPathComponentIds } from '../deps/registry.js';
 
-/** 可配置本地源码目录的组件 id */
-export type ChannelComponentId = 'openspec' | 'superpowers' | 'codegraph';
+/** 可配置本地源码目录的组件 id（取自依赖登记表，勿在此另立名单） */
+export type ChannelComponentId = string;
 
-export const CHANNEL_COMPONENT_IDS: readonly ChannelComponentId[] = [
-  'openspec',
-  'superpowers',
-  'codegraph',
-];
+/**
+ * 支持 `install.local-paths.<id>` 的组件 id：登记表里所有有外部获取通道的依赖。
+ *
+ * 原先这里是硬编码的 `['openspec','superpowers','codegraph']`，漏了附带技能，
+ * 导致 archify / diagram-design 无法按组件指定本地目录（只能整批覆盖源根）。
+ */
+export const CHANNEL_COMPONENT_IDS: readonly ChannelComponentId[] = localPathComponentIds();
 
 function isChannelComponentId(value: string): value is ChannelComponentId {
-  return (CHANNEL_COMPONENT_IDS as readonly string[]).includes(value);
+  return CHANNEL_COMPONENT_IDS.includes(value);
 }
 
 /** 解析后的三通道配置 */
@@ -31,26 +34,31 @@ export type InstallChannelConfig = {
   /** npm registry 覆盖（npm 通道 --registry）；未配置 = 机器默认（~/.npmrc） */
   npmRegistry?: string;
   /** 各组件本机源码目录（本地目录通道）；未配置的组件跳过该通道 */
-  localPaths: Partial<Record<ChannelComponentId, string>>;
+  localPaths: Record<ChannelComponentId, string | undefined>;
 };
 
 /** CLI 层最高优先级覆盖（--github-mirror / --npm-registry / --local-path） */
 export type InstallChannelOverrides = {
   githubMirror?: string;
   npmRegistry?: string;
-  localPaths?: Partial<Record<ChannelComponentId, string>>;
+  localPaths?: Record<ChannelComponentId, string | undefined>;
 };
 
+/** 组件本地目录的环境变量名：`POLARIS_<ID>_PATH`（连字符转下划线） */
+function localPathEnvKey(id: string): string {
+  return `POLARIS_${id.toUpperCase().replace(/-/g, '_')}_PATH`;
+}
+
 /** 环境变量名（与离线安装包 config.ini 键名保持一致） */
-export const CHANNEL_ENV_KEYS = {
+export const CHANNEL_ENV_KEYS: {
+  githubMirror: string;
+  npmRegistry: string;
+  localPaths: Record<string, string>;
+} = {
   githubMirror: 'POLARIS_GITHUB_MIRROR',
   npmRegistry: POLARIS_NPM_REGISTRY_ENV,
-  localPaths: {
-    openspec: 'POLARIS_OPENSPEC_PATH',
-    superpowers: 'POLARIS_SUPERPOWERS_PATH',
-    codegraph: 'POLARIS_CODEGRAPH_PATH',
-  },
-} as const;
+  localPaths: Object.fromEntries(CHANNEL_COMPONENT_IDS.map((id) => [id, localPathEnvKey(id)])),
+};
 
 function nonEmpty(value: string | undefined): string | undefined {
   const trimmed = value?.trim();

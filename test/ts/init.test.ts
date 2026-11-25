@@ -70,8 +70,13 @@ describe('classifyInitSummary', () => {
     baseDir: '/tmp',
     platformId: 'trae-cn',
     platformName: 'Trae-CN',
-    openspec: 'installed',
-    superpowers: 'failed',
+    dependencies: {
+      openspec: 'installed',
+      superpowers: 'failed',
+      codegraph: 'skipped',
+      archify: 'skipped',
+      'diagram-design': 'skipped',
+    },
     polaris: 'installed',
     skills: { copied: 1, skipped: 0 },
     commands: { copied: 0, skipped: 0 },
@@ -80,10 +85,27 @@ describe('classifyInitSummary', () => {
     hooks: { installed: false },
   };
 
-  it('Polaris 成功但 Superpowers 失败时不把平台列入平台失败', () => {
+  it('Polaris 成功但 Superpowers 失败时不算 Polaris 失败', () => {
     const summary = classifyInitSummary([base]);
     expect(summary.installed.map((r) => r.platformName)).toEqual(['Trae-CN']);
-    expect(summary.platformFailed).toEqual([]);
-    expect(summary.superpowersFailed.map((r) => r.platformName)).toEqual(['Trae-CN']);
+    expect(summary.polarisFailed).toEqual([]);
+    // superpowers 在登记表里是 required，失败即计入 requiredFailed
+    expect(summary.requiredFailed.map((dep) => dep.id)).toEqual(['superpowers']);
+  });
+
+  it('recommended / optional 失败按重要度分组，不计入 requiredFailed', () => {
+    const result: InitPlatformResult = {
+      ...base,
+      dependencies: {
+        ...base.dependencies,
+        superpowers: 'installed',
+        codegraph: 'failed',
+        archify: 'failed',
+      },
+    };
+    const summary = classifyInitSummary([result]);
+    expect(summary.requiredFailed).toEqual([]);
+    expect(summary.recommendedFailed.map((dep) => dep.id)).toEqual(['codegraph']);
+    expect(summary.optionalFailed.map((dep) => dep.id)).toEqual(['archify']);
   });
 });

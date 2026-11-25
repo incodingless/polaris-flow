@@ -1,5 +1,5 @@
 ---
-name: bugfix
+name: {{CMD_NS}}bugfix
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}maintance{{CMD_SPR}}bugfix"]
 description: 修复测试缺陷

@@ -2,78 +2,98 @@
 
 ## 概述
 
-polaris-flow 的命令文件是**宿主中立的 Markdown**：一份 `assets/{zh,en}/commands/` 由 `init` / `update` 分发到各宿主的命令目录。宿主差异（命令名分隔符、是否扁平化）由**安装器**在落盘时按平台能力展开，**源文件不改写**。
+polaris-flow 的命令文件是**宿主中立的 Markdown**：一份 `assets/{zh,en}/commands/` 由 `init` / `update` 分发到各宿主的命令目录。宿主差异由**安装器**在落盘时按平台能力展开，源文件不改写。
 
-两个平台能力互相独立，**不要混用**：
+三个占位符各管一件事，**不要混用**：
 
-| 能力 | 字段 | 取值 | 影响 |
-| --- | --- | --- | --- |
-| 技能布局 | `Platform.skillsLayout` | `nested`（默认）/ `flat` | 技能目录结构；`{{SKN_SPR}}` 展开为 `:` 或 `-` |
-| 命令布局 | `Platform.commandLayout` | `nested`（默认）/ `flat` | 命令落盘路径；`{{CMD_SPR}}` 展开为 `:` 或 `-` |
+| 占位符 | 管什么 | 展开依据 |
+| --- | --- | --- |
+| `{{SKN_SPR}}` | 技能名分隔符 | `Platform.skillsLayout`：nested → `:`；flat → `-` |
+| `{{CMD_SPR}}` | 命令名分隔符 | `Platform.commandLayout`：nested / namespaced-flat → `:`；flat → `-` |
+| `{{CMD_NS}}` | frontmatter `name` 的命名空间前缀 | `Platform.commandLayout`：仅 namespaced-flat 的分类命令 → `<分类>:`，其余 → 空 |
 
-当前配置：`claude` = 技能 nested / 命令 nested；`trae`、`trae-cn` = 技能 **flat** / 命令 nested；`cursor` = 技能 nested / 命令 **flat**。
+两个平台能力互相独立（`skillsLayout` 与 `commandLayout`），当前配置：
+
+- `claude`、`qoder` = 技能 nested / 命令 nested
+- `trae`、`trae-cn` = 技能 **flat** / 命令 **namespaced-flat**
+- `cursor` = 技能 nested / 命令 **flat**
 
 ## 落盘位置
 
-| 命令布局 | 目标 |
-| --- | --- |
-| `nested` | `<contextDir>/commands/psfl/<相对路径>`，如 `commands/psfl/coding/normal.md` |
-| `flat` | `<contextDir>/commands/psfl-<相对路径，`/` → `-`>.md`，如 `commands/psfl-coding-normal.md` |
+| 命令布局 | 落盘（相对 `<contextDir>`） | 命令名 |
+| --- | --- | --- |
+| `nested` | `commands/psfl/<相对路径>`，如 `commands/psfl/coding/normal.md` | `/psfl:coding:normal` |
+| `flat` | `commands/psfl-<相对路径，`/` → `-`>.md`，如 `commands/psfl-coding-normal.md` | `/psfl-coding-normal` |
+| `namespaced-flat` | `commands/psfl/<相对路径，`/` → `-`>.md`，如 `commands/psfl/coding-normal.md` | `/psfl:coding:normal` |
 
 源：`assets/{zh,en}/commands/**/*.md`（支持分类子目录）。
-`<contextDir>` 由平台决定：Claude Code `.claude`、Cursor `.cursor`、Trae / Trae-CN `.trae`。
+`<contextDir>` 由平台决定：Claude Code `.claude`、Cursor `.cursor`、Trae / Trae-CN `.trae`、Qoder `.qoder`。
 
-**`flat` 会连 `polaris/` 命名空间目录一起去掉**——不然等于没扁平化。命名空间改由 `psfl-` 文件名前缀承担（与 OpenSpec 的 `opsx-*.md` 同构）。
+**`flat` 连命名空间目录一起去掉**（否则等于没扁平化），命名空间改由 `psfl-` 文件名前缀承担（与 OpenSpec 的 `opsx-*.md` 同构）。**`namespaced-flat` 保留 `psfl/` 目录但只留一层**：分类压进文件名，不建子目录。
 
-**命名推导示例**：
+## 命名推导示例
 
-| 仓库内路径 | `nested` 落盘 → 命令名 | `flat` 落盘 → 命令名 |
-| --- | --- | --- |
-| `commands/flow.md` | `commands/psfl/flow.md` → `/psfl:flow` | `commands/psfl-flow.md` → `/psfl-flow` |
-| `commands/coding/normal.md` | `commands/psfl/coding/normal.md` → `/psfl:coding:normal` | `commands/psfl-coding-normal.md` → `/psfl-coding-normal` |
-| `commands/prd/readiness.md` | `commands/psfl/prd/readiness.md` → `/psfl:prd:readiness` | `commands/psfl-prd-readiness.md` → `/psfl-prd-readiness` |
-| `commands/maintance/hotfix.md` | `commands/psfl/maintance/hotfix.md` → `/psfl:maintance:hotfix` | `commands/psfl-maintance-hotfix.md` → `/psfl-maintance-hotfix` |
-| `commands/maintance/bugfix.md` | `commands/psfl/maintance/bugfix.md` → `/psfl:maintance:bugfix` | `commands/psfl-maintance-bugfix.md` → `/psfl-maintance-bugfix` |
+以 `commands/coding/normal.md` 为例，各平台落盘后的 frontmatter 与命令名：
 
-> frontmatter 的 `name` 在 Claude Code 中**只是显示标签**，不参与命令名推导（对照 OpenSpec：`.claude/commands/opsx/explore.md` 的 `name` 为 `"OPSX: Explore"`，实际命令是 `/opsx:explore`）。因此**改文件名 / 改相对路径 = 改命令名，改错即破坏引用**。
+| 平台 | 落盘 | `name` | `triggers` | 命令名 |
+| --- | --- | --- | --- | --- |
+| Claude Code / Qoder | `psfl/coding/normal.md` | `normal` | `["/psfl:coding:normal"]` | `/psfl:coding:normal` |
+| Trae / Trae-CN | `psfl/coding-normal.md` | `coding:normal` | `["/psfl:coding:normal"]` | `/psfl:coding:normal` |
+| Cursor | `psfl-coding-normal.md` | `normal` | `["/psfl-coding-normal"]` | `/psfl-coding-normal` |
+
+三个平台的 `command_prefix` 恒为 `psfl`。
+
+**为什么 Trae 的 `name` 带冒号**：一层平铺把分类压进了文件名（`coding-normal.md`），宿主不再能从路径读到 `coding` 这一层；因此用 `{{CMD_NS}}` 把分类命名空间写进 `name`，`command_prefix` + `name` 拼回 `/psfl:coding:normal`。文件名本身不含 `:`（Windows 禁止），跨平台安全。
+
+> `name: coding:normal` 是合法 YAML 标量——`:` 后无空格，不触发键值解析。
+
+顶层命令（`flow.md` / `prd.md` / `prototype.md`）没有分类目录，`{{CMD_NS}}` 在所有平台都展开为空。其余路径对照：
+
+| 仓库内路径 | `nested` | `namespaced-flat` | `flat` |
+| --- | --- | --- | --- |
+| `commands/flow.md` | `psfl/flow.md` → `/psfl:flow` | `psfl/flow.md` → `/psfl:flow` | `psfl-flow.md` → `/psfl-flow` |
+| `commands/prd/readiness.md` | `psfl/prd/readiness.md` → `/psfl:prd:readiness` | `psfl/prd-readiness.md` → `/psfl:prd:readiness` | `psfl-prd-readiness.md` → `/psfl-prd-readiness` |
+| `commands/maintance/hotfix.md` | `psfl/maintance/hotfix.md` → `/psfl:maintance:hotfix` | `psfl/maintance-hotfix.md` → `/psfl:maintance:hotfix` | `psfl-maintance-hotfix.md` → `/psfl-maintance-hotfix` |
+
+> Claude Code 中 `name` **只是显示标签**，命令名从相对路径推导（对照 OpenSpec：`.claude/commands/opsx/explore.md` 的 `name` 为 `"OPSX: Explore"`，实际命令是 `/opsx:explore`）。Cursor 命令名 = 文件名。只有 Trae / Trae-CN 由 `command_prefix` + `name` 共同决定命令名——故 `{{CMD_NS}}` 只对这两个平台生效。
 
 ## 命令布局的平台依据
 
-`nested` / `flat` 不是随手定的，依据是各宿主的官方行为（2026-09-11 取证）：
-
 | 平台 | 命令发现行为 | 采用 |
 | --- | --- | --- |
-| Claude Code | 递归 `.claude/commands/**`，子目录 → `:` 命名空间（`frontend/component.md` → `/frontend:component`） | `nested` ✅ |
-| Trae / Trae-CN | `.trae/commands` **支持最多 3 层嵌套**（v3.5.56 / 2026-05 起，官方文档有完整目录树示例） | `nested` ✅ |
+| Claude Code / Qoder | 递归 `commands/**`，子目录 → `:` 命名空间（`frontend/component.md` → `/frontend:component`） | `nested` |
+| Trae / Trae-CN | 命令文件需落在 `commands/psfl/` 下但不建子目录；命令名由 `command_prefix` + `name` 推导，`name` 可带 `:` 形成多段命名空间 | `namespaced-flat` |
 | Cursor | **IDE 递归扫描子目录；CLI 只读顶层 `.md`、跳过全部子目录** | `flat`（IDE + CLI 双通） |
 
 > 历史旁证：`.claude/commands/opsx/*.md`（嵌套）vs `.cursor/commands/opsx-*.md`（扁平）——OpenSpec 正是按「Claude 嵌套 / Cursor 扁平」分开落盘的。
-> **Trae 的已知不确定点**：官方文档只说明「支持 3 层嵌套」，**未明确子目录是否计入命令名**。若实测发现 Trae 侧命令名与 `/psfl:flow` 不符，把该平台的 `commandLayout` 改成 `flat` 即可（改一个字段，无需动源文件）。
 
 ## 命令文件内的占位符
 
-两个占位符各管一件事，**互不替代**（Trae 就是「技能 flat、命令 nested」）：
-
-| 占位符 | 管什么 | 展开依据 | nested | flat |
-| --- | --- | --- | --- | --- |
-| `{{SKN_SPR}}` | **技能名**分隔符 | `skillsLayout` | `:` | `-` |
-| `{{CMD_SPR}}` | **命令名**分隔符 | `commandLayout` | `:` | `-` |
-
 ```markdown
-引用技能      `polaris{{SKN_SPR}}prd{{SKN_SPR}}discovery`
-引用命令      `/psfl{{CMD_SPR}}coding{{CMD_SPR}}normal`
-frontmatter   triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}normal"]
+---
+name: {{CMD_NS}}normal
+command_prefix: psfl
+triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}normal"]
+description: ...
+---
+
+引用技能  `polaris{{SKN_SPR}}coding{{SKN_SPR}}normal`
+引用命令  `/psfl{{CMD_SPR}}flow`
 ```
 
-- **Claude Code**：技能名 → `polaris:prd:discovery`；命令名 → `/psfl:coding:normal`
-- **Trae / Trae-CN**：技能名 → `polaris-prd-discovery`（skillsLayout=flat）；命令名 → `/psfl:coding:normal`（commandLayout=nested）
-- **Cursor**：技能名 → `polaris:prd:discovery`（skillsLayout=nested）；命令名 → `/psfl-coding-normal`（commandLayout=flat）
+| 平台 | 技能名 | 命令名 | `name` |
+| --- | --- | --- | --- |
+| Claude Code / Qoder | `polaris:coding:normal` | `/psfl:coding:normal` | `normal` |
+| Trae / Trae-CN | `polaris-coding-normal` | `/psfl:coding:normal` | `coding:normal` |
+| Cursor | `polaris:coding:normal` | `/psfl-coding-normal` | `normal` |
 
-**未展开的占位符落到用户项目里就是坏引用**。新增命令时：技能名前缀一律用 `{{SKN_SPR}}`，命令名前缀一律用 `{{CMD_SPR}}`，两者都不要写死——写成字面量 `/psfl:*` 会与占位符混用，脚本批量改名时漏改即留坏引用。
+- `{{CMD_SPR}}` 是**全文常量替换**；`{{CMD_NS}}` 按**该命令是否有分类目录**展开。两者都由 `install/commands.ts` 的 `expandCommandNames` / `resolveCommandNamespace` 在落盘时求值。
+- **未展开的占位符落到用户项目里就是坏引用**。新增命令时：技能名用 `{{SKN_SPR}}`、命令名用 `{{CMD_SPR}}`、`name` 用 `{{CMD_NS}}<文件名 stem>`，都不要写死。写成字面量 `/psfl:*` 会与占位符混用，脚本批量改名时漏改即留坏引用。
+- `{{CMD_NS}}` 只在 `commands` 域展开，技能域不消费它。
 
 ## 已注册命令
 
-命令名以 Claude Code（`nested`）为准。Cursor 侧把 `:` 换成 `-` 并去掉 `polaris` 内的命名空间层级（如 `/psfl:coding:normal` → `/psfl-coding-normal`）。
+命令名以 Claude Code（`nested`）为准；**Trae / Trae-CN 完全一致**，Cursor 把 `:` 全换成 `-` 并去掉命名空间层级（如 `/psfl:coding:normal` → `/psfl-coding-normal`）。
 
 | 命令 | 作用 |
 | --- | --- |
@@ -97,8 +117,8 @@ frontmatter   triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}normal"]
 ## 新增命令的操作清单
 
 1. 在 `assets/zh/commands/<family>/` 写命令文件（frontmatter 含 `name` / `command_prefix` / `triggers` / `description`）；`<family>` 与技能族同名（`coding` / `prd` / `maintance`），入口类命令直接放 `commands/` 根
-2. `command_prefix` 固定 `psfl`；`triggers` 用占位符写（如 `["/psfl{{CMD_SPR}}coding{{CMD_SPR}}normal"]`），由安装器按 `commandLayout` 展开
+2. `name` 写 `{{CMD_NS}}<文件名 stem>`；`command_prefix` 固定 `psfl`；`triggers` 用 `{{CMD_SPR}}` 占位符（如 `["/psfl{{CMD_SPR}}coding{{CMD_SPR}}normal"]`）
 3. 正文引用**技能**用 `{{SKN_SPR}}`、引用**命令**用 `{{CMD_SPR}}`，两者都不写死
-4. 中文版确认后，同步 `assets/en/commands/`
+4. 按项目约定**只维护中文版**（`assets/zh/commands/`）；英文版暂无维护义务
 5. 一般**无需改安装代码**——`installPolarisCommandsForPlatform` 扫描目录自动分发，落盘路径由 `resolveCommandDest` 按 `commandLayout` 推导；只有当新命令需要**新的平台能力**时才动 `Platform.commandLayout`
-6. **不要放非命令文件进 `commands/`**：安装器无过滤（`walkFilesSafe` 纯递归，`assets/layout.ts` 的 `shouldSkipAsset` 只服务 skills 域），任何 `.md` 都会被落盘并注册成 slash command。命令的伴生资料请**内联进命令正文**，或放到语言包顶层 `policies/`（落 `plugin_root/policies/`，不进命令树）。**不要指望用 `_` 前缀规避**——三平台官方文档均无下划线豁免规则
+6. **不要放非命令文件进 `commands/`**：安装器无过滤（`walkFilesSafe` 纯递归，`assets/layout.ts` 的 `shouldSkipAsset` 只服务 skills 域），任何 `.md` 都会被落盘并注册成 slash command。命令的伴生资料请**内联进命令正文**，或放到语言包顶层 `policies/`（落 `plugin_root/policies/`，不进命令树）。**不要指望用 `_` 前缀规避**——官方文档均无下划线豁免规则

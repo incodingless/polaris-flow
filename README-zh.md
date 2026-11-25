@@ -159,7 +159,7 @@ bug  →  tasks  →  build  →  ship
 
 具体见 `assets/zh/commands/flow.md` 零步的「0.4 自动评估」一节。
 
-> **命令名随平台变化**：Claude Code / Trae 用嵌套命名空间（`/psfl:coding:normal`）；**Cursor 侧是扁平名**（`/psfl-coding-normal`）——Cursor CLI 只读命令目录顶层的 `.md`，因此安装时会去掉 `polaris/` 层级、改用 `-` 连接。本文其余章节的 `/psfl:*` 写法均以 Claude Code 为准；Cursor 侧把 `:` 换成 `-` 并去掉 `polaris` 之后的层级即可。详见 `assets/zh/adapters/command-registration.md`。
+> **命令名随平台变化**：**Claude Code / Qoder / Trae / Trae-CN** 命令名一致，均用嵌套命名空间（`/psfl:coding:normal`）；**Cursor 侧是扁平名**（`/psfl-coding-normal`）——Cursor CLI 只读命令目录顶层的 `.md`，因此安装时会去掉命名空间层级、改用 `-` 连接。Trae / Trae-CN 的命令文件同样落在 `commands/psfl/` 下，但不建子目录，分类命名空间由 frontmatter 的 `name` 承担（`name: coding:normal`）。本文其余章节的 `/psfl:*` 写法均以 Claude Code 为准。详见 `assets/zh/adapters/command-registration.md`。
 
 ## 许可证
 

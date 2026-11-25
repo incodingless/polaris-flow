@@ -56,3 +56,41 @@ export async function writeYamlFromTemplate(
   await ensureDir(path.dirname(destPath));
   await writeFile(destPath, text, 'utf-8');
 }
+
+/**
+ * 就地删除 YAML 文件里的顶层键，保留注释与其余内容。
+ *
+ * 用于清理已废弃的配置键。只在目标键确实存在时才写回——避免无谓改写用户文件
+ * （改写会动 mtime，也可能让编辑器里的未保存改动产生冲突）。
+ *
+ * @returns 是否发生了写入
+ */
+export async function removeYamlTopLevelKeys(
+  filePath: string,
+  keys: readonly string[],
+): Promise<boolean> {
+  let text: string;
+  try {
+    text = await readFile(filePath, 'utf-8');
+  } catch {
+    return false;
+  }
+
+  let doc: Document;
+  try {
+    doc = parseDocument(text, { keepSourceTokens: true });
+  } catch {
+    // 用户手改坏了：交给 doctor 报，不在这里掩盖
+    return false;
+  }
+
+  const present = keys.filter((key) => doc.has(key));
+  if (present.length === 0) return false;
+
+  for (const key of present) {
+    doc.delete(key);
+  }
+  const out = String(doc);
+  await writeFile(filePath, out.endsWith('\n') ? out : `${out}\n`, 'utf-8');
+  return true;
+}
