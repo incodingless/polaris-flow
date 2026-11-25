@@ -1,5 +1,5 @@
 ---
-name: normal
+name: {{CMD_NS}}normal
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}normal"]
 description: 常规功能的单入口：四件套 + 双向守门 + 合并主审

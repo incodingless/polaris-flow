@@ -1,5 +1,8 @@
 /**
  * 用户面 `polaris` 子命令：仅 README 列出的生命周期命令。
+ *
+ * 帮助文案（description / option / addHelpText）按 `.polaris/config.yaml` 的 `language`
+ * 输出：语言在 CLI 入口注册命令前解析并传入，Commander 的帮助是注册期静态字符串。
  */
 import type { Command } from 'commander';
 
@@ -9,8 +12,10 @@ import { uninstallCommand } from '../commands/uninstall.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { statusCommand } from '../commands/status.js';
 import { DEFAULT_DASHBOARD_PORT, dashboardCommand } from '../commands/dashboard.js';
-import { UPDATE_TARGETS } from '../core/update/scope.js';
+import { UPDATE_DEPENDENCIES, UPDATE_TARGETS } from '../core/update/scope.js';
 import { parseLocalPathPairs } from '../core/install/channels.js';
+import { t, tf } from '../commands/i18n/index.js';
+import type { Languages } from '../core/config/polaris-project-config.js';
 
 /** 逗号分隔列表选项 → 去空数组 */
 function splitList(value: string): string[] {
@@ -23,30 +28,26 @@ function splitList(value: string): string[] {
 /**
  * 注册 polaris 用户命令：init / status / dashboard / doctor / update / uninstall。
  */
-export function registerUserCommands(program: Command): void {
+export function registerUserCommands(program: Command, lang: Languages): void {
   program
     .command('init')
-    .description('Initialize Polaris workflow in a project')
-    .argument('[path]', 'target project directory', process.cwd())
-    .option('--yes', 'non-interactive; use detected platforms')
-    .option('--scope <scope>', 'install scope: project or global')
-    .option('--overwrite', 'overwrite existing components')
-    .option('--skip-existing', 'skip existing components')
-    .option('--lang <lang>', 'skill language: zh or en')
-    .option(
-      '--platforms <ids>',
-      'comma-separated platform ids (e.g. trae,claude,cursor); skips platform prompt',
-      splitList,
-    )
-    .option('--github-mirror <url>', 'GitHub mirror base URL for the git-clone install channel')
-    .option('--npm-registry <url>', 'npm registry override for the npm install channel')
+    .description(t(lang, 'cmdInitDesc'))
+    .argument('[path]', t(lang, 'argTargetDir'), process.cwd())
+    .option('--yes', t(lang, 'optYes'))
+    .option('--scope <scope>', t(lang, 'optScopePlain'))
+    .option('--overwrite', t(lang, 'optOverwrite'))
+    .option('--skip-existing', t(lang, 'optSkipExisting'))
+    .option('--lang <lang>', t(lang, 'optLangInit'))
+    .option('--platforms <ids>', t(lang, 'optPlatforms'), splitList)
+    .option('--github-mirror <url>', t(lang, 'optGithubMirror'))
+    .option('--npm-registry <url>', t(lang, 'optNpmRegistry'))
     .option(
       '--local-path <component=dir>',
-      'local source dir for a component (openspec|superpowers|codegraph=DIR); repeatable',
+      t(lang, 'optLocalPath'),
       (value: string, previous: string[]) => previous.concat(value),
       [] as string[],
     )
-    .option('--json', 'output JSON')
+    .option('--json', t(lang, 'optJson'))
     .action(async (path: string, options) => {
       try {
         const { localPaths, invalid } = parseLocalPathPairs(options.localPath ?? []);
@@ -80,20 +81,20 @@ export function registerUserCommands(program: Command): void {
 
   program
     .command('status')
-    .description('Show active workflow changes (worktree-aware)')
-    .argument('[path]', 'working directory', process.cwd())
-    .option('--json', 'output JSON')
+    .description(t(lang, 'cmdStatusDesc'))
+    .argument('[path]', t(lang, 'argWorkingDir'), process.cwd())
+    .option('--json', t(lang, 'optJson'))
     .action(async (path: string, options) => {
       await statusCommand(path, { json: options.json });
     });
 
   program
     .command('dashboard')
-    .description('Start the local workbench (API + web UI on one port)')
-    .argument('[path]', 'project root to visualize', process.cwd())
-    .option('--port <n>', 'server port', String(DEFAULT_DASHBOARD_PORT))
-    .option('--no-open', 'do not open the browser automatically')
-    .option('--api-only', 'serve the API only (for `npm run dev` in dashboard/)')
+    .description(t(lang, 'cmdDashboardDesc'))
+    .argument('[path]', t(lang, 'argProjectRoot'), process.cwd())
+    .option('--port <n>', t(lang, 'optPort'), String(DEFAULT_DASHBOARD_PORT))
+    .option('--no-open', t(lang, 'optNoOpen'))
+    .option('--api-only', t(lang, 'optApiOnly'))
     .action(
       async (
         projectPath: string,
@@ -109,10 +110,10 @@ export function registerUserCommands(program: Command): void {
 
   program
     .command('doctor')
-    .description('Diagnose environment and installation health')
-    .argument('[path]', 'target project directory', process.cwd())
-    .option('--json', 'output JSON diagnostics')
-    .option('--scope <scope>', 'install scope: project or global')
+    .description(t(lang, 'cmdDoctorDesc'))
+    .argument('[path]', t(lang, 'argTargetDir'), process.cwd())
+    .option('--json', t(lang, 'optJson'))
+    .option('--scope <scope>', t(lang, 'optScopePlain'))
     .action(async (path: string, options) => {
       await doctorCommand(path, {
         json: options.json,
@@ -122,23 +123,20 @@ export function registerUserCommands(program: Command): void {
 
   program
     .command('update')
-    .description('Update the Polaris program, bundled assets, and dependencies (scope selectable)')
-    .argument('[path]', 'target project directory', process.cwd())
-    .option(
-      '--only <items>',
-      'only update these targets (comma-separated); cannot be combined with --skip',
-      splitList,
-    )
-    .option('--skip <items>', 'update all except these targets (comma-separated)', splitList)
-    .option('--force', 'ignore source fingerprints and rewrite the selected targets')
-    .option('--prune', 'remove stale files in Polaris-owned directories (skills, commands)')
-    .option('--lang <lang>', 'skill language: zh or en (default: from .polaris/config.yaml)')
-    .option('--scope <scope>', 'install scope: project or global (default: config.yaml)')
-    .option('--json', 'output JSON')
+    .description(t(lang, 'cmdUpdateDesc'))
+    .argument('[path]', t(lang, 'argTargetDir'), process.cwd())
+    .option('--only <items>', t(lang, 'optOnly'), splitList)
+    .option('--skip <items>', t(lang, 'optSkip'), splitList)
+    .option('--force', t(lang, 'optForce'))
+    .option('--prune', t(lang, 'optPrune'))
+    .option('--lang <lang>', t(lang, 'optLangUpdate'))
+    .option('--scope <scope>', t(lang, 'optScopeUpdate'))
+    .option('--json', t(lang, 'optJson'))
     .addHelpText(
       'after',
-      `\n  targets: groups are 'program' | 'assets' | 'deps' | 'all';\n` +
-        `           members are '${UPDATE_TARGETS.filter((name) => name !== 'all').join("' | '")}'\n`,
+      `\n  ${tf(lang, 'helpUpdateTargets', {
+        targets: UPDATE_TARGETS.map((name) => `'${name}'`).join(' | '),
+      })}\n` + `  ${tf(lang, 'helpUpdateDefault', { deps: UPDATE_DEPENDENCIES.join(' / ') })}\n`,
     )
     .action(async (path: string, options) => {
       try {
@@ -160,22 +158,14 @@ export function registerUserCommands(program: Command): void {
 
   program
     .command('uninstall')
-    .description('Uninstall Polaris components from a project')
-    .argument('[path]', 'target project directory', process.cwd())
-    .option(
-      '--targets <items>',
-      "uninstall targets (comma-separated): 'assets' (default) | 'deps' | 'program' | 'all'",
-      splitList,
-    )
-    .option('--keep-data', 'keep .polaris runtime data (tasks/sessions/metrics/archive)')
-    .option('--yes', 'skip confirmation and delete directly')
-    .option('--dry-run', 'list what would be removed without deleting')
-    .option('--json', 'output JSON')
-    .addHelpText(
-      'after',
-      `\n  targets: 'assets' = Polaris-owned files (default); 'deps' = openspec/codegraph in-project;\n` +
-        `           'program' = global ~/.polaris + npm -g polaris-flow/openspec/codegraph; 'all' = everything\n`,
-    )
+    .description(t(lang, 'cmdUninstallDesc'))
+    .argument('[path]', t(lang, 'argTargetDir'), process.cwd())
+    .option('--targets <items>', t(lang, 'optTargets'), splitList)
+    .option('--keep-data', t(lang, 'optKeepData'))
+    .option('--yes', t(lang, 'optYesUninstall'))
+    .option('--dry-run', t(lang, 'optDryRun'))
+    .option('--json', t(lang, 'optJson'))
+    .addHelpText('after', `\n  ${t(lang, 'helpUninstallAfter').replaceAll('\n', '\n  ')}\n`)
     .action(async (path: string, options) => {
       await uninstallCommand(path, {
         targets: options.targets,

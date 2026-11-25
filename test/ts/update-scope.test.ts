@@ -1,5 +1,5 @@
 /**
- * update 范围解析：组展开、成员命中、互斥与错误处理。
+ * update 范围解析：framework / deps / all 三组、单依赖命中、默认范围与错误处理。
  */
 import { describe, expect, it } from 'vitest';
 
@@ -13,87 +13,86 @@ const ALL_ASSETS = ['skills', 'commands', 'agents', 'rules', 'hooks'];
 const ALL_DEPS = ['openspec', 'superpowers', 'codegraph'];
 
 describe('resolveUpdatePlan', () => {
-  it('不传 --only / --skip 时为全量', () => {
-    const plan = resolveUpdatePlan();
-    expect(plan.program).toBe(true);
-    expect(plan.assets).toEqual(ALL_ASSETS);
-    expect(plan.deps).toEqual(ALL_DEPS);
+  it('不传 --only / --skip 时默认只更新 framework（程序本体 + 资产），依赖不自动更', () => {
+    expect(resolveUpdatePlan()).toEqual({ program: true, assets: ALL_ASSETS, deps: [] });
   });
 
-  it('all 与默认等价', () => {
-    expect(resolveUpdatePlan(['all'])).toEqual(resolveUpdatePlan());
+  it('--only framework 等价于默认范围', () => {
+    expect(resolveUpdatePlan(['framework'])).toEqual(resolveUpdatePlan());
   });
 
-  it('组名展开为成员，且不牵连其它层', () => {
-    const assets = resolveUpdatePlan(['assets']);
-    expect(assets.assets).toEqual(ALL_ASSETS);
-    expect(assets.program).toBe(false);
-    expect(assets.deps).toEqual([]);
-
-    const deps = resolveUpdatePlan(['deps']);
-    expect(deps.deps).toEqual(ALL_DEPS);
-    expect(deps.program).toBe(false);
-    expect(deps.assets).toEqual([]);
+  it('--only all 覆盖 framework 与全部依赖', () => {
+    expect(resolveUpdatePlan(['all'])).toEqual({
+      program: true,
+      assets: ALL_ASSETS,
+      deps: ALL_DEPS,
+    });
   });
 
-  it('成员名精确命中，多个成员按安装顺序归位', () => {
-    const plan = resolveUpdatePlan(['agents', 'skills']);
-    expect(plan.assets).toEqual(['skills', 'agents']);
+  it('--only deps 只更新第三方依赖，不碰程序本体与资产', () => {
+    expect(resolveUpdatePlan(['deps'])).toEqual({ program: false, assets: [], deps: ALL_DEPS });
+  });
+
+  it('单个依赖可独立指定', () => {
+    const plan = resolveUpdatePlan(['openspec']);
     expect(plan.program).toBe(false);
-    expect(plan.deps).toEqual([]);
+    expect(plan.assets).toEqual([]);
+    expect(plan.deps).toEqual(['openspec']);
   });
 
-  it('大小写与空白归一，并去重', () => {
-    expect(resolveUpdatePlan([' Skills ', 'SKILLS']).assets).toEqual(['skills']);
+  it('大小写与首尾空白归一', () => {
+    expect(resolveUpdatePlan([' Framework ', 'FRAMEWORK'])).toEqual(resolveUpdatePlan());
   });
 
-  it('--skip 从全量中扣除，组名同样展开', () => {
-    const plan = resolveUpdatePlan(undefined, ['deps', 'agents']);
-    expect(plan.program).toBe(true);
-    expect(plan.assets).toEqual(['skills', 'commands', 'rules', 'hooks']);
-    expect(plan.deps).toEqual([]);
-  });
-
-  it('--skip 可只扣掉程序层', () => {
-    const plan = resolveUpdatePlan(undefined, ['program']);
-    expect(plan.program).toBe(false);
-    expect(plan.assets).toEqual(ALL_ASSETS);
+  it('--skip 从全量里剔除指定项', () => {
+    expect(resolveUpdatePlan(undefined, ['deps'])).toEqual({
+      program: true,
+      assets: ALL_ASSETS,
+      deps: [],
+    });
+    // 默认范围本就不含 deps：剔除 framework 后只剩依赖层
+    expect(resolveUpdatePlan(undefined, ['framework'])).toEqual({
+      program: false,
+      assets: [],
+      deps: ALL_DEPS,
+    });
+    expect(resolveUpdatePlan(undefined, ['codegraph']).deps).toEqual(
+      ALL_DEPS.filter((dep) => dep !== 'codegraph'),
+    );
   });
 
   it('--only 与 --skip 同时使用报错', () => {
-    expect(() => resolveUpdatePlan(['skills'], ['deps'])).toThrow(/不能同时使用/);
+    expect(() => resolveUpdatePlan(['framework'], ['deps'])).toThrow(/不能同时使用/);
   });
 
-  it('未知项报错并列出可选项', () => {
+  it('未知项报错；资产细分（skills 等）已不再是合法项', () => {
     expect(() => resolveUpdatePlan(['skils'])).toThrow(/未知的更新项 "skils"/);
-    expect(() => resolveUpdatePlan(['skils'])).toThrow(/commands/);
+    expect(() => resolveUpdatePlan(['skills'])).toThrow(/未知的更新项 "skills"/);
+    expect(() => resolveUpdatePlan(['program'])).toThrow(/未知的更新项 "program"/);
+    expect(() => resolveUpdatePlan(['assets'])).toThrow(/未知的更新项 "assets"/);
   });
 
-  it('全部跳过 → 空范围报错', () => {
+  it('剔除后范围为空报错', () => {
     expect(() => resolveUpdatePlan(undefined, ['all'])).toThrow(/更新范围为空/);
   });
 
-  it('空串与纯空白项被忽略，等同未传', () => {
+  it('空串项忽略，等价于默认范围', () => {
     expect(resolveUpdatePlan(['', '   '])).toEqual(resolveUpdatePlan());
     expect(resolveUpdatePlan(undefined, ['', ' '])).toEqual(resolveUpdatePlan());
   });
+});
 
+describe('isEmptyUpdatePlan', () => {
   it('isEmptyUpdatePlan 判定', () => {
     expect(isEmptyUpdatePlan({ program: false, assets: [], deps: [] })).toBe(true);
     expect(isEmptyUpdatePlan({ program: true, assets: [], deps: [] })).toBe(false);
     expect(isEmptyUpdatePlan({ program: false, assets: ['skills'], deps: [] })).toBe(false);
+    expect(isEmptyUpdatePlan({ program: false, assets: [], deps: ['openspec'] })).toBe(false);
   });
+});
 
-  it('UPDATE_TARGETS 覆盖全部组名与成员名', () => {
-    for (const name of [
-      'all',
-      'program',
-      'assets',
-      'deps',
-      ...ALL_ASSETS,
-      ...ALL_DEPS,
-    ]) {
-      expect(UPDATE_TARGETS).toContain(name);
-    }
+describe('UPDATE_TARGETS', () => {
+  it('只含 6 个合法值：framework / deps / all + 三个依赖成员', () => {
+    expect(UPDATE_TARGETS).toEqual(['framework', 'deps', 'all', ...ALL_DEPS]);
   });
 });

@@ -1,5 +1,5 @@
 ---
-name: tweak
+name: {{CMD_NS}}tweak
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}coding{{CMD_SPR}}tweak"]
 description: 简单需求的单入口：声明 tweak 工作流 → 任务管理与调度 → 阶段技能

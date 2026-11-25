@@ -19,6 +19,7 @@ import { t } from './i18n/index.js';
 import type { InstallScope, Languages } from '../core/config/polaris-project-config.js';
 import type { ChannelComponentId } from '../core/install/channels.js';
 import { hasSkills } from '../core/integrations/detect.js';
+import { DEPENDENCIES } from '../core/deps/registry.js';
 import { PLATFORMS, getPlatformSkillsDir, type Platform } from '../core/domain/platforms.js';
 
 export type ComponentAction = 'install' | 'overwrite' | 'skip';
@@ -39,41 +40,36 @@ export type InitPromptOptions = {
   localPaths?: Partial<Record<ChannelComponentId, string>>;
 };
 
-export type ComponentPlan = {
-  polarisAction: ComponentAction;
-  spAction: ComponentAction;
-  osAction: ComponentAction;
-  codegraphAction: ComponentAction;
-};
-
-/** 单平台安装交互计划（动作已解析，含是否已存在） */
-export type PlatformPlan = ComponentPlan & {
+/**
+ * 平台安装动作计划：按依赖 id 记录动作与是否已存在。
+ *
+ * 由 registry 派生，不再为每个组件写死字段（原先是 polarisAction / spAction /
+ * osAction / codegraphAction 四个硬编码键，加一个组件就要改这里的类型与全部消费点）。
+ */
+export type PlatformPlan = {
   platform: Platform;
-  hasPolaris: boolean;
-  hasSP: boolean;
-  hasOS: boolean;
-  hasCodegraph: boolean;
+  /** depId → 动作 */
+  actions: Record<string, ComponentAction>;
+  /** depId → 该平台 skills 目录下是否已存在 */
+  presence: Record<string, boolean>;
 };
-
-/** init 可安装的外部/内置组件，用于区分双 flag 时的覆盖策略 */
-export type InstallComponent = 'polaris' | 'openspec' | 'superpowers' | 'codegraph';
 
 /**
  * 根据已有安装与 CLI 选项决定组件动作。
  * @param hasExisting 该组件是否已安装
  * @param options CLI 选项
- * @param component 组件类型（双 flag 时 Polaris 与其它三者策略不同）
+ * @param depId 依赖 id（双 flag 时 Polaris 与其它组件策略不同）
  */
 export function resolveAction(
   hasExisting: boolean,
   options: InitPromptOptions,
-  component: InstallComponent,
+  depId: string,
 ): ComponentAction {
   if (!hasExisting) return 'install';
 
-  // 情况 3：--overwrite + --skip-existing → Polaris 重装，其余三者跳过
+  // 情况 3：--overwrite + --skip-existing → Polaris 重装，其余跳过
   if (options.overwrite && options.skipExisting) {
-    return component === 'polaris' ? 'overwrite' : 'skip';
+    return depId === 'polaris' ? 'overwrite' : 'skip';
   }
   // 情况 1：仅 --overwrite → 已存在则覆盖
   if (options.overwrite) return 'overwrite';
@@ -211,6 +207,9 @@ export async function selectPlatforms(
 /**
  * 为各平台探测已装组件并解析覆盖策略，产出安装交互计划。
  * 不执行安装；由 init 编排消费 PlatformPlan[]。
+ *
+ * 交互只覆盖非 `optional` 依赖：少一个可选工具不该在 init 时拦人。
+ * `--yes` / `--overwrite` 等非交互路径仍对全部依赖生效。
  */
 export async function buildInstallPlans(
   baseDir: string,
@@ -220,63 +219,44 @@ export async function buildInstallPlans(
   lang: Languages,
 ): Promise<PlatformPlan[]> {
   const plans: PlatformPlan[] = [];
+  const promptable = DEPENDENCIES.filter((dep) => dep.requiredness !== 'optional');
 
   for (const platform of platforms) {
     const skillsBaseDir = getPlatformSkillsDir(platform, scope, baseDir);
-    const hasPolaris = await hasSkills(skillsBaseDir, 'polaris');
-    const hasSP = await hasSkills(skillsBaseDir, 'superpowers');
-    const hasOS = await hasSkills(skillsBaseDir, 'openspec');
-    const hasCodegraph = await hasSkills(skillsBaseDir, 'codegraph');
 
-    let polarisAction = resolveAction(hasPolaris, options, 'polaris');
-    let spAction = resolveAction(hasSP, options, 'superpowers');
-    let osAction = resolveAction(hasOS, options, 'openspec');
-    let codegraphAction = resolveAction(hasCodegraph, options, 'codegraph');
+    const presence: Record<string, boolean> = {};
+    for (const dep of DEPENDENCIES) {
+      presence[dep.id] = await hasSkills(skillsBaseDir, dep.id);
+    }
+
+    const actions: Record<string, ComponentAction> = {};
+    for (const dep of DEPENDENCIES) {
+      actions[dep.id] = resolveAction(presence[dep.id], options, dep.id);
+    }
 
     if (!options.yes) {
-      const existingComponents = [
-        hasPolaris && polarisAction === 'install' ? 'Polaris' : null,
-        hasSP && spAction === 'install' ? 'Superpowers' : null,
-        hasOS && osAction === 'install' ? 'OpenSpec' : null,
-        hasCodegraph && codegraphAction === 'install' ? 'Codegraph' : null,
-      ].filter((c): c is string => Boolean(c));
+      const existingComponents = promptable
+        .filter((dep) => presence[dep.id] && actions[dep.id] === 'install')
+        .map((dep) => dep.label);
 
       if (existingComponents.length > 1) {
         const bulkChoice = await promptBulkOverwriteChoice(platform.name, existingComponents, lang);
         if (bulkChoice !== 'choose') {
           const action: ComponentAction = bulkChoice === 'overwrite-all' ? 'overwrite' : 'skip';
-          if (polarisAction === 'install') polarisAction = action;
-          if (spAction === 'install') spAction = action;
-          if (osAction === 'install') osAction = action;
-          if (codegraphAction === 'install') codegraphAction = action;
+          for (const dep of promptable) {
+            if (actions[dep.id] === 'install') actions[dep.id] = action;
+          }
         }
       }
 
-      if (polarisAction === 'install' && hasPolaris) {
-        polarisAction = await promptOverwriteChoice('Polaris', platform.name, lang);
-      }
-      if (spAction === 'install' && hasSP) {
-        spAction = await promptOverwriteChoice('Superpowers', platform.name, lang);
-      }
-      if (osAction === 'install' && hasOS) {
-        osAction = await promptOverwriteChoice('OpenSpec', platform.name, lang);
-      }
-      if (codegraphAction === 'install' && hasCodegraph) {
-        codegraphAction = await promptOverwriteChoice('Codegraph', platform.name, lang);
+      for (const dep of promptable) {
+        if (actions[dep.id] === 'install' && presence[dep.id]) {
+          actions[dep.id] = await promptOverwriteChoice(dep.label, platform.name, lang);
+        }
       }
     }
 
-    plans.push({
-      platform,
-      polarisAction,
-      spAction,
-      osAction,
-      codegraphAction,
-      hasPolaris,
-      hasSP,
-      hasOS,
-      hasCodegraph,
-    });
+    plans.push({ platform, actions, presence });
   }
 
   return plans;

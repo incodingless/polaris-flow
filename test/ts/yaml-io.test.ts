@@ -1,9 +1,13 @@
 /**
  * renderYamlTemplate：模板分发时按 keepComments 决定是否留下注释。
+ * removeYamlTopLevelKeys：就地清理废弃键，不动其余内容与注释。
  */
+import { mkdtemp, readFile, writeFile } from 'fs/promises';
+import os from 'os';
+import path from 'path';
 import { describe, expect, it } from 'vitest';
 
-import { renderYamlTemplate } from '../../src/utils/yaml-io.js';
+import { removeYamlTopLevelKeys, renderYamlTemplate } from '../../src/utils/yaml-io.js';
 
 const TEMPLATE = `# 标题
 foo: 1  # 行内
@@ -51,5 +55,39 @@ describe('renderYamlTemplate', () => {
     expect(text).toContain('testcase_tasks:');
     expect(text).toContain('prototype_tasks:');
     expect(text).toContain('debug_tasks:');
+  });
+});
+
+describe('removeYamlTopLevelKeys', () => {
+  async function writeTemp(content: string): Promise<string> {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'polaris-yaml-'));
+    const file = path.join(dir, 'config.yaml');
+    await writeFile(file, content, 'utf-8');
+    return file;
+  }
+
+  it('删掉目标键，保留其余键与注释', async () => {
+    const file = await writeTemp(
+      ['# 配置说明', 'version: "1"', 'plugins:', '  - id: a', '', 'port: 1', ''].join('\n'),
+    );
+    expect(await removeYamlTopLevelKeys(file, ['plugins'])).toBe(true);
+
+    const text = await readFile(file, 'utf-8');
+    expect(text).not.toContain('plugins');
+    expect(text).not.toContain('id: a');
+    expect(text).toContain('# 配置说明');
+    expect(text).toContain('version: "1"');
+    expect(text).toContain('port: 1');
+  });
+
+  it('键不存在时不写文件（返回 false，mtime 不变）', async () => {
+    const file = await writeTemp('version: "1"\n');
+    expect(await removeYamlTopLevelKeys(file, ['plugins'])).toBe(false);
+  });
+
+  it('文件不存在时返回 false 而不抛', async () => {
+    expect(await removeYamlTopLevelKeys(path.join(os.tmpdir(), 'nope-xyz.yaml'), ['plugins'])).toBe(
+      false,
+    );
   });
 });

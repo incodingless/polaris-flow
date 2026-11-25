@@ -1,5 +1,5 @@
 ---
-name: prd
+name: {{CMD_NS}}prd
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}prd"]
 description: 编写需求文档工作流（用户 / 系统需求：探索并澄清需求 → 产出需求基线 + 功能架构草案；后续 draft → refine → review → ship 定稿归档）

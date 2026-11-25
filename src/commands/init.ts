@@ -1,6 +1,9 @@
 /**
- * `polaris init` 命令编排：探测 → 交互选择（prompts）→ 安装 OpenSpec/Superpowers/Polaris → 结果展示。
- * 不持有底层交互实现；选择与覆盖策略见 `./prompts`。
+ * `polaris init` 命令编排：探测 → 交互选择（prompts）→ 按依赖登记表获取外部组件 →
+ * 逐平台分发 Polaris 资产 → 结果展示。
+ *
+ * 依赖集合与安装方式全部来自 `core/deps/registry.ts`，本文件不再为单个组件写死流程：
+ * 加一个依赖只需改登记表，这里的循环会自动走对应 installer。
  */
 import path from 'path';
 import os from 'os';
@@ -15,22 +18,25 @@ import {
 } from './prompts.js';
 import { detectPlatforms, getBaseDir } from '../core/integrations/detect.js';
 import {
-  ensureBundledSkillsSource,
-  getBundledSkillsSourceDir,
-} from '../core/integrations/bundled-skills.js';
-import { installOpenSpec } from '../core/integrations/openspec.js';
+  DEPENDENCIES,
+  localPathComponentIds,
+  pinExpectation,
+  resolveInstallerId,
+  type DependencyRequiredness,
+  type DependencySpec,
+} from '../core/deps/registry.js';
 import {
-  installSuperpowersForPlatforms,
-  SUPERPOWERS_MIN_VERSION,
-} from '../core/integrations/superpowers.js';
+  acquireDependency,
+  resolveDependencyVersion,
+  type DependencyOutcome,
+} from '../core/deps/install-dependency.js';
 import {
-  writeLockFile,
-  type LockSourceEntry,
+  writeInstallState,
+  type InstallSourceEntry,
   initPolarisConfig,
   installPolarisForPlatform,
 } from '../core/install.js';
 import {
-  getNpmPackageVersion,
   resolveCliExecutable,
   isUserLevelCliExecutable,
   formatUserCliPathHint,
@@ -46,27 +52,24 @@ import {
   type Languages,
 } from '../core/config/polaris-project-config.js';
 import { initializePolarisCommonLayout } from '../core/install/layout.js';
-import { CODEGRAPH_PACKAGE, installCodegraph } from '../core/integrations/codegraph.js';
 import { fileExists } from '../utils/file-system.js';
 import { localIso } from '../utils/time.js';
-import { writeYamlFromTemplate } from '../utils/yaml-io.js';
+import { removeYamlTopLevelKeys, writeYamlFromTemplate } from '../utils/yaml-io.js';
 import { loadManifestConfig } from '../core/assets/manifest.js';
 import { readInstallSectionFromFile } from '../core/install/channels.js';
+import { getCurrentVersion } from '../core/deps/version.js';
 
 type InstallStatus = 'installed' | 'skipped' | 'failed';
-
-export type PluginInstallResult = {
-  id: string;
-  version: string;
-  status: InstallStatus;
-};
 
 export type InitPlatformResult = {
   baseDir: string;
   platformId: string;
   platformName: string;
-  openspec: InstallStatus;
-  superpowers: InstallStatus;
+  /**
+   * 外部依赖的安装状态，键为 registry 的 depId。
+   * Polaris 自身不在此列——它按平台分发资产，状态见 `polaris` 字段。
+   */
+  dependencies: Record<string, InstallStatus>;
   polaris: InstallStatus;
   skills: { copied: number; skipped: number };
   commands: { copied: number; skipped: number };
@@ -83,29 +86,49 @@ export type InitResult = {
   results: InitPlatformResult[];
 };
 
-/** 将平台资产失败与 Superpowers 组件失败分开，避免「已安装又失败」误报 */
+/**
+ * 汇总分类。
+ *
+ * 失败按依赖重要度分组：`required` 缺失视为安装失败，`recommended` / `optional`
+ * 缺失只提示——这个分级来自登记表，不再藏在各组件自己的代码分支里。
+ */
 export function classifyInitSummary(results: InitPlatformResult[]): {
   installed: InitPlatformResult[];
   skipped: InitPlatformResult[];
-  platformFailed: InitPlatformResult[];
-  superpowersFailed: InitPlatformResult[];
+  requiredFailed: DependencySpec[];
+  recommendedFailed: DependencySpec[];
+  optionalFailed: DependencySpec[];
+  polarisFailed: InitPlatformResult[];
 } {
+  const failedIds = new Set<string>();
+  for (const result of results) {
+    for (const [id, status] of Object.entries(result.dependencies)) {
+      if (status === 'failed') failedIds.add(id);
+    }
+  }
+
+  const byLevel = (level: DependencyRequiredness): DependencySpec[] =>
+    DEPENDENCIES.filter((dep) => dep.requiredness === level && failedIds.has(dep.id));
+
   return {
     installed: results.filter(
       (r) =>
-        r.polaris === 'installed' || r.superpowers === 'installed' || r.openspec === 'installed',
+        r.polaris === 'installed' ||
+        Object.values(r.dependencies).some((status) => status === 'installed'),
     ),
     skipped: results.filter(
-      (r) => r.polaris === 'skipped' && r.superpowers === 'skipped' && r.openspec === 'skipped',
+      (r) =>
+        r.polaris === 'skipped' &&
+        Object.values(r.dependencies).every((status) => status === 'skipped'),
     ),
-    platformFailed: results.filter((r) => r.polaris === 'failed' || r.openspec === 'failed'),
-    superpowersFailed: results.filter((r) => r.superpowers === 'failed'),
+    requiredFailed: byLevel('required'),
+    recommendedFailed: byLevel('recommended'),
+    optionalFailed: byLevel('optional'),
+    polarisFailed: results.filter((r) => r.polaris === 'failed'),
   };
 }
 
 type Logger = (message: string) => void;
-
-const OPENSPEC_PACKAGE = '@fission-ai/openspec';
 
 const POLARIS_BANNER = [
   ``,
@@ -117,12 +140,26 @@ const POLARIS_BANNER = [
   `${green('██      ')} ▀██▄▄██▀    ██▄▄▄   ██▄▄▄███   ██       ▄▄▄██▄▄▄  █▄▄▄▄▄██   ${green('██      ')}   ██▄▄▄   ▀██▄▄██▀  ▀██  ██▀ `,
   `${green('▀▀      ')}   ▀▀▀▀       ▀▀▀▀    ▀▀▀▀ ▀▀   ▀▀       ▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀    ${green('██')}          ▀▀▀▀     ▀▀▀▀     ▀▀  ▀▀  `,
   `${green('='.repeat(106))}`,
+  `  ${dim(`v${getCurrentVersion()}`)}`,
   `  ${bold('OpenSpec')} + ${bold('Superpowers')} + ${bold('Polaris')} Workflow`,
   ``,
 ].join('\n');
 
 function createLogger(json: boolean): Logger {
   return json ? () => {} : (message: string) => console.log(message);
+}
+
+/**
+ * 写入 install-state 的版本值。
+ *
+ * - 未装成 → 空串（不代表任何版本；`isConcreteVersion` 判否，下次 update 会重建基线）
+ * - 附带技能 → 声明里的钉值（tag 或 commit SHA），那是它唯一有意义的「哪一版」
+ * - 其余 → 解析出的可比版本；不可比占位符（0.0.0 / local / fetched）返回空串
+ */
+async function recordedVersion(spec: DependencySpec, outcome: DependencyOutcome): Promise<string> {
+  if (outcome.status !== 'installed') return '';
+  if (spec.method.kind === 'github-copy') return pinExpectation(spec.method);
+  return (await resolveDependencyVersion(spec, outcome)) ?? '';
 }
 
 /**
@@ -201,29 +238,35 @@ function displaySummary(results: InitPlatformResult[], scope: InstallScope, lang
   );
 
   const summary = classifyInitSummary(results);
-  const installed = summary.installed;
-  const skipped = summary.skipped;
-  const superpowersFailed = summary.superpowersFailed;
-  const platformAssetFailed = summary.platformFailed;
 
-  if (installed.length > 0) {
+  if (summary.installed.length > 0) {
     console.log(`  ${green(t(lang, 'installed'))}`);
-    for (const r of installed) {
+    for (const r of summary.installed) {
       console.log(`    ${green('✓')}  ${bold(r.platformName)} ${dim(`${r.baseDir}/skills/`)}`);
     }
   }
-  if (skipped.length > 0) {
+  if (summary.skipped.length > 0) {
     console.log(
-      `  ${yellow(t(lang, 'skippedLabel'))}  ${skipped.map((r) => r.platformName).join(', ')}`,
+      `  ${yellow(t(lang, 'skippedLabel'))}  ${summary.skipped.map((r) => r.platformName).join(', ')}`,
     );
   }
-  if (platformAssetFailed.length > 0) {
+  // 失败按依赖重要度分级：required 影响可用性，recommended 降级，optional 只是少个工具
+  if (summary.requiredFailed.length > 0 || summary.polarisFailed.length > 0) {
+    const names = [
+      ...summary.requiredFailed.map((dep) => dep.label),
+      ...summary.polarisFailed.map((r) => r.platformName),
+    ];
+    console.log(`  ${red(t(lang, 'failedLabel'))}   ${names.join(', ')}`);
+  }
+  if (summary.recommendedFailed.length > 0) {
     console.log(
-      `  ${red(t(lang, 'failedLabel'))}   ${platformAssetFailed.map((r) => r.platformName).join(', ')}`,
+      `  ${yellow(t(lang, 'degradedLabel'))}  ${summary.recommendedFailed.map((dep) => dep.label).join(', ')}`,
     );
   }
-  if (superpowersFailed.length > 0) {
-    console.log(`  ${red(t(lang, 'failedComponentSuperpowers'))}`);
+  if (summary.optionalFailed.length > 0) {
+    console.log(
+      `  ${dim(t(lang, 'optionalMissingLabel'))}  ${summary.optionalFailed.map((dep) => dep.label).join(', ')}`,
+    );
   }
 
   console.log(`\n  ${bold(t(lang, 'getStarted'))}`);
@@ -277,119 +320,67 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
 
   const baseDir = getBaseDir(scope, projectPath);
   const plans = await buildInstallPlans(baseDir, platforms, scope, options, lang);
-  const lockSources: LockSourceEntry[] = [];
+  const installSources: InstallSourceEntry[] = [];
   const platformResults: InitPlatformResult[] = [];
-  const pluginResults: PluginInstallResult[] = [];
-  // --- 1. OpenSpec ---
-  const osPlatforms = plans
-    .filter((p) => p.osAction !== 'skip' && p.platform.openspecToolId)
-    .map((p) => p.platform);
-  let osGlobalStatus: InstallStatus = 'skipped';
+  /** 获取阶段的产出，按 depId 索引；构造各平台状态与全局配置时复用 */
+  const acquireOutcomes: Record<string, DependencyOutcome> = {};
 
-  if (osPlatforms.length > 0) {
-    const osLabels = osPlatforms.map((p) => p.id).join(', ');
-    log(`\n  ${blue('⏳')} ${bold('OpenSpec')} ${dim(`${t(lang, 'installingOS')} ${osLabels}`)}`);
-    osGlobalStatus = await installOpenSpec(projectPath, osPlatforms, scope, true);
-    log(`  ${statusSymbol(osGlobalStatus)}  OpenSpec ${statusLabel(osGlobalStatus, lang)}`);
-    const installedVersion =
-      osGlobalStatus === 'installed' ? getNpmPackageVersion(OPENSPEC_PACKAGE) : '0.0.0';
+  /** 某依赖在某平台是否应执行获取：动作非 skip，且平台能力满足 */
+  const isAcquireNeeded = (spec: DependencySpec, plan: (typeof plans)[number]): boolean => {
+    if (plan.actions[spec.id] === 'skip') return false;
+    // openspec 需要平台提供 openspecToolId 才能写项目配置
+    if (resolveInstallerId(spec) === 'openspec' && !plan.platform.openspecToolId) return false;
+    return true;
+  };
 
-    pluginResults.push({
-      id: 'openspec',
-      version: installedVersion,
-      status: osGlobalStatus,
-    });
-
-    lockSources.push({
-      id: 'openspec',
-      version: installedVersion,
-    });
-  } else {
-    log(`\n  ${dim('○')}  OpenSpec ${dim(t(lang, 'skip'))}`);
-  }
-
-  // --- 2. Superpowers ---
-  const spPlatformIds = plans.filter((p) => p.spAction !== 'skip').map((p) => p.platform.id);
-  let spGlobalStatus: InstallStatus = 'skipped';
-
-  if (spPlatformIds.length > 0) {
-    log(`\n  ${blue('⏳')} ${bold('Superpowers')} ${dim(`>= ${SUPERPOWERS_MIN_VERSION}`)}...`);
-    const spResult = await installSuperpowersForPlatforms(projectPath, scope, spPlatformIds, true);
-    spGlobalStatus = spResult.status;
-    log(`  ${statusSymbol(spGlobalStatus)}  Superpowers ${statusLabel(spGlobalStatus, lang)}`);
-
-    pluginResults.push({
-      id: 'superpowers',
-      version: spResult.version,
-      status: spGlobalStatus,
-    });
-
-    if (spGlobalStatus === 'installed') {
-      lockSources.push({
-        id: 'superpowers',
-        version: spResult.version,
-      });
+  /** 某平台的依赖状态映射：平台动作 skip 记 skipped，否则取获取阶段结果 */
+  const dependencyStatusFor = (plan: (typeof plans)[number]): Record<string, InstallStatus> => {
+    const status: Record<string, InstallStatus> = {};
+    for (const spec of DEPENDENCIES) {
+      status[spec.id] = isAcquireNeeded(spec, plan)
+        ? (acquireOutcomes[spec.id]?.status ?? 'skipped')
+        : 'skipped';
     }
-  } else {
-    log(`\n  ${dim('○')}  Superpowers ${dim(t(lang, 'skip'))}`);
-  }
+    return status;
+  };
 
-  // --- 3. Codegraph ---
-  const shouldInstallCodegraph = plans.some((p) => p.codegraphAction !== 'skip');
+  // --- 1. 获取外部依赖（登记表驱动）---
+  // 逐条走 registry 声明的 installer。新增依赖只需改登记表，本段代码不变。
+  for (const spec of DEPENDENCIES) {
+    if (!plans.some((plan) => isAcquireNeeded(spec, plan))) {
+      acquireOutcomes[spec.id] = { status: 'skipped' };
+      log(`\n  ${dim('○')}  ${spec.label} ${dim(t(lang, 'skip'))}`);
+      continue;
+    }
 
-  if (shouldInstallCodegraph) {
-    log(`\n  ${blue('⏳')} ${bold('Codegraph')}...`);
-    const codegraphGlobalStatus = await installCodegraph(
-      projectPath,
-      scope,
-      shouldInstallCodegraph,
-    );
-    log(
-      `  ${statusSymbol(codegraphGlobalStatus)}  Codegraph ${statusLabel(codegraphGlobalStatus, lang)}`,
-    );
+    log(`\n  ${blue('⏳')} ${bold(spec.label)}...`);
+    const outcome = await acquireDependency(spec, { projectPath, scope, platforms });
+    acquireOutcomes[spec.id] = outcome;
+    log(`  ${statusSymbol(outcome.status)}  ${spec.label} ${statusLabel(outcome.status, lang)}`);
 
-    const codegraphVersion =
-      codegraphGlobalStatus === 'installed' ? getNpmPackageVersion(CODEGRAPH_PACKAGE) : '0.0.0';
-
-    pluginResults.push({
-      id: 'codegraph',
-      version: codegraphVersion,
-      status: codegraphGlobalStatus,
-    });
-
-    lockSources.push({
-      id: 'codegraph',
-      version: codegraphVersion,
-    });
-  } else {
-    log(`\n  ${dim('○')}  Codegraph ${dim(t(lang, 'skip'))}`);
-  }
-
-  // --- 4. 附带技能源（图表工具；GitHub 优先，本地兜底）---
-  // 注意：这里只负责把源拉到 ~/.polaris/components/bundled-skills，
-  // 真正的落盘在 installPolarisForPlatform 的 skills 步骤里做本地拷贝。
-  if (plans.some((p) => p.polarisAction !== 'skip')) {
-    log(
-      `\n  ${blue('⏳')} ${bold('Diagram')} ${dim(`(archify / diagram-design → ${getBundledSkillsSourceDir()})`)}...`,
-    );
-    const bundled = await ensureBundledSkillsSource();
-    if (bundled.missing.length === 0) {
-      log(`  ${statusSymbol('installed')}  Diagram ${statusLabel('installed', lang)}`);
-    } else {
-      log(
-        `  ${statusSymbol('failed')}  Diagram ${statusLabel('failed', lang)} ${dim(bundled.missing.join(', '))}`,
-      );
-      for (const [name, reason] of Object.entries(bundled.errors)) {
+    // 失败原因必须带出来：只报「没装上」无法区分网络问题与配置问题
+    if (outcome.errors) {
+      for (const [name, reason] of Object.entries(outcome.errors)) {
         log(`  ${dim(`↳ ${name}: ${reason}`)}`);
       }
+    }
+    if (outcome.status === 'failed') {
       log(
         `  ${dim('↳ 本地已有副本仍会安装。手动重试：POLARIS_GITHUB_MIRROR=<镜像> polaris init')}`,
       );
     }
+
+    // 每条依赖都记录结果（含附带技能）：这是「本目录装了什么」的唯一依据，
+    // 失败也记 status——否则无法区分「没装过」与「装了但当时失败」
+    installSources.push({
+      id: spec.id,
+      version: await recordedVersion(spec, outcome),
+      status: outcome.status,
+    });
   }
 
-  // --- 5. Polaris bundled（skills → commands → agents → rules → hooks）---
-  const polarisNeeded = plans.some((p) => p.polarisAction !== 'skip');
+  // --- 2. Polaris 资产分发（skills → commands → agents → rules → hooks）---
+  const polarisNeeded = plans.some((plan) => plan.actions['polaris'] !== 'skip');
   let polarisGlobalStatus: InstallStatus = 'skipped';
 
   if (polarisNeeded) {
@@ -399,35 +390,29 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
       await initializePolarisCommonLayout(projectPath, scope);
 
       //----- 2. 生成 Polaris 全局配置文件 -----
-      await generatePolarisGlobalConfig(
-        getGlobalPolarisConfigPath(),
-        Boolean(options.overwrite),
-        pluginResults,
-      );
+      await generatePolarisGlobalConfig(getGlobalPolarisConfigPath(), Boolean(options.overwrite));
 
       //----- 3. 生成 Polaris 项目配置文件 -----
       await initPolarisConfig(projectPath, language, scope, platforms, Boolean(options.overwrite));
 
       //----- 4. 按选择的平台逐个安装 Polaris -----
       for (const plan of plans) {
-        if (plan.polarisAction === 'skip') continue;
+        if (plan.actions['polaris'] === 'skip') continue;
 
         const result = await installPolarisForPlatform(
           baseDir,
           plan.platform,
-          plan.polarisAction === 'overwrite',
+          plan.actions['polaris'] === 'overwrite',
           language,
           scope,
           projectPath,
         );
 
         platformResults.push({
-          baseDir: baseDir,
+          baseDir,
           platformId: plan.platform.id,
           platformName: plan.platform.name,
-          openspec:
-            plan.osAction !== 'skip' && plan.platform.openspecToolId ? osGlobalStatus : 'skipped',
-          superpowers: plan.spAction !== 'skip' ? spGlobalStatus : 'skipped',
+          dependencies: dependencyStatusFor(plan),
           polaris: 'installed',
           skills: result.skills,
           commands: result.commands,
@@ -442,10 +427,9 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
       }
       polarisGlobalStatus = 'installed';
 
-      const assetsDir = getAssetsDir();
-      const manifest = await loadManifestConfig(assetsDir);
-
-      lockSources.push({ id: 'polaris', version: manifest.version });
+      const manifest = await loadManifestConfig(getAssetsDir());
+      // Polaris 自身也记一条：它的「版本」是资产清单版本，供 update 判断资产是否变过
+      installSources.push({ id: 'polaris', version: manifest.version, status: 'installed' });
     } catch (err) {
       log(`  ${red('✗')}  Polaris: ${red((err as Error).message)}`);
       polarisGlobalStatus = 'failed';
@@ -454,11 +438,11 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
     log(`\n  ${dim('○')}  Polaris ${dim(t(lang, 'skip'))}`);
   }
 
-  // --- 6. Hooks 安装结果汇报（已由 installPolarisForPlatform 注册）---
+  // --- 3. Hooks 安装结果汇报（已由 installPolarisForPlatform 注册）---
   if (polarisGlobalStatus === 'installed') {
     log(`\n  ${blue('⏳')} ${bold('Hooks')}...`);
     for (const plan of plans) {
-      if (plan.polarisAction === 'skip') continue;
+      if (plan.actions['polaris'] === 'skip') continue;
 
       const result = platformResults.find((r) => r.platformId === plan.platform.id);
       const hooks = result?.hooks ?? { installed: false };
@@ -486,13 +470,11 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
   for (const plan of plans) {
     if (platformResults.some((r) => r.platformId === plan.platform.id)) continue;
     platformResults.push({
-      baseDir: baseDir,
+      baseDir,
       platformId: plan.platform.id,
       platformName: plan.platform.name,
-      openspec:
-        plan.osAction !== 'skip' && plan.platform.openspecToolId ? osGlobalStatus : 'skipped',
-      superpowers: plan.spAction !== 'skip' ? spGlobalStatus : 'skipped',
-      polaris: plan.polarisAction === 'skip' ? 'skipped' : polarisGlobalStatus,
+      dependencies: dependencyStatusFor(plan),
+      polaris: plan.actions['polaris'] === 'skip' ? 'skipped' : polarisGlobalStatus,
       skills: { copied: 0, skipped: 0 },
       commands: { copied: 0, skipped: 0 },
       agents: { copied: 0, skipped: 0 },
@@ -501,13 +483,11 @@ export async function runInit(rawPath: string, options: InitPromptOptions): Prom
     });
   }
 
-  if (lockSources.length > 0) {
-    await writeLockFile(
+  if (installSources.length > 0) {
+    await writeInstallState(
       projectPath,
-      language,
-      scope,
       platforms.map((p) => p.id),
-      lockSources,
+      installSources,
     );
   }
 
@@ -534,20 +514,28 @@ export async function initCommand(projectPath: string, options: InitPromptOption
   await runInit(projectPath, options);
 }
 
+/** 全局配置里已废弃的顶层键：旧版本曾在此写已装组件，与项目级 install-state 重复且会冻结 */
+const DEPRECATED_GLOBAL_CONFIG_KEYS = ['plugins'] as const;
+
 /**
  * 基于 polaris.example.yaml 生成全局 `~/.polaris/polaris.yaml`。
- * 保留模板注释；写入 version / install-time / plugins。
+ *
+ * 只写**框架级配置**（version / install-time / 安装通道）。这里不记录已装组件——
+ * 组件按作用域落在各项目，记录在项目的 `.polaris/install-state.json`；
+ * 全局配置记项目级组件会造成「全局写一份、项目写一份」的假多源。
+ *
  * @param polarisGlobalConfigPath 全局配置路径
  * @param overwrite 为 true 时即使文件已存在也按模板重写
- * @param pluginResults 已安装插件列表，写入 plugins 字段
  */
 async function generatePolarisGlobalConfig(
   polarisGlobalConfigPath: string,
   overwrite: boolean = false,
-  pluginResults: PluginInstallResult[],
 ): Promise<void> {
   const existed = await fileExists(polarisGlobalConfigPath);
   if (!overwrite && existed) {
+    // 旧版本写进去的 plugins 段会一直留在用户机器上（含 `superpowers: failed` 这类
+    // 把状态当版本的数据），顺手清掉；其余内容与注释不动
+    await removeYamlTopLevelKeys(polarisGlobalConfigPath, DEPRECATED_GLOBAL_CONFIG_KEYS);
     return;
   }
 
@@ -563,28 +551,17 @@ async function generatePolarisGlobalConfig(
     transform: (doc) => {
       doc.set('version', '0.1.0');
       doc.set('install-time', localIso());
-      doc.set(
-        'plugins',
-        pluginResults.map((p) => ({
-          id: p.id,
-          version: p.version,
-        })),
-      );
+      // 模板已不含 plugins；旧文件重写时也一并抹掉残留
+      for (const key of DEPRECATED_GLOBAL_CONFIG_KEYS) {
+        if (doc.has(key)) doc.delete(key);
+      }
       if (existingInstall) {
         doc.setIn(['install', 'github-mirror'], existingInstall.githubMirror ?? '');
         doc.setIn(['install', 'npm-registry'], existingInstall.npmRegistry ?? '');
-        doc.setIn(
-          ['install', 'local-paths', 'openspec'],
-          existingInstall.localPaths.openspec ?? '',
-        );
-        doc.setIn(
-          ['install', 'local-paths', 'superpowers'],
-          existingInstall.localPaths.superpowers ?? '',
-        );
-        doc.setIn(
-          ['install', 'local-paths', 'codegraph'],
-          existingInstall.localPaths.codegraph ?? '',
-        );
+        // 组件清单从登记表派生：新增依赖自动获得 install.local-paths.<id> 配置位
+        for (const id of localPathComponentIds()) {
+          doc.setIn(['install', 'local-paths', id], existingInstall.localPaths[id] ?? '');
+        }
       }
     },
   });

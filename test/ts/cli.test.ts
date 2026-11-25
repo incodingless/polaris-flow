@@ -1,7 +1,7 @@
 /**
  * CLI smoke：polaris 仅生命周期命令；polaris-flow 暴露运行时命令。
  */
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
@@ -50,11 +50,15 @@ describe('CLI smoke', () => {
   });
 
   it('doctor runs against project root', () => {
-    const output = execFileSync(process.execPath, [polarisBin, 'doctor', projectRoot], {
+    // doctor 在依赖缺失时按设计以退出码 1 结束；smoke 测试只验证命令能跑并输出诊断，
+    // 不要求测试机装齐全部依赖，故用 spawnSync 而非 execFileSync 以免非零码直接抛错。
+    const result = spawnSync(process.execPath, [polarisBin, 'doctor', projectRoot], {
       cwd: projectRoot,
       encoding: 'utf-8',
     });
 
-    expect(output).toContain('node');
+    expect(result.error).toBeUndefined();
+    expect(result.stdout).toContain('Polaris Flow Doctor');
+    expect(result.stdout).toContain('node');
   });
 });

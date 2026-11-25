@@ -85,6 +85,7 @@ print_menu() {
   printf '   6) %-34s %s\n' 'npm pack --dry-run' '看 npm 包里有什么（会先构建）'
   printf '   7) %-34s %s\n' 'devops/publish.sh --dry-run' '发布预演，不动远端'
   printf '   8) %-34s %s\n' 'devops/publish.sh' '发布到 Nexus'
+  printf '   9) %-34s %s\n' 'run: 2 -> 8 -> 5' '快速发版（不含技能同步）'
   printf '  99) %-34s %s\n' 'run: 2 -> 4 -> 8 -> 5' '全流程构建'
   printf '\n  %s\n' "$(bold '其他')"
   printf '      %-34s %s\n' 'h <编号>' '看该脚本的用法头部'
@@ -101,23 +102,30 @@ target_file() {
     5) echo 'devops/package.sh' ;;
     6) echo 'package.json' ;;
     7 | 8) echo 'devops/publish.sh' ;;
-    99) echo 'devops/dev.sh' ;;
+    9 | 99) echo 'devops/dev.sh' ;;
     *) echo '' ;;
   esac
 }
 
+# 执行前回显实际命令：脚本自身可能长时间静默（如网络查询），
+# 先打印一行让用户知道「已经开始跑、跑的是哪条」，避免误判为卡死。
+announce() {
+  printf '\n  %s\n' "$(bold '→') $(dim "$*")"
+}
+
 run_item() {
   case "$1" in
-    1) exec bash devops/build.sh ;;
-    2) exec bash devops/build.sh --check ;;
-    3) exec pnpm test ;;
-    4) exec node devops/sync-bundled-skills.mjs ;;
-    5) exec bash devops/package.sh ;;
-    6) exec npm pack --dry-run ;;
+    1) announce 'bash devops/build.sh'; exec bash devops/build.sh ;;
+    2) announce 'bash devops/build.sh --check'; exec bash devops/build.sh --check ;;
+    3) announce 'pnpm test'; exec pnpm test ;;
+    4) announce 'node devops/sync-bundled-skills.mjs'; exec node devops/sync-bundled-skills.mjs ;;
+    5) announce 'bash devops/package.sh'; exec bash devops/package.sh ;;
+    6) announce 'npm pack --dry-run'; exec npm pack --dry-run ;;
     # 前置检查不通过时以 3 退出，让调用方区分「取消」与「编号不存在」
-    7) precheck_publish || exit 3; exec bash devops/publish.sh --dry-run ;;
-    8) precheck_publish || exit 3; exec bash devops/publish.sh ;;
-    99) run_flow ;;
+    7) precheck_publish || exit 3; announce 'bash devops/publish.sh --dry-run'; exec bash devops/publish.sh --dry-run ;;
+    8) precheck_publish || exit 3; announce 'bash devops/publish.sh'; exec bash devops/publish.sh ;;
+    9) run_flow 1 ;;
+    99) run_flow 0 ;;
     *) return 1 ;;
   esac
 }
@@ -145,26 +153,69 @@ precheck_publish() {
   return 0
 }
 
-# 全流程构建：依次 2 → 4 → 8 → 5。任一步失败即中止（取消 exit 3，失败 exit 1）。
+# 发版组合流程：菜单 99 为全流程（2 → 4 → 8 → 5），菜单 9 为快速发版（2 → 8 → 5）。
+# skip_sync=1 跳过技能同步、按 3 步显示；skip_sync=0（缺省）保留原 4 步与同步逻辑。
+# 同步技能查询上游失败（退出码 2，脚本保证未改文件）时询问是否跳过该步继续；
+# 升级阶段失败可能留下半成品，一律中止。组合流程统一带 --force（单独发版菜单 8 不带）。
+# 前置检查取消 exit 3，任一步失败 exit 1。
 run_flow() {
-  printf '\n  %s  %s\n' "$(bold '全流程构建')" "$(dim '2 构建检查 → 4 同步技能 → 8 发布 → 5 打离线包')"
+  local skip_sync="${1:-0}"
+  local sync_status=0 answer=''
+  local total=4 title='全流程构建' steps='2 构建检查 → 4 同步技能 → 8 发布 → 5 打离线包'
 
-  printf '\n  %s\n' "$(green '▶ 1/4') 构建 + lint + test"
+  if [ "$skip_sync" = '1' ]; then
+    total=3
+    title='快速发版'
+    steps='2 构建检查 → 8 发布 → 5 打离线包'
+  fi
+
+  printf '\n  %s  %s\n' "$(bold "$title")" "$(dim "$steps")"
+
+  printf '\n  %s\n' "$(green "▶ 1/$total") 构建 + lint + test"
   bash devops/build.sh --check || { printf '  %s\n' "$(red '✗ 构建检查失败，流程中止')"; exit 1; }
 
-  printf '\n  %s\n' "$(green '▶ 2/4') 同步附带技能（有新版自动升级）"
-  node devops/sync-bundled-skills.mjs --update || { printf '  %s\n' "$(red '✗ 同步技能失败，流程中止')"; exit 1; }
+  if [ "$skip_sync" != '1' ]; then
+    printf '\n  %s\n' "$(green "▶ 2/$total") 同步附带技能（有新版自动升级）"
+    node devops/sync-bundled-skills.mjs --update
+    sync_status=$?
+    case "$sync_status" in
+      0) ;;
+      2)
+        # 退出码 2 = 查询上游失败（多为 ls-remote 超时）。sync 脚本在任何写操作之前就退出，
+        # 状态干净，跳过是安全的：离线包沿用上一次成功的附带技能版本。
+        printf '  %s\n' "$(yellow '⚠ 查询上游失败（常见为网络超时），未改动任何文件')"
+        printf '  跳过同步、继续发布与打包？[y/N] '
+        read -r answer || answer=''
+        case "$answer" in
+          y | Y)
+            printf '  %s\n' "$(yellow '已跳过技能同步；离线包将沿用上一次的附带技能版本')"
+            ;;
+          *)
+            printf '  %s\n' "$(red '✗ 已取消，流程中止')"
+            exit 1
+            ;;
+        esac
+        ;;
+      *)
+        # --update 下非 0/2 只可能是升级阶段异常。该阶段 vendor 逐个替换、钉值循环结束才落盘，
+        # 中途失败会留下「vendor 新版 + 钉值旧版」的不一致，禁止跳过以免把不一致带进发版。
+        printf '  %s\n' "$(red '✗ 同步技能失败，流程中止')"
+        printf '  %s\n' "$(yellow '  升级阶段可能只改了一部分，请核对 devops/vendor/bundled-skills 与 src/core/integrations/bundled-skills.ts 的钉值')"
+        exit 1
+        ;;
+    esac
+  fi
 
-  printf '\n  %s\n' "$(green '▶ 3/4') 发布到 Nexus"
+  printf '\n  %s\n' "$(green "▶ $((total - 1))/$total") 发布到 Nexus"
   precheck_publish || exit 3
-  # 全流程统一带 --force：版本号已发布过时允许覆盖（Nexus Allow Redeploy），不再因「版本已存在」中断整条链；
+  # 组合流程统一带 --force：版本号已发布过时允许覆盖（Nexus Allow Redeploy），不再因「版本已存在」中断整条链；
   # 单独发版（菜单 8）仍不带 --force，保持「先升版本号」的正常路径
   bash devops/publish.sh --force || { printf '  %s\n' "$(red '✗ 发布失败，流程中止')"; exit 1; }
 
-  printf '\n  %s\n' "$(green '▶ 4/4') 打离线安装包"
+  printf '\n  %s\n' "$(green "▶ $total/$total") 打离线安装包"
   bash devops/package.sh || { printf '  %s\n' "$(red '✗ 打离线包失败，流程中止')"; exit 1; }
 
-  printf '\n  %s\n' "$(green '✓ 全流程构建完成')"
+  printf '\n  %s\n' "$(green "✓ ${title}完成")"
 }
 
 show_usage() {

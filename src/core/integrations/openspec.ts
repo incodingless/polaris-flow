@@ -18,7 +18,14 @@ import {
   resolveCliInstallTarget,
 } from '../deps/npm.js';
 import { getBaseDir } from './detect.js';
-import { getOpenspecSource } from '../assets/sources.js';
+import {
+  dependencyMinVersion,
+  dependencyPackageName,
+  dependencyRepo,
+  dependencyTimeoutMs,
+  requireDependency,
+  toRepoUrl,
+} from '../deps/registry.js';
 import { resolveInstallChannelConfig } from '../install/channels.js';
 import {
   buildNpmGlobalInstallArgs,
@@ -198,7 +205,8 @@ function isCommandAvailable(command: string): boolean {
 function buildOpenSpecCliInstallArgs(registry?: string, prefix?: string): string[] {
   // CLI 工具始终全局安装，避免在目标项目目录产生 node_modules；
   // 全局目录不可写时 prefix 指向 ~/.polaris/cli（用户级安装）
-  return buildNpmGlobalInstallArgs('@fission-ai/openspec@latest', registry, prefix);
+  const pkg = dependencyPackageName(requireDependency('openspec'));
+  return buildNpmGlobalInstallArgs(`${pkg}@latest`, registry, prefix);
 }
 
 /** 清理旧版 init 在目标项目误装的本地 OpenSpec CLI 产物 */
@@ -243,11 +251,37 @@ async function cleanupLegacyLocalOpenSpecInstall(projectPath: string): Promise<v
   }
 }
 
-async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missing' | 'failed'> {
+/**
+ * 判断是否需要真正执行一次全局安装（纯函数，便于单测）。
+ *
+ * - 不负责安装（`shouldInstall=false`）：已装即 `ready`，否则 `missing`
+ * - 已装且不要求升级：`ready`，跳过全局重装——项目侧初始化由调用方继续执行
+ * - 其余：才走 npm → git → 本地三条通道装/升级
+ *
+ * 与 codegraph 的 `ensureCodegraphCli` 保持同一语义：init 不因「机器上早就有 CLI」
+ * 而每次重装全局包，升级只在 `polaris update`（显式 `upgrade=true`）时发生。
+ */
+function resolveOpenSpecCliAction(
+  alreadyInstalled: boolean,
+  shouldInstall: boolean,
+  upgrade: boolean,
+): 'ready' | 'missing' | 'install' {
+  if (!shouldInstall) return alreadyInstalled ? 'ready' : 'missing';
+  if (alreadyInstalled && !upgrade) return 'ready';
+  return 'install';
+}
+
+/**
+ * 确保 OpenSpec CLI 可用。
+ * @param upgrade 为 true 时即使已安装也执行一次全局升级（`polaris update` 用）
+ */
+async function ensureOpenSpecCli(
+  shouldInstall = true,
+  upgrade = false,
+): Promise<'ready' | 'missing' | 'failed'> {
   const alreadyInstalled = isCommandAvailable('openspec');
-  if (!shouldInstall) {
-    return alreadyInstalled ? 'ready' : 'missing';
-  }
+  const action = resolveOpenSpecCliAction(alreadyInstalled, shouldInstall, upgrade);
+  if (action !== 'install') return action;
   const label = alreadyInstalled ? 'Upgrading' : 'Installing';
   console.warn(`    ${label} OpenSpec CLI (global)...`);
 
@@ -257,7 +291,7 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
     console.warn(`    ↳ 全局目录不可写，改装用户目录: ${target.prefix}/bin`);
   }
 
-  const source = getOpenspecSource();
+  const spec = requireDependency('openspec');
   const channel = await resolveInstallChannelConfig();
 
   // --- 1. npm 通道 ---
@@ -267,7 +301,7 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
       buildOpenSpecCliInstallArgs(channel.npmRegistry, target.prefix),
       {
         stdio: 'inherit',
-        timeout: 120_000,
+        timeout: dependencyTimeoutMs(spec),
         shell: process.platform === 'win32',
       },
     );
@@ -280,11 +314,12 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
   }
 
   // --- 2. git 镜像通道 ---
-  if (source.repo) {
-    console.warn(`    ↳ git 镜像通道: ${source.repo} ...`);
+  const repo = dependencyRepo(spec);
+  if (repo) {
+    console.warn(`    ↳ git 镜像通道: ${repo} ...`);
     const ok = await installCliFromGitRepo(
-      source.repo,
-      source.minVersion,
+      toRepoUrl(repo),
+      dependencyMinVersion(spec),
       channel.githubMirror,
       channel.npmRegistry,
       target.prefix,
@@ -308,11 +343,14 @@ async function ensureOpenSpecCli(shouldInstall = true): Promise<'ready' | 'missi
     }
   }
 
+  // 三条通道都没装成。已装且未要求升级的情况在前面就返回 ready 了，走到这里必然是
+  // 「没装过」或「要求升级但升级失败」——后者不能当成功，否则 update 会把没装上的新版本
+  // 写进 lock，下次比对判 up-to-date，升级永远不再重试。
   if (alreadyInstalled) {
-    console.warn(`    OpenSpec upgrade failed, using existing version`);
-    return 'ready';
+    console.warn('    OpenSpec upgrade failed, keeping the installed version');
+  } else {
+    console.error('    Failed to install OpenSpec CLI');
   }
-  console.error(`    Failed to install OpenSpec CLI`);
   return 'failed';
 }
 
@@ -420,12 +458,16 @@ async function relocateOpenSpecToPlatformDirs(
 
 /**
  * 按 polaris 平台列表安装 OpenSpec：CLI 用 openspecToolId，落盘对齐 Platform 目录配置。
+ *
+ * @param upgradeCli 为 true 时即使 CLI 已装也重拉 @latest（`polaris update` 用）；
+ *   init 传 false —— 已装即视为就绪，只做项目侧初始化
  */
 async function installOpenSpec(
   projectPath: string,
   platforms: Platform[],
   scope: InstallScope,
   shouldInstallCli = true,
+  upgradeCli = false,
 ): Promise<'installed' | 'failed' | 'skipped'> {
   if (platforms.length === 0) {
     return 'skipped';
@@ -433,11 +475,14 @@ async function installOpenSpec(
 
   await cleanupLegacyLocalOpenSpecInstall(projectPath);
 
-  const cliStatus = await ensureOpenSpecCli(shouldInstallCli);
+  const cliStatus = await ensureOpenSpecCli(shouldInstallCli, upgradeCli);
   if (cliStatus === 'failed') {
-    console.error(
-      `    OpenSpec CLI not available. Install manually: npm install -g @fission-ai/openspec@latest`,
-    );
+    // 升级失败但既有 CLI 可用时，ensureOpenSpecCli 已说明，这里不再重复报「未安装」
+    if (!isCommandAvailable('openspec')) {
+      console.error(
+        `    OpenSpec CLI not available. Install manually: npm install -g @fission-ai/openspec@latest`,
+      );
+    }
     return 'failed';
   }
   if (cliStatus === 'missing') {
@@ -512,7 +557,9 @@ async function installOpenSpec(
 
 export {
   installOpenSpec,
+  ensureOpenSpecCli,
   isCommandAvailable,
+  resolveOpenSpecCliAction,
   buildOpenSpecInitInvocation,
   buildOpenSpecCliInstallArgs,
   getNpmExecutable,

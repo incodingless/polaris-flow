@@ -95,6 +95,15 @@ skippedLabel:
 failedLabel:
   en: 'Failed:'
   zh: 失败：
+degradedLabel:
+  en: 'Degraded:'
+  zh: 降级：
+optionalMissingLabel:
+  en: 'Optional missing:'
+  zh: 可选缺失：
+updateDepUnsupported:
+  en: no auto-upgrade implementation, run `polaris init` to refresh
+  zh: 暂无自动升级实现，请重新执行 `polaris init`
 failedComponentSuperpowers:
   en: 'Failed component: Superpowers (GitHub unreachable; Polaris itself may still be installed)'
   zh: 失败组件：Superpowers（无法访问 GitHub；Polaris 本身可能已安装成功）
@@ -146,6 +155,12 @@ npmDepNotInstalled:
 updateTitle:
   en: Polaris Update
   zh: Polaris 更新
+versionCheckUpToDate:
+  en: You are on the latest version.
+  zh: 当前已是最新版本。
+versionCheckNewAvailable:
+  en: "New version v{version} available. Run 'npm update -g {package}' to upgrade."
+  zh: '发现新版本 v{version}。请运行 `npm update -g {package}` 升级。'
 npmPackageFailed:
   en: 'npm package: update failed'
   zh: npm 包：更新失败
@@ -182,6 +197,9 @@ updateUpToDate:
 updateDepUpToDate:
   en: already up to date — skipping reinstall
   zh: 已是最新 —— 跳过重复安装
+updateDepUnreachable:
+  en: 'cannot confirm upstream version — skipping reinstall (use --force to reinstall anyway)'
+  zh: 无法确认上游版本 —— 跳过重复安装（如需强制重装请使用 --force）
 updateUpdatedTo:
   en: updated to
   zh: 已更新到
@@ -247,3 +265,283 @@ gitMissing:
 companionCliInUserDir:
   en: 'Companion CLIs installed to the user directory (global npm prefix is not writable). To run openspec / codegraph directly, add it to PATH:'
   zh: 伴生 CLI 已装到用户目录（全局 npm 前缀不可写）。要直接运行 openspec / codegraph，把它加进 PATH：
+depStatusUnreachable:
+  en: unreachable
+  zh: 无法确认上游版本
+depStatusSkipped:
+  en: skipped
+  zh: 已跳过
+assetKindSkills:
+  en: skills
+  zh: 技能
+assetKindCommands:
+  en: commands
+  zh: 命令
+assetKindAgents:
+  en: agents
+  zh: 智能体
+assetKindRules:
+  en: rules
+  zh: 规则
+assetKindHooks:
+  en: hooks
+  zh: 钩子
+scopeValueProject:
+  en: project
+  zh: 项目
+scopeValueGlobal:
+  en: global
+  zh: 全局
+languageValueZh:
+  en: zh
+  zh: 中文
+languageValueEn:
+  en: en
+  zh: 英文
+assetsLabel:
+  en: assets
+  zh: 资产
+statusNotGitRepo:
+  en: Not a git repository.
+  zh: 当前目录不是 git 仓库。
+statusMainRepo:
+  en: 'Main repository: {path}'
+  zh: 主仓库：{path}
+statusSectionCoding:
+  en: Coding tasks
+  zh: 编码任务
+statusSectionRequirement:
+  en: Requirement tasks
+  zh: 需求任务
+statusSectionTestcase:
+  en: Testcase tasks
+  zh: 测试任务
+statusSectionPrototype:
+  en: Prototype tasks
+  zh: 原型任务
+statusSectionDebug:
+  en: Debug tasks
+  zh: 缺陷任务
+statusNone:
+  en: (none)
+  zh: （无）
+statusUnknownPhase:
+  en: unknown
+  zh: 未知
+uninstallTitle:
+  en: Polaris Uninstall
+  zh: Polaris 卸载
+uninstallProject:
+  en: Project
+  zh: 项目
+uninstallWillRemove:
+  en: Will remove
+  zh: 将删除
+uninstallWillRemoveHooks:
+  en: Will remove managed hooks
+  zh: 将移除托管 hooks
+uninstallHookEntries:
+  en: Polaris hook entries of {platform}
+  zh: '{platform} 的 Polaris hook 条目'
+uninstallWillRun:
+  en: Will run (uninstall global packages)
+  zh: 将执行（卸载全局软件）
+uninstallKeepDataNote:
+  en: '--keep-data: keeping tasks/testcases/sessions/archive/metrics under .polaris'
+  zh: '--keep-data：保留 .polaris 下的 tasks/testcases/sessions/archive/metrics'
+uninstallKeptAgentsRules:
+  en: 'Not removed: agents / rules share directories with your own content; excluded to avoid accidental deletion'
+  zh: 未删除：agents / rules 与用户自有内容共用目录，为避免误删不参与卸载
+uninstallKeptSuperpowers:
+  en: 'Not removed: superpowers is a standalone skill pack; uninstall it with `npx skills remove obra/superpowers`'
+  zh: '未删除：superpowers 是独立技能包，如需卸载请用 `npx skills remove obra/superpowers`'
+uninstallNothing:
+  en: No uninstallable Polaris components found.
+  zh: 未检测到可卸载的 Polaris 组件。
+uninstallNothingHint:
+  en: (run polaris init first)
+  zh: （先运行 polaris init 安装）
+uninstallDryRunNote:
+  en: '--dry-run: nothing was deleted.'
+  zh: '--dry-run：未删除任何内容。'
+uninstallNonInteractive:
+  en: 'Non-interactive environment: use --yes or --dry-run.'
+  zh: 非交互环境：请使用 --yes 或 --dry-run。
+uninstallConfirm:
+  en: Delete the items above?
+  zh: 确认删除以上内容？
+uninstallCancelled:
+  en: Cancelled, nothing was deleted.
+  zh: 已取消，未删除任何内容。
+uninstallRemoveFailed:
+  en: 'Failed to delete {path}: {error}'
+  zh: '删除失败 {path}：{error}'
+uninstallNpmFailed:
+  en: 'Failed to uninstall {command}: {error}'
+  zh: '卸载失败 {command}：{error}'
+uninstallComplete:
+  en: Uninstall complete
+  zh: 卸载完成
+uninstallSummaryDeleted:
+  en: '{count} item(s) deleted'
+  zh: 删除 {count} 项
+uninstallSummaryHooks:
+  en: '{count} hook entries removed'
+  zh: 移除 hook 条目 {count} 条
+uninstallSummaryKept:
+  en: Kept data
+  zh: 保留数据
+dashboardInvalidPort:
+  en: 'Invalid port: {port} (expected an integer between 1 and 65535)'
+  zh: 无效端口：{port}（应为 1-65535 的整数）
+dashboardPortInUse:
+  en: 'Port {port} is already in use. Try another port: polaris dashboard --port <n>'
+  zh: 端口 {port} 已被占用。换一个端口：polaris dashboard --port <n>
+dashboardStartFailed:
+  en: 'Failed to start: {error}'
+  zh: 启动失败：{error}
+dashboardApiOnlyError:
+  en: 'API-only mode: use `npm run dev` (inside dashboard/) for the vite dev server'
+  zh: API-only 模式：前端请用 `npm run dev`（dashboard/ 内）访问 vite dev server
+dashboardLabelProject:
+  en: Project
+  zh: 项目
+dashboardLabelWeb:
+  en: Web
+  zh: 前端
+dashboardApiOnlyWeb:
+  en: API-only mode (start the vite dev server in dashboard/ separately)
+  zh: 仅 API 模式（请另起 dashboard/ 的 vite dev）
+dashboardStopHint:
+  en: Press Ctrl+C to stop
+  zh: 按 Ctrl+C 停止
+cliDescription:
+  en: 'Polaris workflow platform: init, status, dashboard, doctor, update, uninstall'
+  zh: Polaris 工作流平台：init、status、dashboard、doctor、update、uninstall
+helpUsage:
+  en: 'Usage:'
+  zh: 用法：
+helpArguments:
+  en: 'Arguments:'
+  zh: 参数：
+helpOptions:
+  en: 'Options:'
+  zh: 选项：
+helpCommands:
+  en: 'Commands:'
+  zh: 命令：
+helpDisplayHelpFor:
+  en: display help for command
+  zh: 显示命令帮助
+helpOutputVersion:
+  en: output the version number
+  zh: 输出版本号
+cmdInitDesc:
+  en: Initialize Polaris workflow in a project
+  zh: 在项目中初始化 Polaris 工作流
+argTargetDir:
+  en: target project directory
+  zh: 目标项目目录
+argWorkingDir:
+  en: working directory
+  zh: 工作目录
+argProjectRoot:
+  en: project root to visualize
+  zh: 要可视化的项目根目录
+optYes:
+  en: non-interactive; use detected platforms
+  zh: 非交互执行；使用检测到的平台
+optScopePlain:
+  en: 'install scope: project or global'
+  zh: '安装范围：project 或 global'
+optOverwrite:
+  en: overwrite existing components
+  zh: 覆盖已有组件
+optSkipExisting:
+  en: skip existing components
+  zh: 跳过已有组件
+optLangInit:
+  en: 'skill language: zh or en'
+  zh: '技能语言：zh 或 en'
+optPlatforms:
+  en: comma-separated platform ids (e.g. trae,claude,cursor); skips platform prompt
+  zh: 逗号分隔的平台 id（如 trae,claude,cursor）；跳过平台选择提问
+optGithubMirror:
+  en: GitHub mirror base URL for the git-clone install channel
+  zh: git-clone 安装通道的 GitHub 镜像地址
+optNpmRegistry:
+  en: npm registry override for the npm install channel
+  zh: npm 安装通道的 registry 覆盖地址
+optLocalPath:
+  en: local source dir for a component (openspec|superpowers|codegraph=DIR); repeatable
+  zh: 组件的本地源码目录（openspec|superpowers|codegraph=目录）；可重复
+optJson:
+  en: output JSON
+  zh: 以 JSON 输出
+cmdStatusDesc:
+  en: Show active workflow changes (worktree-aware)
+  zh: 查看在途工作流任务（含 worktree 定位）
+cmdDashboardDesc:
+  en: Start the local workbench (API + web UI on one port)
+  zh: 启动本地工作台（API 与 Web 界面同端口）
+optPort:
+  en: server port
+  zh: 服务端口
+optNoOpen:
+  en: do not open the browser automatically
+  zh: 不自动打开浏览器
+optApiOnly:
+  en: serve the API only (for `npm run dev` in dashboard/)
+  zh: 只起 API（配合 dashboard/ 内的 `npm run dev`）
+cmdDoctorDesc:
+  en: Diagnose environment and installation health
+  zh: 诊断环境与安装健康状态
+cmdUpdateDesc:
+  en: Update the Polaris program and assets (default scope); dependencies are opt-in via --only/--skip
+  zh: 更新 Polaris 程序本体与资产（默认范围）；三方依赖需通过 --only/--skip 显式选择
+optOnly:
+  en: only update these targets (comma-separated); cannot be combined with --skip
+  zh: 只更新这些目标（逗号分隔）；不能与 --skip 同用
+optSkip:
+  en: update all except these targets (comma-separated)
+  zh: 更新除这些目标外的全部（逗号分隔）
+optForce:
+  en: ignore source fingerprints and rewrite the selected targets
+  zh: 忽略源指纹，强制重写所选目标
+optPrune:
+  en: remove stale files in Polaris-owned directories (skills, commands)
+  zh: 清理 Polaris 独占目录中的陈旧文件（skills、commands）
+optLangUpdate:
+  en: 'skill language: zh or en (default: from .polaris/config.yaml)'
+  zh: '技能语言：zh 或 en（默认读 .polaris/config.yaml）'
+optScopeUpdate:
+  en: 'install scope: project or global (default: config.yaml)'
+  zh: 安装范围：project 或 global（默认读 config.yaml）
+helpUpdateTargets:
+  en: 'targets: {targets}'
+  zh: '更新目标：{targets}'
+helpUpdateDefault:
+  en: "default scope: 'framework' (program + assets); 'deps' groups {deps}"
+  zh: 默认范围：framework（程序本体 + 资产）；deps 组合 {deps}
+cmdUninstallDesc:
+  en: Uninstall Polaris components from a project
+  zh: 从项目卸载 Polaris 组件
+optTargets:
+  en: "uninstall targets (comma-separated): 'assets' (default) | 'deps' | 'program' | 'all'"
+  zh: '卸载目标（逗号分隔）：assets（默认）| deps | program | all'
+optKeepData:
+  en: keep .polaris runtime data (tasks/sessions/metrics/archive)
+  zh: 保留 .polaris 运行时数据（tasks/sessions/metrics/archive）
+optYesUninstall:
+  en: skip confirmation and delete directly
+  zh: 跳过确认，直接删除
+optDryRun:
+  en: list what would be removed without deleting
+  zh: 只列出将删除的路径，不实际删除
+helpUninstallAfter:
+  en: |
+    targets: 'assets' = Polaris-owned files (default); 'deps' = openspec/codegraph in-project;
+             'program' = global ~/.polaris + npm -g polaris-flow/openspec/codegraph; 'all' = everything
+  zh: |
+    targets：assets = Polaris 自有文件（默认）；deps = 项目内 openspec/codegraph；
+             program = 全局 ~/.polaris + npm -g polaris-flow/openspec/codegraph；all = 全部

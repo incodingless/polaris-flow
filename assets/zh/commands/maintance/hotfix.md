@@ -1,5 +1,5 @@
 ---
-name: hotfix
+name: {{CMD_NS}}hotfix
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}maintance{{CMD_SPR}}hotfix"]
 description: 修复生产故障

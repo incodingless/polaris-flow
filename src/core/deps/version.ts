@@ -53,6 +53,18 @@ export function getCurrentVersion(): string {
 }
 
 /**
+ * 从命令行输出里取出第一个 semver。
+ *
+ * 不同 CLI 的 `--version` 输出格式不一（`1.7.0` / `openspec 1.7.0` / `v1.7.0-beta.1`），
+ * 统一用正则抓取而不是按前缀切片。取不到返回 null —— 调用方必须据此放弃判断，
+ * 不要猜一个版本来比较。
+ */
+export function extractSemver(raw: string): string | null {
+  const match = raw.match(/\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?/);
+  return match ? match[0] : null;
+}
+
+/**
  * 从 npm registry 获取最新版本。
  * 网络不可达时返回 null。
  */
@@ -82,9 +94,10 @@ export async function checkForUpdate(): Promise<VersionCheckResult> {
   };
 }
 
-/** 在命令开头打印版本信息，供 init / update 使用。 */
+/** 在命令开头打印版本信息，文案由调用方注入翻译函数，避免 core 依赖命令层 i18n。 */
 export async function printVersionInfo(
   log: (message: string) => void,
+  translate: (key: string) => string,
 ): Promise<VersionCheckResult> {
   const result = await checkForUpdate();
 
@@ -95,11 +108,12 @@ export async function printVersionInfo(
   }
 
   if (result.hasUpdate) {
-    log(
-      `  New version v${result.latestVersion} available. Run 'npm update -g ${PACKAGE_NAME}' to upgrade.`,
-    );
+    const message = translate('versionCheckNewAvailable')
+      .replace('{version}', result.latestVersion ?? '')
+      .replace('{package}', PACKAGE_NAME);
+    log(`  ${message}`);
   } else {
-    log(`  You are on the latest version.`);
+    log(`  ${translate('versionCheckUpToDate')}`);
   }
 
   return result;

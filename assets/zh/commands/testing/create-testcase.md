@@ -1,5 +1,5 @@
 ---
-name: create-testcase
+name: {{CMD_NS}}create-testcase
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}testing{{CMD_SPR}}create-testcase"]
 description: 测试用例设计工作流（基于定稿 PRD：澄清测试意图 → 编写用例集 → 完善与独立评审 → 准出交付）

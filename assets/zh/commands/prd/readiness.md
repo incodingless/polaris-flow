@@ -1,5 +1,5 @@
 ---
-name: readiness
+name: {{CMD_NS}}readiness
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}prd{{CMD_SPR}}readiness"]
 description: 需求就绪度评估（研发准出判定：五维度加权评分 + PASS/CONDITIONAL/FAIL + 缺陷清单）

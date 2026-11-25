@@ -1,5 +1,5 @@
 ---
-name: prototype
+name: {{CMD_NS}}prototype
 command_prefix: psfl
 triggers: ["/psfl{{CMD_SPR}}prototype"]
 description: 制作原型工作流（先出《原型蓝图》并人工确认 → 按蓝图做高保真可交互 HTML 原型 → 独立评审 → 确认后归档）

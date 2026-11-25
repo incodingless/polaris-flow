@@ -2,7 +2,11 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parse as parseYaml } from 'yaml';
-import { Languages, LANGUAGES } from '../../core/config/polaris-project-config.js';
+import {
+  LANGUAGES,
+  Languages,
+  loadPolarisConfig,
+} from '../../core/config/polaris-project-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -116,4 +120,26 @@ export function t(lang: string | undefined, key: TranslationKey): string {
   }
 
   return text;
+}
+
+/**
+ * 解析命令的交互输出语言：`.polaris/config.yaml` 的 `language`（init 时写入）> zh。
+ *
+ * 供 init 之外的用户面命令统一取语言（doctor / status / dashboard / uninstall）；
+ * update 因支持 `--lang` 显式覆盖，在自身入口叠加选项判断后复用本函数的语义。
+ */
+export async function resolveProjectLanguage(projectPath: string): Promise<Languages> {
+  const config = await loadPolarisConfig(projectPath);
+  return config?.language ?? 'zh';
+}
+
+/** 带 {name} 占位符插值的翻译；未提供的占位符原样保留，便于发现漏参 */
+export function tf(
+  lang: string | undefined,
+  key: TranslationKey,
+  params: Record<string, string | number>,
+): string {
+  return t(lang, key).replace(/\{(\w+)\}/g, (raw, name: string) =>
+    name in params ? String(params[name]) : raw,
+  );
 }

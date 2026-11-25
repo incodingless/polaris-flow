@@ -6,6 +6,9 @@
  * 改 PROVENANCE 表格行」，全靠文本处理。用 bash + awk 实现又长又脆，
  * 而 node 本来就是本仓硬依赖（`>= 20`），与其拼命令不如直接写。
  *
+ * 钉值唯一来源是 `src/core/deps/registry.ts` 的 DEPENDENCIES 中 method.kind === 'github-copy'
+ * 的条目；脚本从 TS 文本解析，不 import，以便未构建（无 dist）时也能跑。
+ *
  * 用法：
  *   node devops/sync-bundled-skills.mjs            只检查：钉值 vs 上游最新，不打任何文件
  *   node devops/sync-bundled-skills.mjs --update   升级：改写钉值 + 重拉 vendor + 更新 PROVENANCE
@@ -26,7 +29,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SPEC_FILE = path.join(ROOT, 'src/core/integrations/bundled-skills.ts');
+const SPEC_FILE = path.join(ROOT, 'src/core/deps/registry.ts');
 const VENDOR_DIR = path.join(ROOT, 'devops/vendor/bundled-skills');
 const REF_MARKER = '.polaris-bundled-ref';
 
@@ -39,7 +42,7 @@ if (args.has('--help') || args.has('-h')) {
       '  无参数     只检查上游是否有新版（只读，不改文件）',
       '  --update   升级到上游最新：改钉值 + 重拉 devops/vendor/bundled-skills + 更新 PROVENANCE',
       '',
-      '钉值唯一来源: src/core/integrations/bundled-skills.ts 的 BUNDLED_SKILL_SPECS',
+      '钉值唯一来源: src/core/deps/registry.ts 的 DEPENDENCIES（method.kind: github-copy）',
     ].join('\n'),
   );
   process.exit(0);
@@ -51,34 +54,37 @@ const DO_UPDATE = args.has('--update');
 //---------------------------------
 
 /**
- * 从 TS 源文件解析 `BUNDLED_SKILL_SPECS` 的每个条目。
+ * 从 registry.ts 解析 DEPENDENCIES 中 method.kind === 'github-copy' 的条目。
+ * 按顶层 `{ ... },` 块切分，避免把 probe / method 的嵌套对象误当成条目。
  * 用文本正则而非 import：脚本要在未构建（无 dist）时也能跑。
  */
 function readSpecs() {
   const source = fs.readFileSync(SPEC_FILE, 'utf-8');
-  const start = source.indexOf('export const BUNDLED_SKILL_SPECS');
+  const start = source.indexOf('export const DEPENDENCIES');
   if (start === -1) {
-    throw new Error('找不到 BUNDLED_SKILL_SPECS，源文件结构已变，请先更新本脚本');
+    throw new Error('找不到 DEPENDENCIES，registry.ts 结构已变，请先更新本脚本');
   }
   const block = source.slice(start);
+  const entryRe = /^  \{\r?\n([\s\S]*?)^  \},?\r?$/gm;
   const specs = [];
-  const nameRe = /name:\s*'([^']+)'/g;
   let match;
-  while ((match = nameRe.exec(block)) !== null) {
-    const from = match.index;
-    const next = block.indexOf('name: ', from + 1);
-    const chunk = block.slice(from, next === -1 ? undefined : next);
-    const repo = chunk.match(/repo:\s*'([^']+)'/)?.[1];
-    const version = chunk.match(/version:\s*'([^']+)'/)?.[1];
-    const commit = chunk.match(/commit:\s*'([^']+)'/)?.[1];
-    const subdir = chunk.match(/subdir:\s*'([^']+)'/)?.[1];
-    if (!repo) {
-      throw new Error(`条目 ${match[1]} 缺 repo，源文件结构已变`);
+  while ((match = entryRe.exec(block)) !== null) {
+    const chunk = match[1];
+    if (!/kind:\s*'github-copy'/.test(chunk)) continue;
+    const pick = (re) => chunk.match(re)?.[1];
+    const id = pick(/^\s*id:\s*'([^']+)'/m);
+    const name = pick(/targetDirName:\s*'([^']+)'/) ?? id;
+    const repo = pick(/repo:\s*'([^']+)'/);
+    const version = pick(/pin:\s*\{\s*version:\s*'([^']+)'\s*\}/);
+    const commit = pick(/pin:\s*\{\s*commit:\s*'([^']+)'\s*\}/);
+    const subdir = pick(/subdir:\s*'([^']+)'/);
+    if (!id || !repo) {
+      throw new Error(`条目 ${id ?? '?'} 缺 id 或 repo，registry.ts 结构已变`);
     }
-    specs.push({ name: match[1], repo, version, commit, subdir });
+    specs.push({ id, name, repo, version, commit, subdir });
   }
   if (specs.length === 0) {
-    throw new Error('未解析到任何条目，源文件结构已变');
+    throw new Error('未解析到任何 github-copy 条目，registry.ts 结构已变');
   }
   return specs;
 }
@@ -123,11 +129,20 @@ function git(gitArgs, { allowFail = false } = {}) {
       msg.includes('ETIMEDOUT') ||
       msg.includes('timed out');
     if (timedOut) {
-      throw new Error(`git ${gitArgs.join(' ')} 超时（${Math.round(timeout / 1000)} 秒无响应，网络可能很慢）`);
+      throw new Error(
+        `git ${gitArgs.join(' ')} 超时（${Math.round(timeout / 1000)} 秒无响应，网络可能很慢）`,
+      );
     }
     const stderr = (error.stderr || '').toString().trim();
     throw new Error(`git ${gitArgs.join(' ')} 失败: ${stderr || error.message}`);
   }
+}
+
+/** 识别网络类故障：这类错误换 tag 命名形式重试只是白等一次超时 */
+function isNetworkError(message) {
+  return /timed?\s*out|timeout|ETIMEDOUT|Couldn't connect|Failed to connect|Empty reply|Recv failure|Connection refused|network is unreachable|超时/i.test(
+    message || '',
+  );
 }
 
 /**
@@ -197,20 +212,21 @@ function fetchToTemp(spec, upstream, repoUrl) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `polaris-sync-${spec.name}-`));
   if (upstream.refType === 'tag') {
     const candidates = [`v${upstream.ref.replace(/^v/, '')}`, upstream.ref];
-    let ok = false;
+    let lastError;
     for (const ref of candidates) {
       try {
         git(['clone', '--depth', '1', '--branch', ref, repoUrl, tmp]);
-        ok = true;
-        break;
-      } catch {
-        // 试下一个命名形式
+        return tmp;
+      } catch (error) {
+        lastError = error;
+        // 网络故障下换命名形式再试只会白等一次超时，直接失败并保留真实原因
+        if (isNetworkError(error.message)) break;
       }
     }
-    if (!ok) {
-      fs.rmSync(tmp, { recursive: true, force: true });
-      throw new Error(`${spec.name}: clone tag ${upstream.ref} 失败`);
-    }
+    fs.rmSync(tmp, { recursive: true, force: true });
+    throw new Error(
+      `${spec.name}: clone tag ${upstream.ref} 失败（${repoUrl}）: ${(lastError?.message || '未知错误').trim()}`,
+    );
   } else {
     try {
       git(['-C', tmp, 'init', '-q']);
@@ -235,7 +251,7 @@ function replaceVendorSkill(spec, tmpRepo, upstream) {
   fs.rmSync(staging, { recursive: true, force: true });
   fs.cpSync(src, staging, { recursive: true });
 
-  // 与运行时的裁剪规则保持一致（BUNDLED_SKILL_SPECS[].exclude）
+  // 与运行时的裁剪规则保持一致（DEPENDENCIES 中 github-copy 条目的 exclude）
   if (spec.name === 'archify') {
     const examples = path.join(staging, 'examples');
     if (fs.existsSync(examples)) {
@@ -252,28 +268,38 @@ function replaceVendorSkill(spec, tmpRepo, upstream) {
   fs.renameSync(staging, target);
 }
 
-/** 改写 TS 里的钉值（只动对应条目内的那一行） */
+/** 改写 registry.ts 里的钉值（只动对应 github-copy 条目内的 pin 行） */
 function rewriteSpec(source, spec, upstream) {
-  const start = source.indexOf('export const BUNDLED_SKILL_SPECS');
-  const nameIdx = source.indexOf(`name: '${spec.name}'`, start);
-  if (nameIdx === -1) throw new Error(`${spec.name}: 源文件里找不到该条目`);
-  const nextName = source.indexOf("name: '", nameIdx + 1);
-  const end = nextName === -1 ? source.length : nextName;
-  const before = source.slice(0, nameIdx);
-  const chunk = source.slice(nameIdx, end);
-  const after = source.slice(end);
+  const start = source.indexOf('export const DEPENDENCIES');
+  if (start === -1) throw new Error('找不到 DEPENDENCIES，registry.ts 结构已变');
+  const head = source.slice(0, start);
+  const block = source.slice(start);
+  const entryRe = /^  \{\r?\n([\s\S]*?)^  \},?\r?$/gm;
+  let match;
+  let target = null;
+  while ((match = entryRe.exec(block)) !== null) {
+    if (new RegExp(`^\\s*id:\\s*'${spec.id}'`, 'm').test(match[1])) {
+      target = match;
+      break;
+    }
+  }
+  if (!target) throw new Error(`${spec.id}: registry.ts 里找不到该条目`);
 
+  const chunk = target[0];
   const field = spec.commit ? 'commit' : 'version';
-  const current = spec.commit ?? spec.version ?? '';
-  const pattern = new RegExp(`(${field}:\\s*')[^']*(')`);
+  const pattern = new RegExp(`(pin:\\s*\\{\\s*${field}:\\s*')[^']*('\\s*\\})`);
   if (!pattern.test(chunk)) {
-    throw new Error(`${spec.name}: 条目里找不到 ${field} 字段`);
+    throw new Error(`${spec.id}: 条目里找不到 pin.${field} 字段`);
   }
   const nextChunk = chunk.replace(pattern, `$1${upstream.ref}$2`);
-  if (nextChunk === chunk && current !== upstream.ref) {
-    throw new Error(`${spec.name}: 改写 ${field} 失败`);
+  if (nextChunk === chunk && (spec.commit ?? spec.version ?? '') !== upstream.ref) {
+    throw new Error(`${spec.id}: 改写 pin.${field} 失败`);
   }
-  return { source: before + nextChunk + after, changed: nextChunk !== chunk };
+  return {
+    source:
+      head + block.slice(0, target.index) + nextChunk + block.slice(target.index + chunk.length),
+    changed: nextChunk !== chunk,
+  };
 }
 
 /** 更新 PROVENANCE 里的 commit 与日期行 */
@@ -296,24 +322,16 @@ function updateProvenance(spec, upstream) {
 //         4. 主流程
 //---------------------------------
 
+/**
+ * 即时写 stdout：git 查询用 execFileSync 阻塞事件循环，console.log 在 pipe 下会排队到
+ * 阻塞结束才出现。writeSync 保证「正在查询谁」在等待期间就可见，不被误认为卡死。
+ */
+function progress(message) {
+  fs.writeSync(1, `${message}\n`);
+}
+
 const specs = readSpecs();
 const rows = [];
-
-for (const spec of specs) {
-  const repoUrl = rewriteGithubRepoUrl(`https://github.com/${spec.repo}`);
-  const current = spec.commit ?? spec.version ?? '';
-  const currentType = spec.commit ? 'commit' : 'tag';
-  let upstream;
-  try {
-    upstream = resolveUpstream(spec, repoUrl);
-  } catch (error) {
-    rows.push({ spec, current, currentType, upstream: null, error: error.message });
-    continue;
-  }
-  const outdated =
-    currentType === 'commit' ? current !== upstream.ref : compareSemver(current, upstream.ref) < 0;
-  rows.push({ spec, current, currentType, upstream, outdated, error: null });
-}
 
 const label = (row) => {
   if (row.error) return '查询失败';
@@ -321,21 +339,44 @@ const label = (row) => {
   return row.outdated ? '有新版' : '已最新';
 };
 
-console.log('附带技能版本对照');
-console.log('─'.repeat(78));
-for (const row of rows) {
+/** 单个技能查完就打印，不等所有查询结束 */
+function printRow(row) {
   const cur = row.currentType === 'commit' ? row.current.slice(0, 7) : row.current;
   const up = row.upstream
     ? row.upstream.refType === 'commit'
       ? row.upstream.ref.slice(0, 7)
       : row.upstream.ref
     : '—';
-  console.log(
+  progress(
     `${row.spec.name.padEnd(16)} ${row.currentType.padEnd(7)} 本地 ${String(cur).padEnd(10)} 上游 ${String(up).padEnd(10)} ${label(row)}`,
   );
-  if (row.error) console.log(`  ↳ ${row.error}`);
+  if (row.error) progress(`  ↳ ${row.error}`);
 }
-console.log('─'.repeat(78));
+
+progress(`附带技能版本对照（共 ${specs.length} 项，网络查询可能耗时）...`);
+progress('─'.repeat(78));
+
+for (const spec of specs) {
+  progress(`→ 查询 ${spec.name} (${spec.repo}) ...`);
+  const repoUrl = rewriteGithubRepoUrl(`https://github.com/${spec.repo}`);
+  const current = spec.commit ?? spec.version ?? '';
+  const currentType = spec.commit ? 'commit' : 'tag';
+  let upstream;
+  try {
+    upstream = resolveUpstream(spec, repoUrl);
+  } catch (error) {
+    const row = { spec, current, currentType, upstream: null, error: error.message };
+    rows.push(row);
+    printRow(row);
+    continue;
+  }
+  const outdated =
+    currentType === 'commit' ? current !== upstream.ref : compareSemver(current, upstream.ref) < 0;
+  const row = { spec, current, currentType, upstream, outdated, error: null };
+  rows.push(row);
+  printRow(row);
+}
+progress('─'.repeat(78));
 
 const failures = rows.filter((row) => row.error);
 const outdated = rows.filter((row) => row.outdated && !row.error);
@@ -362,9 +403,17 @@ let tsSource = fs.readFileSync(SPEC_FILE, 'utf-8');
 let tsChanged = false;
 
 for (const row of outdated) {
-  console.log(`\n▶ 升级 ${row.spec.name} → ${row.upstream.ref}`);
+  progress(`\n▶ 升级 ${row.spec.name} → ${row.upstream.ref}（拉取上游，可能耗时）`);
   const repoUrl = rewriteGithubRepoUrl(`https://github.com/${row.spec.repo}`);
-  const tmp = fetchToTemp(row.spec, row.upstream, repoUrl);
+  let tmp;
+  try {
+    tmp = fetchToTemp(row.spec, row.upstream, repoUrl);
+  } catch (error) {
+    console.error(`\n✗ 升级 ${row.spec.name} 失败：${error.message}`);
+    console.error('  内网环境请设置 POLARIS_GITHUB_MIRROR 指向可达的 GitHub 镜像后重试；');
+    console.error('  网络抖动重跑即可，钉值文件在全部技能升级成功前不会写入。');
+    process.exit(2);
+  }
   try {
     replaceVendorSkill(row.spec, tmp, row.upstream);
   } finally {

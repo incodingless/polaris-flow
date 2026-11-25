@@ -451,8 +451,13 @@ export async function advanceTaskPhase(
     };
   }
 
+  // repoRoot 必须显式传目标项目根：缺省时原语会用 `git rev-parse` 回退到 CLI 进程
+  // 所在仓库，多项目面板会共用同一把 task-state 锁（测试里则污染真实仓并互相自旋）。
+  // 与 setTaskCheckbox 的调用保持对称。
   const wf = await runTaskStateEntry({
     op: 'enter-phase',
+    repoRoot: projectRoot,
+    taskId,
     skill: 'dashboard',
     kind,
     statePath,
